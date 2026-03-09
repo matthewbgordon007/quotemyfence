@@ -37,13 +37,13 @@ export interface DrawFenceMapProps {
   onDrawingComplete: (data: {
     points: { lat: number; lng: number }[];
     segments: { length_ft: number }[];
-    gates: { type: 'single' | 'double'; quantity: number }[];
+    gates: { type: 'single' | 'double'; quantity: number; lat?: number; lng?: number }[];
     total_length_ft: number;
   }) => void;
   initialDrawing?: {
     points: { lat: number; lng: number }[];
     segments: { length_ft: number }[];
-    gates: { type: 'single' | 'double'; quantity: number }[];
+    gates: { type: 'single' | 'double'; quantity: number; lat?: number; lng?: number }[];
     total_length_ft: number;
   } | null;
   tileVariant?: 'satellite' | 'light';
@@ -120,15 +120,15 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
       flatPts.push(...seg);
     }
     setTotalFeet(total);
-    const singleCount = gates.filter((g) => g.type === 'single').length;
-    const doubleCount = gates.filter((g) => g.type === 'double').length;
     onCompleteRef.current({
       points: flatPts,
       segments: segLengths,
-      gates: [
-        ...(singleCount > 0 ? [{ type: 'single' as const, quantity: singleCount }] : []),
-        ...(doubleCount > 0 ? [{ type: 'double' as const, quantity: doubleCount }] : []),
-      ],
+      gates: gates.map((g) => ({
+        type: g.type,
+        quantity: 1,
+        lat: g.lat,
+        lng: g.lng,
+      })),
       total_length_ft: Math.round(total * 100) / 100,
     });
   }

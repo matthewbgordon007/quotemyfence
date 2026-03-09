@@ -55,7 +55,7 @@ export async function GET(
 
     const { data: gateRows } = await supabase
       .from('gates')
-      .select('gate_type, quantity')
+      .select('gate_type, quantity, lat, lng')
       .eq('fence_id', fence.id);
     gates = gateRows || [];
 

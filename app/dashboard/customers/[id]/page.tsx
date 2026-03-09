@@ -21,7 +21,7 @@ interface ClientDetail {
     subtotal_high: number | null;
   } | null;
   segments: { start_lat: number; start_lng: number; end_lat: number; end_lng: number; length_ft?: number }[];
-  gates: { gate_type: string; quantity: number }[];
+  gates: { gate_type: string; quantity: number; lat?: number | null; lng?: number | null }[];
   quoteTotals: { total_low: number; total_high: number } | null;
   designSummary: string | null;
   designOption: { height_ft?: number; type?: string; style?: string; colour?: string } | null;
@@ -219,7 +219,7 @@ export default function CustomerDetailPage() {
             )}
           </div>
           <div className="mt-4">
-            <FenceDrawingMap segments={segments} center={center} className="min-h-[300px]" />
+            <FenceDrawingMap segments={segments} gates={gates} center={center} className="min-h-[300px]" />
           </div>
           {(segments.length > 0 || fence) && (
             <div className="mt-4 space-y-2">

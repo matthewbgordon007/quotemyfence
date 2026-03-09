@@ -57,10 +57,13 @@ export async function POST(
     const gateList = Array.isArray(gates) ? gates : [];
     for (const g of gateList) {
       if (g.quantity > 0) {
+        // We handle both grouped quantities or individual gates with lat/lng
         await supabase.from('gates').insert({
           fence_id: fence.id,
           gate_type: g.type === 'double' ? 'double' : 'single',
           quantity: g.quantity,
+          lat: g.lat ?? null,
+          lng: g.lng ?? null,
         });
       }
     }

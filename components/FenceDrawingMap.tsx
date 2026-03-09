@@ -13,6 +13,7 @@ export interface Segment {
 
 interface FenceDrawingMapProps {
   segments: Segment[];
+  gates?: { gate_type: string; quantity: number; lat?: number | null; lng?: number | null }[];
   center?: [number, number];
   className?: string;
 }
@@ -27,7 +28,7 @@ function safeRemoveMap(map: import('leaflet').Map | null) {
   }
 }
 
-export function FenceDrawingMap({ segments, center, className = '' }: FenceDrawingMapProps) {
+export function FenceDrawingMap({ segments, gates = [], center, className = '' }: FenceDrawingMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<import('leaflet').Map | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -88,6 +89,28 @@ export function FenceDrawingMap({ segments, center, className = '' }: FenceDrawi
         });
         map.fitBounds(latlngs, { padding: [20, 20] });
       }
+
+      gates.forEach((g) => {
+        if (g.lat != null && g.lng != null) {
+          L.default
+            .marker([g.lat, g.lng], {
+              icon: L.default.divIcon({
+                className: 'gate-marker',
+                html: `<div style="
+                  width: 20px; height: 20px; border-radius: 50%;
+                  background: ${g.gate_type === 'single' ? '#22c55e' : '#3b82f6'};
+                  border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+                  display: flex; align-items: center; justify-content: center;
+                  color: #fff; font-size: 10px; font-weight: bold;
+                  font-family: system-ui, sans-serif;
+                ">${g.gate_type === 'single' ? 'S' : 'D'}</div>`,
+                iconSize: [20, 20],
+                iconAnchor: [10, 10],
+              }),
+            })
+            .addTo(map);
+        }
+      });
     });
 
     return () => {
@@ -96,7 +119,7 @@ export function FenceDrawingMap({ segments, center, className = '' }: FenceDrawi
       mapRef.current = null;
       safeRemoveMap(map);
     };
-  }, [mounted, segments, center]);
+  }, [mounted, segments, gates, center]);
 
   if (segments.length === 0) {
     return (
