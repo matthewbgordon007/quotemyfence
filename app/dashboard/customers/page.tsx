@@ -59,6 +59,7 @@ type LeadFilter = 'all' | 'new' | 'contacted' | 'quoted' | 'won' | 'lost';
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
+  const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [leadFilter, setLeadFilter] = useState<LeadFilter>('new');
 
@@ -66,7 +67,10 @@ export default function CustomersPage() {
     const params = leadFilter === 'all' ? '' : `?lead_filter=${leadFilter}`;
     fetch(`/api/contractor/customers${params}`)
       .then((r) => r.json())
-      .then((data) => setCustomers(data.customers || []))
+      .then((data) => {
+        setCustomers(data.customers || []);
+        if (data.counts) setCounts(data.counts);
+      })
       .finally(() => setLoading(false));
   }, [leadFilter]);
 
@@ -91,13 +95,22 @@ export default function CustomersPage() {
             key={tab.value}
             type="button"
             onClick={() => setLeadFilter(tab.value)}
-            className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+            className={`rounded-xl px-4 py-2 text-sm font-medium transition flex items-center gap-2 ${
               leadFilter === tab.value
                 ? 'bg-[var(--accent)] text-white'
                 : 'bg-[var(--bg2)] text-[var(--muted)] hover:bg-[var(--line)]'
             }`}
           >
             {tab.label}
+            {counts[tab.value] !== undefined && (
+              <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                leadFilter === tab.value
+                  ? 'bg-white/20 text-white'
+                  : 'bg-[var(--line)] text-[var(--text)]'
+              }`}>
+                {counts[tab.value]}
+              </span>
+            )}
           </button>
         ))}
       </div>

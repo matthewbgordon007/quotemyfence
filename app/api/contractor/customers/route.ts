@@ -38,7 +38,29 @@ export async function GET(request: NextRequest) {
     query = query.limit(n);
   }
 
-  const { data: sessions } = await query;
+  const [ { data: sessions }, { data: allStatuses } ] = await Promise.all([
+    query,
+    supabase
+      .from('quote_sessions')
+      .select('lead_status')
+      .eq('contractor_id', userRow.contractor_id)
+  ]);
+
+  const counts: Record<string, number> = {
+    new: 0, contacted: 0, quoted: 0, won: 0, lost: 0, all: 0
+  };
+  
+  if (allStatuses) {
+    counts.all = allStatuses.length;
+    for (const s of allStatuses) {
+      const st = s.lead_status || 'new';
+      if (counts[st] !== undefined) {
+        counts[st]++;
+      } else {
+        counts.new++; // fallback
+      }
+    }
+  }
 
   let unviewed_count = 0;
   if (needUnviewedCount) {
@@ -100,5 +122,5 @@ export async function GET(request: NextRequest) {
     };
   });
 
-  return NextResponse.json({ customers: customersList, unviewed_count });
+  return NextResponse.json({ customers: customersList, unviewed_count, counts });
 }
