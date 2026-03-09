@@ -38,7 +38,7 @@ export async function GET(
     supabase.from('properties').select('*').eq('quote_session_id', sessionId).single(),
     supabase.from('fences').select('*').eq('quote_session_id', sessionId),
     supabase.from('quote_totals').select('*').eq('quote_session_id', sessionId).single(),
-    supabase.from('saved_quotes').select('id, created_at, grand_total').eq('quote_session_id', sessionId).order('created_at', { ascending: false }),
+    supabase.from('saved_quotes').select('id, created_at, grand_total, calculator_state').eq('quote_session_id', sessionId).order('created_at', { ascending: false }),
   ]);
 
   const fence = fences?.[0];

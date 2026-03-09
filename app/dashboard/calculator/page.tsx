@@ -117,6 +117,7 @@ export default function CalculatorPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const fromCustomerId = searchParams.get('from');
+  const quoteId = searchParams.get('quote_id');
 
   useEffect(() => {
     async function load() {
@@ -166,42 +167,96 @@ export default function CalculatorPage() {
   }, []);
 
   useEffect(() => {
-    if (!fromCustomerId || loading) return;
-    fetch(`/api/contractor/customers/${fromCustomerId}`)
-      .then((r) => {
-        if (!r.ok) throw new Error('Not found');
-        return r.json();
-      })
-      .then((data) => {
-        const c = data.customer;
-        const prop = data.property;
-        const fence = data.fence;
-        const segs = data.segments || [];
-        const gateList = data.gates || [];
+    if (loading) return;
 
-        if (c) setHomeownerName(`${c.first_name || ''} ${c.last_name || ''}`.trim());
-        if (prop?.formatted_address) setQuoteAddress(prop.formatted_address);
-        if (fence?.has_removal) setHasRemoval(true);
-
-        const singleG = gateList.find((g: { gate_type: string }) => g.gate_type === 'single');
-        const doubleG = gateList.find((g: { gate_type: string }) => g.gate_type === 'double');
-        if (singleG?.quantity) setSingleGateQty(singleG.quantity);
-        if (doubleG?.quantity) setDoubleGateQty(doubleG.quantity);
-
-        if (segs.length > 0) {
-          setCustomerSegments(segs);
-          if (prop?.latitude != null && prop?.longitude != null) {
-            setCustomerMapCenter([Number(prop.latitude), Number(prop.longitude)]);
+    if (quoteId) {
+      // If loading a specific saved quote, use its state
+      fetch(`/api/contractor/quotes/${quoteId}`)
+        .then((r) => {
+          if (!r.ok) throw new Error('Not found');
+          return r.json();
+        })
+        .then((data) => {
+          const st = data.quote?.calculator_state;
+          if (st) {
+            if (st.homeownerName) setHomeownerName(st.homeownerName);
+            if (st.quoteAddress) setQuoteAddress(st.quoteAddress);
+            if (st.selectedTypeId) setSelectedTypeId(st.selectedTypeId);
+            if (st.selectedStyleId) setSelectedStyleId(st.selectedStyleId);
+            if (st.selectedColourId) setSelectedColourId(st.selectedColourId);
+            if (st.segments) setSegments(st.segments);
+            if (st.extendAdd) setExtendAdd(st.extendAdd);
+            if (st.singleGateQty != null) setSingleGateQty(st.singleGateQty);
+            if (st.doubleGateQty != null) setDoubleGateQty(st.doubleGateQty);
+            if (st.hasRemoval != null) setHasRemoval(st.hasRemoval);
+            if (st.taxRate != null) setTaxRate(st.taxRate);
+            if (st.applyTax != null) setApplyTax(st.applyTax);
+            if (st.gateSideKey) setGateSideKey(st.gateSideKey);
+            if (st.segmentAssignments) setSegmentAssignments(st.segmentAssignments);
           }
-          setSegmentAssignments({ lhs_adj: null, lhs: null, back: null, rhs: null, rhs_adj: null });
-        }
+        })
+        .catch(() => {});
         
-        if (gateList.length > 0) {
-          setCustomerGates(gateList);
-        }
-      })
-      .catch(() => {});
-  }, [fromCustomerId, loading]);
+      // Still fetch the customer to get the drawing map if fromCustomerId exists
+      if (fromCustomerId) {
+        fetch(`/api/contractor/customers/${fromCustomerId}`)
+          .then((r) => r.ok ? r.json() : null)
+          .then((data) => {
+            if (!data) return;
+            const segs = data.segments || [];
+            const gateList = data.gates || [];
+            const prop = data.property;
+            
+            if (segs.length > 0) {
+              setCustomerSegments(segs);
+              if (prop?.latitude != null && prop?.longitude != null) {
+                setCustomerMapCenter([Number(prop.latitude), Number(prop.longitude)]);
+              }
+            }
+            if (gateList.length > 0) {
+              setCustomerGates(gateList);
+            }
+          })
+          .catch(() => {});
+      }
+    } else if (fromCustomerId) {
+      // If no saved quote, but we have a customer, populate from their lead data
+      fetch(`/api/contractor/customers/${fromCustomerId}`)
+        .then((r) => {
+          if (!r.ok) throw new Error('Not found');
+          return r.json();
+        })
+        .then((data) => {
+          const c = data.customer;
+          const prop = data.property;
+          const fence = data.fence;
+          const segs = data.segments || [];
+          const gateList = data.gates || [];
+
+          if (c) setHomeownerName(`${c.first_name || ''} ${c.last_name || ''}`.trim());
+          if (prop?.formatted_address) setQuoteAddress(prop.formatted_address);
+          if (fence?.has_removal) setHasRemoval(true);
+
+          const singleG = gateList.find((g: { gate_type: string }) => g.gate_type === 'single');
+          const doubleG = gateList.find((g: { gate_type: string }) => g.gate_type === 'double');
+          if (singleG?.quantity) setSingleGateQty(singleG.quantity);
+          if (doubleG?.quantity) setDoubleGateQty(doubleG.quantity);
+
+          if (segs.length > 0) {
+            setCustomerSegments(segs);
+            if (prop?.latitude != null && prop?.longitude != null) {
+              setCustomerMapCenter([Number(prop.latitude), Number(prop.longitude)]);
+            }
+            setSegmentAssignments({ lhs_adj: null, lhs: null, back: null, rhs: null, rhs_adj: null });
+          }
+          
+          if (gateList.length > 0) {
+            setCustomerGates(gateList);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [fromCustomerId, quoteId, loading]);
 
   const stylesForType = selectedTypeId ? styles.filter((s) => s.fence_type_id === selectedTypeId) : [];
   const coloursForStyle = selectedStyleId ? colours.filter((c) => c.fence_style_id === selectedStyleId) : [];
@@ -373,6 +428,26 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
   }
 
   const [savingToCustomer, setSavingToCustomer] = useState(false);
+  
+  function getCalculatorState() {
+    return {
+      homeownerName,
+      quoteAddress,
+      selectedTypeId,
+      selectedStyleId,
+      selectedColourId,
+      segments,
+      extendAdd,
+      singleGateQty,
+      doubleGateQty,
+      hasRemoval,
+      taxRate,
+      applyTax,
+      gateSideKey,
+      segmentAssignments,
+    };
+  }
+
   async function saveToCustomer() {
     if (!fromCustomerId) return;
     setSavingToCustomer(true);
@@ -380,11 +455,44 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
       const res = await fetch(`/api/contractor/customers/${fromCustomerId}/quote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quote_text: quoteText, grand_total: grandTotal }),
+        body: JSON.stringify({ 
+          quote_text: quoteText, 
+          grand_total: grandTotal,
+          calculator_state: getCalculatorState(),
+        }),
       });
       if (res.ok) {
         alert('Quote saved to customer.');
         router.push(`/dashboard/customers/${fromCustomerId}`);
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to save quote.');
+      }
+    } catch {
+      alert('Failed to save quote.');
+    } finally {
+      setSavingToCustomer(false);
+    }
+  }
+
+  async function saveAsNewQuote() {
+    setSavingToCustomer(true);
+    try {
+      const res = await fetch(`/api/contractor/quotes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          quote_text: quoteText, 
+          grand_total: grandTotal,
+          calculator_state: getCalculatorState(),
+          homeowner_name: homeownerName,
+          quote_address: quoteAddress,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        alert('Quote saved as a new lead.');
+        router.push(`/dashboard/customers/${data.quote_session_id}`);
       } else {
         const err = await res.json();
         alert(err.error || 'Failed to save quote.');
@@ -760,7 +868,7 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
               </div>
             </div>
             <div className="p-5 border-t border-[var(--line)] space-y-3">
-              {fromCustomerId && (
+              {fromCustomerId ? (
                 <button
                   type="button"
                   onClick={saveToCustomer}
@@ -768,6 +876,15 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                   className="w-full rounded-xl bg-[var(--accent)] px-4 py-4 text-base font-bold text-white shadow-md hover:opacity-90 disabled:opacity-50 transition-opacity"
                 >
                   {savingToCustomer ? 'Saving…' : 'Save to customer'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={saveAsNewQuote}
+                  disabled={savingToCustomer}
+                  className="w-full rounded-xl bg-[var(--accent)] px-4 py-4 text-base font-bold text-white shadow-md hover:opacity-90 disabled:opacity-50 transition-opacity"
+                >
+                  {savingToCustomer ? 'Saving…' : 'Save Quote'}
                 </button>
               )}
               <button

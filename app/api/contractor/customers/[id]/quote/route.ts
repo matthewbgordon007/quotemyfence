@@ -18,7 +18,7 @@ export async function POST(
   if (!contractorId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await request.json();
-  const { quote_text, grand_total } = body;
+  const { quote_text, grand_total, calculator_state } = body;
   if (typeof quote_text !== 'string') {
     return NextResponse.json({ error: 'quote_text required' }, { status: 400 });
   }
@@ -39,6 +39,7 @@ export async function POST(
       quote_session_id: sessionId,
       quote_text,
       grand_total: Number(grand_total) || 0,
+      calculator_state: calculator_state || null,
     });
 
   if (insertError) {

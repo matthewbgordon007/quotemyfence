@@ -25,7 +25,7 @@ interface ClientDetail {
   quoteTotals: { total_low: number; total_high: number } | null;
   designSummary: string | null;
   designOption: { height_ft?: number; type?: string; style?: string; colour?: string } | null;
-  savedQuotes?: { id: string; created_at: string; grand_total: number }[];
+  savedQuotes?: { id: string; created_at: string; grand_total: number; calculator_state?: any }[];
 }
 
 export default function CustomerDetailPage() {
@@ -322,6 +322,14 @@ export default function CustomerDetailPage() {
                     ${q.grand_total.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
+                    {q.calculator_state && (
+                      <Link
+                        href={`/dashboard/calculator?from=${id}&quote_id=${q.id}`}
+                        className="inline-flex items-center gap-2 rounded-lg border border-[var(--accent)] bg-[var(--accent)]/10 px-3 py-2 text-sm font-semibold text-[var(--accent)] transition hover:bg-[var(--accent)]/20"
+                      >
+                        Load in Calculator
+                      </Link>
+                    )}
                     <Link
                       href={`/dashboard/customers/${id}/preview?quote_id=${q.id}`}
                       className="inline-flex items-center gap-2 rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm font-semibold text-[var(--text)] transition hover:bg-[var(--bg2)]"

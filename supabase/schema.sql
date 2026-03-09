@@ -294,6 +294,7 @@ CREATE TABLE IF NOT EXISTS saved_quotes (
   quote_session_id UUID NOT NULL REFERENCES quote_sessions(id) ON DELETE CASCADE,
   quote_text TEXT NOT NULL,
   grand_total NUMERIC(12,2) DEFAULT 0,
+  calculator_state JSONB,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
