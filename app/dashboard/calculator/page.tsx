@@ -110,6 +110,7 @@ export default function CalculatorPage() {
   const [applyTax, setApplyTax] = useState(false);
   const [gateSideKey, setGateSideKey] = useState('back');
   const [customerSegments, setCustomerSegments] = useState<{ start_lat: number; start_lng: number; end_lat: number; end_lng: number; length_ft?: number }[]>([]);
+  const [customerGates, setCustomerGates] = useState<{ gate_type: string; quantity: number; lat?: number | null; lng?: number | null }[]>([]);
   const [customerMapCenter, setCustomerMapCenter] = useState<[number, number] | undefined>(undefined);
   const [segmentAssignments, setSegmentAssignments] = useState<Record<string, number | null>>({});
 
@@ -193,6 +194,10 @@ export default function CalculatorPage() {
             setCustomerMapCenter([Number(prop.latitude), Number(prop.longitude)]);
           }
           setSegmentAssignments({ lhs_adj: null, lhs: null, back: null, rhs: null, rhs_adj: null });
+        }
+        
+        if (gateList.length > 0) {
+          setCustomerGates(gateList);
         }
       })
       .catch(() => {});
@@ -607,7 +612,7 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
             {customerSegments.length > 0 && customerMapCenter && (
               <div className="p-4 border-b border-[var(--line)]">
                 <p className="text-xs font-medium text-[var(--muted)] mb-2">Customer&apos;s drawing — use the numbered lines below to assign each to the correct side (LHS, Back, RHS, etc.)</p>
-                <FenceDrawingMap segments={customerSegments} center={customerMapCenter} className="min-h-[200px] rounded-lg overflow-hidden" />
+                <FenceDrawingMap segments={customerSegments} gates={customerGates} center={customerMapCenter} className="min-h-[200px] rounded-lg overflow-hidden" />
               </div>
             )}
             <div className="overflow-x-auto">
