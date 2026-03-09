@@ -107,7 +107,7 @@ export default function CalculatorPage() {
   const [doubleGateQty, setDoubleGateQty] = useState(0);
   const [hasRemoval, setHasRemoval] = useState(false);
   const [taxRate, setTaxRate] = useState(13);
-  const [applyTax, setApplyTax] = useState(false);
+  const [applyTax, setApplyTax] = useState(true);
   const [gateSideKey, setGateSideKey] = useState('back');
   const [customerSegments, setCustomerSegments] = useState<{ start_lat: number; start_lng: number; end_lat: number; end_lng: number; length_ft?: number }[]>([]);
   const [customerGates, setCustomerGates] = useState<{ gate_type: string; quantity: number; lat?: number | null; lng?: number | null }[]>([]);
@@ -309,7 +309,7 @@ export default function CalculatorPage() {
     setSingleGateQty(0);
     setDoubleGateQty(0);
     setHasRemoval(false);
-    setApplyTax(false);
+    setApplyTax(true);
     if (types[0]) {
       const tStyles = styles.filter((s) => s.fence_type_id === types[0].id);
       const firstStyle = tStyles[0];
