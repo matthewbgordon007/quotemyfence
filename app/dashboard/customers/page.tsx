@@ -62,6 +62,7 @@ export default function CustomersPage() {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [leadFilter, setLeadFilter] = useState<LeadFilter>('new');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const params = leadFilter === 'all' ? '' : `?lead_filter=${leadFilter}`;
@@ -73,6 +74,17 @@ export default function CustomersPage() {
       })
       .finally(() => setLoading(false));
   }, [leadFilter]);
+
+  const filteredCustomers = customers.filter(c => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    const fullName = `${c.first_name} ${c.last_name}`.toLowerCase();
+    const address = (c.address || '').toLowerCase();
+    const email = (c.email || '').toLowerCase();
+    const phone = (c.phone || '').toLowerCase();
+
+    return fullName.includes(query) || address.includes(query) || email.includes(query) || phone.includes(query);
+  });
 
   if (loading) {
     return (
@@ -89,40 +101,55 @@ export default function CustomersPage() {
         Everyone who started or completed a quote. Mark as contacted once you reach out so you don&apos;t double-contact.
       </p>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        {STATUS_TABS.map((tab) => (
-          <button
-            key={tab.value}
-            type="button"
-            onClick={() => setLeadFilter(tab.value)}
-            className={`rounded-xl px-4 py-2 text-sm font-medium transition flex items-center gap-2 ${
-              leadFilter === tab.value
-                ? 'bg-[var(--accent)] text-white'
-                : 'bg-[var(--bg2)] text-[var(--muted)] hover:bg-[var(--line)]'
-            }`}
-          >
-            {tab.label}
-            {counts[tab.value] !== undefined && (
-              <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+      <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-wrap gap-2">
+          {STATUS_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setLeadFilter(tab.value)}
+              className={`rounded-xl px-4 py-2 text-sm font-medium transition flex items-center gap-2 ${
                 leadFilter === tab.value
-                  ? 'bg-white/20 text-white'
-                  : 'bg-[var(--line)] text-[var(--text)]'
-              }`}>
-                {counts[tab.value]}
-              </span>
-            )}
-          </button>
-        ))}
+                  ? 'bg-[var(--accent)] text-white'
+                  : 'bg-[var(--bg2)] text-[var(--muted)] hover:bg-[var(--line)]'
+              }`}
+            >
+              {tab.label}
+              {counts[tab.value] !== undefined && (
+                <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                  leadFilter === tab.value
+                    ? 'bg-white/20 text-white'
+                    : 'bg-[var(--line)] text-[var(--text)]'
+                }`}>
+                  {counts[tab.value]}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        
+        <div className="relative w-full sm:w-64">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Search name or address..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full rounded-xl border border-[var(--line)] bg-white pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+          />
+        </div>
       </div>
 
       <div className="mt-6 overflow-hidden rounded-2xl border border-[var(--line)] bg-white shadow-sm">
-        {customers.length === 0 ? (
+        {filteredCustomers.length === 0 ? (
           <div className="p-12 text-center text-[var(--muted)]">
-            No quote submissions yet. They will appear here when customers use your quote page.
+            {searchQuery ? 'No customers found matching your search.' : 'No quote submissions yet. They will appear here when customers use your quote page.'}
           </div>
         ) : (
           <ul className="divide-y divide-[var(--line)]">
-            {customers.map((c) => (
+            {filteredCustomers.map((c) => (
               <li key={c.id}>
                 <Link
                   href={`/dashboard/customers/${c.id}`}
