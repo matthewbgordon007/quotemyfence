@@ -32,8 +32,8 @@ export default async function DashboardLayout({
   const c = contractor.data;
 
   return (
-    <div className="flex min-h-screen bg-[var(--bg2)]">
-      <aside className="flex w-64 flex-col border-r border-[var(--line)] bg-white">
+    <div className="flex flex-col md:flex-row min-h-screen bg-[var(--bg2)]">
+      <aside className="flex w-full md:w-64 flex-col border-b md:border-b-0 md:border-r border-[var(--line)] bg-white">
         <div className="flex items-center gap-3 border-b border-[var(--line)] p-4">
           {c?.logo_url ? (
             <img
@@ -58,7 +58,7 @@ export default async function DashboardLayout({
         </div>
         <DashboardNav slug={c?.slug ?? ''} />
       </aside>
-      <main className="flex-1 overflow-auto p-6">{children}</main>
+      <main className="flex-1 overflow-auto p-4 md:p-6">{children}</main>
     </div>
   );
 }
