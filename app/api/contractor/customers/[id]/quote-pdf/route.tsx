@@ -13,6 +13,7 @@ async function getContractorId(supabase: Awaited<ReturnType<typeof createClient>
 
 function buildStaticMapUrl(
   segments: { start_lat: number; start_lng: number; end_lat: number; end_lng: number }[],
+  gates: { gate_type: string; quantity: number; lat?: number | null; lng?: number | null }[],
   apiKey: string
 ): string {
   if (segments.length === 0) return '';
@@ -21,11 +22,28 @@ function buildStaticMapUrl(
     if (i === 0) coords.push({ lat: seg.start_lat, lng: seg.start_lng });
     coords.push({ lat: seg.end_lat, lng: seg.end_lng });
   });
-  const centerLat = coords.reduce((s, p) => s + p.lat, 0) / coords.length;
-  const centerLng = coords.reduce((s, p) => s + p.lng, 0) / coords.length;
+  
+  // Calculate center to zoom perfectly around the drawn lines
+  const minLat = Math.min(...coords.map(c => c.lat));
+  const maxLat = Math.max(...coords.map(c => c.lat));
+  const minLng = Math.min(...coords.map(c => c.lng));
+  const maxLng = Math.max(...coords.map(c => c.lng));
+  const centerLat = (minLat + maxLat) / 2;
+  const centerLng = (minLng + maxLng) / 2;
+  
   const pathStr = coords.map((p) => `${p.lat},${p.lng}`).join('|');
   const path = `color:0xeab308|weight:4|${pathStr}`;
-  return `https://maps.googleapis.com/maps/api/staticmap?size=600x350&scale=2&maptype=satellite&center=${centerLat},${centerLng}&zoom=19&path=${encodeURIComponent(path)}&key=${apiKey}`;
+  
+  let gateMarkers = '';
+  gates.forEach(g => {
+    if (g.lat != null && g.lng != null) {
+      const color = g.gate_type === 'single' ? 'green' : 'blue';
+      const label = g.gate_type === 'single' ? 'S' : 'D';
+      gateMarkers += `&markers=color:${color}|label:${label}|${g.lat},${g.lng}`;
+    }
+  });
+
+  return `https://maps.googleapis.com/maps/api/staticmap?size=600x350&scale=2&maptype=satellite&center=${centerLat},${centerLng}&zoom=20&path=${encodeURIComponent(path)}${gateMarkers}&key=${apiKey}`;
 }
 
 export async function GET(
@@ -106,7 +124,7 @@ export async function GET(
   }
 
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  const mapImageUrl = apiKey && segments.length >= 2 ? buildStaticMapUrl(segments, apiKey) : null;
+  const mapImageUrl = apiKey && segments.length >= 2 ? buildStaticMapUrl(segments, gates, apiKey) : null;
 
   const pdfData = {
     contractor: contractor ?? { company_name: 'Your Contractor', phone: null, website: null, logo_url: null },
