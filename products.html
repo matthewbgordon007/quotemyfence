@@ -1,0 +1,319 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>QuoteMyFence • Products</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg0:#f6f8fc;
+    --card:#ffffff;
+    --text:#0f172a;
+    --muted:#475569;
+    --line:#e2e8f0;
+    --accent:#2563eb;
+    --shadow: 0 18px 60px rgba(2,6,23,.10);
+    --radius:16px;
+  }
+  *{box-sizing:border-box;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(900px 420px at 20% 10%, rgba(37,99,235,.10), transparent 55%),
+      linear-gradient(180deg,#eef2ff,var(--bg0));
+    color:var(--text);
+    padding:24px;
+  }
+  .wrap{max-width:980px;margin:0 auto;}
+  .top{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    margin-bottom:16px;
+  }
+  .title{font-size:22px;font-weight:900;letter-spacing:-.02em;}
+  .sub{color:var(--muted);font-size:13px;margin-top:4px;}
+  .btn{
+    appearance:none;border:1px solid var(--line);background:#fff;color:var(--text);
+    padding:10px 12px;border-radius:12px;font-weight:800;cursor:pointer;
+  }
+  .btn.primary{
+    background:linear-gradient(135deg,var(--accent),#0ea5e9);
+    border-color:rgba(2,6,23,.05);
+    color:#fff;
+    box-shadow:0 10px 26px rgba(37,99,235,.18);
+  }
+  .grid{display:grid;grid-template-columns:1fr;gap:14px;}
+  @media (min-width:900px){ .grid{grid-template-columns:1fr 1fr;} }
+  .card{
+    background:rgba(255,255,255,.92);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:16px;
+  }
+  .row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  .pill{
+    font-size:12px;font-weight:900;border:1px solid var(--line);
+    padding:6px 10px;border-radius:999px;background:#fff;color:var(--muted);
+  }
+  .pill.on{background:#ecfeff;border-color:#a5f3fc;color:#155e75;}
+  .pill.off{background:#fff7ed;border-color:#fed7aa;color:#7c2d12;}
+  label{font-size:12px;color:var(--muted);font-weight:800;}
+  input[type="number"]{
+    width:140px;padding:10px 10px;border-radius:12px;border:1px solid var(--line);
+    font-weight:800;
+  }
+  .colors{margin-top:12px;border-top:1px dashed var(--line);padding-top:12px;}
+  .colorsGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  @media (min-width:700px){ .colorsGrid{grid-template-columns:1fr 1fr 1fr;} }
+  .cItem{
+    display:flex;align-items:center;gap:10px;
+    border:1px solid var(--line);border-radius:14px;padding:10px;background:#fff;
+  }
+  .thumb{
+    width:48px;height:40px;border-radius:10px;border:1px solid var(--line);
+    object-fit:cover;background:#f1f5f9;
+  }
+  .cName{font-weight:900;font-size:13px;}
+  .status{margin-top:10px;font-size:13px;color:var(--muted);}
+  .footer{margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <div class="title">Products & Colours</div>
+      <div class="sub">Choose what you sell. Homeowners will only see enabled types and colours. Images are preset from your /assets/colors library.</div>
+    </div>
+    <div class="row">
+      <button class="btn" id="backBtn">Back to Dashboard</button>
+      <button class="btn primary" id="saveBtn">Save Products</button>
+    </div>
+  </div>
+
+  <div class="grid" id="typesGrid"></div>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <div style="font-weight:900">Notes</div>
+        <div class="sub">PT / Cedar / Hybrid do not show colour options.</div>
+      </div>
+    </div>
+    <div class="status" id="status">Not saved yet.</div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://wgccfcslihixujwqjrhf.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_KSUqSxCmkf30d_Rjmh9ipw_RhrkrWdP";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Preset colour library (images are in your Netlify repo at /assets/colors/)
+const COLOR_LIBRARY = {
+  PVC: [
+    { name:"White", img:"/assets/colors/pvc-white.jpg" },
+    { name:"Adobe", img:"/assets/colors/pvc-adobe.jpg" },
+    { name:"Dark Grey", img:"/assets/colors/pvc-darkgrey.jpg" },
+    { name:"Westport Grey", img:"/assets/colors/pvc-westportgrey.jpg" },
+    { name:"Light Grey", img:"/assets/colors/pvc-lightgrey.jpg" },
+    { name:"Moonlit", img:"/assets/colors/pvc-moonlit.jpg" },
+    { name:"Teak", img:"/assets/colors/pvc-teak.jpg" },
+
+  ],
+  WPC: [
+    { name:"Ash", img:"/assets/colors/wpc-ash.jpg" },
+    { name:"Driftwood", img:"/assets/colors/wpc-driftwood.jpg" },
+    { name:"Eclipse", img:"/assets/colors/wpc-eclipse.jpg" },
+    { name:"Iron", img:"/assets/colors/wpc-iron.jpg" },
+    { name:"Mocha", img:"/assets/colors/wpc-mocha.jpg" },
+    { name:"Onyx", img:"/assets/colors/wpc-onyx.jpg" },
+    { name:"Walnut", img:"/assets/colors/wpc-walnut.jpg" },
+  ]
+};
+
+const DEFAULT_TYPES = [
+  { type:"PVC", enabled:true, pricePerFt:74.99, colors: COLOR_LIBRARY.PVC.map(c=>c.name) },
+  { type:"WPC", enabled:true, pricePerFt:89.99, colors: COLOR_LIBRARY.WPC.map(c=>c.name) },
+  { type:"PT", enabled:false, pricePerFt:0, colors: [] },
+  { type:"Cedar", enabled:false, pricePerFt:0, colors: [] },
+  { type:"Hybrid", enabled:false, pricePerFt:0, colors: [] },
+];
+
+let USER = null;
+let PRICING = JSON.parse(JSON.stringify(DEFAULT_TYPES));
+
+function $(id){ return document.getElementById(id); }
+
+function setStatus(msg){ $("status").textContent = msg; }
+
+function normalizePricingFromDb(dbPricing){
+  if(!Array.isArray(dbPricing) || !dbPricing.length) return JSON.parse(JSON.stringify(DEFAULT_TYPES));
+
+  // ensure all default types exist (preserve existing values)
+  const map = new Map(dbPricing.map(p => [p.type, p]));
+  const merged = DEFAULT_TYPES.map(d => {
+    const cur = map.get(d.type);
+    if(!cur) return JSON.parse(JSON.stringify(d));
+    return {
+      type: d.type,
+      enabled: (cur.enabled !== undefined) ? !!cur.enabled : true,
+      pricePerFt: Number(cur.pricePerFt ?? d.pricePerFt) || 0,
+      colors: Array.isArray(cur.colors) ? cur.colors : (d.colors || [])
+    };
+  });
+  // include any extra custom types stored
+  for(const p of dbPricing){
+    if(!merged.some(x=>x.type===p.type)){
+      merged.push(p);
+    }
+  }
+  return merged;
+}
+
+function render(){
+  const grid = $("typesGrid");
+  grid.innerHTML = "";
+
+  PRICING.forEach((p, idx) => {
+    const card = document.createElement("div");
+    card.className = "card";
+
+    const pillClass = p.enabled ? "pill on" : "pill off";
+    const pillText = p.enabled ? "Visible" : "Hidden";
+
+    card.innerHTML = `
+      <div class="row">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="font-size:18px;font-weight:1000;">${p.type}</div>
+          <div class="${pillClass}">${pillText}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <label>Visible</label>
+          <input type="checkbox" ${p.enabled ? "checked":""} data-idx="${idx}" data-field="enabled" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <div>
+          <label>Price per ft</label><br/>
+          <input type="number" step="0.01" min="0" value="${Number(p.pricePerFt||0).toFixed(2)}"
+                 data-idx="${idx}" data-field="pricePerFt" />
+        </div>
+      </div>
+    `;
+
+    // Colors only for PVC/WPC
+    const T = String(p.type||"").toUpperCase();
+    if (T === "PVC" || T === "WPC"){
+      const lib = COLOR_LIBRARY[T];
+      const selected = new Set(Array.isArray(p.colors) ? p.colors : []);
+      const colorsWrap = document.createElement("div");
+      colorsWrap.className = "colors";
+      colorsWrap.innerHTML = `
+        <div style="font-weight:900;margin-bottom:8px;">Colours shown to homeowners</div>
+        <div class="colorsGrid"></div>
+      `;
+      const cg = colorsWrap.querySelector(".colorsGrid");
+
+      lib.forEach(c => {
+        const on = selected.has(c.name);
+        const item = document.createElement("label");
+        item.className = "cItem";
+        item.innerHTML = `
+          <input type="checkbox" ${on ? "checked":""} data-idx="${idx}" data-field="colors" data-color="${c.name}" />
+          <img class="thumb" src="${c.img}" alt="${c.name}" />
+          <div class="cName">${c.name}</div>
+        `;
+        cg.appendChild(item);
+      });
+
+      card.appendChild(colorsWrap);
+    }
+
+    grid.appendChild(card);
+  });
+
+  // Bind inputs AFTER render (no re-render on every keystroke)
+  grid.querySelectorAll('input[type="checkbox"][data-field="enabled"]').forEach(el=>{
+    el.addEventListener("change", (e)=>{
+      const i = Number(e.target.dataset.idx);
+      PRICING[i].enabled = !!e.target.checked;
+      setStatus("Not saved yet.");
+      render(); // re-render only for enable toggles
+    });
+  });
+
+  grid.querySelectorAll('input[type="number"][data-field="pricePerFt"]').forEach(el=>{
+    el.addEventListener("input", (e)=>{
+      const i = Number(e.target.dataset.idx);
+      PRICING[i].pricePerFt = Number(e.target.value || 0);
+      setStatus("Not saved yet.");
+      // do NOT re-render, keeps focus
+    });
+  });
+
+  grid.querySelectorAll('input[type="checkbox"][data-field="colors"]').forEach(el=>{
+    el.addEventListener("change", (e)=>{
+      const i = Number(e.target.dataset.idx);
+      const color = e.target.dataset.color;
+      const arr = new Set(Array.isArray(PRICING[i].colors) ? PRICING[i].colors : []);
+      if (e.target.checked) arr.add(color); else arr.delete(color);
+      PRICING[i].colors = Array.from(arr);
+      setStatus("Not saved yet.");
+      // no re-render needed
+    });
+  });
+}
+
+async function load(){
+  const { data } = await sb.auth.getUser();
+  USER = data?.user;
+  if(!USER){
+    window.location.href = "./login.html";
+    return;
+  }
+
+  const { data: cfg } = await sb
+    .from("contractor_configs")
+    .select("pricing")
+    .eq("contractor_id", USER.id)
+    .single();
+
+  PRICING = normalizePricingFromDb(cfg?.pricing);
+  render();
+  setStatus("Loaded. Make changes then Save.");
+}
+
+async function save(){
+  if(!USER) return;
+
+  // Store all rows (including disabled) so ordering remains stable.
+  const payload = PRICING.map(p => ({
+    type: p.type,
+    enabled: p.enabled !== false,
+    pricePerFt: Number(p.pricePerFt || 0),
+    colors: Array.isArray(p.colors) ? p.colors : []
+  }));
+
+  const { error } = await sb
+    .from("contractor_configs")
+    .upsert({ contractor_id: USER.id, pricing: payload }, { onConflict: "contractor_id" });
+
+  if(error){
+    console.error(error);
+    setStatus("Save failed: " + error.message);
+    return;
+  }
+  setStatus("Saved ✅");
+}
+
+$("saveBtn").addEventListener("click", save);
+$("backBtn").addEventListener("click", ()=> window.location.href="./dashboard.html");
+
+load();
+</script>
+</body>
+</html>

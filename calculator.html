@@ -1,0 +1,2809 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fence Quote Calculator</title>
+
+  <style>
+    :root {
+  --accent: #3b82f6; /* default */
+}
+    :root{
+      --bg:#ffffff;
+      --card:#ffffff;
+      --soft:#f9fafb;
+      --line:#e5e7eb;
+      --text:#111827;
+      --muted:#6b7280;
+      --accent:#2563eb;
+      --danger:#ef4444;
+      --shadow: 0 10px 24px rgba(0,0,0,.08);
+      --radius: 14px;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;
+      color:var(--text);
+      background: var(--bg);
+    }
+    .wrap{ max-width:1220px; margin:24px auto; padding:0 16px; }
+
+    .header{
+      display:flex; align-items:flex-end; justify-content:space-between; gap:12px;
+      margin-bottom:14px;
+      
+    }
+
+    h1{ margin:0; font-size:20px; }
+    .sub{ margin-top:4px; font-size:12px; color:var(--muted); }
+    .badge{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 10px; border-radius:999px;
+      background: var(--soft);
+      border:1px solid var(--line);
+      color:var(--muted);
+      font-size:12px;
+      white-space:nowrap;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap:14px;
+      align-items:start;
+    }
+    @media (max-width: 980px){
+      .grid{ grid-template-columns:1fr; }
+      .sticky{ position:static !important; top:auto !important; }
+    }
+
+    .section{
+      background: var(--card);
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .section + .section{ margin-top:12px; }
+
+    .sectionHead{
+      padding:12px 14px;
+      border-bottom:1px solid var(--line);
+      background: var(--soft);
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+    }
+    .sectionHead .title{
+      font-weight:800;
+      font-size:13px;
+      letter-spacing:.2px;
+    }
+    .sectionHead .hint{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:600;
+    }
+    .sectionBody{ padding:12px 14px; }
+
+    .row{ display:flex; gap:10px; flex-wrap:wrap; }
+    .field{ flex:1; min-width:180px; }
+    .field.small{ flex:0 0 120px; min-width:120px; }
+    .field.tiny{ flex:0 0 96px; min-width:96px; }
+    .field.wide{ min-width:260px; }
+
+    label{ display:block; font-size:12px; color:var(--muted); margin-bottom:6px; }
+    input[type="text"], input[type="number"], select, textarea{
+      width:100%;
+      padding:10px 10px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:#fff;
+      color:var(--text);
+      outline:none;
+      font-size:14px;
+    }
+    input::placeholder{ color:#9ca3af; }
+    textarea{
+      min-height:280px;
+      resize:vertical;
+      font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;
+      line-height:1.35;
+    }
+
+    .toggle{
+      display:flex; align-items:center; gap:10px;
+      border:1px solid var(--line);
+      background:#fff;
+      border-radius:12px;
+      padding:10px 12px;
+      height: 44px;
+      color:var(--muted);
+      font-size:13px;
+    }
+    input[type="checkbox"]{ transform: scale(1.12); }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      border:1px solid var(--line);
+      border-radius:12px;
+      overflow:hidden;
+      background:#fff;
+    }
+    th, td{
+      padding:10px;
+      border-bottom:1px solid var(--line);
+      font-size:13px;
+      vertical-align:top;
+    }
+    th{
+      background: var(--soft);
+      font-weight:900;
+      font-size:12px;
+      color:#111827;
+      letter-spacing:.2px;
+      text-align:left;
+    }
+    tr:last-child td{ border-bottom:none; }
+    .right{ text-align:right; }
+    .center{ text-align:center; }
+
+    .chip{
+      display:inline-block;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:#fff;
+      color:var(--muted);
+      font-size:12px;
+      white-space:nowrap;
+    }
+
+    .sharedWithWrap{ margin-top:8px; display:none; text-align:left; }
+    .sharedWithWrap .cap{ font-size:12px; color:var(--muted); margin-bottom:6px; display:block; }
+
+    .totals{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+    .stat{
+      border:1px solid var(--line);
+      background:#fff;
+      border-radius:12px;
+      padding:10px 12px;
+    }
+    .stat .k{ font-size:12px; color:var(--muted); font-weight:700; }
+    .stat .v{ margin-top:6px; font-size:18px; font-weight:900; }
+    .stat .s{ margin-top:4px; font-size:12px; color:var(--muted); }
+    .stat.full{ grid-column:1 / -1; }
+
+    .btns{ display:flex; gap:10px; flex-wrap:wrap; }
+    button{
+      border:1px solid var(--line);
+      background:#fff;
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:12px;
+      cursor:pointer;
+      font-weight:800;
+      font-size:13px;
+    }
+    
+    button:hover{ background: var(--soft); }
+    .primary{
+      border-color: rgba(37,99,235,.35);
+      background: rgba(37,99,235,.08);
+    }
+    .danger{
+      border-color: rgba(239,68,68,.35);
+      background: rgba(239,68,68,.08);
+    }
+
+    .sticky{ position:sticky; top:14px; }
+
+    .savedList{ display:flex; flex-direction:column; gap:10px; margin-top:10px; }
+    .savedItem{
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:10px;
+      background:#fff;
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:flex-start;
+    }
+    .savedMeta{ display:flex; flex-direction:column; gap:4px; }
+    .savedMeta .t{ font-weight:900; font-size:13px; }
+    .savedMeta .m{ color:var(--muted); font-size:12px; }
+    .savedActions{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+    .savedActions button{ padding:8px 10px; font-size:12px; }
+
+    .help{
+      padding:10px 12px;
+      border:1px dashed #d1d5db;
+      background:#fff;
+      border-radius:12px;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.35;
+    }
+
+    /* password gate (light) */
+    #pwGate{
+      position:fixed; inset:0;
+      background: rgba(255,255,255,.92);
+      display:flex; align-items:center; justify-content:center;
+      padding:20px;
+      z-index:999999;
+    }
+    #pwCard{
+      width:100%; max-width:420px;
+      background:#fff;
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:18px;
+      box-shadow: var(--shadow);
+    }
+    #pwCard .h{ font-size:18px; font-weight:900; margin-bottom:6px; }
+    #pwCard .p{ font-size:13px; color:var(--muted); margin-bottom:12px; }
+    #pwError{ display:none; margin-top:10px; font-size:13px; color:var(--danger); }
+  
+    /* tabs */
+    .tabsBar{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin: 12px 0 14px;
+      padding: 10px;
+      border:1px solid var(--line);
+      background: var(--soft);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      align-items:center;
+      justify-content:space-between;
+    }
+    .tabsLeft{ display:flex; gap:10px; flex-wrap:wrap; }
+    .tabBtn{
+      border:1px solid var(--line);
+      background:#fff;
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:12px;
+      cursor:pointer;
+      font-weight:900;
+      font-size:13px;
+    }
+    .tabBtn.active{
+      border-color: rgba(37,99,235,.45);
+      background: rgba(37,99,235,.10);
+    }
+    .tabsRight{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:700;
+      display:flex;
+      gap:10px;
+      align-items:center;
+      white-space:nowrap;
+    }
+
+    /* survey layout tab */
+    .surveyGrid{
+      display:grid;
+      grid-template-columns: 420px 1fr;
+      gap:14px;
+      align-items:start;
+    }
+    @media (max-width: 980px){
+      .surveyGrid{ grid-template-columns:1fr; }
+    }
+    .surveyCanvasWrap{
+      background: var(--card);
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding:12px;
+      overflow:hidden;
+    }
+    #surveyCanvas{
+      width:100%;
+      height:auto;
+      border:1px solid var(--line);
+      border-radius:12px;
+      background:#fff;
+      display:block;
+    }
+
+  /* Primary buttons */
+button.primary,
+.tabBtn.active,
+.copyBtn {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* Active tabs */
+.tabBtn.active {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+/* Accent outlines / focus */
+input:focus,
+select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+/* Badges / highlights */
+.badge {
+  background: color-mix(in srgb, var(--accent) 12%, white);
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, white);
+}
+
+    /* Map Measure */
+    .mapLinesList{display:flex; flex-direction:column; gap:10px;}
+    .mapLineCard{border:1px solid var(--line); border-radius:14px; padding:10px; background:var(--card); display:flex; gap:10px; align-items:center; justify-content:space-between;}
+    .mapLineLeft{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
+    .pill{padding:4px 10px; border-radius:999px; background:var(--soft); border:1px solid var(--line); font-size:12px;}
+
+/* Map Measure overlay search (Google-like) */
+.mapCanvasWrap{ position:relative; width:100%; height:100%; }
+.mapSearchOverlay{ position:absolute; top:14px; left:14px; z-index:5; display:flex; flex-direction:column; gap:6px; }
+.mapSearchBox{
+  display:flex; align-items:center; gap:10px;
+  background:#fff; border:1px solid rgba(15,23,42,.12);
+  border-radius:999px; padding:10px 12px;
+  box-shadow:0 10px 25px rgba(15,23,42,.10);
+  min-width:360px; max-width:min(520px, calc(100vw - 60px));
+}
+.mapSearchIcon{ font-size:16px; opacity:.75; }
+.mapSearchBox input{
+  border:none; outline:none; flex:1;
+  font-size:14px; background:transparent;
+}
+.mapSearchBox button{
+  border:none; cursor:pointer;
+  background:#2563eb; color:#fff;
+  padding:8px 12px; border-radius:999px;
+  font-weight:600;
+}
+.mapSearchHint{
+  font-size:12px; color:#475569;
+  background:rgba(255,255,255,.85);
+  border:1px solid rgba(15,23,42,.08);
+  border-radius:10px; padding:6px 10px;
+  width:fit-content;
+}
+
+</style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.6.82/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body>
+  <!-- BASIC PASSWORD GATE (client-side, lightweight) -->
+  <div id="pwGate">
+    <div id="pwCard">
+      <div class="h">Enter Password</div>
+      <div class="p">This page is restricted.</div>
+
+      <input id="pwInput" type="password" autocomplete="current-password" placeholder="Password" />
+
+      <div id="pwError">Incorrect password.</div>
+
+      <button id="pwBtn" class="primary" style="margin-top:12px; width:100%;">Unlock</button>
+      <div class="p" style="margin-top:10px;">Tip: Press Enter to unlock.</div>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    const PASSWORD = "FMS2026!";
+    const KEY = "site_pw_ok_v1";
+
+    const gate = document.getElementById("pwGate");
+    const input = document.getElementById("pwInput");
+    const btn = document.getElementById("pwBtn");
+    const err = document.getElementById("pwError");
+
+    try {
+      if (localStorage.getItem(KEY) === "1") {
+        gate.style.display = "none";
+        return;
+      }
+    } catch {}
+
+    function unlock(){
+      const val = (input.value || "").trim();
+      if (val === PASSWORD){
+        try { localStorage.setItem(KEY, "1"); } catch {}
+        gate.style.display = "none";
+      } else {
+        err.style.display = "block";
+        input.value = "";
+        input.focus();
+      }
+    }
+
+    btn.addEventListener("click", unlock);
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") unlock(); });
+    setTimeout(() => input.focus(), 50);
+  })();
+  </script>
+  <!-- END PASSWORD GATE -->
+
+  <div class="wrap">
+    <div style="display:flex; gap:12px; align-items:center;">
+      <img id="brandLogo" alt="Company logo"
+           style="height:44px;width:auto;display:none;border-radius:10px;" />
+      <div>
+        <h1 style="margin:0;">Fence Quote Calculator</h1>
+        <a href="./dashboard.html" class="btn">Back to Dashboard</a>
+        <div class="sub">Organized sections • Both meters and feet editable • Auto-converts either way</div>
+      </div>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
+      <button id="copyShareBtn" class="btn" style="display:none;">Copy Share Link</button>
+      <div class="badge">Reset keeps Pricing Table • Deposit = 10% incl. tax</div>
+    </div>
+
+    </div>
+
+    
+    <div class="tabsBar">
+      <div class="tabsLeft">
+        <button id="tabBtnCalc" type="button" class="tabBtn active">Calculator</button>
+        <button id="tabBtnSurvey" type="button" class="tabBtn">Layout Drawer</button>
+        <button id="tabBtnMap" type="button" class="tabBtn">Map Measure</button>
+      </div>
+      <div class="tabsRight">
+        <span>Layout colors: Blue = Private • Green = Shared • Red = Gate</span>
+      </div>
+    </div>
+
+    <div id="tabCalc">
+      <div class="grid">
+
+      <!-- LEFT COLUMN -->
+      <div>
+        <div class="section">
+          <div class="sectionHead">
+            <div class="title">Quote Setup</div>
+            <div class="hint">Address • Type • Colour • Gates • Tax</div>
+          </div>
+          <div class="sectionBody">
+            <div class="row">
+              <div class="field wide">
+                <label>Quote Address (Location)</label>
+                <input id="quoteAddress" type="text" placeholder="e.g., 113 Ocala Street" />
+              </div>
+
+              <div class="field">
+                <label>Fence Type</label>
+                <select id="fenceType"></select>
+              </div>
+
+              <div class="field">
+                <label id="colorLabel">Colour</label>
+                <select id="colorSelect"></select>
+                <div id="colorHint" class="sub" style="margin-top:6px;">Populates “Color:” in the quote (when applicable).</div>
+              </div>
+            </div>
+
+            <div style="height:10px"></div>
+
+            <div class="row">
+              <div class="field small">
+                <label>Price / ft</label>
+                <input id="pricePerFt" type="number" step="0.01" />
+              </div>
+
+              <div class="field small">
+                <label>Gate Price</label>
+                <input id="gatePrice" type="number" step="0.01" />
+              </div>
+
+              <div class="field tiny">
+                <label># Gates</label>
+                <input id="gateCount" type="number" step="1" min="0" />
+              </div>
+
+              <div class="field wide">
+                <label>Gate Installed On (side)</label>
+                <select id="gateSide"></select>
+              </div>
+
+              <div class="field small">
+                <label>Tax %</label>
+                <input id="taxRate" type="number" step="0.01" />
+              </div>
+
+              <div class="field" style="min-width:220px; flex:0 0 220px;">
+                <label>&nbsp;</label>
+                <div class="toggle">
+                  <input id="applyTax" type="checkbox" />
+                  <span>Apply tax to Grand Total</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="height:10px"></div>
+
+            <div class="row">
+              <div class="field small">
+                <label>m → ft factor</label>
+                <input id="mToFt" type="number" step="0.00001" />
+              </div>
+              <div class="field small">
+                <label>Round to (ft)</label>
+                <input id="roundInc" type="number" step="0.01" />
+              </div>
+              <div class="field small">
+                <label>Extend add (ft)</label>
+                <input id="extendAdd" type="number" step="0.1" />
+              </div>
+            </div>
+
+            <div style="height:10px"></div>
+            <div class="help">
+              Enter either meters <em>or</em> feet for each segment. Whichever you type updates the other. Pricing is based on feet (rounded + extend).
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="sectionHead">
+            <div class="title">Segments</div>
+            <div class="hint">Meters or Feet • Extend • Shared (50%)</div>
+          </div>
+          <div class="sectionBody">
+            <table id="segmentsTable">
+              <thead>
+                <tr>
+                  <th style="width:210px;">Segment</th>
+                  <th class="right" style="width:150px;">Meters (editable)</th>
+                  <th class="right" style="width:150px;">Feet (editable)</th>
+                  <th class="center" style="width:90px;">Extend</th>
+                  <th class="center" style="width:240px;">Shared</th>
+                  <th class="right" style="width:140px;">Cost</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+
+            <div style="height:12px"></div>
+            <div class="btns">
+              <button id="resetBtn" type="button">Reset Calculator</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN -->
+      <div class="sticky">
+        <div class="section">
+          <div class="sectionHead">
+            <div class="title">Totals</div>
+            <div class="hint">Private • Shared • Gates • Deposit</div>
+          </div>
+          <div class="sectionBody">
+            <div class="totals">
+              <div class="stat">
+                <div class="k">Private Total</div>
+                <div class="v" id="privateTotal">CA$0.00</div>
+                <div class="s" id="privateFeet">0.00 ft private</div>
+              </div>
+              <div class="stat">
+                <div class="k">Shared Total</div>
+                <div class="v" id="sharedTotal">CA$0.00</div>
+                <div class="s" id="sharedFeet">0.00 ft shared</div>
+              </div>
+              <div class="stat">
+                <div class="k">Gate Total</div>
+                <div class="v" id="gateTotal">CA$0.00</div>
+                <div class="s" id="gateLine">0 gates</div>
+              </div>
+              <div class="stat">
+                <div class="k">Grand Total</div>
+                <div class="v" id="grandTotal">CA$0.00</div>
+                <div class="s" id="taxLine">Before tax</div>
+              </div>
+              <div class="stat full">
+                <div class="k">10% Deposit (incl. tax)</div>
+                <div class="v" id="depositTotal">CA$0.00</div>
+                <div class="s" id="depositLine">10% of total after tax</div>
+              </div>
+            </div>
+
+            <div style="height:12px"></div>
+            <div class="btns">
+              <button class="primary" id="copyQuoteBtn" type="button">Copy Quote Text</button>
+              <button id="copyBreakdownBtn" type="button">Copy Breakdown</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="sectionHead">
+            <div class="title">Generated Quote Text</div>
+            <div class="hint">Updates live</div>
+          </div>
+          <div class="sectionBody">
+            <textarea id="quoteText" readonly></textarea>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="sectionHead">
+            <div class="title">Pricing Table (editable)</div>
+            <div class="hint">Auto-saves in your browser</div>
+          </div>
+          <div class="sectionBody">
+            <table id="pricingTable">
+              <thead>
+                <tr>
+                  <th>Fence Type</th>
+                  <th class="right">Price / ft</th>
+                  <th class="right">Gate Price</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+
+            <div style="height:10px"></div>
+            <div class="btns">
+              <button id="resetPricingDefaultsBtn" type="button">Reset Pricing to Defaults</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="sectionHead">
+            <div class="title">Saved Quotes</div>
+            <div class="hint">Save up to 10</div>
+          </div>
+          <div class="sectionBody">
+            <div class="row">
+              <div class="field">
+                <label>Save quote name (optional)</label>
+                <input id="saveQuoteName" type="text" placeholder="e.g., 113 Ocala – PVC Rideau" />
+              </div>
+              <div class="field small" style="min-width:210px;">
+                <label>&nbsp;</label>
+                <div class="btns">
+                  <button class="primary" id="saveQuoteBtn" type="button">Save</button>
+                  <button class="danger" id="clearSavedBtn" type="button">Clear All</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="savedList" id="savedQuotesList"></div>
+          </div>
+        </div>
+      </div>
+
+    </div> <!-- end .grid -->
+    </div> <!-- end #tabCalc -->
+
+    <!-- TAB: LAYOUT DRAWER -->
+    <div id="tabSurvey" style="display:none;">
+      <div class="surveyGrid">
+        <div class="section">
+          <div class="sectionHead">
+            <div class="title">Fence Layout Drawer</div>
+            <div class="hint">Blue = Private • Green = Shared • Red = Gate</div>
+          </div>
+
+          <div class="sectionBody">
+            <div class="row">
+              <div class="field wide">
+                <label>Optional background (PNG/JPG/PDF)</label>
+                <input id="surveyUpload" type="file" accept="image/*,.pdf,application/pdf" />
+                <div class="sub" style="margin-top:6px;">This is only a background for sketching. No measurements are taken.</div>
+              </div>
+
+              <div class="field narrow">
+                <label>Line Type</label>
+                <select id="drawType">
+                  <option value="private">Private (Blue)</option>
+                  <option value="shared">Shared (Green)</option>
+                  <option value="gate">Gate (Red)</option>
+                </select>
+              </div>
+
+              <div class="field narrow">
+                <label>Tools</label>
+                <div class="btns">
+                  <button id="undoLinePoint" type="button">Undo Point (Z)</button>
+                  <button id="cancelLine" type="button">Cancel Line (Esc)</button>
+                </div>
+              </div>
+
+              <div class="field narrow">
+                <label>Canvas</label>
+                <div class="btns">
+                  <button id="zoomOut" type="button">-</button>
+                  <button id="zoomReset" type="button">Reset</button>
+                  <button id="zoomIn" type="button">+</button>
+                </div>
+              </div>
+
+              <div class="field narrow">
+                <label>&nbsp;</label>
+                <div class="btns">
+                  <button id="downloadLayout" type="button" class="primary">Download PNG</button>
+                  <button id="clearSurvey" type="button" class="danger">Clear All</button>
+                </div>
+              </div>
+            </div>
+
+            <div style="height:10px"></div>
+
+            <div class="help">
+              <b>How to draw:</b> Click to add points • Double-click to finish a line • Hold <b>Space</b> and drag to pan • Mousewheel zooms.
+              <br/>
+              <b>Colors:</b> Private = Blue • Shared = Green • Gate = Red
+            </div>
+          </div>
+        </div>
+
+        <div class="surveyCanvasWrap">
+          <canvas id="surveyCanvas" width="1600" height="950"></canvas>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+
+  <!-- TAB: MAP MEASURE -->
+  <div id="tabMap" style="display:none;">
+    <div class="surveyGrid">
+      <div class="section">
+        <div class="sectionHead">
+          <div class="title">Map Measure (click 2 points to get a line length)</div>
+          <div class="hint">Click once to set start • Click again to set end • Length shows on the line</div>
+        </div>
+        <div class="sectionBody">
+          <div class="row">
+            <div class="field wide">
+              <label>How it works</label>
+              <div class="help" style="margin-top:0;">
+                <b>1)</b> Click a start point • <b>2)</b> Click an end point • a line is created and the <b>feet</b> label appears.
+                <br/>
+                Keep clicking pairs of points to draw more lines.
+                <br/>
+                <span id="mapStatus" class="chip" style="margin-top:8px; display:inline-block;">Ready: click a start point</span>
+              </div>
+            </div>
+
+            
+            <div class="field small" style="min-width:320px;">
+              <label>Fence selection</label>
+              <div class="row" style="gap:10px; align-items:flex-end;">
+                <div class="field" style="margin:0; flex:1;">
+                  <label style="font-size:12px; color:var(--muted);">Type</label>
+                  <select id="mapFenceType"></select>
+                </div>
+                <div class="field" style="margin:0; flex:1;">
+                  <label id="mapColorLabel" style="font-size:12px; color:var(--muted);">Colour</label>
+                  <select id="mapColorSelect"></select>
+                </div>
+              </div>
+              <div class="sub" style="margin-top:6px;">
+                Price: <b><span id="mapPricePerFt">$0.00</span></b> / ft
+              </div>
+            </div>
+
+<div class="field small" style="min-width:260px;">
+              <label>Tools</label>
+              <div class="btns">
+                <button id="undoMapLineBtn" type="button">Undo Last Line</button>
+                <button id="clearMapLinesBtn" type="button" class="danger">Clear Lines</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="help" style="margin-top:10px;">
+            Tip: Press <b>Esc</b> to cancel a start point (if you clicked the wrong spot).
+          </div>
+        </div>
+      </div>
+
+      <div class="surveyCanvasWrap">
+        <div class="mapCanvasWrap">
+          <div class="mapSearchOverlay">
+            <div class="mapSearchBox">
+              <span class="mapSearchIcon">🔍</span>
+              <input id="gmapSearch" type="text" placeholder="Search address (ex: 23 Sherk Crescent)" autocomplete="off" />
+              <button id="gmapSearchBtn" type="button">Search</button>
+            </div>
+            <div class="mapSearchHint">Tip: pick a suggestion or press Enter.</div>
+          </div>
+          <div style="display:flex; gap:14px; align-items:stretch;">
+  <div id="gmap" style="flex:1; height:950px; border:1px solid var(--line); border-radius:14px;"></div>
+  <div class="card" style="width:320px; height:950px; border:1px solid var(--line); border-radius:14px; padding:12px; overflow:auto;">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+      <div>
+        <div style="font-weight:700;">Lines</div>
+        <div class="muted" style="font-size:12px;">Click a row to pan/zoom to it</div>
+      </div>
+      <div id="mapLinesTotal" class="chip">Total: 0.0 ft</div>
+    </div>
+    <div style="height:10px;"></div>
+    <div id="mapLinesEmpty" class="muted" style="font-size:13px;">No lines yet.</div>
+    <div id="mapLinesList" style="display:flex; flex-direction:column; gap:8px;"></div>
+  </div>
+</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(async () => {
+  // ========= Defaults =========
+  const DEFAULTS = {
+    quoteAddress: "",
+    color: "White",
+    gateSideKey: "back",
+    mToFt: 3.28084,
+    roundInc: 0.05,
+    extendAdd: 2,
+    taxRate: 13,
+    applyTax: false,
+    gateCount: 0,
+    pricing: [
+      { type: "PVC",    pricePerFt: 74.99, gatePrice: 450.00 },
+      { type: "WPC",    pricePerFt: 89.99, gatePrice: 599.00 },
+      { type: "Cedar",  pricePerFt: 89.99, gatePrice: 450.00 },
+      { type: "PT",     pricePerFt: 74.99, gatePrice: 450.00 },
+      { type: "Hybrid", pricePerFt: 84.99, gatePrice: 550.00 }
+    ],
+    // NOTE: both meters and feet are stored; lastEdited decides which direction to re-sync if conversion factor changes
+    segments: [
+      { key:"lhs_adj", name:"LHS Adjacent", meters:0, feet:0, lastEdited:"meters", extend:false, shared:false, sharedWith:"" },
+      { key:"lhs",     name:"LHS",          meters:0, feet:0, lastEdited:"meters", extend:false, shared:false, sharedWith:"" },
+      { key:"back",    name:"Back",         meters:0, feet:0, lastEdited:"meters", extend:false, shared:false, sharedWith:"" },
+      { key:"rhs",     name:"RHS",          meters:0, feet:0, lastEdited:"meters", extend:false, shared:false, sharedWith:"" },
+      { key:"rhs_adj", name:"RHS Adjacent", meters:0, feet:0, lastEdited:"meters", extend:false, shared:false, sharedWith:"" }
+    ]
+  };
+
+  const PVC_COLORS = ["White","Adobe","Light Grey","Westport Grey","Dark Grey","Teak","Moonlit"];
+  const WPC_COLORS = ["Walnut","Iron","Ash","Onyx","Mocha","Driftwood","Eclipse"];
+
+  const LS_PRICING_KEY = "fencePricing_v1";
+  const LS_SAVED_QUOTES_KEY = "savedFenceQuotes_v4";
+
+  // ========= State =========
+  const state = structuredClone(DEFAULTS);
+  let CONTRACTOR_DEFAULTS = null;
+  state.selectedType = state.pricing[0].type;
+
+  // ========= Supabase (Contractor Bootstrap) =========
+  // NOTE: anon/publishable key is safe to use client-side; RLS protects data.
+  const SUPABASE_URL = "https://wgccfcslihixujwqjrhf.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_KSUqSxCmkf30d_Rjmh9ipw_RhrkrWdP";
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  function getContractorSlugFromUrl() {
+    // supports /c/slug OR ?c=slug
+    const path = window.location.pathname.split("/").filter(Boolean);
+    const cIndex = path.indexOf("c");
+    if (cIndex !== -1 && path[cIndex + 1]) return path[cIndex + 1];
+    const u = new URL(window.location.href);
+    return u.searchParams.get("c");
+  }
+
+  async function fetchContractorConfigBySlug(slug) {
+    const { data: contractor, error: e1 } = await sb
+      .from("contractors")
+      .select("id, company_name, slug, logo_url, brand_primary, brand_secondary")
+      .eq("slug", slug)
+      .single();
+    if (e1) throw e1;
+
+    const { data: cfg, error: e2 } = await sb
+      .from("contractor_configs")
+      .select("pricing, tax_rate, apply_tax, round_inc, extend_add, range_pct")
+      .eq("contractor_id", contractor.id)
+      .single();
+    if (e2) throw e2;
+
+    return { contractor, cfg };
+  }
+
+  function applyBrand(contractor) {
+    if (contractor?.brand_primary) {
+      document.documentElement.style.setProperty("--accent", contractor.brand_primary);
+    }
+  }
+
+  function applyConfig(cfg) {
+    if (cfg?.pricing && Array.isArray(cfg.pricing)) state.pricing = cfg.pricing;
+    if (cfg?.tax_rate != null) state.taxRate = Number(cfg.tax_rate) || state.taxRate;
+    if (cfg?.apply_tax != null) state.applyTax = !!cfg.apply_tax;
+    if (cfg?.round_inc != null) state.roundInc = Number(cfg.round_inc) || state.roundInc;
+    if (cfg?.extend_add != null) state.extendAdd = Number(cfg.extend_add) || state.extendAdd;
+
+    // stored for public range display later (optional)
+    state.rangePct = Number(cfg?.range_pct ?? 15) || 15;
+
+    // ensure selected type is valid
+    state.selectedType = state.pricing?.[0]?.type || state.selectedType;
+  }
+
+
+  // ========= Helpers =========
+  const $ = (id) => document.getElementById(id);
+  const safeNum = (v) => Number(v) || 0;
+
+  function moneyCAD(n){
+    const x = Number.isFinite(n) ? n : 0;
+    return x.toLocaleString("en-CA", { style:"currency", currency:"CAD" });
+  }
+  function roundToInc(x, inc){
+    const n = Number(x) || 0;
+    const i = Number(inc) || 0;
+    if (i <= 0) return n;
+    return Math.round(n / i) * i;
+  }
+  function metersToFeet(m){ return (Number(m) || 0) * (Number(state.mToFt) || 0); }
+  function feetToMeters(ft){
+    const f = Number(ft) || 0;
+    const k = Number(state.mToFt) || 0;
+    if (k <= 0) return 0;
+    return f / k;
+  }
+  // IMPORTANT: calculations are based on seg.feet (raw feet entry or converted from meters)
+  function calcFeetFinal(seg){
+    const ftRaw = Number(seg.feet) || 0;
+    const ftRounded = roundToInc(ftRaw, state.roundInc);
+    const ftFinal = ftRounded + (seg.extend ? (Number(state.extendAdd)||0) : 0);
+    return Math.max(0, Math.round(ftFinal * 100) / 100);
+  }
+  function fmtFeet(ft){
+  return (Number(ft) || 0).toFixed(2) + "'";
+}
+
+function getPricingForType(type){
+  return state.pricing.find(p => p.type === type) || state.pricing[0];
+}
+  function typeUsesColor(type){ return type === "PVC" || type === "WPC" || type === "Hybrid"; }
+  function getColorsForType(type){
+    if (type === "PVC") return PVC_COLORS;
+    if (type === "WPC") return WPC_COLORS;
+    if (type === "Hybrid") return PVC_COLORS; // Hybrid same as PVC
+    return [];
+  }
+  function ensureValidColor(){
+    if (!typeUsesColor(state.selectedType)){ state.color = ""; return; }
+    const colors = getColorsForType(state.selectedType);
+    if (!colors.includes(state.color)) state.color = colors[0];
+  }
+
+  // ========= Persistence: Pricing =========
+  function savePricingToLocal(){
+    try { localStorage.setItem(LS_PRICING_KEY, JSON.stringify(state.pricing)); } catch {}
+  }
+  function loadPricingFromLocal(){
+    try {
+      const raw = localStorage.getItem(LS_PRICING_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return;
+      parsed.forEach(p => {
+        if (!p || typeof p.type !== "string") return;
+        const idx = state.pricing.findIndex(x => x.type.toLowerCase() === p.type.toLowerCase());
+        if (idx === -1) return;
+        state.pricing[idx].pricePerFt = safeNum(p.pricePerFt);
+        state.pricing[idx].gatePrice = safeNum(p.gatePrice);
+      });
+    } catch {}
+  }
+
+  // ========= Saved Quotes =========
+  function loadSavedQuotes(){
+    try {
+      const raw = localStorage.getItem(LS_SAVED_QUOTES_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch { return []; }
+  }
+  function saveSavedQuotes(arr){
+    try { localStorage.setItem(LS_SAVED_QUOTES_KEY, JSON.stringify(arr)); } catch {}
+  }
+  function formatDateTime(ts){
+    try {
+      const d = new Date(ts);
+      return d.toLocaleString("en-CA", { year:"numeric", month:"short", day:"2-digit", hour:"2-digit", minute:"2-digit" });
+    } catch { return ""; }
+  }
+
+  function getSnapshot(){
+    return {
+      selectedType: state.selectedType,
+      quoteAddress: state.quoteAddress,
+      color: state.color,
+      gateSideKey: state.gateSideKey,
+      mToFt: state.mToFt,
+      roundInc: state.roundInc,
+      extendAdd: state.extendAdd,
+      taxRate: state.taxRate,
+      applyTax: state.applyTax,
+      gateCount: state.gateCount,
+      segments: state.segments.map(s => ({
+        key: s.key,
+        meters: s.meters,
+        feet: s.feet,
+        lastEdited: s.lastEdited,
+        extend: s.extend,
+        shared: s.shared,
+        sharedWith: s.sharedWith
+      }))
+    };
+  }
+
+  function applySnapshot(snap){
+    if (!snap) return;
+    state.selectedType = snap.selectedType || state.selectedType;
+    state.quoteAddress = String(snap.quoteAddress || "");
+    state.color = String(snap.color || "");
+    state.gateSideKey = String(snap.gateSideKey || "back");
+    state.mToFt = safeNum(snap.mToFt) || DEFAULTS.mToFt;
+    state.roundInc = safeNum(snap.roundInc) || DEFAULTS.roundInc;
+    state.extendAdd = safeNum(snap.extendAdd) || DEFAULTS.extendAdd;
+    state.taxRate = safeNum(snap.taxRate);
+    state.applyTax = !!snap.applyTax;
+    state.gateCount = Math.max(0, Math.floor(safeNum(snap.gateCount)));
+
+    const segMap = new Map((snap.segments || []).map(x => [x.key, x]));
+    state.segments = state.segments.map(seg => {
+      const v = segMap.get(seg.key);
+      if (!v) return seg;
+
+      const meters = safeNum(v.meters);
+      const feet = safeNum(v.feet);
+      const lastEdited = (v.lastEdited === "feet") ? "feet" : "meters";
+
+      return { ...seg,
+        meters,
+        feet,
+        lastEdited,
+        extend: !!v.extend,
+        shared: !!v.shared,
+        sharedWith: String(v.sharedWith || "")
+      };
+    });
+
+    // Ensure consistency if snapshot missing one side:
+    state.segments.forEach(seg => {
+      if (seg.lastEdited === "feet"){
+        seg.meters = feetToMeters(seg.feet);
+      } else {
+        seg.feet = metersToFeet(seg.meters);
+      }
+    });
+
+    ensureValidColor();
+    syncUI();
+    renderSegmentsTable();
+    recalc();
+    renderSavedQuotesList();
+  }
+
+  // ========= Rendering =========
+  function renderFenceTypeDropdown(){
+    const sel = $("fenceType");
+    sel.innerHTML = "";
+    state.pricing.forEach(p => {
+      const opt = document.createElement("option");
+      opt.value = p.type;
+      opt.textContent = p.type;
+      sel.appendChild(opt);
+    });
+    sel.value = state.selectedType;
+  }
+
+  function renderGateSideDropdown(){
+    const sel = $("gateSide");
+    sel.innerHTML = "";
+    state.segments.forEach(s => {
+      const opt = document.createElement("option");
+      opt.value = s.key;
+      opt.textContent = s.name;
+      sel.appendChild(opt);
+    });
+    sel.value = state.gateSideKey;
+  }
+
+  function renderColorDropdown(){
+    const sel = $("colorSelect");
+    const label = $("colorLabel");
+    const hint = $("colorHint");
+
+    if (!typeUsesColor(state.selectedType)){
+      label.textContent = "Colour (N/A)";
+      hint.textContent = "This fence type does not use a Color field in the template.";
+      sel.innerHTML = "";
+      sel.disabled = true;
+      return;
+    }
+
+    ensureValidColor();
+    const colors = getColorsForType(state.selectedType);
+
+    label.textContent = "Colour";
+    hint.textContent = "Populates “Color:” in the quote.";
+    sel.disabled = false;
+
+    sel.innerHTML = "";
+    colors.forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c;
+      opt.textContent = c;
+      sel.appendChild(opt);
+    });
+    sel.value = state.color;
+  }
+
+  function renderPricingTable(){
+    const tbody = $("pricingTable").querySelector("tbody");
+    tbody.innerHTML = "";
+
+    state.pricing.forEach((p, idx) => {
+      const tr = document.createElement("tr");
+
+      const tdType = document.createElement("td");
+      tdType.textContent = p.type;
+      tr.appendChild(tdType);
+
+      const tdPpf = document.createElement("td");
+      tdPpf.className = "right";
+      const inpPpf = document.createElement("input");
+      inpPpf.type = "number";
+      inpPpf.step = "0.01";
+      inpPpf.value = p.pricePerFt;
+      inpPpf.addEventListener("input", () => {
+        state.pricing[idx].pricePerFt = safeNum(inpPpf.value);
+        savePricingToLocal();
+        syncSelectedPricingInputs();
+        recalc();
+        try { window.__mapRepriceAll && window.__mapRepriceAll(); } catch (e) {}
+      });
+      tdPpf.appendChild(inpPpf);
+      tr.appendChild(tdPpf);
+
+      const tdGate = document.createElement("td");
+      tdGate.className = "right";
+      const inpGate = document.createElement("input");
+      inpGate.type = "number";
+      inpGate.step = "0.01";
+      inpGate.value = p.gatePrice;
+      inpGate.addEventListener("input", () => {
+        state.pricing[idx].gatePrice = safeNum(inpGate.value);
+        savePricingToLocal();
+        syncSelectedPricingInputs();
+        recalc();
+        try { window.__mapRepriceAll && window.__mapRepriceAll(); } catch (e) {}
+      });
+      tdGate.appendChild(inpGate);
+      tr.appendChild(tdGate);
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  // BOTH meters + feet editable; whichever changes auto-fills the other
+  function renderSegmentsTable(){
+    const tbody = $("segmentsTable").querySelector("tbody");
+    tbody.innerHTML = "";
+
+    let isSyncing = false;
+
+    state.segments.forEach((seg, idx) => {
+      const tr = document.createElement("tr");
+
+      const tdName = document.createElement("td");
+      tdName.textContent = seg.name;
+      tr.appendChild(tdName);
+
+      // meters input
+      const tdMeters = document.createElement("td");
+      tdMeters.className = "right";
+      const inpM = document.createElement("input");
+      inpM.type = "number";
+      inpM.step = "0.01";
+      inpM.min = "0";
+      inpM.value = (Number(seg.meters) || 0).toFixed(2);
+      inpM.id = `m_inp_${seg.key}`;
+      inpM.addEventListener("input", () => {
+        if (isSyncing) return;
+        isSyncing = true;
+
+        const m = safeNum(inpM.value);
+        state.segments[idx].meters = m;
+        state.segments[idx].feet = metersToFeet(m);
+        state.segments[idx].lastEdited = "meters";
+
+        const ftInput = document.getElementById(`ft_inp_${seg.key}`);
+        if (ftInput) ftInput.value = (Number(state.segments[idx].feet) || 0).toFixed(2);
+
+        isSyncing = false;
+        recalc();
+      });
+      tdMeters.appendChild(inpM);
+      tr.appendChild(tdMeters);
+
+      // feet input
+      const tdFeet = document.createElement("td");
+      tdFeet.className = "right";
+      const inpF = document.createElement("input");
+      inpF.type = "number";
+      inpF.step = "0.01";
+      inpF.min = "0";
+      inpF.value = (Number(seg.feet) || 0).toFixed(2);
+      inpF.id = `ft_inp_${seg.key}`;
+      inpF.addEventListener("input", () => {
+        if (isSyncing) return;
+        isSyncing = true;
+
+        const ft = safeNum(inpF.value);
+        state.segments[idx].feet = ft;
+        state.segments[idx].meters = feetToMeters(ft);
+        state.segments[idx].lastEdited = "feet";
+
+        const mInput = document.getElementById(`m_inp_${seg.key}`);
+        if (mInput) mInput.value = (Number(state.segments[idx].meters) || 0).toFixed(2);
+
+        isSyncing = false;
+        recalc();
+      });
+      tdFeet.appendChild(inpF);
+      tr.appendChild(tdFeet);
+
+      // extend
+      const tdExtend = document.createElement("td");
+      tdExtend.className = "center";
+      const chkExt = document.createElement("input");
+      chkExt.type = "checkbox";
+      chkExt.checked = !!seg.extend;
+      chkExt.addEventListener("change", () => {
+        state.segments[idx].extend = chkExt.checked;
+        recalc();
+      });
+      tdExtend.appendChild(chkExt);
+      tr.appendChild(tdExtend);
+
+      // shared + neighbour input
+      const tdShared = document.createElement("td");
+      tdShared.className = "center";
+
+      const chkSh = document.createElement("input");
+      chkSh.type = "checkbox";
+      chkSh.checked = !!seg.shared;
+
+      const wrap = document.createElement("div");
+      wrap.className = "sharedWithWrap";
+
+      const cap = document.createElement("span");
+      cap.className = "cap";
+      cap.textContent = "Neighbour address";
+      wrap.appendChild(cap);
+
+      const inpAddr = document.createElement("input");
+      inpAddr.type = "text";
+      inpAddr.placeholder = "e.g., 366 Meynell";
+      inpAddr.value = seg.sharedWith || "";
+      inpAddr.addEventListener("input", () => {
+        state.segments[idx].sharedWith = String(inpAddr.value || "");
+        recalc();
+      });
+      wrap.appendChild(inpAddr);
+
+      const syncWrap = () => { wrap.style.display = chkSh.checked ? "block" : "none"; };
+      syncWrap();
+
+      chkSh.addEventListener("change", () => {
+        state.segments[idx].shared = chkSh.checked;
+        syncWrap();
+        recalc();
+      });
+
+      tdShared.appendChild(chkSh);
+      tdShared.appendChild(wrap);
+      tr.appendChild(tdShared);
+
+      // cost chip
+      const tdCost = document.createElement("td");
+      tdCost.className = "right";
+      const costSpan = document.createElement("span");
+      costSpan.className = "chip";
+      costSpan.id = `cost_${seg.key}`;
+      costSpan.textContent = moneyCAD(0);
+      tdCost.appendChild(costSpan);
+      tr.appendChild(tdCost);
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  function syncSelectedPricingInputs(){
+    const p = getPricingForType(state.selectedType);
+    $("pricePerFt").value = p.pricePerFt;
+    $("gatePrice").value = p.gatePrice;
+  }
+
+  function renderSavedQuotesList(){
+    const list = $("savedQuotesList");
+    const saved = loadSavedQuotes();
+    list.innerHTML = "";
+
+    if (!saved.length){
+      const div = document.createElement("div");
+      div.className = "help";
+      div.textContent = "No saved quotes yet. Use Save to store up to 10.";
+      list.appendChild(div);
+      return;
+    }
+
+    saved.forEach((q) => {
+      const item = document.createElement("div");
+      item.className = "savedItem";
+
+      const meta = document.createElement("div");
+      meta.className = "savedMeta";
+
+      const t = document.createElement("div");
+      t.className = "t";
+      t.textContent = (q.name || "").trim()
+        ? q.name
+        : `${q.selectedType || "Quote"} – ${q.grandTotalText || ""}`;
+      meta.appendChild(t);
+
+      const m = document.createElement("div");
+      m.className = "m";
+      m.textContent = `${formatDateTime(q.createdAt)} • ${q.location || "(blank location)"} • Deposit: ${q.depositText || ""}`;
+      meta.appendChild(m);
+
+      item.appendChild(meta);
+
+      const actions = document.createElement("div");
+      actions.className = "savedActions";
+
+      const loadBtn = document.createElement("button");
+      loadBtn.type = "button";
+      loadBtn.textContent = "Load";
+      loadBtn.addEventListener("click", () => {
+        try { if (window.__showTab) window.__showTab("calc"); } catch (e) {}
+        // Restore calculator state
+        try { applySnapshot(q.snapshot); } catch (e) { console.error(e); }
+        // Restore the generated text (snapshot + recalc should already do this, but keep it exact)
+        try { const qt = document.getElementById("quoteText"); if (qt) qt.value = q.quoteText || qt.value || ""; } catch (e) {}
+      });
+
+      
+      const copyBtn = document.createElement("button");
+      copyBtn.type = "button";
+      copyBtn.textContent = "Copy";
+      copyBtn.addEventListener("click", async () => {
+        const text = q.quoteText || "";
+        try { await navigator.clipboard.writeText(text); alert("Saved quote copied."); }
+        catch { prompt("Copy this text:", text); }
+      });
+
+      const delBtn = document.createElement("button");
+      delBtn.type = "button";
+      delBtn.textContent = "Delete";
+      delBtn.addEventListener("click", () => {
+        const next = loadSavedQuotes().filter(x => x.id !== q.id);
+        saveSavedQuotes(next);
+        renderSavedQuotesList();
+      });
+
+      actions.appendChild(loadBtn);
+      actions.appendChild(copyBtn);
+      actions.appendChild(delBtn);
+
+      item.appendChild(actions);
+      list.appendChild(item);
+    });
+  }
+
+  function syncUI(){
+    $("quoteAddress").value = state.quoteAddress;
+    $("taxRate").value = state.taxRate;
+    $("applyTax").checked = state.applyTax;
+    $("gateCount").value = state.gateCount;
+
+    $("mToFt").value = state.mToFt;
+    $("roundInc").value = state.roundInc;
+    $("extendAdd").value = state.extendAdd;
+
+    $("fenceType").value = state.selectedType;
+    $("gateSide").value = state.gateSideKey;
+
+    renderColorDropdown();
+    syncSelectedPricingInputs();
+  }
+
+  // Private lengths in ALL templates
+  function buildLengthsBlocks(allLengths, privateLengths, privateTotal, sharedLines, type, gateCount){
+    const lengthBlock =
+`Length: ${allLengths.length ? allLengths.join(" + ") : ""}
+
+`;
+
+    const privateParts = privateLengths.length ? privateLengths.join(" + ") : "";
+    const privateGateAdd = gateCount > 0 ? " + Gate Conversion Kit" : "";
+    const privateBlock =
+`Private lengths
+${privateParts}${privateGateAdd} = ( ${moneyCAD(privateTotal)} + Tax)
+
+`;
+
+    const sharedLabel = (type === "PT" || type === "Cedar") ? "Shared fence lines:" : "Shared lengths:";
+    const sharedBlock =
+`${sharedLabel}
+${sharedLines.length ? "\n" + sharedLines.join("\n\n") : ""}
+
+`;
+
+    return lengthBlock + privateBlock + sharedBlock;
+  }
+
+  function recalc(){
+    const pricing = getPricingForType(state.selectedType);
+    const ppf = safeNum(pricing.pricePerFt);
+    const gatePrice = safeNum(pricing.gatePrice);
+    const gateCount = Math.max(0, Math.floor(safeNum(state.gateCount)));
+
+    let privateTotal = 0;
+    let sharedTotal = 0;
+    let privateFeet = 0;
+    let sharedFeet = 0;
+
+    const allLengths = [];
+    const privateLengths = [];
+    const sharedLines = [];
+
+    const feetFinalByKey = {};
+    state.segments.forEach(seg => { feetFinalByKey[seg.key] = calcFeetFinal(seg); });
+
+    state.segments.forEach(seg => {
+      const ftFinal = feetFinalByKey[seg.key];
+      const cost = ftFinal * ppf * (seg.shared ? 0.5 : 1);
+
+      const costEl = document.getElementById(`cost_${seg.key}`);
+      if (costEl) costEl.textContent = moneyCAD(cost);
+
+      if (ftFinal > 0){
+        const ftStr = fmtFeet(ftFinal);
+        allLengths.push(ftStr);
+        if (!seg.shared) privateLengths.push(ftStr);
+      }
+
+      if (seg.shared){
+        sharedFeet += ftFinal;
+        sharedTotal += cost;
+
+        if (ftFinal > 0){
+          const who = (seg.sharedWith || "").trim();
+          if (state.selectedType === "PT" || state.selectedType === "Cedar"){
+            sharedLines.push(`${fmtFeet(ftFinal)} length shared 50% with ${who} (${moneyCAD(cost)})`);
+          } else {
+            sharedLines.push(`${fmtFeet(ftFinal)} length shared 50% w ${who} ( ${moneyCAD(cost)} +Tax)`);
+          }
+        }
+      } else {
+        privateFeet += ftFinal;
+        privateTotal += cost;
+      }
+    });
+
+    const gateTotal = gateCount * gatePrice;
+    privateTotal += gateTotal;
+
+    const preTaxTotal = privateTotal + sharedTotal;
+
+    const taxRatePct = safeNum(state.taxRate);
+    const taxRate = taxRatePct / 100;
+
+    const taxAmount = state.applyTax ? (preTaxTotal * taxRate) : 0;
+    const grandTotal = preTaxTotal + taxAmount;
+
+    const totalInclTax = preTaxTotal * (1 + taxRate);
+    const deposit10 = totalInclTax * 0.10;
+
+    $("privateTotal").textContent = moneyCAD(privateTotal);
+    $("sharedTotal").textContent = moneyCAD(sharedTotal);
+    $("gateTotal").textContent = moneyCAD(gateTotal);
+    $("grandTotal").textContent = moneyCAD(grandTotal);
+    $("privateFeet").textContent = `${privateFeet.toFixed(2)} ft private`;
+    $("sharedFeet").textContent = `${sharedFeet.toFixed(2)} ft shared`;
+    $("gateLine").textContent = `${gateCount} gate(s) @ ${moneyCAD(gatePrice)}`;
+    $("taxLine").textContent = state.applyTax ? `Tax ${taxRatePct.toFixed(2)}% = ${moneyCAD(taxAmount)}` : `Before tax`;
+
+    $("depositTotal").textContent = moneyCAD(deposit10);
+    $("depositLine").textContent = `10% of ${moneyCAD(totalInclTax)} (incl. ${taxRatePct.toFixed(2)}% tax)`;
+
+    const gateSideSeg = state.segments.find(s => s.key === state.gateSideKey) || state.segments.find(s => s.key === "back") || state.segments[0];
+    const gateSideFt = feetFinalByKey[gateSideSeg.key] || 0;
+
+    ensureValidColor();
+    const location = (state.quoteAddress || "").trim();
+    const color = (state.color || "").trim();
+
+    const gatesLine =
+      gateCount > 0
+        ? `Gates: x${gateCount} (installed in ${fmtFeet(gateSideFt)} length)`
+        : `Gates:  (installed in XX length)`;
+
+    const lengthsBlocks = buildLengthsBlocks(allLengths, privateLengths, privateTotal, sharedLines, state.selectedType, gateCount);
+
+    // ========= Simple Quote Text (general) =========
+    const lines = [];
+    state.segments.forEach(seg => {
+      const ftFinal = feetFinalByKey[seg.key] || 0;
+      if (ftFinal <= 0) return;
+
+      const lineCost = ftFinal * ppf * (seg.shared ? 0.5 : 1);
+      const segName = seg.name || seg.key;
+
+      if (seg.shared) {
+        const who = (seg.sharedWith || "").trim() || "neighbour";
+        lines.push(`- ${segName}: ${fmtFeet(ftFinal)} shared 50% with ${who} @ ${moneyCAD(ppf)}/ft = ${moneyCAD(lineCost)}`);
+      } else {
+        lines.push(`- ${segName}: ${fmtFeet(ftFinal)} @ ${moneyCAD(ppf)}/ft = ${moneyCAD(lineCost)}`);
+      }
+    });
+
+    const fenceType = (state.selectedType || "").trim();
+    const colorLabel = (state.color || "").trim();
+    const locationLabel = (state.quoteAddress || "").trim();
+
+    // Totals (privateTotal already includes gates)
+    const fencePrivateOnly = Math.max(0, privateTotal - gateTotal);
+
+    const taxLines = state.applyTax
+      ? `- Tax (${taxRatePct.toFixed(2)}%): ${moneyCAD(taxAmount)}\n- Total: ${moneyCAD(grandTotal)}`
+      : "";
+
+    const template =
+`Fence Quote Summary
+
+Location: ${locationLabel || "—"}
+Fence Type: ${fenceType || "—"}
+Color: ${colorLabel || "—"}
+Gates: ${gateCount}
+
+Lengths & line totals:
+${lines.length ? lines.join("\n") : "- (No lengths entered)"}
+
+Totals:
+- Private fence: ${moneyCAD(fencePrivateOnly)}
+- Shared fence: ${moneyCAD(sharedTotal)}
+- Gates: ${moneyCAD(gateTotal)}
+- Subtotal: ${moneyCAD(preTaxTotal)}${state.applyTax ? "" : " (before tax)"}
+${taxLines}
+
+Deposit (10% incl. tax): ${moneyCAD(deposit10)}
+`;
+
+    $("quoteText").value = template;
+
+  }
+
+  function resetCalculator(){
+    const preservedPricing = structuredClone(state.pricing); // keep pricing edits
+
+    const fresh = structuredClone(DEFAULTS);
+    state.quoteAddress = fresh.quoteAddress;
+    state.color = fresh.color;
+    state.gateSideKey = fresh.gateSideKey;
+    state.mToFt = fresh.mToFt;
+    state.roundInc = fresh.roundInc;
+    state.extendAdd = fresh.extendAdd;
+    state.taxRate = fresh.taxRate;
+    state.applyTax = fresh.applyTax;
+    state.gateCount = fresh.gateCount;
+    state.segments = structuredClone(fresh.segments);
+
+    state.pricing = preservedPricing;
+    state.selectedType = state.pricing[0]?.type || "PVC";
+
+    // ensure feet values are consistent with meters (defaults)
+    state.segments.forEach(seg => {
+      seg.feet = metersToFeet(seg.meters);
+      seg.lastEdited = "meters";
+    });
+
+    ensureValidColor();
+
+    renderFenceTypeDropdown();
+    renderGateSideDropdown();
+    renderColorDropdown();
+    renderSegmentsTable();
+    syncSelectedPricingInputs();
+    syncUI();
+    recalc();
+  }
+
+  function resetPricingToDefaults(){
+    try { localStorage.removeItem(LS_PRICING_KEY); } catch {}
+    state.pricing = structuredClone(DEFAULTS.pricing);
+    state.selectedType = state.pricing[0].type;
+
+    renderFenceTypeDropdown();
+    renderPricingTable();
+    syncSelectedPricingInputs();
+    ensureValidColor();
+    renderColorDropdown();
+    recalc();
+    alert("Pricing reset to defaults.");
+  }
+
+  function saveCurrentQuote(){
+    const saved = loadSavedQuotes();
+    const name = ($("saveQuoteName").value || "").trim();
+
+    const item = {
+      id: Math.floor(Date.now() + Math.random() * 1000),
+      createdAt: Date.now(),
+      name,
+      location: (state.quoteAddress || "").trim(),
+      selectedType: state.selectedType,
+      grandTotalText: $("grandTotal").textContent,
+      depositText: $("depositTotal").textContent,
+      quoteText: $("quoteText").value,
+      snapshot: getSnapshot()
+    };
+
+    const next = [item, ...saved].slice(0, 10);
+    saveSavedQuotes(next);
+
+    $("saveQuoteName").value = "";
+    renderSavedQuotesList();
+    alert("Quote saved.");
+  }
+
+  async function copyText(text, label){
+    try { await navigator.clipboard.writeText(text); alert(label); }
+    catch { prompt("Copy this text:", text); }
+  }
+
+  function bindEventsOnce(){
+    $("quoteAddress").addEventListener("input", (e) => { state.quoteAddress = String(e.target.value || ""); recalc(); });
+
+    $("colorSelect").addEventListener("change", (e) => {
+      state.color = String(e.target.value || "");
+      recalc();
+    });
+
+    $("fenceType").addEventListener("change", (e) => {
+      state.selectedType = String(e.target.value || "PVC");
+      ensureValidColor();
+      renderColorDropdown();
+      syncSelectedPricingInputs();
+      recalc();
+    });
+
+    $("gateSide").addEventListener("change", (e) => { state.gateSideKey = String(e.target.value || "back"); recalc(); });
+
+    // if conversion factor changes, re-sync the other unit based on whichever field was last edited
+    $("mToFt").addEventListener("input", (e) => {
+      state.mToFt = safeNum(e.target.value) || DEFAULTS.mToFt;
+
+      state.segments.forEach(seg => {
+        if (seg.lastEdited === "feet"){
+          seg.meters = feetToMeters(seg.feet);
+        } else {
+          seg.feet = metersToFeet(seg.meters);
+        }
+      });
+
+      renderSegmentsTable();
+      recalc();
+    });
+
+    $("roundInc").addEventListener("input", (e) => { state.roundInc = safeNum(e.target.value) || DEFAULTS.roundInc; recalc(); });
+    $("extendAdd").addEventListener("input", (e) => { state.extendAdd = safeNum(e.target.value) || DEFAULTS.extendAdd; recalc(); });
+
+    $("pricePerFt").addEventListener("input", (e) => {
+      const p = getPricingForType(state.selectedType);
+      p.pricePerFt = safeNum(e.target.value);
+      savePricingToLocal();
+      renderPricingTable();
+      recalc();
+    });
+
+    $("gatePrice").addEventListener("input", (e) => {
+      const p = getPricingForType(state.selectedType);
+      p.gatePrice = safeNum(e.target.value);
+      savePricingToLocal();
+      renderPricingTable();
+      recalc();
+    });
+
+    $("gateCount").addEventListener("input", (e) => { state.gateCount = Math.max(0, Math.floor(safeNum(e.target.value))); recalc(); });
+
+    $("taxRate").addEventListener("input", (e) => { state.taxRate = safeNum(e.target.value); recalc(); });
+    $("applyTax").addEventListener("change", (e) => { state.applyTax = !!e.target.checked; recalc(); });
+
+    resetBtn.addEventListener("click", () => {
+  const inSlugMode = !!getContractorSlugFromUrl();
+
+  if (inSlugMode && CONTRACTOR_DEFAULTS) {
+    // reset everything BUT use contractor defaults
+    const keepPricing = JSON.parse(JSON.stringify(CONTRACTOR_DEFAULTS.pricing));
+
+    // reset state like your normal reset does...
+    Object.assign(state, structuredClone(DEFAULTS));
+
+    // then re-apply contractor defaults
+    state.pricing = keepPricing;
+    state.taxRate = CONTRACTOR_DEFAULTS.taxRate;
+    state.applyTax = CONTRACTOR_DEFAULTS.applyTax;
+    state.roundInc = CONTRACTOR_DEFAULTS.roundInc;
+    state.extendAdd = CONTRACTOR_DEFAULTS.extendAdd;
+    state.rangePct = CONTRACTOR_DEFAULTS.rangePct;
+    state.selectedType = CONTRACTOR_DEFAULTS.selectedType;
+
+    // rerender whatever your reset normally rerenders
+    ensureValidColor();
+    renderFenceTypeDropdown();
+    renderColorDropdown();
+    renderSegmentsTable();
+    recalc();
+    syncAllInputsFromState();
+    return;
+  }
+
+  // no slug mode → keep your existing reset behavior
+  // (leave your current reset code here)
+});
+
+    $("copyQuoteBtn").addEventListener("click", () => copyText($("quoteText").value, "Quote Text copied."));
+    $("copyBreakdownBtn").addEventListener("click", () => {
+      const pricing = getPricingForType(state.selectedType);
+      const short =
+        `Fence Quote Breakdown\n` +
+        `Location: ${(state.quoteAddress||"").trim() || "(blank)"}\n` +
+        `Type: ${state.selectedType}\n` +
+        `Price: ${moneyCAD(safeNum(pricing.pricePerFt))}/ft\n` +
+        `Gates: x${state.gateCount} @ ${moneyCAD(safeNum(pricing.gatePrice))}\n` +
+        `Grand: ${$("grandTotal").textContent}\n` +
+        `10% Deposit (incl. tax): ${$("depositTotal").textContent}\n`;
+      copyText(short, "Breakdown copied.");
+    });
+
+    $("saveQuoteBtn").addEventListener("click", saveCurrentQuote);
+
+    $("clearSavedBtn").addEventListener("click", () => {
+      if (!confirm("Clear all saved quotes?")) return;
+      saveSavedQuotes([]);
+      renderSavedQuotesList();
+    });
+  }
+
+  // ========= Init =========
+  const slug = getContractorSlugFromUrl();
+
+  if (slug) {
+    try {
+      const { contractor, cfg } = await fetchContractorConfigBySlug(slug);
+      applyBrand(contractor);
+       // ✅ SHOW LOGO (if contractor has one)
+    const logoEl = document.getElementById("brandLogo");
+    if (logoEl && contractor?.logo_url) {
+      logoEl.src = contractor.logo_url;
+      logoEl.style.display = "block";
+    } else if (logoEl) {
+      logoEl.style.display = "none";
+    }
+    // ✅ Set page title + header title to contractor company name
+if (contractor?.company_name) {
+  document.title = contractor.company_name + " | Fence Quote Calculator";
+  const h1 = document.querySelector(".header h1");
+  if (h1) h1.textContent = contractor.company_name + " | Fence Quote Calculator";
+}
+// Enable Copy Share Link button in slug mode
+const copyBtn = document.getElementById("copyShareBtn");
+if (copyBtn) {
+  copyBtn.style.display = "inline-block";
+  copyBtn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      copyBtn.textContent = "Copied!";
+      setTimeout(() => (copyBtn.textContent = "Copy Share Link"), 1200);
+    } catch {
+      prompt("Copy this link:", window.location.href);
+    }
+  });
+}
+
+      applyConfig(cfg);
+      CONTRACTOR_DEFAULTS = {
+  pricing: JSON.parse(JSON.stringify(state.pricing)),
+  taxRate: state.taxRate,
+  applyTax: state.applyTax,
+  roundInc: state.roundInc,
+  extendAdd: state.extendAdd,
+  rangePct: state.rangePct,
+  selectedType: state.selectedType
+};
+    } catch (e) {
+      console.error("Failed to load contractor config:", e);
+      // fallback to local pricing if contractor fetch fails
+      loadPricingFromLocal();
+    }
+  } else {
+    // no contractor slug → behave like your current site
+    loadPricingFromLocal();
+  }
+
+  ensureValidColor();
+
+  // make sure feet is initialized from meters once at startup
+  state.segments.forEach(seg => {
+    if (!Number.isFinite(seg.feet)) seg.feet = 0;
+    if (!Number.isFinite(seg.meters)) seg.meters = 0;
+    // default: feet mirrors meters
+    seg.feet = metersToFeet(seg.meters);
+    seg.lastEdited = "meters";
+  });
+
+  renderFenceTypeDropdown();
+  renderGateSideDropdown();
+  renderColorDropdown();
+  renderPricingTable();
+  renderSegmentsTable();
+  renderSavedQuotesList();
+
+  syncUI();
+  bindEventsOnce();
+  recalc();
+
+// ========= Tabs =========
+
+
+    
+// ========= Map Measure (Google Maps) =========
+  // Paste your restricted browser key here (restrict by HTTP referrer to your domain, and enable:
+  // Maps JavaScript API + Places API (New) + Geometry library). Drawing library is NOT required for this simplified tool.
+  const GMAPS_API_KEY = "AIzaSyBvS2TKATn5MMs9fmjAKB0n1i33mix6GoU";
+
+  const fenceMap = {
+    map: null,
+    geocoder: null,
+    autocomplete: null,
+
+    // fence selection (applies to ALL lines)
+    selectedType: "PVC",
+    color: "White",
+    // [{ id, polyline, label }]
+    lines: [],
+    nextId: 1,
+
+    // in-progress
+    startLatLng: null,
+    tempLine: null,
+
+    // guards
+    mapListenersBound: false,
+    keyListenerBound: false
+  };
+
+
+
+  async function loadGoogleMapsScript(apiKey){
+    return new Promise((resolve, reject) => {
+      if (window.google && window.google.maps){
+        resolve();
+        return;
+      }
+
+      const existing = document.getElementById("gmapsScript");
+      if (existing){
+        existing.addEventListener("load", resolve);
+        existing.addEventListener("error", () => reject(new Error("Google Maps failed to load")));
+        return;
+      }
+
+      window.__initFenceMap = () => resolve();
+
+      const s = document.createElement("script");
+      s.id = "gmapsScript";
+      s.async = true;
+      s.defer = true;
+      // NOTE: places + geometry are required for autocomplete + distance calculations
+      s.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(apiKey) + "&libraries=places,geometry&callback=__initFenceMap";
+      s.onerror = () => reject(new Error("Google Maps failed to load"));
+      document.head.appendChild(s);
+    });
+  }
+
+  function setMapStatus(msg){
+    const el = document.getElementById("mapStatus");
+    if (el) el.textContent = msg;
+  }
+
+  function metersToFeetForMap(m){ return (Number(m) || 0) * (Number(state.mToFt) || 0); }
+
+  function segmentFeet(a, b){
+    const meters = google.maps.geometry.spherical.computeDistanceBetween(a, b);
+    return metersToFeetForMap(meters);
+  }
+
+  // ===== Distance label overlay (HTML pill with background) =====
+  function makeDistanceLabel(position, text){
+    // Google Maps may not be loaded until the Map tab is opened.
+    // Define the OverlayView class lazily to avoid ReferenceError on page load.
+    if (!fenceMap._DistanceLabel){
+      fenceMap._DistanceLabel = class DistanceLabel extends google.maps.OverlayView {
+        constructor(position, text){
+          super();
+          this.position = position;
+          this.text = text;
+          this.div = null;
+        }
+        onAdd(){
+          this.div = document.createElement("div");
+          this.div.style.position = "absolute";
+          this.div.style.background = "rgba(0,0,0,0.75)";
+          this.div.style.color = "#ffffff";
+          this.div.style.padding = "4px 8px";
+          this.div.style.borderRadius = "6px";
+          this.div.style.fontSize = "13px";
+          this.div.style.fontWeight = "800";
+          this.div.style.whiteSpace = "nowrap";
+          this.div.style.transform = "translate(-50%, -50%)";
+          this.div.style.pointerEvents = "none";
+          this.div.style.boxShadow = "0 2px 6px rgba(0,0,0,0.35)";
+          this.div.textContent = this.text;
+          this.div.style.zIndex = "9999";
+      this.getPanes().floatPane.appendChild(this.div);
+        }
+        draw(){
+          const projection = this.getProjection();
+          const point = projection.fromLatLngToDivPixel(this.position);
+          if (point && this.div){
+            this.div.style.left = point.x + "px";
+            this.div.style.top = point.y + "px";
+          }
+        }
+        onRemove(){
+          if (this.div){
+            this.div.remove();
+            this.div = null;
+          }
+        }
+      };
+    }
+    const label = new fenceMap._DistanceLabel(position, text);
+    label.setMap(fenceMap.map);
+    return label;
+  }
+
+
+
+  function ensureValidMapColor(){
+    if (!typeUsesColor(fenceMap.selectedType)){ fenceMap.color = ""; return; }
+    const colors = getColorsForType(fenceMap.selectedType);
+    if (!colors.includes(fenceMap.color)) fenceMap.color = colors[0];
+  }
+
+  function renderMapFenceTypeDropdown(){
+    const sel = document.getElementById("mapFenceType");
+    if (!sel) return;
+    sel.innerHTML = "";
+    state.pricing.forEach(p => {
+      const opt = document.createElement("option");
+      opt.value = p.type;
+      opt.textContent = p.type;
+      sel.appendChild(opt);
+    });
+    sel.value = fenceMap.selectedType || state.pricing[0]?.type || "PVC";
+  }
+
+  function renderMapColorDropdown(){
+    const sel = document.getElementById("mapColorSelect");
+    const label = document.getElementById("mapColorLabel");
+    if (!sel || !label) return;
+
+    if (!typeUsesColor(fenceMap.selectedType)){
+      label.textContent = "Colour (N/A)";
+      sel.innerHTML = "";
+      sel.disabled = true;
+      fenceMap.color = "";
+      return;
+    }
+
+    ensureValidMapColor();
+    const colors = getColorsForType(fenceMap.selectedType);
+
+    label.textContent = "Colour";
+    sel.disabled = false;
+    sel.innerHTML = "";
+    colors.forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c;
+      opt.textContent = c;
+      sel.appendChild(opt);
+    });
+    sel.value = fenceMap.color;
+  }
+
+  function syncMapPriceDisplay(){
+    const el = document.getElementById("mapPricePerFt");
+    if (!el) return;
+    const p = getPricingForType(fenceMap.selectedType);
+    const val = Number(p?.pricePerFt || 0);
+    el.textContent = `$${val.toFixed(2)}`;
+  }
+
+  function initMapFenceControls(){
+    renderMapFenceTypeDropdown();
+    // default map selection mirrors calculator selection (if present)
+    fenceMap.selectedType = state.selectedType || fenceMap.selectedType || "PVC";
+    fenceMap.color = state.color || fenceMap.color || "";
+
+    renderMapFenceTypeDropdown();
+    renderMapColorDropdown();
+    syncMapPriceDisplay();
+
+    const typeSel = document.getElementById("mapFenceType");
+    const colorSel = document.getElementById("mapColorSelect");
+
+    if (typeSel && !typeSel.__bound){
+      typeSel.__bound = true;
+      typeSel.addEventListener("change", (e) => {
+        fenceMap.selectedType = String(e.target.value || "PVC");
+        ensureValidMapColor();
+        renderMapColorDropdown();
+        syncMapPriceDisplay();
+        renderMapLinesList();
+      });
+    }
+
+    if (colorSel && !colorSel.__bound){
+      colorSel.__bound = true;
+      colorSel.addEventListener("change", (e) => {
+        fenceMap.color = String(e.target.value || "");
+        renderMapLinesList();
+      });
+    }
+  }
+
+function renderMapLinesList(){
+    const listEl = document.getElementById("mapLinesList");
+    const emptyEl = document.getElementById("mapLinesEmpty");
+    const totalEl = document.getElementById("mapLinesTotal");
+    if (!listEl || !emptyEl || !totalEl) return;
+
+    listEl.innerHTML = "";
+
+    if (!fenceMap.lines.length){
+      emptyEl.style.display = "block";
+      totalEl.textContent = "Total: 0.0 ft • $0.00";
+      return;
+    }
+    emptyEl.style.display = "none";
+
+    const currentType = fenceMap.selectedType;
+    const currentColor = fenceMap.color;
+    const currentPricing = getPricingForType(currentType);
+    const currentPricePerFt = Number(currentPricing?.pricePerFt || 0);
+
+    let totalFeet = 0;
+    let totalCost = 0;
+    for (const seg of fenceMap.lines){
+      totalFeet += (seg.feet || 0);
+      const segCost = (seg.feet || 0) * currentPricePerFt;
+      totalCost += segCost;
+      const row = document.createElement("button");
+      row.type = "button";
+      row.style.display = "flex";
+      row.style.width = "100%";
+      row.style.justifyContent = "space-between";
+      row.style.alignItems = "center";
+      row.style.gap = "10px";
+      row.style.padding = "10px";
+      row.style.border = "1px solid var(--line)";
+      row.style.borderRadius = "12px";
+      row.style.background = "var(--card, #fff)";
+      row.style.cursor = "pointer";
+      row.title = "Pan/zoom to this line";
+
+      const left = document.createElement("div");
+      left.style.display = "flex";
+      left.style.flexDirection = "column";
+      left.style.alignItems = "flex-start";
+
+      const title = document.createElement("div");
+      title.style.fontWeight = "700";
+      title.textContent = `Line ${seg.id}`;
+
+      const sub = document.createElement("div");
+      sub.className = "muted";
+      sub.style.fontSize = "12px";
+      sub.textContent = `${(currentType || "").trim() ? (currentType + (currentColor ? " • " + currentColor : "")) + " • " : ""}${(seg.feet || 0).toFixed(1)} ft • $${(segCost || 0).toFixed(2)}`;
+
+      left.appendChild(title);
+      left.appendChild(sub);
+
+      const del = document.createElement("span");
+      del.className = "chip";
+      del.textContent = "Remove";
+      del.style.userSelect = "none";
+
+      row.appendChild(left);
+      row.appendChild(del);
+
+      row.addEventListener("click", (e) => {
+        // If user clicks the "Remove" chip area, delete this segment
+        const rect = del.getBoundingClientRect();
+        if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom){
+          removeMapLineById(seg.id);
+          return;
+        }
+        focusMapLine(seg);
+      });
+
+      listEl.appendChild(row);
+    }
+
+    totalEl.textContent = `Total: ${totalFeet.toFixed(1)} ft • $${totalCost.toFixed(2)}`;
+  }
+
+  // allow calculator pricing edits to re-price the map list in real time
+  try {
+    window.__mapRepriceAll = () => {
+      try { syncMapPriceDisplay(); } catch (e) {}
+      try { renderMapLinesList(); } catch (e) {}
+    };
+  } catch (e) {}
+
+function focusMapLine(seg){
+    if (!fenceMap.map || !seg?.polyline) return;
+    const path = seg.polyline.getPath();
+    if (path.getLength() < 2) return;
+    const bounds = new google.maps.LatLngBounds();
+    bounds.extend(path.getAt(0));
+    bounds.extend(path.getAt(1));
+    fenceMap.map.fitBounds(bounds, 80);
+  }
+
+function removeMapLineById(id){
+    const idx = fenceMap.lines.findIndex(l => l.id === id);
+    if (idx === -1) return;
+    const seg = fenceMap.lines[idx];
+    fenceMap.lines.splice(idx, 1);
+    try { seg.polyline?.setMap(null); } catch {}
+    try { seg.label?.setMap(null); } catch {}
+    renderMapLinesList();
+  }
+
+function clearMapLines(){
+    // remove finished lines
+    for (const l of fenceMap.lines){
+      try { l.polyline.setMap(null); } catch {}
+      try { l.label.setMap(null); } catch {}
+    }
+    fenceMap.lines = [];
+
+    // remove any in-progress line
+    cancelInProgressLine();
+
+    renderMapLinesList();
+
+    setMapStatus("Ready: click a start point");
+  }
+
+  function undoLastMapLine(){
+    const last = fenceMap.lines.pop();
+    if (!last) return;
+    try { last.polyline.setMap(null); } catch {}
+    try { last.label.setMap(null); } catch {}
+    renderMapLinesList();
+  }
+
+  function cancelInProgressLine(){
+    fenceMap.startLatLng = null;
+    if (fenceMap.tempLine){
+      try { fenceMap.tempLine.setMap(null); } catch {}
+      fenceMap.tempLine = null;
+    }
+  }
+
+  
+function onFenceMapClick(pt){
+    if (!pt || !fenceMap.map) return;
+
+    if (!fenceMap.startLatLng){
+      fenceMap.startLatLng = pt;
+
+      // start a temporary preview line
+      fenceMap.tempLine = new google.maps.Polyline({
+        map: fenceMap.map,
+        path: [pt, pt],
+        geodesic: true,
+        strokeColor: "#FFD400",
+        strokeOpacity: 0.6,
+        strokeWeight: 4,
+        clickable: false
+      });
+
+      setMapStatus("Pick an end point (click again)");
+      return;
+    }
+
+    // second click => finalize one segment
+    const start = fenceMap.startLatLng;
+    const end = pt;
+
+    // cleanup preview
+    if (fenceMap.tempLine){
+      try { fenceMap.tempLine.setMap(null); } catch {}
+      fenceMap.tempLine = null;
+    }
+    fenceMap.startLatLng = null;
+
+    const polyline = new google.maps.Polyline({
+      map: fenceMap.map,
+      path: [start, end],
+      geodesic: true,
+      strokeColor: "#FFD400",
+      strokeOpacity: 1,
+      strokeWeight: 6,
+      clickable: true
+    });
+
+    const feet = segmentFeet(start, end);
+
+
+    const mid = google.maps.geometry.spherical.interpolate(start, end, 0.5);
+    const label = makeDistanceLabel(mid, `${feet.toFixed(1)} ft`);
+
+    fenceMap.lines.push({
+      id: fenceMap.nextId++,
+      polyline,
+      label,
+      feet
+    });
+
+    // allow clicking on existing lines to start/end segments
+    polyline.addListener("click", (ev) => {
+      try { onFenceMapClick(ev.latLng); } catch {}
+    });
+
+    renderMapLinesList();
+    setMapStatus("Ready: click a start point");
+  }
+
+function bindMapDrawing(){
+    if (!fenceMap.map || fenceMap.mapListenersBound) return;
+    fenceMap.mapListenersBound = true;
+
+    // click = start/end (also works when clicking on existing lines)
+    fenceMap.map.addListener("click", (e) => onFenceMapClick(e?.latLng));
+
+    // mousemove updates the preview line's end point
+    fenceMap.map.addListener("mousemove", (e) => {
+      if (!fenceMap.startLatLng || !fenceMap.tempLine) return;
+      const pt = e?.latLng;
+      if (!pt) return;
+      const path = fenceMap.tempLine.getPath();
+      path.setAt(1, pt);
+    });
+
+    // Esc cancels the current start point (global listener, but guarded)
+    if (!fenceMap.keyListenerBound){
+      fenceMap.keyListenerBound = true;
+      window.addEventListener("keydown", (ev) => {
+        if (ev.key !== "Escape") return;
+        // Only act if map tab is visible
+        const tabMap = document.getElementById("tabMap");
+        if (!tabMap || tabMap.style.display === "none") return;
+
+        cancelInProgressLine();
+        setMapStatus("Ready: click a start point");
+      });
+    }
+  }
+
+  function initFenceMap(){
+    // Map container must exist
+    const mapEl = document.getElementById("gmap");
+    if (!mapEl) return;
+
+    if (!fenceMap.map){
+      fenceMap.map = new google.maps.Map(mapEl, {
+        center: { lat: 45.273, lng: -75.915 }, // Stittsville-ish default
+        zoom: 18,
+        mapTypeId: "satellite",
+        tilt: 0,
+        streetViewControl: false,
+        fullscreenControl: true,
+        mapTypeControl: true
+      });
+
+      fenceMap.geocoder = new google.maps.Geocoder();
+
+      // Address search (autocomplete)
+      const searchInput = document.getElementById("gmapSearch");
+      const searchBtn = document.getElementById("gmapSearchBtn");
+
+      if (searchInput){
+        fenceMap.autocomplete = new google.maps.places.Autocomplete(searchInput, {
+          fields: ["geometry", "formatted_address"],
+          componentRestrictions: { country: ["ca"] }
+        });
+
+        fenceMap.autocomplete.addListener("place_changed", () => {
+          const place = fenceMap.autocomplete.getPlace();
+          if (!place || !place.geometry) return;
+          fenceMap.map.panTo(place.geometry.location);
+          fenceMap.map.setZoom(19);
+          if (place.formatted_address) searchInput.value = place.formatted_address;
+        });
+      }
+
+      function geocodeAndPan(){
+        const q = (searchInput?.value || "").trim();
+        if (!q) return;
+        fenceMap.geocoder.geocode({ address: q, componentRestrictions: { country: "CA" } }, (results, status) => {
+          if (status === "OK" && results && results[0] && results[0].geometry){
+            fenceMap.map.panTo(results[0].geometry.location);
+            fenceMap.map.setZoom(19);
+            if (searchInput) searchInput.value = results[0].formatted_address || q;
+          } else {
+            console.warn("Geocode failed:", status);
+          }
+        });
+      }
+
+      if (searchBtn) searchBtn.addEventListener("click", geocodeAndPan);
+      if (searchInput) searchInput.addEventListener("keydown", (ev) => {
+        if (ev.key !== "Enter") return;
+        ev.preventDefault();
+        geocodeAndPan();
+      });
+    }
+
+    // ensure drawing listeners are bound
+    bindMapDrawing();
+
+    // status
+    renderMapLinesList();
+
+    setMapStatus("Ready: click a start point");
+  }
+
+  // Called once when the Map tab is opened
+  function bindMapEvents(){
+    const clearBtn = document.getElementById("clearMapLinesBtn");
+    const undoBtn  = document.getElementById("undoMapLineBtn");
+
+    if (clearBtn) clearBtn.addEventListener("click", clearMapLines);
+    if (undoBtn)  undoBtn.addEventListener("click", undoLastMapLine);
+
+    initMapFenceControls();
+
+    const apiKey = (GMAPS_API_KEY || "").trim();
+    if (!apiKey || apiKey === "YOUR_RESTRICTED_KEY_HERE"){
+      alert("Google Maps key is not set. Edit the file and set GMAPS_API_KEY (restricted to your domain).");
+      return;
+    }
+
+    loadGoogleMapsScript(apiKey)
+      .then(() => initFenceMap())
+      .catch((e) => {
+        console.error(e);
+        alert("Google Maps failed to load. Check billing, enabled APIs (Maps JavaScript + Places), and HTTP referrer restrictions.");
+      });
+  }
+
+const btnCalc = document.getElementById("tabBtnCalc");
+  const btnSurvey = document.getElementById("tabBtnSurvey");
+  const btnMap = document.getElementById("tabBtnMap");
+
+  const tabCalc = document.getElementById("tabCalc");
+  const tabSurvey = document.getElementById("tabSurvey");
+  const tabMap = document.getElementById("tabMap");
+
+  let surveyBound = false;
+  let mapBound = false;
+
+  function showTab(which){
+    const isCalc = which === "calc";
+    const isSurvey = which === "survey";
+    const isMap = which === "map";
+
+    tabCalc.style.display = isCalc ? "" : "none";
+    tabSurvey.style.display = isSurvey ? "" : "none";
+    tabMap.style.display = isMap ? "" : "none";
+
+    btnCalc.classList.toggle("active", isCalc);
+    btnSurvey.classList.toggle("active", isSurvey);
+    btnMap.classList.toggle("active", isMap);
+
+    if (isSurvey && !surveyBound){
+      surveyBound = true;
+      try { bindSurveyEvents(); } catch (e) { console.error(e); }
+    }
+    if (isMap && !mapBound){
+      mapBound = true;
+      try { bindMapEvents(); } catch (e) { console.error(e); }
+}
+    if (isMap){
+}
+    window.__showTab = showTab;
+  }
+
+  btnCalc.addEventListener("click", () => showTab("calc"));
+  btnSurvey.addEventListener("click", () => showTab("survey"));
+  btnMap.addEventListener("click", () => showTab("map"));
+
+  showTab("calc");
+})();
+
+// ========= Survey Drawer (LAYOUT ONLY / NO MEASUREMENTS) =========
+const survey = {
+  canvas: null,
+  ctx: null,
+  img: null,
+  imgW: 0,
+  imgH: 0,
+  scale: 1,
+  minScale: 0.2,
+  maxScale: 6,
+  offsetX: 0,
+  offsetY: 0,
+  currentPoints: [],
+  drawing: false,
+  panning: false,
+  spaceDown: false,
+  lastMouse: {x:0,y:0},
+  lines: [],
+  pdf: { doc: null, pageNum: 1, pageCount: 0 }
+};
+
+function getLineColor(type){
+  if (type === "shared") return "rgba(34,197,94,0.95)";
+  if (type === "gate")   return "rgba(239,68,68,0.95)";
+  return "rgba(37,99,235,0.95)";
+}
+
+function screenToImage(pt){
+  const ix = (pt.x - survey.offsetX) / survey.scale;
+  const iy = (pt.y - survey.offsetY) / survey.scale;
+  return { x: ix, y: iy };
+}
+function imageToScreen(pt){
+  return { x: pt.x * survey.scale + survey.offsetX, y: pt.y * survey.scale + survey.offsetY };
+}
+
+function clampView(){
+  if (!survey.img) return;
+  const c = survey.canvas;
+  const maxOver = 250;
+  const viewW = survey.imgW * survey.scale;
+  const viewH = survey.imgH * survey.scale;
+  const minX = -viewW + maxOver;
+  const maxX = c.width - maxOver;
+  const minY = -viewH + maxOver;
+  const maxY = c.height - maxOver;
+  survey.offsetX = Math.min(maxX, Math.max(minX, survey.offsetX));
+  survey.offsetY = Math.min(maxY, Math.max(minY, survey.offsetY));
+}
+
+function fitImageToCanvas(){
+  if (!survey.img) return;
+  const c = survey.canvas;
+  const pad = 20;
+  const scaleX = (c.width - pad*2) / survey.imgW;
+  const scaleY = (c.height - pad*2) / survey.imgH;
+  survey.scale = Math.max(survey.minScale, Math.min(survey.maxScale, Math.min(scaleX, scaleY)));
+  const viewW = survey.imgW * survey.scale;
+  const viewH = survey.imgH * survey.scale;
+  survey.offsetX = (c.width - viewW) / 2;
+  survey.offsetY = (c.height - viewH) / 2;
+}
+
+function setZoom(newScale, anchorScreenPt=null){
+  const c = survey.canvas;
+  const oldScale = survey.scale;
+  const clamped = Math.max(survey.minScale, Math.min(survey.maxScale, newScale));
+  if (clamped === oldScale) return;
+  const anchor = anchorScreenPt || { x: c.width/2, y: c.height/2 };
+  const before = screenToImage(anchor);
+  survey.scale = clamped;
+  const afterScreen = imageToScreen(before);
+  survey.offsetX += (anchor.x - afterScreen.x);
+  survey.offsetY += (anchor.y - afterScreen.y);
+  clampView();
+  drawSurvey();
+}
+
+function drawSurvey(){
+  const c = survey.canvas;
+  const ctx = survey.ctx;
+  ctx.clearRect(0,0,c.width,c.height);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0,0,c.width,c.height);
+
+  if (survey.img){
+    ctx.drawImage(survey.img, survey.offsetX, survey.offsetY, survey.imgW * survey.scale, survey.imgH * survey.scale);
+  } else {
+    ctx.fillStyle = "#6b7280";
+    ctx.font = "16px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+    ctx.fillText("Optional: upload a lot survey image/PDF, then sketch fence lines.", 20, 40);
+  }
+
+  for (const line of survey.lines){
+    const color = getLineColor(line.type);
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = (line.type === "gate") ? 5 : 4;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+
+    if (line.points.length >= 2){
+      ctx.beginPath();
+      const first = imageToScreen(line.points[0]);
+      ctx.moveTo(first.x, first.y);
+      for (let i=1;i<line.points.length;i++){
+        const p = imageToScreen(line.points[i]);
+        ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+    }
+
+    if (line.type === "gate" && line.points.length){
+      const p = imageToScreen(line.points[0]);
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 7, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  if (survey.currentPoints.length){
+    const type = document.getElementById("drawType")?.value || "private";
+    const color = getLineColor(type);
+
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = (type === "gate") ? 5 : 4;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+
+    ctx.beginPath();
+    const first = imageToScreen(survey.currentPoints[0]);
+    ctx.moveTo(first.x, first.y);
+    for (let i=1;i<survey.currentPoints.length;i++){
+      const p = imageToScreen(survey.currentPoints[i]);
+      ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+
+    ctx.fillStyle = color;
+    for (const pt of survey.currentPoints){
+      const p = imageToScreen(pt);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 4, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+function cancelCurrentLine(){
+  survey.currentPoints = [];
+  survey.drawing = false;
+  drawSurvey();
+}
+function undoLastPoint(){
+  if (survey.currentPoints.length){
+    survey.currentPoints.pop();
+    drawSurvey();
+  }
+}
+function finishCurrentLine(){
+  if (survey.currentPoints.length < 2){
+    cancelCurrentLine();
+    return;
+  }
+  const type = document.getElementById("drawType")?.value || "private";
+  survey.lines.push({ type, points: survey.currentPoints.slice() });
+  survey.currentPoints = [];
+  survey.drawing = false;
+  drawSurvey();
+}
+function clearSurveyAll(){
+  survey.lines = [];
+  survey.currentPoints = [];
+  survey.drawing = false;
+  drawSurvey();
+}
+function downloadSurveyPNG(){
+  const a = document.createElement("a");
+  a.download = "fence-layout.png";
+  a.href = survey.canvas.toDataURL("image/png");
+  a.click();
+}
+
+async function loadSurveyFile(file){
+  if (!file) return;
+
+  if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")){
+    if (!window.pdfjsLib){
+      alert("PDF support failed to load. Please upload an image instead.");
+      return;
+    }
+    const arrayBuf = await file.arrayBuffer();
+    const doc = await pdfjsLib.getDocument({ data: arrayBuf }).promise;
+    survey.pdf.doc = doc;
+    survey.pdf.pageCount = doc.numPages;
+    survey.pdf.pageNum = 1;
+    await renderPdfPageToImage(1);
+    return;
+  }
+
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    survey.img = img;
+    survey.imgW = img.naturalWidth;
+    survey.imgH = img.naturalHeight;
+    fitImageToCanvas();
+    clampView();
+    drawSurvey();
+  };
+  img.src = url;
+}
+
+async function renderPdfPageToImage(pageNum){
+  const doc = survey.pdf.doc;
+  if (!doc) return;
+
+  const page = await doc.getPage(pageNum);
+  const viewport = page.getViewport({ scale: 2.0 });
+
+  const tmpCanvas = document.createElement("canvas");
+  const tmpCtx = tmpCanvas.getContext("2d");
+  tmpCanvas.width = Math.floor(viewport.width);
+  tmpCanvas.height = Math.floor(viewport.height);
+
+  await page.render({ canvasContext: tmpCtx, viewport }).promise;
+
+  const img = new Image();
+  img.onload = () => {
+    survey.img = img;
+    survey.imgW = img.naturalWidth;
+    survey.imgH = img.naturalHeight;
+    fitImageToCanvas();
+    clampView();
+    drawSurvey();
+  };
+  img.src = tmpCanvas.toDataURL("image/png");
+}
+
+function bindSurveyEvents(){
+  survey.canvas = document.getElementById("surveyCanvas");
+  survey.ctx = survey.canvas.getContext("2d");
+
+  drawSurvey();
+
+  document.getElementById("surveyUpload").addEventListener("change", async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    await loadSurveyFile(file);
+  });
+
+  document.getElementById("undoLinePoint").addEventListener("click", undoLastPoint);
+  document.getElementById("cancelLine").addEventListener("click", cancelCurrentLine);
+  document.getElementById("clearSurvey").addEventListener("click", () => {
+    if (!confirm("Clear all drawn lines?")) return;
+    clearSurveyAll();
+  });
+  document.getElementById("downloadLayout").addEventListener("click", downloadSurveyPNG);
+
+  document.getElementById("zoomIn").addEventListener("click", () => setZoom(survey.scale * 1.15));
+  document.getElementById("zoomOut").addEventListener("click", () => setZoom(survey.scale / 1.15));
+  document.getElementById("zoomReset").addEventListener("click", () => {
+    if (!survey.img) return;
+    fitImageToCanvas();
+    clampView();
+    drawSurvey();
+  });
+
+  window.addEventListener("keydown", (e) => {
+    if (e.code === "Space") survey.spaceDown = true;
+    if (e.key === "Escape") cancelCurrentLine();
+    if (e.key === "z" || e.key === "Z") undoLastPoint();
+  });
+  window.addEventListener("keyup", (e) => {
+    if (e.code === "Space") survey.spaceDown = false;
+  });
+
+  survey.canvas.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const rect = survey.canvas.getBoundingClientRect();
+    const pt = {
+      x: (e.clientX - rect.left) * (survey.canvas.width / rect.width),
+      y: (e.clientY - rect.top) * (survey.canvas.height / rect.height)
+    };
+    const factor = e.deltaY < 0 ? 1.12 : 1/1.12;
+    setZoom(survey.scale * factor, pt);
+  }, { passive:false });
+
+  survey.canvas.addEventListener("mousedown", (e) => {
+    const rect = survey.canvas.getBoundingClientRect();
+    const pt = {
+      x: (e.clientX - rect.left) * (survey.canvas.width / rect.width),
+      y: (e.clientY - rect.top) * (survey.canvas.height / rect.height)
+    };
+    survey.lastMouse = pt;
+    if (survey.spaceDown){
+      survey.panning = true;
+    }
+  });
+
+  survey.canvas.addEventListener("mousemove", (e) => {
+    if (!survey.panning) return;
+    const rect = survey.canvas.getBoundingClientRect();
+    const pt = {
+      x: (e.clientX - rect.left) * (survey.canvas.width / rect.width),
+      y: (e.clientY - rect.top) * (survey.canvas.height / rect.height)
+    };
+    const dx = pt.x - survey.lastMouse.x;
+    const dy = pt.y - survey.lastMouse.y;
+    survey.offsetX += dx;
+    survey.offsetY += dy;
+    survey.lastMouse = pt;
+    clampView();
+    drawSurvey();
+  });
+
+  survey.canvas.addEventListener("mouseup", () => { survey.panning = false; });
+  survey.canvas.addEventListener("mouseleave", () => { survey.panning = false; });
+
+  survey.canvas.addEventListener("click", (e) => {
+    if (survey.spaceDown) return;
+
+    const rect = survey.canvas.getBoundingClientRect();
+    const pt = {
+      x: (e.clientX - rect.left) * (survey.canvas.width / rect.width),
+      y: (e.clientY - rect.top) * (survey.canvas.height / rect.height)
+    };
+
+    const imgPt = survey.img ? screenToImage(pt) : { x: (pt.x - survey.offsetX) / survey.scale, y: (pt.y - survey.offsetY) / survey.scale };
+
+    if (survey.img){
+      if (imgPt.x < 0 || imgPt.y < 0 || imgPt.x > survey.imgW || imgPt.y > survey.imgH) return;
+    }
+
+    if (!survey.drawing){
+      survey.drawing = true;
+      survey.currentPoints = [];
+    }
+    survey.currentPoints.push(imgPt);
+    drawSurvey();
+  });
+
+  survey.canvas.addEventListener("dblclick", (e) => {
+    e.preventDefault();
+    finishCurrentLine();
+  });
+}
+</script>
+</body>
+</html>

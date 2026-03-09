@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contractor Login</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{
+      --bg0:#f6f8fc;
+      --bg1:#eef2ff;
+      --card:#ffffff;
+      --text:#0f172a;
+      --muted:#475569;
+      --line:#e2e8f0;
+      --accent:#2563eb;
+      --accent2:#0ea5e9;
+      --shadow: 0 24px 70px rgba(2, 6, 23, .10);
+    }
+    *{box-sizing:border-box;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;}
+    body{
+      margin:0;
+      background:
+        radial-gradient(900px 420px at 20% 10%, rgba(37,99,235,.12), transparent 55%),
+        radial-gradient(900px 420px at 90% 0%, rgba(14,165,233,.10), transparent 50%),
+        linear-gradient(180deg,var(--bg1),var(--bg0));
+      color:var(--text);
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+    }
+    .card{
+      width:min(520px,100%);
+      background:rgba(255,255,255,.92);
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:22px;
+      box-shadow:var(--shadow);
+      backdrop-filter:saturate(1.2) blur(8px);
+    }
+    h1{margin:0 0 6px 0; font-size:22px; letter-spacing:-.02em;}
+    p{margin:0 0 18px 0; color:var(--muted); font-size:14px; line-height:1.5;}
+    label{display:block; font-size:13px; color:var(--muted); margin:10px 0 6px;}
+    input{
+      width:100%;
+      padding:12px 12px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:#ffffff;
+      color:var(--text);
+      outline:none;
+    }
+    input:focus{
+      border-color:rgba(37,99,235,.7);
+      box-shadow:0 0 0 4px rgba(37,99,235,.12);
+    }
+    .row{display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;}
+    button{
+      flex:1;
+      min-width:180px;
+      padding:12px 14px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:#ffffff;
+      color:var(--text);
+      cursor:pointer;
+      font-weight:800;
+    }
+    button.primary{
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      color:#fff;
+      border-color:rgba(2,6,23,.05);
+      box-shadow:0 10px 26px rgba(37,99,235,.18);
+    }
+    button:hover{filter:brightness(1.02);}
+    .status{margin-top:14px; font-size:13px; color:var(--muted); min-height:18px;}
+    .links{margin-top:14px; display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;}
+    a{color:var(--accent); text-decoration:none; font-size:13px; font-weight:700;}
+    a:hover{text-decoration:underline;}
+    code{color:#0b3aa4; background:#eff6ff; padding:1px 6px; border-radius:999px; border:1px solid #dbeafe;}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Contractor Login</h1>
+    <p>Log in to manage your pricing + branding, and get your own share link like <code>/c/your-name</code>.</p>
+
+    <label>Email</label>
+    <input id="email" type="email" placeholder="you@company.com" autocomplete="email" />
+
+    <label>Password</label>
+    <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
+
+    <div class="row">
+      <button class="primary" id="btnLogin">Log In</button>
+      <button id="btnSignup">Create Account</button>
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <div class="links">
+      <a href="./calculator.html">← Back to Calculator</a>
+      <a href="./dashboard.html">Go to Dashboard →</a>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://wgccfcslihixujwqjrhf.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_KSUqSxCmkf30d_Rjmh9ipw_RhrkrWdP";
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const $ = (id) => document.getElementById(id);
+    function setStatus(msg){ $("status").textContent = msg || ""; }
+
+    async function goDashboard(){
+      window.location.href = "./dashboard.html";
+    }
+
+    async function ensureAlreadyLoggedIn(){
+      const { data } = await sb.auth.getSession();
+      if (data?.session) goDashboard();
+    }
+    ensureAlreadyLoggedIn();
+
+    $("btnLogin").addEventListener("click", async () => {
+      setStatus("Logging in...");
+      const email = ($("email").value || "").trim();
+      const password = $("password").value || "";
+      try{
+        const { error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        setStatus("Success. Redirecting...");
+        goDashboard();
+      } catch(e){
+        setStatus(e?.message || "Login failed.");
+      }
+    });
+
+    $("btnSignup").addEventListener("click", async () => {
+      setStatus("Creating account...");
+      const email = ($("email").value || "").trim();
+      const password = $("password").value || "";
+      try{
+        const { error } = await sb.auth.signUp({ email, password });
+        if (error) throw error;
+        setStatus("Account created. Redirecting...");
+        goDashboard();
+      } catch(e){
+        setStatus(e?.message || "Signup failed.");
+      }
+    });
+  </script>
+</body>
+</html>

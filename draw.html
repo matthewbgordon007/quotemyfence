@@ -1,0 +1,1108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fence Layout Drawer</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    :root {
+      --bg:#f6f7fb;
+      --card:#ffffff;
+      --text:#0f172a;
+      --muted:#5b6475;
+      --line:rgba(15,23,42,.12);
+      --soft:rgba(15,23,42,.04);
+      --accent:#14532D; /* default; contractor overrides */
+    }
+    *{ box-sizing:border-box; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    body{ margin:0; background:var(--bg); color:var(--text); }
+    .wrap{ max-width:1240px; margin:0 auto; padding:18px; }
+
+    .header{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:14px; flex-wrap:wrap;
+      margin-bottom:14px;
+    }
+    .brandLeft{ display:flex; align-items:center; gap:12px; }
+    #brandLogo{ height:44px; width:auto; display:none; border-radius:10px; background:#fff; border:1px solid var(--line); padding:6px; }
+    .titleBlock h1{ margin:0; font-size:22px; line-height:1.15; }
+    .titleBlock .sub{ margin-top:4px; color:var(--muted); font-size:13px; }
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:16px;
+      box-shadow:0 8px 24px rgba(15,23,42,.06);
+    }
+
+    .topControls{
+      display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;
+      padding:14px;
+    }
+    .field{ display:flex; flex-direction:column; gap:6px; min-width:220px; }
+    label{ font-size:12px; color:var(--muted); }
+    select, input{
+      padding:10px 12px; border-radius:12px; border:1px solid var(--line);
+      background:#fff; color:var(--text); outline:none;
+    }
+    select:focus, input:focus{
+      border-color: color-mix(in srgb, var(--accent) 55%, white);
+      box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+    }
+    .btn{
+      padding:10px 12px; border-radius:12px; border:1px solid var(--line);
+      background:var(--accent); color:#fff; cursor:pointer; font-weight:800;
+    }
+    .btn.ghost{
+      background:#fff; color:var(--text);
+    }
+    .chip{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 10px; border-radius:999px; border:1px solid var(--line);
+      background:var(--soft); color:var(--text); font-size:13px;
+    }
+    .estBox{
+      min-width:260px;
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background: color-mix(in srgb, var(--accent) 7%, white);
+    }
+    .estLabel{ font-size:12px; color:var(--muted); }
+    .estValue{ font-size:18px; font-weight:900; margin-top:2px; }
+
+    .leadBox{
+      min-width:320px;
+      padding:12px 12px;
+      border-radius:16px;
+      border:1px solid var(--line);
+      background:#fff;
+      box-shadow:0 10px 25px rgba(15,23,42,.06);
+    }
+    .leadTitle{ font-weight:900; margin-bottom:8px; }
+    .leadGrid{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+    @media (max-width: 980px){ .leadGrid{ grid-template-columns:1fr; } }
+
+    .grid{ display:grid; grid-template-columns: 1fr 340px; gap:14px; align-items:stretch; }
+    @media (max-width: 1050px){ .grid{ grid-template-columns:1fr; } }
+
+    /* Map canvas */
+    .mapCanvasWrap{ position:relative; width:100%; height:760px; }
+    #gmap{ width:100%; height:100%; border-radius:16px; border:1px solid var(--line); }
+
+    /* Overlay search (Google-like) */
+    .mapSearchOverlay{ position:absolute; top:14px; left:14px; z-index:5; display:flex; flex-direction:column; gap:6px; }
+    .mapSearchBox{
+      display:flex; align-items:center; gap:10px;
+      background:#fff; border:1px solid rgba(15,23,42,.12);
+      border-radius:999px; padding:10px 12px;
+      box-shadow:0 10px 25px rgba(15,23,42,.10);
+      min-width:360px; max-width:560px;
+    }
+    .mapSearchBox input{ border:none; outline:none; padding:0; flex:1; min-width:180px; }
+    .mapSearchIcon{ font-size:14px; opacity:.75; }
+    .mapSearchBox button{
+      border:1px solid rgba(15,23,42,.12);
+      border-radius:999px; padding:8px 12px; cursor:pointer;
+      background:var(--accent); color:#fff; font-weight:800;
+    }
+    .mapSearchHint{ font-size:12px; color:rgba(15,23,42,.60); text-shadow:0 1px 0 rgba(255,255,255,.85); }
+
+    /* Right panel */
+    .side{ padding:14px; }
+    .sideHead{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .sideHead .h{ font-weight:900; }
+    .muted{ color:var(--muted); font-size:12px; }
+    .list{ margin-top:10px; display:flex; flex-direction:column; gap:8px; }
+    .lineRow{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding:10px; border:1px solid var(--line); border-radius:12px; background:#fff;
+      cursor:pointer;
+    }
+    .pill{ padding:4px 10px; border-radius:999px; background:var(--soft); border:1px solid var(--line); font-size:12px; }
+    .tools{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    .tools button{ flex:1; min-width:140px; }
+    .danger{ background:#b91c1c !important; border-color:#b91c1c !important; }
+
+    /* Distance label overlay */
+    .distanceLabel{
+      background:#ffffff;
+      border:1px solid rgba(15,23,42,.14);
+      border-radius:999px;
+      padding:6px 10px;
+      font-weight:800;
+      font-size:12px;
+      color:#0f172a;
+      box-shadow:0 10px 20px rgba(15,23,42,.12);
+      white-space:nowrap;
+      user-select:none;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <div class="brandLeft">
+        <img id="brandLogo" alt="Company logo" />
+        <div class="titleBlock">
+          <h1>Fence Layout Drawer</h1>
+          <div class="sub">Pick your fence, search your address, draw your lines. You’ll get an approximate cost range.</div>
+        </div>
+      </div>
+      <div class="chip" id="mapStatus">Loading contractor settings…</div>
+    </div>
+
+    <div class="card">
+      <div class="topControls">
+        <div class="field">
+          <label>Fence Type</label>
+          <select id="mapFenceType"></select>
+        </div>
+        <div class="field">
+          <label id="mapColorLabel">Colour</label>
+          <select id="mapColorSelect"></select>
+</div>
+        <div class="previewCard card" id="mapPreviewCard" style="flex:1; min-width:380px; max-width:560px; padding:14px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;">
+            <div style="font-weight:900;">Colour preview</div>
+            <div class="muted" id="previewCaption"></div>
+          </div>
+          <div id="mapColorPreviewWrap" style="display:none; border:1px solid rgba(148,163,184,.28); border-radius:16px; overflow:hidden; background:#fff;">
+            <img id="mapColorPreview" alt="Colour preview" style="width:100%; height:220px; object-fit:cover; display:block;" />
+          </div>
+          <div class="muted" id="previewHint" style="margin-top:8px;">Select a colour to preview.</div>
+        </div>
+        
+        <div class="leadBox">
+          <div class="leadTitle">Get your estimate</div>
+          <div class="leadGrid">
+            <div class="field">
+              <label>Your name</label>
+              <input id="leadName" type="text" placeholder="John Smith" />
+            </div>
+            <div class="field">
+              <label>Email</label>
+              <input id="leadEmail" type="email" placeholder="john@email.com" />
+            </div>
+            <div class="field">
+              <label>Phone</label>
+              <input id="leadPhone" type="tel" placeholder="(613) 555-5555" />
+            </div>
+          </div>
+          <div class="estBox" style="margin-top:10px;">
+            <div class="estLabel">Estimated cost range (CAD)</div>
+            <div class="estValue" id="estRange">—</div>
+            <div class="muted" id="estFootnote" style="margin-top:4px;">Before tax</div>
+          </div>
+          <button id="btnRequestQuote" type="button" class="btn primary" style="margin-top:10px;" disabled>Request official quote</button>
+          <div class="muted" style="margin-top:6px;">We’ll email your request to the contractor for an official quote.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <div style="height:14px;"></div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="mapCanvasWrap">
+          <div class="mapSearchOverlay">
+            <div class="mapSearchBox">
+              <span class="mapSearchIcon">🔍</span>
+              <input id="gmapSearch" type="text" placeholder="Search address (ex: 23 Sherk Crescent)" autocomplete="off" />
+              <button id="gmapSearchBtn" type="button">Search</button>
+            </div>
+            <div class="mapSearchHint">Tip: pick a suggestion or press Enter.</div>
+          </div>
+          <div id="gmap"></div>
+        </div>
+      </div>
+
+      <div class="card side">
+        <div class="sideHead">
+          <div>
+            <div class="h">Lines</div>
+            <div class="muted">Click a row to pan/zoom to it</div>
+          </div>
+          <div id="mapLinesTotal" class="chip">Total: 0.0 ft</div>
+        </div>
+
+        <div class="muted" style="margin-top:8px;">
+          <b>How it works:</b> Click a start point, then an end point. A labeled line is created. Repeat for more lines. Press <b>Esc</b> to cancel a start point.
+        </div>
+
+        <div class="tools">
+          <button id="undoMapLineBtn" class="btn ghost" type="button">Undo last line</button>
+          <button id="clearMapLinesBtn" class="btn danger" type="button">Clear lines</button>
+        </div>
+
+        <div class="list" id="mapLinesList"></div>
+        <div id="mapLinesEmpty" class="muted" style="margin-top:10px;">No lines yet.</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(async () => {
+  // ========= Supabase =========
+  const SUPABASE_URL = "https://wgccfcslihixujwqjrhf.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_KSUqSxCmkf30d_Rjmh9ipw_RhrkrWdP";
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  function getContractorSlugFromUrl() {
+    const path = window.location.pathname.split("/").filter(Boolean);
+    const cIndex = path.indexOf("c");
+    if (cIndex !== -1 && path[cIndex + 1]) return path[cIndex + 1];
+    const u = new URL(window.location.href);
+    return u.searchParams.get("c");
+  }
+
+  async function fetchContractorConfigBySlug(slug) {
+    const { data: contractor, error: e1 } = await sb
+      .from("contractors")
+      .select("id, company_name, slug, logo_url, brand_primary, brand_secondary, contact_email, color_images")
+      .eq("slug", slug)
+      .single();
+    if (e1) throw e1;
+    // Using preset colour library images (no uploads)
+const { data: cfg, error: e2 } = await sb
+      .from("contractor_configs")
+      .select("pricing, range_pct")
+      .eq("contractor_id", contractor.id)
+      .single();
+    if (e2) throw e2;
+
+    return { contractor, cfg };
+  }
+
+  function applyBrand(contractor) {
+    if (contractor?.brand_primary) {
+      document.documentElement.style.setProperty("--accent", contractor.brand_primary);
+    }
+    const logoEl = document.getElementById("brandLogo");
+    if (logoEl && contractor?.logo_url) {
+      logoEl.src = contractor.logo_url;
+      logoEl.style.display = "block";
+    }
+  }
+
+  // ========= Google Maps =========
+  const GMAPS_API_KEY = "AIzaSyBvS2TKATn5MMs9fmjAKB0n1i33mix6GoU";
+  const GMAPS_STATIC_MAPS_KEY = GMAPS_API_KEY; // enable "Maps Static API" in Google Cloud
+
+  const fenceMap = {
+    map: null,
+    geocoder: null,
+    autocomplete: null,
+    selectedType: "PVC",
+    color: "White",
+    lines: [],      // { id, polyline, label, start, end, feet }
+    nextId: 1,
+    startLatLng: null,
+    tempLine: null,
+    mapListenersBound: false,
+    keyListenerBound: false
+  };
+
+  
+  // ========= Preset colour image library =========
+  // Images live at: /assets/colors/
+  const COLOR_LIBRARY = {
+    PVC: {
+      "Adobe": "/assets/colors/pvc-adobe.jpg",
+      "Dark Grey": "/assets/colors/pvc-darkgrey.jpg",
+      "Light Grey": "/assets/colors/pvc-lightgrey.jpg",
+      "Moonlit": "/assets/colors/pvc-moonlit.jpg",
+      "Teak": "/assets/colors/pvc-teak.jpg",
+      "Westport Grey": "/assets/colors/pvc-westportgrey.jpg",
+      "White": "/assets/colors/pvc-white.jpg"
+    },
+    WPC: {
+      "Ash": "/assets/colors/wpc-ash.jpg",
+      "Driftwood": "/assets/colors/wpc-driftwood.jpg",
+      "Eclipse": "/assets/colors/wpc-eclipse.jpg",
+      "Iron": "/assets/colors/wpc-iron.jpg",
+      "Mocha": "/assets/colors/wpc-mocha.jpg",
+      "Onyx": "/assets/colors/wpc-onyx.jpg",
+      "Walnut": "/assets/colors/wpc-walnut.jpg"
+    }
+  };
+
+  function getPresetColorImageUrl(type, color) {
+    const T = String(type || "").toUpperCase();
+    const C = String(color || "");
+    if (T === "PVC") return COLOR_LIBRARY.PVC[C] || "";
+    if (T === "WPC") return COLOR_LIBRARY.WPC[C] || "";
+    return "";
+  }
+
+const PVC_COLORS = ["White","Adobe","Light Grey","Westport Grey","Dark Grey","Teak","Moonlit"];
+  const WPC_COLORS = ["Walnut","Iron","Ash","Onyx","Mocha","Driftwood","Eclipse"];
+
+  let PRICING = null;     // contractor pricing array
+
+  let CONTRACTOR = null;
+  let contractorContactEmail = "";
+  let selectedAddressText = "";
+  let selectedAddressLatLng = null; // google.maps.LatLng
+  let RANGE_PCT = 15;
+  // no COLOR_IMAGES (preset library used)
+ // {"PVC::White":"https://..."}
+const $ = (id) => document.getElementById(id);
+
+  function setMapStatus(msg) {
+    const el = $("mapStatus");
+    if (el) el.textContent = msg;
+  }
+
+  function moneyCAD(n) {
+    const x = Number.isFinite(n) ? n : 0;
+    return x.toLocaleString("en-CA", { style:"currency", currency:"CAD" });
+  }
+
+  function getPricingForType(type) {
+    if (!PRICING) return null;
+    return PRICING.find(p => p.type === type) || PRICING[0] || null;
+  }
+
+  function getLead() {
+    return {
+      name: ($("leadName")?.value || "").trim(),
+      email: ($("leadEmail")?.value || "").trim(),
+      phone: ($("leadPhone")?.value || "").trim()
+    };
+  }
+
+  function isLeadValid() {
+    const { name, email, phone } = getLead();
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    const phoneOk = phone.replace(/\D/g, "").length >= 10;
+    return name.length >= 2 && emailOk && phoneOk;
+  }
+
+  function setRequestBtnEnabled(enabled) {
+    const btn = $("btnRequestQuote");
+    if (btn) btn.disabled = !enabled;
+  }
+
+
+    function getColorsForType(type) {
+    const T = String(type || "").toUpperCase();
+
+    // No colours for these types
+    if (T === "PT" || T === "CEDAR" || T === "HYBRID") return [];
+
+    // Pull colours from contractor product config (if they set any)
+    const p = getPricingForType(type);
+    const cfgColors = Array.isArray(p?.colors) ? p.colors.filter(Boolean) : [];
+    if (cfgColors.length) return cfgColors;
+
+    // Fallback defaults
+    if (T === "WPC") return WPC_COLORS;
+    if (T === "PVC") return PVC_COLORS;
+
+    return [];
+  }
+
+  function ensureValidMapColor() {
+    const colors = getColorsForType(fenceMap.selectedType);
+    if (!colors.includes(fenceMap.color)) {
+      fenceMap.color = colors[0] || "";
+    }
+  }
+
+  function renderMapFenceTypeDropdown() {
+    const sel = $("mapFenceType");
+    if (!sel || !PRICING) return;
+    const current = fenceMap.selectedType;
+    sel.innerHTML = "";
+    for (const p of PRICING) {
+      if (p && p.enabled === false) continue;
+      const opt = document.createElement("option");
+      opt.value = p.type;
+      opt.textContent = p.type;
+      sel.appendChild(opt);
+    }
+    // restore
+    const found = PRICING.some(p => p && p.enabled !== false && p.type === current);
+    fenceMap.selectedType = found ? current : (PRICING.find(p => p && p.enabled !== false)?.type || "PVC");
+    sel.value = fenceMap.selectedType;
+  }
+
+  function renderMapColorDropdown() {
+    const sel = $("mapColorSelect");
+    const label = $("mapColorLabel");
+    if (!sel) return;
+
+    const colors = getColorsForType(fenceMap.selectedType);
+
+    // Hide colour controls for types with no colour options (PT, Cedar)
+    if (!colors || colors.length === 0) {
+      fenceMap.color = "";
+      sel.innerHTML = "";
+      sel.value = "";
+      sel.style.display = "none";
+      if (label) label.style.display = "none";
+      return;
+    }
+
+    // Show controls otherwise
+    sel.style.display = "";
+    if (label) {
+      label.style.display = "";
+      label.textContent = "Colour";
+    }
+
+    sel.innerHTML = "";
+    colors.forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c;
+      opt.textContent = c;
+      sel.appendChild(opt);
+    });
+
+    ensureValidMapColor();
+    sel.value = fenceMap.color;
+    updateMapColourVisibility();
+  }
+
+    function updateColorPreview() {
+    const wrap = $("mapColorPreviewWrap");
+    const img = $("mapColorPreview");
+    const cap = $("previewCaption");
+    const hint = $("previewHint");
+    if (!wrap || !img) return;
+
+    const type = String(fenceMap.selectedType || "");
+    const col = String(fenceMap.color || "");
+
+    if (cap) cap.textContent = (type && col) ? `${type} • ${col}` : "";
+    if (!type || !col) {
+      wrap.style.display = "none";
+      if (hint) hint.style.display = "";
+      return;
+    }
+
+    const url = getPresetColorImageUrl(type, col);
+    if (url) {
+      img.src = url;
+      wrap.style.display = "block";
+      if (hint) hint.style.display = "none";
+    } else {
+      wrap.style.display = "none";
+      if (hint) {
+        hint.style.display = "";
+        hint.textContent = "No preview available for this colour.";
+      }
+    }
+  }
+
+  function updateMapColourVisibility() {
+    const colors = getColorsForType(fenceMap.selectedType);
+    const sel = $("mapColorSelect");
+    const label = $("mapColorLabel");
+    const wrap = $("mapColorPreviewWrap");
+
+    const hide = !colors || colors.length === 0;
+    if (label) label.style.display = hide ? "none" : "";
+    if (sel) sel.style.display = hide ? "none" : "";
+    if (hide) {
+      fenceMap.color = "";
+      if (wrap) wrap.style.display = "none";
+      return;
+    }
+    // show preview (if available)
+    updateColorPreview();
+  }
+
+function updateEstimateUI() {
+    const rangeEl = $("estRange");
+    const footEl = $("estFootnote");
+    const pricing = getPricingForType(fenceMap.selectedType);
+    const ppf = Number(pricing?.pricePerFt || 0);
+
+    // homeowner pays 50% on shared lines, 100% otherwise
+    let payableFeet = 0;
+    for (const seg of fenceMap.lines) {
+      const f = Number(seg.feet || 0);
+      payableFeet += (seg.shared ? f * 0.5 : f);
+    }
+
+    if (!rangeEl) return;
+
+    // Gate estimate behind lead info
+    if (!isLeadValid()) {
+      rangeEl.textContent = "—";
+      if (footEl) footEl.textContent = "Enter your info above to see your estimate (before tax).";
+      setRequestBtnEnabled(false);
+      return;
+    }
+
+    if (!payableFeet || payableFeet <= 0 || !ppf) {
+      rangeEl.textContent = "—";
+      if (footEl) footEl.textContent = "Draw your lines to see an estimate (before tax).";
+      setRequestBtnEnabled(false);
+      return;
+    }
+
+    const base = payableFeet * ppf;
+    const low = base * (1 - RANGE_PCT / 100);
+    const high = base * (1 + RANGE_PCT / 100);
+
+    // Show range only (no % text, no breakdown)
+    rangeEl.textContent = `${moneyCAD(low)} – ${moneyCAD(high)}`;
+    if (footEl) footEl.textContent = "Before tax";
+    setRequestBtnEnabled(true);
+  }
+
+
+  function encodePolyline(points) {
+    let lastLat = 0, lastLng = 0, result = "";
+    for (const p of points) {
+      const lat = Math.round(p.lat * 1e5);
+      const lng = Math.round(p.lng * 1e5);
+      result += _encSigned(lat - lastLat) + _encSigned(lng - lastLng);
+      lastLat = lat; lastLng = lng;
+    }
+    return result;
+
+    function _encSigned(num) {
+      let s = num << 1;
+      if (num < 0) s = ~s;
+      return _encUnsigned(s);
+    }
+    function _encUnsigned(num) {
+      let out = "";
+      while (num >= 0x20) {
+        out += String.fromCharCode((0x20 | (num & 0x1f)) + 63);
+        num >>= 5;
+      }
+      out += String.fromCharCode(num + 63);
+      return out;
+    }
+  }
+
+  function buildStaticMapUrl() {
+    // Note: Static map will show the drawn lines; lengths are included in email text.
+    const size = "900x520";
+    const zoom = "20";
+
+    const center = selectedAddressLatLng
+      ? `${selectedAddressLatLng.lat()},${selectedAddressLatLng.lng()}`
+      : null;
+
+    const marker = center ? `markers=color:0x14532d|${center}` : null;
+
+    const paths = fenceMap.lines.map(seg => {
+      const pts = [
+        { lat: seg.start.lat(), lng: seg.start.lng() },
+        { lat: seg.end.lat(),   lng: seg.end.lng() }
+      ];
+      const enc = encodePolyline(pts);
+      return `path=weight:5|color:0x1d4ed8ff|enc:${encodeURIComponent(enc)}`;
+    });
+
+    const parts = [
+      `size=${size}`,
+      `maptype=roadmap`,
+      `scale=2`,
+      zoom ? `zoom=${zoom}` : null,
+      center ? `center=${center}` : null,
+      marker,
+      ...paths,
+      `key=${encodeURIComponent(GMAPS_STATIC_MAPS_KEY)}`
+    ].filter(Boolean);
+
+    return `https://maps.googleapis.com/maps/api/staticmap?${parts.join("&")}`;
+  }
+
+  function requestOfficialQuote() {
+    if (!isLeadValid()) {
+      alert("Please enter your name, email, and phone number first.");
+      return;
+    }
+    if (!contractorContactEmail) {
+      alert("This contractor has not set a quote request email yet.");
+      return;
+    }
+
+    const lead = getLead();
+    const type = fenceMap.selectedType;
+    const color = fenceMap.color;
+
+    const pricing = getPricingForType(type);
+    const ppf = Number(pricing?.pricePerFt || 0);
+
+    let totalFeet = 0;
+    let payableFeet = 0;
+    const linesText = fenceMap.lines.map(seg => {
+      const f = Number(seg.feet || 0);
+      totalFeet += f;
+      payableFeet += (seg.shared ? f * 0.5 : f);
+      return `Line ${seg.id}: ${f.toFixed(1)} ft (${seg.shared ? "Shared 50/50" : "Not shared"})`;
+    }).join("\n");
+
+    const base = payableFeet * ppf;
+    const low = base * (1 - RANGE_PCT / 100);
+    const high = base * (1 + RANGE_PCT / 100);
+
+    const subject = `Fence quote request - ${lead.name}${selectedAddressText ? " - " + selectedAddressText : ""}`;
+    const mapUrl = buildStaticMapUrl();
+
+    const body =
+`New estimate request (before tax)
+
+Customer
+- Name: ${lead.name}
+- Email: ${lead.email}
+- Phone: ${lead.phone}
+
+Property
+- Address: ${selectedAddressText || "(not provided)"}
+
+Product
+- Fence type: ${type}
+- Colour: ${color}
+
+Measurements
+- Total drawn length: ${totalFeet.toFixed(1)} ft
+- Payable length (shared applied): ${payableFeet.toFixed(1)} ft
+${linesText ? "\nLine details\n" + linesText : ""}
+
+Estimated cost range (before tax)
+${moneyCAD(low)} – ${moneyCAD(high)}
+
+Map image (lines included)
+${mapUrl}
+`;
+
+    const mailto = `mailto:${encodeURIComponent(contractorContactEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailto;
+  }
+
+  // Distance label overlay (HTML pill)
+  function makeDistanceLabel(position, text) {
+    if (!fenceMap._DistanceLabelClass) {
+      class DistanceLabel extends google.maps.OverlayView {
+        constructor(pos, txt) {
+          super();
+          this.pos = pos;
+          this.txt = txt;
+          this.div = null;
+        }
+        onAdd() {
+          this.div = document.createElement("div");
+          this.div.className = "distanceLabel";
+          this.div.textContent = this.txt;
+          const panes = this.getPanes();
+          panes.floatPane.appendChild(this.div);
+        }
+        draw() {
+          if (!this.div) return;
+          const proj = this.getProjection();
+          const pt = proj.fromLatLngToDivPixel(this.pos);
+          this.div.style.left = (pt.x + 10) + "px";
+          this.div.style.top = (pt.y + 10) + "px";
+          this.div.style.position = "absolute";
+        }
+        onRemove() {
+          if (this.div && this.div.parentNode) this.div.parentNode.removeChild(this.div);
+          this.div = null;
+        }
+        setText(txt) {
+          this.txt = txt;
+          if (this.div) this.div.textContent = txt;
+        }
+        setPosition(pos) {
+          this.pos = pos;
+          this.draw();
+        }
+      }
+      fenceMap._DistanceLabelClass = DistanceLabel;
+    }
+
+    const Label = fenceMap._DistanceLabelClass;
+    const lbl = new Label(position, text);
+    lbl.setMap(fenceMap.map);
+    return lbl;
+  }
+
+  async function loadGoogleMapsScript(apiKey) {
+    return new Promise((resolve, reject) => {
+      if (window.google && window.google.maps) {
+        resolve();
+        return;
+      }
+      window.__initFenceMap = () => resolve();
+      const s = document.createElement("script");
+      s.async = true;
+      s.defer = true;
+      s.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(apiKey) + "&libraries=places,geometry&callback=__initFenceMap";
+      s.onerror = () => reject(new Error("Google Maps failed to load"));
+      document.head.appendChild(s);
+    });
+  }
+
+  function segmentFeet(a, b) {
+    const meters = google.maps.geometry.spherical.computeDistanceBetween(a, b);
+    return meters * 3.28084;
+  }
+
+  function lineMidpoint(a, b) {
+    return new google.maps.LatLng((a.lat()+b.lat())/2, (a.lng()+b.lng())/2);
+  }
+
+  function renderMapLinesList() {
+    const listEl = $("mapLinesList");
+    const emptyEl = $("mapLinesEmpty");
+    const totalEl = $("mapLinesTotal");
+    if (!listEl || !emptyEl || !totalEl) return;
+
+    // Show total length (no pricing shown)
+    totalEl.style.display = "";
+
+    listEl.innerHTML = "";
+
+    if (!fenceMap.lines.length) {
+      emptyEl.style.display = "block";
+      updateEstimateUI();
+      return;
+    }
+    emptyEl.style.display = "none";
+
+    for (const seg of fenceMap.lines) {
+      const row = document.createElement("div");
+      row.className = "lineRow";
+      row.style.cursor = "pointer";
+
+      const left = document.createElement("div");
+      left.style.display = "flex";
+      left.style.alignItems = "center";
+      left.style.gap = "10px";
+
+      const label = document.createElement("div");
+      label.style.fontWeight = "800";
+      label.textContent = `Line #${seg.id}`;
+
+      left.appendChild(label);
+
+      const len = document.createElement("div");
+      len.style.opacity = "0.75";
+      len.style.fontSize = "13px";
+      len.textContent = `${Number(seg.feet||0).toFixed(1)} ft`;
+      left.appendChild(len);
+
+      const right = document.createElement("label");
+      right.className = "shareToggle";
+      right.style.display = "flex";
+      right.style.alignItems = "center";
+      right.style.gap = "8px";
+      right.style.userSelect = "none";
+
+      const chk = document.createElement("input");
+      chk.type = "checkbox";
+      chk.checked = !!seg.shared;
+
+      const span = document.createElement("span");
+      span.textContent = "Shared 50/50";
+
+      // clicking checkbox should not trigger zoom
+      chk.addEventListener("click", (ev) => ev.stopPropagation());
+
+      chk.addEventListener("change", (ev) => {
+        seg.shared = !!ev.target.checked;
+        updateEstimateUI();
+      });
+
+      right.appendChild(chk);
+      right.appendChild(span);
+
+      row.appendChild(left);
+      row.appendChild(right);
+
+      row.addEventListener("click", () => {
+        if (!fenceMap.map) return;
+        const bounds = new google.maps.LatLngBounds();
+        bounds.extend(seg.start);
+        bounds.extend(seg.end);
+        fenceMap.map.fitBounds(bounds, 80);
+      });
+
+      listEl.appendChild(row);
+    }
+
+    // total length display
+    const totalFt = fenceMap.lines.reduce((s, seg) => s + (Number(seg.feet)||0), 0);
+    totalEl.textContent = `Total length: ${totalFt.toFixed(1)} ft`;
+
+    updateEstimateUI();
+  }
+
+  function clearMapLines() {
+    for (const seg of fenceMap.lines) {
+      seg.polyline?.setMap(null);
+      seg.label?.setMap(null);
+    }
+    fenceMap.lines = [];
+    fenceMap.nextId = 1;
+    fenceMap.startLatLng = null;
+    if (fenceMap.tempLine) {
+      fenceMap.tempLine.setMap(null);
+      fenceMap.tempLine = null;
+    }
+    setMapStatus("Ready: click a start point");
+    renderMapLinesList();
+  }
+
+  function undoLastMapLine() {
+    const last = fenceMap.lines.pop();
+    if (last) {
+      last.polyline?.setMap(null);
+      last.label?.setMap(null);
+    }
+    fenceMap.startLatLng = null;
+    if (fenceMap.tempLine) {
+      fenceMap.tempLine.setMap(null);
+      fenceMap.tempLine = null;
+    }
+    setMapStatus("Ready: click a start point");
+    renderMapLinesList();
+  }
+
+  function bindMapDrawing() {
+    if (!fenceMap.map || fenceMap.mapListenersBound) return;
+    fenceMap.mapListenersBound = true;
+
+    // click to set start/end
+    fenceMap.map.addListener("click", (e) => {
+      if (!e?.latLng) return;
+
+      if (!fenceMap.startLatLng) {
+        fenceMap.startLatLng = e.latLng;
+        setMapStatus("Start set — click an end point");
+        // temp line preview
+        fenceMap.tempLine = new google.maps.Polyline({
+          map: fenceMap.map,
+          path: [fenceMap.startLatLng, fenceMap.startLatLng],
+          strokeOpacity: 0.9,
+          strokeWeight: 3,
+          clickable: false
+        });
+        return;
+      }
+
+      const start = fenceMap.startLatLng;
+      const end = e.latLng;
+
+      // finalize
+      const poly = new google.maps.Polyline({
+        map: fenceMap.map,
+        path: [start, end],
+        strokeOpacity: 0.95,
+        strokeWeight: 4,
+        clickable: false
+      });
+
+      const feet = segmentFeet(start, end);
+      const mid = lineMidpoint(start, end);
+      const label = makeDistanceLabel(mid, `${feet.toFixed(1)} ft`);
+
+      fenceMap.lines.push({
+        id: fenceMap.nextId++,
+        polyline: poly,
+        label,
+        start,
+        end,
+        feet,
+        shared: false
+      });
+
+      // cleanup in-progress
+      fenceMap.startLatLng = null;
+      if (fenceMap.tempLine) {
+        fenceMap.tempLine.setMap(null);
+        fenceMap.tempLine = null;
+      }
+
+      setMapStatus("Ready: click a start point");
+      renderMapLinesList();
+    });
+
+    // mouse move updates temp line preview
+    fenceMap.map.addListener("mousemove", (e) => {
+      if (!fenceMap.startLatLng || !fenceMap.tempLine || !e?.latLng) return;
+      fenceMap.tempLine.setPath([fenceMap.startLatLng, e.latLng]);
+    });
+
+    // ESC cancels
+    if (!fenceMap.keyListenerBound) {
+      fenceMap.keyListenerBound = true;
+      window.addEventListener("keydown", (ev) => {
+        if (ev.key !== "Escape") return;
+        fenceMap.startLatLng = null;
+        if (fenceMap.tempLine) {
+          fenceMap.tempLine.setMap(null);
+          fenceMap.tempLine = null;
+        }
+        setMapStatus("Ready: click a start point");
+      });
+    }
+  }
+
+  function initMapFenceControls() {
+    renderMapFenceTypeDropdown();
+    ensureValidMapColor();
+    renderMapColorDropdown();
+    renderMapLinesList();
+
+    const typeSel = $("mapFenceType");
+    const colorSel = $("mapColorSelect");
+
+    if (typeSel && !typeSel.__bound) {
+      typeSel.__bound = true;
+      typeSel.addEventListener("change", (e) => {
+        fenceMap.selectedType = String(e.target.value || "PVC");
+        ensureValidMapColor();
+        renderMapColorDropdown();
+        updateColorPreview();
+        renderMapLinesList();
+      });
+    }
+
+    if (colorSel && !colorSel.__bound) {
+      colorSel.__bound = true;
+      colorSel.addEventListener("change", (e) => {
+        fenceMap.color = String(e.target.value || "");
+        updateColorPreview();
+        renderMapLinesList();
+      });
+    }
+  }
+
+  function initFenceMap() {
+    const mapEl = $("gmap");
+    if (!mapEl) {
+      alert("Map container (#gmap) not found.");
+      return;
+    }
+
+    fenceMap.map = new google.maps.Map(mapEl, {
+      center: { lat: 45.249, lng: -75.910 }, // Ottawa-ish default
+      zoom: 18,
+      mapTypeId: "satellite",
+      tilt: 0,
+      disableDefaultUI: false
+    });
+
+    fenceMap.geocoder = new google.maps.Geocoder();
+
+    // Address search (autocomplete)
+    const searchInput = $("gmapSearch");
+    const searchBtn = $("gmapSearchBtn");
+
+    if (searchInput) {
+      fenceMap.autocomplete = new google.maps.places.Autocomplete(searchInput, {
+        fields: ["geometry", "formatted_address"],
+        componentRestrictions: { country: ["ca"] }
+      });
+
+      fenceMap.autocomplete.addListener("place_changed", () => {
+        const place = fenceMap.autocomplete.getPlace();
+        if (!place || !place.geometry) return;
+        fenceMap.map.panTo(place.geometry.location);
+        fenceMap.map.setZoom(19);
+        if (place.formatted_address) searchInput.value = place.formatted_address;
+        selectedAddressText = place.formatted_address || searchInput.value || "";
+        selectedAddressLatLng = place.geometry.location || null;
+      });
+    }
+
+    function geocodeAndPan() {
+      const q = (searchInput?.value || "").trim();
+      if (!q) return;
+      fenceMap.geocoder.geocode({ address: q, componentRestrictions: { country: "CA" } }, (results, status) => {
+        if (status === "OK" && results && results[0] && results[0].geometry) {
+          fenceMap.map.panTo(results[0].geometry.location);
+          fenceMap.map.setZoom(19);
+          if (searchInput) searchInput.value = results[0].formatted_address || q;
+          selectedAddressText = (results[0].formatted_address || q || "").trim();
+          selectedAddressLatLng = results[0].geometry.location || null;
+        } else {
+          console.warn("Geocode failed:", status);
+        }
+      });
+    }
+
+    if (searchBtn) searchBtn.addEventListener("click", geocodeAndPan);
+    if (searchInput) searchInput.addEventListener("keydown", (ev) => {
+      if (ev.key !== "Enter") return;
+      ev.preventDefault();
+      geocodeAndPan();
+    });
+
+    initMapFenceControls();
+    bindMapDrawing();
+    setMapStatus("Ready: click a start point");
+  }
+
+  // ========= Boot =========
+  try {
+    const slug = getContractorSlugFromUrl();
+    if (!slug) {
+      setMapStatus("Missing contractor link");
+      $("estFootnote").textContent = "This page must be opened from a contractor link.";
+      return;
+    }
+
+    const { contractor, cfg } = await fetchContractorConfigBySlug(slug);
+    applyBrand(contractor);
+    CONTRACTOR = contractor;
+    contractorContactEmail = (contractor && contractor.contact_email) ? contractor.contact_email : "";
+
+    PRICING = Array.isArray(cfg?.pricing) ? cfg.pricing : null;
+    RANGE_PCT = Number(cfg?.range_pct ?? 15) || 15;
+
+    if (!PRICING || !PRICING.length) {
+      setMapStatus("Contractor pricing not available");
+      return;
+    }
+
+    fenceMap.selectedType = (PRICING.find(p => p && p.enabled !== false)?.type) || "PVC";
+    fenceMap.color = "White";
+    ensureValidMapColor();
+
+    await loadGoogleMapsScript(GMAPS_API_KEY);
+    initFenceMap();
+
+    // Lead form listeners
+    ['leadName','leadEmail','leadPhone'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', () => updateEstimateUI());
+    });
+
+    // Request quote button
+    const reqBtn = document.getElementById('btnRequestQuote');
+    if (reqBtn) reqBtn.addEventListener('click', () => requestOfficialQuote());
+
+    // Map tools
+    const undoBtn = document.getElementById('undoMapLineBtn');
+    if (undoBtn) undoBtn.addEventListener('click', () => undoLastMapLine());
+    const clearBtn = document.getElementById('clearMapLinesBtn');
+    if (clearBtn) clearBtn.addEventListener('click', () => clearMapLines());
+
+    // Initial estimate state
+    updateEstimateUI();
+
+  } catch (e) {
+    console.error(e);
+    setMapStatus("Error loading contractor settings");
+    const foot = $("estFootnote");
+    if (foot) foot.textContent = "Could not load this contractor link. Please try again or contact the contractor.";
+  }
+})();
+</script>
+</body>
+</html>

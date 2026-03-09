@@ -1,0 +1,63 @@
+import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+
+export async function GET() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { data: userRow } = await supabase
+    .from('users')
+    .select('contractor_id')
+    .eq('auth_id', user.id)
+    .eq('is_active', true)
+    .single();
+  if (!userRow?.contractor_id)
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+  const { data: types } = await supabase
+    .from('fence_types')
+    .select('*')
+    .eq('contractor_id', userRow.contractor_id)
+    .eq('is_active', true)
+    .order('display_order', { ascending: true });
+
+  const typeIds = (types || []).map((t) => t.id);
+
+  const { data: styles } = await supabase
+    .from('fence_styles')
+    .select('*')
+    .in('fence_type_id', typeIds)
+    .eq('is_active', true)
+    .order('display_order', { ascending: true });
+
+  const styleIds = (styles || []).map((s) => s.id);
+
+  const { data: colours } = await supabase
+    .from('colour_options')
+    .select('*')
+    .in('fence_style_id', styleIds)
+    .eq('is_active', true)
+    .order('display_order', { ascending: true });
+
+  const colourIds = (colours || []).map((c) => c.id);
+
+  let colourPricingRules: { colour_option_id: string; [k: string]: unknown }[] = [];
+  if (colourIds.length > 0) {
+    const { data: rules } = await supabase
+      .from('colour_pricing_rules')
+      .select('*')
+      .in('colour_option_id', colourIds);
+    colourPricingRules = rules || [];
+  }
+
+  return NextResponse.json({
+    heights: [],
+    fenceTypes: types || [],
+    fenceStyles: styles || [],
+    colourOptions: colours || [],
+    colourPricingRules,
+  });
+}

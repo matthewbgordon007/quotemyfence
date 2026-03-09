@@ -1,0 +1,169 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+
+interface CustomerRow {
+  id: string;
+  status: string;
+  current_step: string;
+  lead_status: string;
+  started_at: string;
+  last_active_at: string;
+  contractor_viewed_at: string | null;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string | null;
+  address: string | null;
+  total_length_ft: number | null;
+  has_removal: boolean | null;
+  subtotal_low: number | null;
+  subtotal_high: number | null;
+}
+
+function stepLabel(step: string, status: string): string {
+  if (status === 'submitted') return 'Submitted';
+  if (status === 'abandoned') return 'Abandoned';
+  const labels: Record<string, string> = {
+    contact: 'Contact only',
+    location: 'Address',
+    draw: 'Drawing',
+    design: 'Design',
+    review: 'Review',
+  };
+  return labels[step] ?? step;
+}
+
+function formatDate(s: string): string {
+  const d = new Date(s);
+  return d.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+const STATUS_TABS = [
+  { value: 'new' as const, label: 'Needs follow-up' },
+  { value: 'contacted' as const, label: 'Contacted' },
+  { value: 'quoted' as const, label: 'Quoted' },
+  { value: 'won' as const, label: 'Won' },
+  { value: 'lost' as const, label: 'Lost' },
+  { value: 'all' as const, label: 'All' },
+];
+
+type LeadFilter = 'all' | 'new' | 'contacted' | 'quoted' | 'won' | 'lost';
+
+export default function CustomersPage() {
+  const [customers, setCustomers] = useState<CustomerRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [leadFilter, setLeadFilter] = useState<LeadFilter>('new');
+
+  useEffect(() => {
+    const params = leadFilter === 'all' ? '' : `?lead_filter=${leadFilter}`;
+    fetch(`/api/contractor/customers${params}`)
+      .then((r) => r.json())
+      .then((data) => setCustomers(data.customers || []))
+      .finally(() => setLoading(false));
+  }, [leadFilter]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--accent)] border-t-transparent" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-4xl">
+      <h1 className="text-2xl font-bold">Customers</h1>
+      <p className="mt-1 text-sm text-[var(--muted)]">
+        Everyone who started or completed a quote. Mark as contacted once you reach out so you don&apos;t double-contact.
+      </p>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {STATUS_TABS.map((tab) => (
+          <button
+            key={tab.value}
+            type="button"
+            onClick={() => setLeadFilter(tab.value)}
+            className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+              leadFilter === tab.value
+                ? 'bg-[var(--accent)] text-white'
+                : 'bg-[var(--bg2)] text-[var(--muted)] hover:bg-[var(--line)]'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-6 overflow-hidden rounded-2xl border border-[var(--line)] bg-white shadow-sm">
+        {customers.length === 0 ? (
+          <div className="p-12 text-center text-[var(--muted)]">
+            No quote submissions yet. They will appear here when customers use your quote page.
+          </div>
+        ) : (
+          <ul className="divide-y divide-[var(--line)]">
+            {customers.map((c) => (
+              <li key={c.id}>
+                <Link
+                  href={`/dashboard/customers/${c.id}`}
+                  className="block px-6 py-4 transition hover:bg-[var(--bg2)]"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2 font-semibold">
+                        {c.first_name} {c.last_name}
+                        {!c.contractor_viewed_at && (
+                          <span className="rounded-full bg-[var(--accent)] px-2 py-0.5 text-xs font-medium text-white">
+                            New
+                          </span>
+                        )}
+                        {c.lead_status !== 'new' && (
+                          <span className="rounded-full bg-[var(--bg2)] px-2 py-0.5 text-xs font-medium text-[var(--muted)]">
+                            {STATUS_TABS.find((t) => t.value === c.lead_status)?.label ?? c.lead_status}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm text-[var(--muted)]">
+                        {c.email}
+                        {c.phone && ` • ${c.phone}`}
+                      </div>
+                    </div>
+                    <div className="text-right text-sm">
+                      <div className="font-medium text-[var(--text)]">
+                        {stepLabel(c.current_step ?? '', c.status)}
+                      </div>
+                      <div className="text-[var(--muted)]">
+                        {c.total_length_ft != null
+                          ? `${c.total_length_ft.toFixed(0)} ft`
+                          : '—'}
+                        {c.has_removal && ' • Removal'}
+                        {c.subtotal_low != null && c.subtotal_high != null && (
+                          <> • ${c.subtotal_low.toLocaleString('en-CA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}–${c.subtotal_high.toLocaleString('en-CA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</>
+                        )}
+                      </div>
+                      <div className="text-xs text-[var(--muted)]">
+                        {formatDate(c.last_active_at)}
+                      </div>
+                    </div>
+                  </div>
+                  {c.address && (
+                    <div className="mt-1 truncate text-sm text-[var(--muted)]">
+                      {c.address}
+                    </div>
+                  )}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}

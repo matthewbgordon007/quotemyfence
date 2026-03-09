@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contractor Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{
+      --bg0:#f6f8fc;
+      --bg1:#eef2ff;
+      --card:#ffffff;
+      --text:#0f172a;
+      --muted:#475569;
+      --line:#e2e8f0;
+      --accent:#2563eb;
+      --accent2:#0ea5e9;
+      --shadow: 0 24px 70px rgba(2, 6, 23, .10);
+    }
+    *{box-sizing:border-box;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;}
+    body{
+      margin:0;
+      background:
+        radial-gradient(900px 420px at 20% 0%, rgba(37,99,235,.12), transparent 55%),
+        radial-gradient(900px 420px at 90% 0%, rgba(14,165,233,.10), transparent 50%),
+        linear-gradient(180deg,var(--bg1),var(--bg0));
+      color:var(--text);
+      min-height:100vh;
+      padding:20px;
+    }
+    .wrap{max-width:1100px; margin:0 auto;}
+    .top{display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; margin-bottom:14px;}
+    h1{margin:0; font-size:22px; letter-spacing:-.02em;}
+    .muted{color:var(--muted); font-size:13px;}
+    .btn{
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:#ffffff;
+      color:var(--text);
+      cursor:pointer;
+      font-weight:800;
+    }
+    .btn.primary{
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      color:#fff;
+      border-color:rgba(2,6,23,.05);
+      box-shadow:0 10px 26px rgba(37,99,235,.18);
+    }
+    .btn:hover{filter:brightness(1.02);}
+    .grid{display:grid; grid-template-columns: 1.1fr 0.9fr; gap:14px;}
+    @media (max-width: 980px){ .grid{grid-template-columns:1fr;} }
+    .card{
+      background:rgba(255,255,255,.92);
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:16px;
+      box-shadow:var(--shadow);
+      backdrop-filter:saturate(1.2) blur(8px);
+    }
+    label{display:block; font-size:12px; color:var(--muted); margin:10px 0 6px;}
+    input, select{
+      width:100%;
+      padding:10px 10px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:#ffffff;
+      color:var(--text);
+      outline:none;
+    }
+    input:focus, select:focus{
+      border-color:rgba(37,99,235,.7);
+      box-shadow:0 0 0 4px rgba(37,99,235,.12);
+    }
+    .row{display:flex; gap:10px; flex-wrap:wrap;}
+    .row > div{flex:1; min-width:240px;}
+    .share{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px;}
+    .pill{
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:#ffffff;
+      font-size:13px;
+      box-shadow:0 8px 20px rgba(2,6,23,.06);
+    }
+    table{
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      overflow:hidden;
+      border-radius:14px;
+      border:1px solid var(--line);
+      margin-top:10px;
+      background:#ffffff;
+    }
+    th, td{padding:10px; border-bottom:1px solid var(--line); font-size:13px;}
+    th{
+      background:#f8fafc;
+      text-align:left;
+      color:var(--muted);
+      font-weight:800;
+    }
+    tr:last-child td{border-bottom:none;}
+    td input{padding:8px; border-radius:10px;}
+    .status{margin-top:10px; min-height:18px; font-size:13px; color:var(--muted);}
+    .danger{color:#b91c1c;}
+    a{color:var(--accent); text-decoration:none; font-weight:800;}
+    a:hover{text-decoration:underline;}
+    code{color:#0b3aa4; background:#eff6ff; padding:1px 6px; border-radius:999px; border:1px solid #dbeafe;}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>Contractor Dashboard</h1>
+        <div class="muted">Edit your calculator settings. Homeowners use your share link.</div>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn" id="btnToCalc">Open Calculator</button>
+        <button class="btn" id="btnProducts">Manage Products</button>
+        <button class="btn" id="btnLogout">Log Out</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div style="display:flex; align-items:baseline; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+          <div>
+            <div style="font-weight:800;">Brand & Defaults</div>
+            <div class="muted">This controls the pricing and look for <b>your</b> calculator.</div>
+          </div>
+          <button class="btn primary" id="btnSave">Save Changes</button>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Company Name</label>
+            <input id="companyName" placeholder="Titan Fencing.ca" />
+          </div>
+          <div>
+            <label>Slug (your share URL)</label>
+            <input id="slug" placeholder="titan-fencing" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Primary Color (accent)</label>
+            <input id="brandPrimary" placeholder="#3b82f6" />
+          </div>
+          <div>
+            <label>Secondary Color</label>
+            <input id="brandSecondary" placeholder="#111827" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Tax %</label>
+            <input id="taxRate" type="number" step="0.01" />
+          </div>
+          <div style="display:flex; align-items:flex-end; gap:10px;">
+            <div style="flex:1;">
+              <label>Apply tax by default</label>
+              <select id="applyTax">
+                <option value="false">No</option>
+                <option value="true">Yes</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Round to (ft)</label>
+            <input id="roundInc" type="number" step="0.01" />
+          </div>
+          <div>
+            <label>Extend add (ft)</label>
+            <input id="extendAdd" type="number" step="0.01" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Homeowner range % (±)</label>
+            <input id="rangePct" type="number" step="1" />
+          </div>
+          <div>
+            <label>Logo URL (optional)</label>
+            <input id="logoUrl" placeholder="https://..." />
+          </div>
+        </div>
+
+        <div class="share">
+          <div class="pill" id="shareLinkPill">Share link: —</div>
+          <a href="./calculator.html" id="linkOpenCalc" target="_blank" rel="noreferrer">Open my calculator</a>
+        </div>
+
+        <div style="height:12px;"></div>
+        <div style="font-weight:800;">Pricing Table</div>
+        <div class="muted">This becomes the pricing for your contractor page.</div>
+
+        <table>
+          <thead>
+            <tr>
+              <th style="width:26%;">Type</th>
+              <th style="width:37%;">Price / ft</th>
+              <th style="width:37%;">Gate Price</th>
+            </tr>
+          </thead>
+          <tbody id="pricingBody"></tbody>
+        </table>
+
+        <div class="status" id="status"></div>
+      </div>
+
+      <div class="card">
+        <div style="font-weight:800;">How it works</div>
+        <div class="muted" style="margin-top:6px; line-height:1.55;">
+          <ol>
+            <li>Create your slug and pricing.</li>
+            <li>Click <b>Save Changes</b>.</li>
+            <li>Share your link: <code>/c/your-slug</code></li>
+          </ol>
+          <div style="margin-top:10px;">
+            Next step after this: manage your visible products (types/colours/photos) in <a href="./products.html">Products</a>.
+          </div>
+        </div>
+        <div style="height:10px;"></div>
+        <div class="muted">
+          If you see “permission denied”, it usually means you’re not logged in or RLS policies didn’t save.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://wgccfcslihixujwqjrhf.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_KSUqSxCmkf30d_Rjmh9ipw_RhrkrWdP";
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const $ = (id) => document.getElementById(id);
+    function setStatus(msg, isDanger=false){
+      const el = $("status");
+      el.textContent = msg || "";
+      el.className = "status" + (isDanger ? " danger" : "");
+    }
+
+    // Matches your calculator defaults  [oai_citation:1‡index.html](sediment://file_00000000f750722f8209600e290c14f0)
+    const DEFAULT_PRICING = [
+      { type: "PVC",    pricePerFt: 74.99, gatePrice: 450.00 },
+      { type: "WPC",    pricePerFt: 89.99, gatePrice: 599.00 },
+      { type: "Cedar",  pricePerFt: 89.99, gatePrice: 450.00 },
+      { type: "Pressure Treated",     pricePerFt: 74.99, gatePrice: 450.00 },
+      { type: "Hybrid", pricePerFt: 84.99, gatePrice: 550.00 }
+    ];
+
+    let user = null;
+    let pricing = JSON.parse(JSON.stringify(DEFAULT_PRICING));
+    let existingContractor = null;
+
+    function renderPricing(){
+      const body = $("pricingBody");
+      body.innerHTML = "";
+      pricing.forEach((p, idx) => {
+        const tr = document.createElement("tr");
+
+        const tdType = document.createElement("td");
+        tdType.textContent = p.type;
+
+        const tdPrice = document.createElement("td");
+        const inPrice = document.createElement("input");
+        inPrice.type = "number";
+        inPrice.step = "0.01";
+        inPrice.value = Number(p.pricePerFt || 0);
+        inPrice.addEventListener("input", (e) => {
+          pricing[idx].pricePerFt = Number(e.target.value) || 0;
+        });
+        tdPrice.appendChild(inPrice);
+
+        const tdGate = document.createElement("td");
+        const inGate = document.createElement("input");
+        inGate.type = "number";
+        inGate.step = "0.01";
+        inGate.value = Number(p.gatePrice || 0);
+        inGate.addEventListener("input", (e) => {
+          pricing[idx].gatePrice = Number(e.target.value) || 0;
+        });
+        tdGate.appendChild(inGate);
+
+        tr.appendChild(tdType);
+        tr.appendChild(tdPrice);
+        tr.appendChild(tdGate);
+        body.appendChild(tr);
+      });
+    }
+
+    function updateShareLinkPill(){
+      const slug = ($("slug").value || "").trim();
+      const origin = window.location.origin;
+
+      // Homeowner share link (draw page)
+      if (!slug){
+        $("shareLinkPill").textContent = "Share link: —";
+      } else {
+        $("shareLinkPill").textContent = `Share link: ${origin}/c/${slug}`;
+      }
+
+      // Contractor calculator link (full calculator with this contractor's pricing)
+      const link = document.getElementById("linkOpenCalc");
+      if (link){
+        link.href = slug ? `./calculator.html?c=${encodeURIComponent(slug)}` : "./calculator.html";
+      }
+    }
+
+    async function requireAuth(){
+      const { data } = await sb.auth.getSession();
+      if (!data?.session){
+        window.location.href = "./login.html";
+        return false;
+      }
+      user = data.session.user;
+      return true;
+    }
+
+    async function loadExisting(){
+      setStatus("Loading...");
+      // contractor row
+      const { data: contractor, error: e1 } = await sb
+        .from("contractors")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (e1){
+        setStatus(e1.message || "Failed to load contractor.", true);
+        return;
+      }
+      existingContractor = contractor || null;
+
+      if (existingContractor){
+        $("companyName").value = existingContractor.company_name || "";
+        $("slug").value = existingContractor.slug || "";
+        $("logoUrl").value = existingContractor.logo_url || "";
+        $("brandPrimary").value = existingContractor.brand_primary || "#3b82f6";
+        $("brandSecondary").value = existingContractor.brand_secondary || "#111827";
+      }
+
+      // config row
+      const { data: cfg, error: e2 } = await sb
+        .from("contractor_configs")
+        .select("*")
+        .eq("contractor_id", user.id)
+        .maybeSingle();
+
+      if (e2){
+        setStatus(e2.message || "Failed to load config.", true);
+        return;
+      }
+
+      if (cfg){
+        if (Array.isArray(cfg.pricing)) pricing = cfg.pricing;
+        $("taxRate").value = Number(cfg.tax_rate ?? 13);
+        $("applyTax").value = String(!!cfg.apply_tax);
+        $("roundInc").value = Number(cfg.round_inc ?? 0.05);
+        $("extendAdd").value = Number(cfg.extend_add ?? 2);
+        $("rangePct").value = Number(cfg.range_pct ?? 15);
+      } else {
+        // defaults consistent with your index defaults  [oai_citation:2‡index.html](sediment://file_00000000f750722f8209600e290c14f0)
+        $("taxRate").value = 13;
+        $("applyTax").value = "false";
+        $("roundInc").value = 0.05;
+        $("extendAdd").value = 2;
+        $("rangePct").value = 15;
+      }
+
+      renderPricing();
+      updateShareLinkPill();
+      setStatus("");
+    }
+
+    async function saveAll(){
+      setStatus("Saving...");
+      const contact_email = (user?.email || "").trim().toLowerCase() || null;
+      const company_name = ($("companyName").value || "").trim();
+      const slug = ($("slug").value || "").trim().toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+      const logo_url = ($("logoUrl").value || "").trim() || null;
+      const brand_primary = ($("brandPrimary").value || "").trim() || "#3b82f6";
+      const brand_secondary = ($("brandSecondary").value || "").trim() || "#111827";
+
+      if (!company_name){
+        setStatus("Company name is required.", true);
+        return;
+      }
+      if (!slug){
+        setStatus("Slug is required (example: titan-fencing).", true);
+        return;
+      }
+
+      $("slug").value = slug; // normalize
+
+      const payloadContractor = {
+        id: user.id,
+        company_name,
+        slug,
+        logo_url,
+        brand_primary,
+        brand_secondary,
+        contact_email
+      };
+
+      const payloadConfig = {
+        contractor_id: user.id,
+        pricing,
+        tax_rate: Number($("taxRate").value) || 13,
+        apply_tax: $("applyTax").value === "true",
+        round_inc: Number($("roundInc").value) || 0.05,
+        extend_add: Number($("extendAdd").value) || 2,
+        range_pct: Number($("rangePct").value) || 15,
+        updated_at: new Date().toISOString()
+      };
+
+      // upsert contractor (slug is unique; errors if another contractor already used it)
+      const { error: e1 } = await sb.from("contractors").upsert(payloadContractor, { onConflict: "id" });
+      if (e1){
+        setStatus(e1.message || "Failed to save contractor. If slug is taken, choose another.", true);
+        return;
+      }
+
+      const { error: e2 } = await sb.from("contractor_configs").upsert(payloadConfig, { onConflict: "contractor_id" });
+      if (e2){
+        setStatus(e2.message || "Failed to save config.", true);
+        return;
+      }
+
+      updateShareLinkPill();
+      setStatus("Saved. Your share link is ready.");
+    }
+
+    // events
+    $("btnLogout").addEventListener("click", async () => {
+      await sb.auth.signOut();
+      window.location.href = "./login.html";
+    });
+
+    $("btnToCalc").addEventListener("click", () => {
+      const slug = ($("slug").value || "").trim();
+      // Open contractor-specific calculator with saved pricing/branding
+      const target = slug ? `./calculator.html?c=${encodeURIComponent(slug)}` : "./calculator.html";
+      window.location.href = target;
+    });
+
+    $("btnProducts").addEventListener("click", () => {
+      window.location.href = "./products.html";
+    });
+
+    $("btnSave").addEventListener("click", saveAll);
+    $("slug").addEventListener("input", updateShareLinkPill);
+
+    // boot
+    (async () => {
+      const ok = await requireAuth();
+      if (!ok) return;
+      await loadExisting();
+    })();
+  </script>
+</body>
+</html>
