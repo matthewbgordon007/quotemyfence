@@ -49,6 +49,27 @@ function pointToSegmentDist(p: { x: number; y: number }, a: { x: number; y: numb
   return dist(p, np);
 }
 
+function simplifyPath(points: { x: number; y: number }[], tolerance: number): { x: number; y: number }[] {
+  if (points.length <= 2) return points;
+  let dmax = 0;
+  let index = 0;
+  const end = points.length - 1;
+  for (let i = 1; i < end; i++) {
+    const d = pointToSegmentDist(points[i], points[0], points[end]);
+    if (d > dmax) {
+      index = i;
+      dmax = d;
+    }
+  }
+  if (dmax > tolerance) {
+    const recResults1 = simplifyPath(points.slice(0, index + 1), tolerance);
+    const recResults2 = simplifyPath(points.slice(index), tolerance);
+    return recResults1.slice(0, -1).concat(recResults2);
+  } else {
+    return [points[0], points[end]];
+  }
+}
+
 export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvasProps>(
   function LayoutDrawCanvas({ initialDrawing, onDrawingChange, onReset }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -65,7 +86,11 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       return out;
     });
     const [currentPath, setCurrentPath] = useState<{ x: number; y: number }[]>([]);
+    const [swipePath, setSwipePath] = useState<{ x: number; y: number }[]>([]);
     const lastClickTime = useRef(0);
+    const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
+    const pointerDownTime = useRef(0);
+    const isSwiping = useRef(false);
     const [placedGates, setPlacedGates] = useState<{ type: 'single' | 'double'; x: number; y: number }[]>(() => {
       const gates = initialDrawing?.gates ?? [];
       const pts = initialDrawing?.points ?? [];
@@ -185,8 +210,78 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       return { x: svgPt.x, y: svgPt.y };
     }
 
-    function handleClick(e: React.MouseEvent) {
+    function handlePointerDown(e: React.PointerEvent<SVGSVGElement>) {
+      e.currentTarget.setPointerCapture(e.pointerId);
       const pt = clientToFeet(e.clientX, e.clientY);
+      pointerDownPos.current = pt;
+      pointerDownTime.current = Date.now();
+      isSwiping.current = false;
+      setSwipePath([pt]);
+    }
+
+    function handlePointerMove(e: React.PointerEvent<SVGSVGElement>) {
+      const pt = clientToFeet(e.clientX, e.clientY);
+
+      if (mode === 'place_single_gate' || mode === 'place_double_gate') {
+        return;
+      }
+
+      if (pointerDownPos.current) {
+        const d = dist(pointerDownPos.current, pt);
+        if (!isSwiping.current && d > 2) {
+          isSwiping.current = true;
+        }
+
+        if (isSwiping.current) {
+          setSwipePath((prev) => {
+            const last = prev[prev.length - 1];
+            if (!last || dist(last, pt) > 1) {
+              return [...prev, pt];
+            }
+            return prev;
+          });
+        }
+      } else {
+        if (currentPath.length > 0) {
+          setHoverPt(pt);
+        }
+      }
+    }
+
+    function handlePointerUp(e: React.PointerEvent<SVGSVGElement>) {
+      if (pointerDownPos.current) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+        const pt = clientToFeet(e.clientX, e.clientY);
+        const d = dist(pointerDownPos.current, pt);
+        const time = Date.now() - pointerDownTime.current;
+
+        if (!isSwiping.current && d < 2 && time < 500) {
+          handleClickInternal(pt);
+        } else if (isSwiping.current) {
+          setSwipePath((prev) => {
+            const simplified = simplifyPath(prev, 3.0);
+            if (simplified.length >= 2) {
+              const newSegs: { x: number; y: number }[][] = [];
+              const newLens: string[] = [];
+              for (let i = 0; i < simplified.length - 1; i++) {
+                newSegs.push([simplified[i], simplified[i + 1]]);
+                newLens.push('');
+              }
+              setSegments((s) => [...s, ...newSegs]);
+              setLineLengths((l) => [...l, ...newLens]);
+            }
+            return [];
+          });
+          setCurrentPath([]);
+        }
+
+        pointerDownPos.current = null;
+        isSwiping.current = false;
+        setSwipePath([]);
+      }
+    }
+
+    function handleClickInternal(pt: { x: number; y: number }) {
       const { x, y } = pt;
 
       if (mode === 'place_single_gate' || mode === 'place_double_gate') {
@@ -222,14 +317,6 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         setLineLengths((prev) => [...prev, '']);
         setCurrentPath((prev) => [...prev, { x, y }]);
       }
-      setHoverPt(null);
-    }
-
-    function handleMouseMove(e: React.MouseEvent) {
-      setHoverPt(clientToFeet(e.clientX, e.clientY));
-    }
-
-    function handleMouseLeave() {
       setHoverPt(null);
     }
 
@@ -282,12 +369,13 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       >
           <svg
             ref={svgRef}
-            className="absolute inset-0 h-full w-full cursor-crosshair"
+            className="absolute inset-0 h-full w-full cursor-crosshair touch-none"
             viewBox={viewBox}
             preserveAspectRatio="xMidYMid meet"
-            onClick={handleClick}
-            onMouseMove={handleMouseMove}
-            onMouseLeave={handleMouseLeave}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
           >
             {/* Whiteboard Origin Marker */}
             <circle cx={0} cy={0} r={1.5} fill="#cbd5e1" />
@@ -309,12 +397,13 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                   {seg.map((p, pi) => (
                     <circle key={pi} cx={p.x} cy={p.y} r={1.5} fill="#1e293b" />
                   ))}
-                  {lineLengths[si]?.trim() && (() => {
+                  {lineLengths[si]?.trim() && segments.length <= 25 && (() => {
                     const mx = (seg[0].x + seg[1].x) / 2;
                     const my = (seg[0].y + seg[1].y) / 2;
                     const dx = seg[1].x - seg[0].x;
                     const dy = seg[1].y - seg[0].y;
                     const len = Math.hypot(dx, dy) || 1;
+                    if (segments.length > 12 && len < 8) return null; // hide small segment text if drawing is rough
                     const offset = 12;
                     const px = mx + (-dy / len) * offset;
                     const py = my + (dx / len) * offset;
@@ -335,6 +424,18 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                   })()}
                 </g>
               ) : null
+            )}
+
+            {swipePath.length >= 2 && (
+              <polyline
+                points={swipePath.map((p) => `${p.x},${p.y}`).join(' ')}
+                fill="none"
+                stroke="#1e293b"
+                strokeWidth={1.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                opacity={0.8}
+              />
             )}
 
             {currentPath.length > 0 && (
@@ -428,7 +529,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
           <div className="mt-3 space-y-3">
             <div className="flex flex-wrap items-center gap-3">
               <span className="text-sm font-medium text-[var(--muted)]">Lengths (ft):</span>
-              {segments.map((_, i) => (
+              {segments.length <= 15 ? segments.map((_, i) => (
                 <div key={i} className="flex items-center gap-1">
                   <span className="text-sm">Line {i + 1}:</span>
                   <input
@@ -446,7 +547,9 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                     className="w-16 rounded border border-[var(--line)] px-2 py-1 text-sm"
                   />
                 </div>
-              ))}
+              )) : (
+                <span className="text-sm text-[var(--muted)] italic">Too many lines to edit individually. Use Undo to redraw, or see total above.</span>
+              )}
             </div>
           </div>
         )}
@@ -458,8 +561,8 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         )}
         {mode === 'draw' && (
           <div className="mt-2 text-sm text-[var(--muted)] flex items-center gap-2 flex-wrap">
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-200 inline-flex items-center justify-center text-[8px]">1</span> Click to start drawing</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-200 inline-flex items-center justify-center text-[8px]">2</span> Click again to place corner</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-200 inline-flex items-center justify-center text-[8px]">1</span> Click or swipe to sketch</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-200 inline-flex items-center justify-center text-[8px]">2</span> Tap corner to corner</span>
             <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-200 inline-flex items-center justify-center text-[8px]">3</span> Double-click to finish line</span>
           </div>
         )}
