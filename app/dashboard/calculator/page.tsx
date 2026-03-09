@@ -354,6 +354,18 @@ export default function CalculatorPage() {
     }
   }
 
+  function addSegment() {
+    const newKey = `custom_${Date.now()}`;
+    setSegments((prev) => [
+      ...prev,
+      { key: newKey, name: `Line ${prev.length + 1}`, meters: 0, feet: 0, lastEdited: 'feet', extend: false, shared: false, sharedWith: '' }
+    ]);
+  }
+
+  function removeSegment(index: number) {
+    setSegments((prev) => prev.filter((_, i) => i !== index));
+  }
+
   function resetCalculator() {
     setQuoteAddress('');
     setHomeownerName('');
@@ -724,12 +736,139 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                 <FenceDrawingMap segments={customerSegments} gates={customerGates} center={customerMapCenter} className="min-h-[200px] rounded-lg overflow-hidden" />
               </div>
             )}
-            <div className="flex flex-col">
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[var(--line)] bg-[var(--bg2)]">
+                    <th className="px-3 py-2 text-left font-medium">Segment</th>
+                    {customerSegments.length > 0 && (
+                      <th className="px-3 py-2 text-left font-medium">From line</th>
+                    )}
+                    <th className="px-3 py-2 text-right font-medium">Meters</th>
+                    <th className="px-3 py-2 text-right font-medium">Feet</th>
+                    <th className="px-3 py-2 text-center font-medium">Extend</th>
+                    <th className="px-3 py-2 text-center font-medium">Shared</th>
+                    <th className="px-3 py-2 text-right font-medium">Cost</th>
+                    <th className="px-3 py-2 text-center font-medium"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {segments.map((seg, idx) => (
+                    <tr key={seg.key} className="border-b border-[var(--line)] hover:bg-[var(--bg2)]/50 transition-colors">
+                      <td className="px-3 py-2">
+                        <input
+                          type="text"
+                          value={seg.name}
+                          onChange={(e) => updateSegment(idx, { name: e.target.value })}
+                          className="w-32 rounded border border-[var(--line)] px-2 py-1.5 text-sm font-medium bg-transparent focus:bg-white transition-colors"
+                        />
+                      </td>
+                      {customerSegments.length > 0 && (
+                        <td className="px-3 py-2">
+                          <select
+                            value={segmentAssignments[seg.key] != null ? String(segmentAssignments[seg.key]) : ''}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              assignLineToSegment(seg.key, idx, v === '' ? null : parseInt(v, 10));
+                            }}
+                            className="rounded border border-[var(--line)] px-2 py-1 text-xs w-full max-w-[140px] bg-transparent"
+                          >
+                            <option value="">—</option>
+                            {customerSegments.map((cs, i) => (
+                              <option key={i} value={i}>
+                                Line {i + 1} ({cs.length_ft != null ? Number(cs.length_ft).toFixed(1) : '?'} ft)
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                      )}
+                      <td className="px-3 py-2 text-right">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min={0}
+                          value={seg.meters || ''}
+                          onChange={(e) => syncFromMeters(idx, safeNum(e.target.value))}
+                          className="w-24 rounded border border-[var(--line)] px-2 py-1 text-right"
+                        />
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min={0}
+                          value={seg.feet || ''}
+                          onChange={(e) => syncFromFeet(idx, safeNum(e.target.value))}
+                          className="w-24 rounded border border-[var(--line)] px-2 py-1 text-right"
+                        />
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        <input
+                          type="checkbox"
+                          checked={seg.extend}
+                          onChange={(e) => updateSegment(idx, { extend: e.target.checked })}
+                          className="rounded border-[var(--line)] text-[var(--accent)]"
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={seg.shared}
+                            onChange={(e) => updateSegment(idx, { shared: e.target.checked })}
+                            className="rounded border-[var(--line)] text-[var(--accent)]"
+                          />
+                          {seg.shared && (
+                            <input
+                              type="text"
+                              placeholder="Neighbour"
+                              value={seg.sharedWith}
+                              onChange={(e) => updateSegment(idx, { sharedWith: e.target.value })}
+                              className="flex-1 min-w-0 rounded border border-[var(--line)] px-2 py-1 text-xs"
+                            />
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-right font-medium">
+                        {moneyCAD(segmentCosts[seg.key] ?? 0)}
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => removeSegment(idx)}
+                          className="text-red-500 hover:bg-red-50 p-1.5 rounded transition-colors"
+                          title="Remove line"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex flex-col md:hidden">
               {segments.map((seg, idx) => (
                 <div key={seg.key} className="border-b border-[var(--line)] p-4 space-y-3">
                   <div className="flex justify-between items-center font-bold text-[var(--text)]">
-                    <span>{seg.name}</span>
-                    <span className="text-lg">{moneyCAD(segmentCosts[seg.key] ?? 0)}</span>
+                    <input
+                      type="text"
+                      value={seg.name}
+                      onChange={(e) => updateSegment(idx, { name: e.target.value })}
+                      className="w-1/2 rounded border-b border-transparent focus:border-[var(--line)] focus:bg-[var(--bg2)] px-1 py-0.5 text-base font-bold bg-transparent transition-colors outline-none"
+                    />
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg">{moneyCAD(segmentCosts[seg.key] ?? 0)}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeSegment(idx)}
+                        className="text-red-500 bg-red-50 rounded p-1.5"
+                        title="Remove line"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+                      </button>
+                    </div>
                   </div>
                   
                   {customerSegments.length > 0 && (
@@ -813,11 +952,19 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                 </div>
               ))}
             </div>
-            <div className="p-4">
+            <div className="p-4 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={addSegment}
+                className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-opacity flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
+                Add line
+              </button>
               <button
                 type="button"
                 onClick={resetCalculator}
-                className="rounded-lg border border-[var(--line)] px-3 py-2 text-sm font-medium hover:bg-[var(--bg2)]"
+                className="rounded-lg border border-[var(--line)] px-4 py-2 text-sm font-medium hover:bg-[var(--bg2)] transition-colors"
               >
                 Reset calculator
               </button>
