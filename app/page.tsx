@@ -46,17 +46,24 @@ export default function HomePage() {
 
       <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
         <nav className="flex items-center justify-between">
-          <Link href="/" className="flex items-center rounded-xl bg-black p-1.5 transition-opacity hover:opacity-90">
+          <Link href="/" className="flex items-center rounded-xl bg-black px-3 py-2 transition-opacity hover:opacity-90">
             <img
               src="/quotemyfence-logo.png"
               alt="QuoteMyFence"
-              className="h-11 w-auto"
+              className="h-14 w-auto sm:h-16"
             />
           </Link>
         </nav>
 
-        <header className="mt-16 text-center sm:mt-20">
-          <h1 className="text-4xl font-bold tracking-tight text-[var(--text)] sm:text-5xl md:text-[2.75rem]">
+        <header className="mt-12 text-center sm:mt-16">
+          <div className="flex justify-center">
+            <img
+              src="/quotemyfence-logo.png"
+              alt="QuoteMyFence"
+              className="h-28 w-auto sm:h-36 md:h-44"
+            />
+          </div>
+          <h1 className="mt-8 text-4xl font-bold tracking-tight text-[var(--text)] sm:text-5xl md:text-[2.75rem]">
             Draw your fence.
             <br />
             <span className="text-[var(--accent)]">Get your estimate.</span>

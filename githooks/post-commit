@@ -1,0 +1,3 @@
+#!/bin/sh
+# Auto-push to trigger Vercel deploy after each commit
+git push origin main 2>/dev/null || git push origin

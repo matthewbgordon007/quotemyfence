@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "setup-hooks": "cp githooks/post-commit .git/hooks/post-commit && chmod +x .git/hooks/post-commit && echo 'Auto-push enabled: commits will push to origin automatically.'"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
