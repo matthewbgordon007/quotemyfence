@@ -23,13 +23,9 @@ function buildStaticMapUrl(
     coords.push({ lat: seg.end_lat, lng: seg.end_lng });
   });
   
-  // Calculate center to zoom perfectly around the drawn lines
-  const minLat = Math.min(...coords.map(c => c.lat));
-  const maxLat = Math.max(...coords.map(c => c.lat));
-  const minLng = Math.min(...coords.map(c => c.lng));
-  const maxLng = Math.max(...coords.map(c => c.lng));
-  const centerLat = (minLat + maxLat) / 2;
-  const centerLng = (minLng + maxLng) / 2;
+  // Revert to original center calculation (average of points)
+  const centerLat = coords.reduce((s, p) => s + p.lat, 0) / coords.length;
+  const centerLng = coords.reduce((s, p) => s + p.lng, 0) / coords.length;
   
   const pathStr = coords.map((p) => `${p.lat},${p.lng}`).join('|');
   const path = `color:0xeab308|weight:4|${pathStr}`;
@@ -43,7 +39,8 @@ function buildStaticMapUrl(
     }
   });
 
-  return `https://maps.googleapis.com/maps/api/staticmap?size=600x350&scale=2&maptype=satellite&center=${centerLat},${centerLng}&zoom=20&path=${encodeURIComponent(path)}${gateMarkers}&key=${apiKey}`;
+  // Reverted zoom back to 19
+  return `https://maps.googleapis.com/maps/api/staticmap?size=600x350&scale=2&maptype=satellite&center=${centerLat},${centerLng}&zoom=19&path=${encodeURIComponent(path)}${gateMarkers}&key=${apiKey}`;
 }
 
 export async function GET(
