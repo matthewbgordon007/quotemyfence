@@ -433,32 +433,32 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
               <h2 className="font-semibold">Quote setup</h2>
               <p className="text-xs text-[var(--muted)]">Homeowner • Address • Type • Style • Colour • Gates • Tax</p>
             </div>
-            <div className="p-4 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-4 space-y-5">
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-[var(--muted)] mb-1">Homeowner name</label>
+                  <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">Homeowner name</label>
                   <input
                     type="text"
                     value={homeownerName}
                     onChange={(e) => setHomeownerName(e.target.value)}
                     placeholder="e.g., John Smith"
-                    className="w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm"
+                    className="w-full rounded-xl border border-[var(--line)] px-3 py-2.5 text-base"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-[var(--muted)] mb-1">Address / location</label>
+                  <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">Address / location</label>
                   <input
                     type="text"
                     value={quoteAddress}
                     onChange={(e) => setQuoteAddress(e.target.value)}
                     placeholder="e.g., 113 Ocala Street"
-                    className="w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm"
+                    className="w-full rounded-xl border border-[var(--line)] px-3 py-2.5 text-base"
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="space-y-4 pt-4 border-t border-[var(--line)]">
                 <div>
-                  <label className="block text-xs font-medium text-[var(--muted)] mb-1">Type</label>
+                  <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">Fence Type</label>
                   <select
                     value={selectedTypeId || ''}
                     onChange={(e) => {
@@ -479,7 +479,7 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                         }
                       }
                     }}
-                    className="w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm"
+                    className="w-full rounded-xl border border-[var(--line)] px-3 py-2.5 text-base bg-white"
                   >
                     <option value="">Select type</option>
                     {types.map((t) => (
@@ -487,119 +487,120 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-[var(--muted)] mb-1">Style</label>
-                  <select
-                    value={selectedStyleId || ''}
-                    onChange={(e) => {
-                      const id = e.target.value || null;
-                      setSelectedStyleId(id);
-                      setSelectedColourId(null);
-                      if (id) {
-                        const sColours = colours.filter((c) => c.fence_style_id === id);
-                        const firstWithRule = sColours.find((c) =>
-                          colourPricingRules.some((r) => r.colour_option_id === c.id)
-                        );
-                        if (firstWithRule) setSelectedColourId(firstWithRule.id);
-                      }
-                    }}
-                    className="w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm"
-                    disabled={!selectedTypeId}
-                  >
-                    <option value="">Select style</option>
-                    {stylesForType.map((s) => (
-                      <option key={s.id} value={s.id}>{s.style_name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-[var(--muted)] mb-1">Colour</label>
-                  <select
-                    value={selectedColourId || ''}
-                    onChange={(e) => setSelectedColourId(e.target.value || null)}
-                    className="w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm"
-                    disabled={!selectedStyleId}
-                  >
-                    <option value="">Select colour</option>
-                    {coloursWithPricing.map((c) => (
-                      <option key={c.id} value={c.id}>{c.color_name}</option>
-                    ))}
-                  </select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">Style</label>
+                    <select
+                      value={selectedStyleId || ''}
+                      onChange={(e) => {
+                        const id = e.target.value || null;
+                        setSelectedStyleId(id);
+                        setSelectedColourId(null);
+                        if (id) {
+                          const sColours = colours.filter((c) => c.fence_style_id === id);
+                          const firstWithRule = sColours.find((c) =>
+                            colourPricingRules.some((r) => r.colour_option_id === c.id)
+                          );
+                          if (firstWithRule) setSelectedColourId(firstWithRule.id);
+                        }
+                      }}
+                      className="w-full rounded-xl border border-[var(--line)] px-3 py-2.5 text-base bg-white disabled:opacity-50"
+                      disabled={!selectedTypeId}
+                    >
+                      <option value="">Select style</option>
+                      {stylesForType.map((s) => (
+                        <option key={s.id} value={s.id}>{s.style_name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">Colour</label>
+                    <select
+                      value={selectedColourId || ''}
+                      onChange={(e) => setSelectedColourId(e.target.value || null)}
+                      className="w-full rounded-xl border border-[var(--line)] px-3 py-2.5 text-base bg-white disabled:opacity-50"
+                      disabled={!selectedStyleId}
+                    >
+                      <option value="">Select colour</option>
+                      {coloursWithPricing.map((c) => (
+                        <option key={c.id} value={c.id}>{c.color_name}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-[var(--muted)] mb-1">Single gates</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={singleGateQty}
-                    onChange={(e) => setSingleGateQty(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                    className="w-24 rounded-lg border border-[var(--line)] px-3 py-2 text-sm"
-                  />
+              
+              <div className="space-y-4 pt-4 border-t border-[var(--line)]">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">Single gates</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={singleGateQty}
+                      onChange={(e) => setSingleGateQty(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      className="w-full rounded-xl border border-[var(--line)] px-3 py-2.5 text-base"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">Double gates</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={doubleGateQty}
+                      onChange={(e) => setDoubleGateQty(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      className="w-full rounded-xl border border-[var(--line)] px-3 py-2.5 text-base"
+                    />
+                  </div>
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">Gate side</label>
+                    <select
+                      value={gateSideKey}
+                      onChange={(e) => setGateSideKey(e.target.value)}
+                      className="w-full rounded-xl border border-[var(--line)] px-3 py-2.5 text-base bg-white"
+                    >
+                      {segments.map((s) => (
+                        <option key={s.key} value={s.key}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-[var(--muted)] mb-1">Double gates</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={doubleGateQty}
-                    onChange={(e) => setDoubleGateQty(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                    className="w-24 rounded-lg border border-[var(--line)] px-3 py-2 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-[var(--muted)] mb-1">Gate side</label>
-                  <select
-                    value={gateSideKey}
-                    onChange={(e) => setGateSideKey(e.target.value)}
-                    className="rounded-lg border border-[var(--line)] px-3 py-2 text-sm"
-                  >
-                    {segments.map((s) => (
-                      <option key={s.key} value={s.key}>{s.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex items-end gap-2">
-                  <label className="flex items-center gap-2 text-sm">
+              </div>
+
+              <div className="space-y-4 pt-4 border-t border-[var(--line)]">
+                <div className="flex flex-wrap items-center gap-4">
+                  <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--bg2)] px-4 py-3 text-base font-medium hover:bg-[var(--line)] transition-colors flex-1 min-w-[140px]">
                     <input
                       type="checkbox"
                       checked={hasRemoval}
                       onChange={(e) => setHasRemoval(e.target.checked)}
+                      className="h-5 w-5 rounded border-[var(--line)] text-[var(--accent)]"
                     />
-                    Removal
+                    <span>Removal</span>
                   </label>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-[var(--muted)] mb-1">Tax %</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={taxRate}
-                    onChange={(e) => setTaxRate(safeNum(e.target.value))}
-                    className="w-20 rounded-lg border border-[var(--line)] px-3 py-2 text-sm"
-                  />
-                </div>
-                <div className="flex items-end">
-                  <label className="flex items-center gap-2 text-sm">
+                  <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--bg2)] px-4 py-3 text-base font-medium hover:bg-[var(--line)] transition-colors flex-1 min-w-[140px]">
                     <input
                       type="checkbox"
                       checked={applyTax}
                       onChange={(e) => setApplyTax(e.target.checked)}
+                      className="h-5 w-5 rounded border-[var(--line)] text-[var(--accent)]"
                     />
-                    Apply tax to total
+                    <span>Tax ({taxRate}%)</span>
                   </label>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-[var(--muted)]">Extend add (ft)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={extendAdd}
-                  onChange={(e) => setExtendAdd(safeNum(e.target.value) || EXTEND_ADD)}
-                  className="w-20 rounded-lg border border-[var(--line)] px-2 py-1 text-sm"
-                />
+                <div className="flex items-center justify-between gap-4 p-3 bg-[var(--bg2)] rounded-xl border border-[var(--line)]">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium">Extend Add</span>
+                    <span className="text-xs text-[var(--muted)]">Feet added when extending lines</span>
+                  </div>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={extendAdd}
+                    onChange={(e) => setExtendAdd(safeNum(e.target.value) || EXTEND_ADD)}
+                    className="w-20 rounded-lg border border-[var(--line)] px-3 py-1.5 text-base text-center"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -615,96 +616,94 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                 <FenceDrawingMap segments={customerSegments} gates={customerGates} center={customerMapCenter} className="min-h-[200px] rounded-lg overflow-hidden" />
               </div>
             )}
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-[var(--line)] bg-[var(--bg2)]">
-                    <th className="px-3 py-2 text-left font-medium">Segment</th>
-                    {customerSegments.length > 0 && (
-                      <th className="px-3 py-2 text-left font-medium">From line</th>
-                    )}
-                    <th className="px-3 py-2 text-right font-medium">Meters</th>
-                    <th className="px-3 py-2 text-right font-medium">Feet</th>
-                    <th className="px-3 py-2 text-center font-medium">Extend</th>
-                    <th className="px-3 py-2 text-center font-medium">Shared</th>
-                    <th className="px-3 py-2 text-right font-medium">Cost</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {segments.map((seg, idx) => (
-                    <tr key={seg.key} className="border-b border-[var(--line)]">
-                      <td className="px-3 py-2">{seg.name}</td>
-                      {customerSegments.length > 0 && (
-                        <td className="px-3 py-2">
-                          <select
-                            value={segmentAssignments[seg.key] != null ? String(segmentAssignments[seg.key]) : ''}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              assignLineToSegment(seg.key, idx, v === '' ? null : parseInt(v, 10));
-                            }}
-                            className="rounded border border-[var(--line)] px-2 py-1 text-xs w-full max-w-[140px]"
-                          >
-                            <option value="">—</option>
-                            {customerSegments.map((cs, i) => (
-                              <option key={i} value={i}>
-                                Line {i + 1} ({cs.length_ft != null ? Number(cs.length_ft).toFixed(1) : '?'} ft)
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                      )}
-                      <td className="px-3 py-2 text-right">
-                        <input
-                          type="number"
-                          step="0.01"
-                          min={0}
-                          value={seg.meters || ''}
-                          onChange={(e) => syncFromMeters(idx, safeNum(e.target.value))}
-                          className="w-24 rounded border border-[var(--line)] px-2 py-1 text-right"
-                        />
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <input
-                          type="number"
-                          step="0.01"
-                          min={0}
-                          value={seg.feet || ''}
-                          onChange={(e) => syncFromFeet(idx, safeNum(e.target.value))}
-                          className="w-24 rounded border border-[var(--line)] px-2 py-1 text-right"
-                        />
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        <input
-                          type="checkbox"
-                          checked={seg.extend}
-                          onChange={(e) => updateSegment(idx, { extend: e.target.checked })}
-                        />
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={seg.shared}
-                            onChange={(e) => updateSegment(idx, { shared: e.target.checked })}
-                          />
-                          {seg.shared && (
-                            <input
-                              type="text"
-                              placeholder="Neighbour"
-                              value={seg.sharedWith}
-                              onChange={(e) => updateSegment(idx, { sharedWith: e.target.value })}
-                              className="flex-1 min-w-0 rounded border border-[var(--line)] px-2 py-1 text-xs"
-                            />
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2 text-right font-medium">
-                        {moneyCAD(segmentCosts[seg.key] ?? 0)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="flex flex-col">
+              {segments.map((seg, idx) => (
+                <div key={seg.key} className="border-b border-[var(--line)] p-4 space-y-3">
+                  <div className="flex justify-between items-center font-bold text-[var(--text)]">
+                    <span>{seg.name}</span>
+                    <span className="text-lg">{moneyCAD(segmentCosts[seg.key] ?? 0)}</span>
+                  </div>
+                  
+                  {customerSegments.length > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-[var(--muted)] font-medium">Assign line</span>
+                      <select
+                        value={segmentAssignments[seg.key] != null ? String(segmentAssignments[seg.key]) : ''}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          assignLineToSegment(seg.key, idx, v === '' ? null : parseInt(v, 10));
+                        }}
+                        className="rounded-lg border border-[var(--line)] px-2 py-1.5 text-sm bg-[var(--bg2)] max-w-[160px]"
+                      >
+                        <option value="">—</option>
+                        {customerSegments.map((cs, i) => (
+                          <option key={i} value={i}>
+                            Line {i + 1} ({cs.length_ft != null ? Number(cs.length_ft).toFixed(1) : '?'} ft)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-[var(--muted)] mb-1">Meters</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min={0}
+                        value={seg.meters || ''}
+                        onChange={(e) => syncFromMeters(idx, safeNum(e.target.value))}
+                        className="w-full rounded-xl border border-[var(--line)] px-3 py-2 text-base font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-[var(--muted)] mb-1">Feet</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min={0}
+                        value={seg.feet || ''}
+                        onChange={(e) => syncFromFeet(idx, safeNum(e.target.value))}
+                        className="w-full rounded-xl border border-[var(--line)] px-3 py-2 text-base font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-4 pt-1">
+                    <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--bg2)] px-3 py-2 text-sm font-medium hover:bg-[var(--line)] transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={seg.extend}
+                        onChange={(e) => updateSegment(idx, { extend: e.target.checked })}
+                        className="h-4 w-4 rounded border-[var(--line)] text-[var(--accent)]"
+                      />
+                      <span>Extend (+{extendAdd}ft)</span>
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--bg2)] px-3 py-2 text-sm font-medium hover:bg-[var(--line)] transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={seg.shared}
+                        onChange={(e) => updateSegment(idx, { shared: e.target.checked })}
+                        className="h-4 w-4 rounded border-[var(--line)] text-[var(--accent)]"
+                      />
+                      <span>Shared 50%</span>
+                    </label>
+                  </div>
+
+                  {seg.shared && (
+                    <div className="pt-1">
+                      <input
+                        type="text"
+                        placeholder="Neighbour name (optional)"
+                        value={seg.sharedWith}
+                        onChange={(e) => updateSegment(idx, { sharedWith: e.target.value })}
+                        className="w-full rounded-xl border border-[var(--line)] px-3 py-2 text-sm"
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
             <div className="p-4">
               <button
@@ -724,49 +723,49 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
               <h2 className="font-semibold">Totals</h2>
               <p className="text-xs text-[var(--muted)]">Private • Shared • Gates • Deposit</p>
             </div>
-            <div className="p-4 space-y-3">
-              <div className="flex justify-between text-sm">
+            <div className="p-5 space-y-4">
+              <div className="flex justify-between text-base">
                 <span className="text-[var(--muted)]">Private</span>
                 <span className="font-semibold">{moneyCAD(privateTotal)}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-base">
                 <span className="text-[var(--muted)]">Shared</span>
                 <span className="font-semibold">{moneyCAD(sharedTotal)}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-base">
                 <span className="text-[var(--muted)]">Gates</span>
                 <span className="font-semibold">{moneyCAD(gateTotal)}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-base">
                 <span className="text-[var(--muted)]">Removal</span>
                 <span className="font-semibold">{moneyCAD(removalTotal)}</span>
               </div>
-              <div className="flex justify-between text-sm pt-2 border-t border-[var(--line)]">
+              <div className="flex justify-between text-base pt-3 border-t border-[var(--line)]">
                 <span className="font-medium">Subtotal</span>
                 <span className="font-bold">{moneyCAD(subtotal)}</span>
               </div>
               {applyTax && (
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-base">
                   <span className="text-[var(--muted)]">Tax ({taxRate}%)</span>
                   <span>{moneyCAD(taxAmount)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-base pt-2 border-t border-[var(--line)]">
+              <div className="flex justify-between text-xl pt-3 border-t border-[var(--line)]">
                 <span className="font-bold">Grand total</span>
-                <span className="font-bold">{moneyCAD(grandTotal)}</span>
+                <span className="font-bold text-[var(--accent)]">{moneyCAD(grandTotal)}</span>
               </div>
-              <div className="flex justify-between text-sm pt-1">
+              <div className="flex justify-between text-base pt-1">
                 <span className="text-[var(--muted)]">10% deposit</span>
                 <span className="font-semibold">{moneyCAD(deposit)}</span>
               </div>
             </div>
-            <div className="p-4 border-t border-[var(--line)] space-y-2">
+            <div className="p-5 border-t border-[var(--line)] space-y-3">
               {fromCustomerId && (
                 <button
                   type="button"
                   onClick={saveToCustomer}
                   disabled={savingToCustomer}
-                  className="w-full rounded-lg bg-[var(--accent)] px-4 py-3 font-semibold text-white shadow-lg hover:opacity-90 disabled:opacity-50"
+                  className="w-full rounded-xl bg-[var(--accent)] px-4 py-4 text-base font-bold text-white shadow-md hover:opacity-90 disabled:opacity-50 transition-opacity"
                 >
                   {savingToCustomer ? 'Saving…' : 'Save to customer'}
                 </button>
@@ -774,7 +773,7 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
               <button
                 type="button"
                 onClick={copyQuote}
-                className={`w-full rounded-lg px-4 py-3 font-semibold shadow-lg hover:opacity-90 ${fromCustomerId ? 'border border-[var(--line)] bg-white text-[var(--text)]' : 'bg-[var(--accent)] text-white'}`}
+                className={`w-full rounded-xl px-4 py-4 text-base font-bold shadow-md hover:opacity-90 transition-opacity ${fromCustomerId ? 'border border-[var(--line)] bg-white text-[var(--text)]' : 'bg-[var(--accent)] text-white'}`}
               >
                 Copy quote text
               </button>
