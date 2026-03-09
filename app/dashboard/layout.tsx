@@ -32,25 +32,18 @@ export default async function DashboardLayout({
   const c = contractor.data;
 
   return (
-    <div className="flex h-[100dvh] flex-col md:flex-row bg-[var(--bg2)] overflow-hidden">
-      {/* Mobile Header */}
-      <div className="md:hidden flex items-center gap-3 border-b border-[var(--line)] bg-white p-3 shrink-0">
+    <div className="flex h-[100dvh] flex-col md:flex-row bg-[var(--bg2)] overflow-hidden w-full fixed inset-0">
+      {/* Mobile Header - More app-like */}
+      <div className="md:hidden flex items-center justify-center gap-2 bg-white/90 backdrop-blur-md pt-[max(env(safe-area-inset-top),1rem)] pb-3 px-4 shrink-0 shadow-sm z-40 border-b border-[var(--line)]">
         {c?.logo_url ? (
           <img
             src={c.logo_url}
             alt={c.company_name}
-            className="h-8 w-8 rounded-lg object-contain"
+            className="h-7 w-7 rounded-md object-contain"
           />
-        ) : (
-          <div
-            className="h-8 w-8 rounded-lg"
-            style={{
-              background: c?.primary_color || 'var(--accent)',
-            }}
-          />
-        )}
-        <div className="min-w-0 flex-1">
-          <div className="truncate font-semibold text-sm">{c?.company_name}</div>
+        ) : null}
+        <div className="font-semibold text-base tracking-tight text-[var(--text)]">
+          {c?.company_name || 'QuoteMyFence'}
         </div>
       </div>
 
@@ -84,12 +77,12 @@ export default async function DashboardLayout({
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto p-4 pb-24 md:p-6 md:pb-6 relative webkit-scrolling">
+      <main className="flex-1 overflow-y-auto p-4 pb-32 md:p-6 md:pb-6 relative webkit-scrolling bg-[var(--bg2)]">
         {children}
       </main>
 
       {/* Mobile Bottom Nav */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 border-t border-[var(--line)] bg-white/90 backdrop-blur-md z-50 shadow-[0_-4px_6px_-1px_rgb(0,0,0,0.05)]">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 border-t border-[var(--line)] bg-white/95 backdrop-blur-xl z-50 shadow-[0_-10px_20px_rgb(0,0,0,0.03)] pb-[env(safe-area-inset-bottom)]">
         <DashboardNav slug={c?.slug ?? ''} isMobile={true} />
       </div>
     </div>
