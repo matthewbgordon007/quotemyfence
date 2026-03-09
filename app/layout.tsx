@@ -34,7 +34,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
       <body
-        className="min-h-screen antialiased overscroll-none selection:bg-blue-100"
+        className="min-h-screen antialiased selection:bg-blue-100"
         style={{
           fontFamily: "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
           color: '#0f172a',
