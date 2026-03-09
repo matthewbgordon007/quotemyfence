@@ -295,10 +295,8 @@ export default function CustomerDetailPage() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <a
-                  href={`/api/contractor/customers/${id}/quote-pdf?preview=1`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <Link
+                  href={`/dashboard/customers/${id}/preview`}
                   className="inline-flex items-center gap-2 rounded-xl border border-[var(--line)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--text)] shadow-sm transition hover:bg-[var(--bg2)]"
                 >
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -306,7 +304,7 @@ export default function CustomerDetailPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                   </svg>
                   Preview quote
-                </a>
+                </Link>
                 <a
                   href={`/api/contractor/customers/${id}/quote-pdf`}
                   download="quote.pdf"
