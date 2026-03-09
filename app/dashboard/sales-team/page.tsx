@@ -252,31 +252,29 @@ export default function SalesTeamPage() {
           </div>
         )}
         {members.map((m) => (
-          <div key={m.id} className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-2xl border border-[var(--line)] bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-4 min-w-0 flex-1">
-              <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-[var(--line)] bg-[var(--bg2)]">
-                {m.photo_url ? (
-                  <img src={m.photo_url} alt={m.name} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-xl font-bold text-[var(--muted)]">
-                    {m.name.charAt(0)}
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold truncate block">{m.name}</span>
+          <div key={m.id} className="flex items-center gap-4 rounded-2xl border border-[var(--line)] bg-white p-4 shadow-sm">
+            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-[var(--line)] bg-[var(--bg2)]">
+              {m.photo_url ? (
+                <img src={m.photo_url} alt={m.name} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-xl font-bold text-[var(--muted)]">
+                  {m.name.charAt(0)}
                 </div>
-                {m.title && <div className="text-sm text-[var(--muted)] truncate">{m.title}</div>}
-                {(m.phone || m.email) && (
-                  <div className="mt-1 flex flex-col sm:flex-row sm:flex-wrap gap-1 sm:gap-3 text-sm">
-                    {m.phone && <a href={`tel:${m.phone}`} className="text-[var(--accent)] hover:underline truncate">{m.phone}</a>}
-                    {m.email && <a href={`mailto:${m.email}`} className="text-[var(--accent)] hover:underline truncate">{m.email}</a>}
-                  </div>
-                )}
-              </div>
+              )}
             </div>
-            <div className="flex flex-wrap items-center gap-2 sm:ml-auto pt-2 sm:pt-0 border-t border-[var(--line)] sm:border-0">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="font-bold">{m.name}</span>
+              </div>
+              {m.title && <div className="text-sm text-[var(--muted)]">{m.title}</div>}
+              {(m.phone || m.email) && (
+                <div className="mt-1 flex flex-wrap gap-3 text-sm">
+                  {m.phone && <a href={`tel:${m.phone}`} className="text-[var(--accent)] hover:underline">{m.phone}</a>}
+                  {m.email && <a href={`mailto:${m.email}`} className="text-[var(--accent)] hover:underline">{m.email}</a>}
+                </div>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
               {m.email && (
                 <label className="flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-1.5 text-sm hover:bg-[var(--bg2)]">
                   <input
