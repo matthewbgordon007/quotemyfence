@@ -46,12 +46,12 @@ export default function HomePage() {
 
       <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
         <nav className="flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3 transition-opacity hover:opacity-90">
-            <div
-              className="h-10 w-10 rounded-xl bg-gradient-to-br from-[var(--accent)] to-[var(--accent-secondary)] shadow-md ring-1 ring-black/5"
-              aria-hidden
+          <Link href="/" className="flex items-center rounded-xl bg-black p-1.5 transition-opacity hover:opacity-90">
+            <img
+              src="/quotemyfence-logo.png"
+              alt="QuoteMyFence"
+              className="h-11 w-auto"
             />
-            <span className="font-bold text-xl tracking-tight text-[var(--text)]">QuoteMyFence</span>
           </Link>
         </nav>
 

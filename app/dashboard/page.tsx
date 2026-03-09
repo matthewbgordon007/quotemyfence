@@ -75,7 +75,7 @@ export default function DashboardPage() {
         <div className="rounded-2xl border border-[var(--line)] bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold">Leads & value</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Submitted quotes in the selected period
+            All leads in the selected period
           </p>
           <div className="mt-4 flex gap-2">
             {(['day', 'week', 'month', 'year'] as const).map((p) => (

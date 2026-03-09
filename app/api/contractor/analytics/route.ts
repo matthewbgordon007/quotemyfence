@@ -56,7 +56,6 @@ export async function GET(request: NextRequest) {
     .from('quote_sessions')
     .select('id, lead_status')
     .eq('contractor_id', userRow.contractor_id)
-    .eq('status', 'submitted')
     .gte('last_active_at', from);
 
   const sessionIds = (sessions ?? []).map((s) => s.id);

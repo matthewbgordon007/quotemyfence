@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, useParams } from 'next/navigation';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useEstimate } from '../EstimateContext';
 import { DrawFenceMap } from '@/components/DrawFenceMap';
 

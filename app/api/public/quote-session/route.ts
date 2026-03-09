@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
         contractor_id: contractor.id,
         status: 'contact_saved',
         current_step: 'location',
+        lead_status: 'new',
       })
       .select('id')
       .single();

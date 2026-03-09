@@ -93,7 +93,10 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-12">
+    <div className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
+      <Link href="/" className="mb-6 block rounded-xl bg-black p-1.5 w-fit transition-opacity hover:opacity-90">
+        <img src="/quotemyfence-logo.png" alt="QuoteMyFence" className="h-10 w-auto" />
+      </Link>
       <div className="w-full max-w-lg">
         <div className="rounded-2xl border border-[var(--line)] bg-white p-8 shadow-xl">
           <h1 className="text-2xl font-bold tracking-tight">Create your account</h1>

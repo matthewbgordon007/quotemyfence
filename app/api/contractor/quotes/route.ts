@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
       contractor_id: contractorId,
       status: 'started',
       current_step: 'completed', // Manually created
+      lead_status: 'new',
     })
     .select('id')
     .single();
