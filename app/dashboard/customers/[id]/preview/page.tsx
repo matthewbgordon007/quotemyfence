@@ -20,12 +20,12 @@ export default function QuotePreviewPage() {
           </button>
           <h1 className="font-semibold">Quote Preview</h1>
         </div>
-        <button
-          onClick={() => window.open(pdfUrl, '_blank')}
+        <a
+          href={pdfUrl}
           className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
         >
           Open Full Screen
-        </button>
+        </a>
       </div>
       
       <div className="bg-blue-50 p-3 text-sm text-blue-800 border-b border-blue-100 md:hidden text-center">
