@@ -363,7 +363,9 @@ export default function CalculatorPage() {
   }
 
   function removeSegment(index: number) {
-    setSegments((prev) => prev.filter((_, i) => i !== index));
+    if (window.confirm('Are you sure you want to delete this line?')) {
+      setSegments((prev) => prev.filter((_, i) => i !== index));
+    }
   }
 
   function resetCalculator() {

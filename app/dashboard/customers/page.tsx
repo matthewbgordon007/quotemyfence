@@ -86,6 +86,14 @@ export default function CustomersPage() {
     return fullName.includes(query) || address.includes(query) || email.includes(query) || phone.includes(query);
   });
 
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setSearchQuery(val);
+    if (val && leadFilter !== 'all') {
+      setLeadFilter('all');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -136,7 +144,7 @@ export default function CustomersPage() {
             type="text"
             placeholder="Search name or address..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={handleSearchChange}
             className="w-full rounded-xl border border-[var(--line)] bg-white pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
           />
         </div>
