@@ -25,10 +25,20 @@ const links = [
     icon: <path strokeLinecap="round" strokeLinejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z" />
   },
   { 
+    href: '/dashboard/products', 
+    label: 'Products',
+    icon: <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+  },
+  { 
     href: '/dashboard/settings', 
     label: 'Menu',
     icon: <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-  }
+  },
+  { 
+    href: '/dashboard/sales-team', 
+    label: 'Team',
+    icon: <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+  },
 ];
 
 export function DashboardNav({ slug, isMobile = false }: { slug: string; isMobile?: boolean }) {
@@ -43,14 +53,14 @@ export function DashboardNav({ slug, isMobile = false }: { slug: string; isMobil
 
   if (isMobile) {
     return (
-      <nav className="flex w-full items-center justify-around px-2 py-2 no-scrollbar">
+      <nav className="flex w-full items-center justify-around px-1 py-2 no-scrollbar">
         {links.map((link) => {
           const isActive = pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(link.href + '/'));
           return (
             <Link
               key={link.href}
               href={link.href}
-              className={`flex flex-col items-center gap-1 rounded-2xl p-2 transition w-[20%] ${
+              className={`flex flex-col items-center gap-1 rounded-2xl p-1.5 transition w-[16%] ${
                 isActive
                   ? 'text-[var(--accent)]'
                   : 'text-[#94a3b8] hover:text-[var(--text)] active:bg-gray-100'
@@ -59,7 +69,7 @@ export function DashboardNav({ slug, isMobile = false }: { slug: string; isMobil
               <svg className={`h-6 w-6 ${isActive ? 'stroke-[2.5px] fill-[var(--accent)]/10' : 'stroke-[1.5px]'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 {link.icon}
               </svg>
-              <span className={`text-[10px] tracking-tight ${isActive ? 'font-semibold' : 'font-medium'}`}>{link.label}</span>
+              <span className={`text-[9px] sm:text-[10px] tracking-tight ${isActive ? 'font-semibold' : 'font-medium'}`}>{link.label}</span>
             </Link>
           );
         })}

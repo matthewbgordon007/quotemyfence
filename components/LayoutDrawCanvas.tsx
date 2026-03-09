@@ -271,20 +271,15 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       return () => el.removeEventListener('wheel', onWheel);
     }, []);
 
-    return (
-      <div className="flex h-full w-full flex-col">
-        <div
-          ref={containerRef}
-          className="relative flex-1 overflow-hidden rounded-lg border border-[var(--line)] bg-[#fafafa]"
-          style={{
-            touchAction: 'none',
-            backgroundImage: `
-              linear-gradient(to right, #e5e5e5 1px, transparent 1px),
-              linear-gradient(to bottom, #e5e5e5 1px, transparent 1px)
-            `,
-            backgroundSize: `${PX_PER_FT * 5}px ${PX_PER_FT * 5}px`,
-          }}
-        >
+  return (
+    <div className="flex h-full w-full flex-col">
+      <div
+        ref={containerRef}
+        className="relative flex-1 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+        style={{
+          touchAction: 'none',
+        }}
+      >
           <svg
             ref={svgRef}
             className="absolute inset-0 h-full w-full cursor-crosshair"
@@ -294,11 +289,8 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
           >
-            {/* Grid origin crosshair */}
-            <line x1={0} y1={0} x2={10} y2={0} stroke="#ccc" strokeWidth={0.5} />
-            <line x1={0} y1={0} x2={-10} y2={0} stroke="#ccc" strokeWidth={0.5} />
-            <line x1={0} y1={0} x2={0} y2={10} stroke="#ccc" strokeWidth={0.5} />
-            <line x1={0} y1={0} x2={0} y2={-10} stroke="#ccc" strokeWidth={0.5} />
+            {/* Whiteboard Origin Marker */}
+            <circle cx={0} cy={0} r={1.5} fill="#cbd5e1" />
 
             {segments.map((seg, si) =>
               seg.length >= 2 ? (
@@ -308,12 +300,14 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                     y1={seg[0].y}
                     x2={seg[1].x}
                     y2={seg[1].y}
-                    stroke="#2563eb"
+                    stroke="#1e293b"
                     strokeWidth={1.5}
                     strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{ filter: 'drop-shadow(0px 1px 1px rgba(0,0,0,0.1))' }}
                   />
                   {seg.map((p, pi) => (
-                    <circle key={pi} cx={p.x} cy={p.y} r={2} fill="#2563eb" />
+                    <circle key={pi} cx={p.x} cy={p.y} r={1.5} fill="#1e293b" />
                   ))}
                   {lineLengths[si]?.trim() && (() => {
                     const mx = (seg[0].x + seg[1].x) / 2;
@@ -332,7 +326,8 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                         dominantBaseline="middle"
                         fill="#0f172a"
                         fontSize={4}
-                        fontWeight="bold"
+                        fontWeight="600"
+                        style={{ filter: 'drop-shadow(0px 1px 2px white)' }}
                       >
                         {lineLengths[si].trim()} ft
                       </text>
@@ -343,7 +338,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
             )}
 
             {currentPath.length > 0 && (
-              <circle cx={currentPath[0].x} cy={currentPath[0].y} r={3} fill="#2563eb" />
+              <circle cx={currentPath[0].x} cy={currentPath[0].y} r={2} fill="#ef4444" />
             )}
 
             {hoverPt && currentPath.length > 0 && (
@@ -352,10 +347,10 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                 y1={currentPath[currentPath.length - 1].y}
                 x2={hoverPt.x}
                 y2={hoverPt.y}
-                stroke="#2563eb"
+                stroke="#1e293b"
                 strokeWidth={1}
-                strokeDasharray="4 2"
-                opacity={0.7}
+                strokeDasharray="2 3"
+                opacity={0.5}
               />
             )}
 
@@ -462,9 +457,11 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
           <p className="mt-2 text-sm text-[var(--muted)]">Click on a line to place a double gate</p>
         )}
         {mode === 'draw' && (
-          <p className="mt-2 text-sm text-[var(--muted)]">
-            Click to add points • Double-click to end the line
-          </p>
+          <div className="mt-2 text-sm text-[var(--muted)] flex items-center gap-2 flex-wrap">
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-200 inline-flex items-center justify-center text-[8px]">1</span> Click to start drawing</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-200 inline-flex items-center justify-center text-[8px]">2</span> Click again to place corner</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-200 inline-flex items-center justify-center text-[8px]">3</span> Double-click to finish line</span>
+          </div>
         )}
       </div>
     );
