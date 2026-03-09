@@ -1,0 +1,14 @@
+---
+description: Auto-commit and push changes to git/Vercel after edits
+alwaysApply: true
+---
+
+# Auto-deploy workflow
+
+After making any code changes in this project:
+
+1. Stage all changes: `git add -A`
+2. Commit with a short descriptive message: `git commit -m "Brief description of change"`
+3. Push: the post-commit hook runs automatically and pushes to origin (Vercel deploys on push)
+
+Do not skip this step. If the user requests changes, commit and push when done unless they ask otherwise.
