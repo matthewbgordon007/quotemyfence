@@ -378,9 +378,9 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
     setSavingToCustomer(true);
     try {
       const res = await fetch(`/api/contractor/customers/${fromCustomerId}/quote`, {
-        method: 'PATCH',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quote_text: quoteText }),
+        body: JSON.stringify({ quote_text: quoteText, grand_total: grandTotal }),
       });
       if (res.ok) {
         alert('Quote saved to customer.');

@@ -25,6 +25,7 @@ interface ClientDetail {
   quoteTotals: { total_low: number; total_high: number } | null;
   designSummary: string | null;
   designOption: { height_ft?: number; type?: string; style?: string; colour?: string } | null;
+  savedQuotes?: { id: string; created_at: string; grand_total: number }[];
 }
 
 export default function CustomerDetailPage() {
@@ -35,6 +36,7 @@ export default function CustomerDetailPage() {
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deletingQuoteId, setDeletingQuoteId] = useState<string | null>(null);
 
   const handleDelete = async () => {
     if (!confirm('Delete this customer and all their quote data? This cannot be undone.')) return;
@@ -72,6 +74,29 @@ export default function CustomerDetailPage() {
       }
     } finally {
       setUpdatingStatus(false);
+    }
+  };
+
+  const handleDeleteQuote = async (quoteId: string) => {
+    if (!confirm('Delete this quote?')) return;
+    setDeletingQuoteId(quoteId);
+    try {
+      const res = await fetch(`/api/contractor/customers/${id}/quote?quote_id=${quoteId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setData((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            savedQuotes: prev.savedQuotes?.filter(q => q.id !== quoteId),
+          };
+        });
+      } else {
+        alert('Failed to delete quote');
+      }
+    } catch {
+      alert('Failed to delete quote');
+    } finally {
+      setDeletingQuoteId(null);
     }
   };
 
@@ -283,7 +308,47 @@ export default function CustomerDetailPage() {
           )}
         </section>
 
-        {session.contractor_quote_text && (
+        {(data.savedQuotes && data.savedQuotes.length > 0) ? (
+          <section className="rounded-2xl border border-[var(--line)] bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold mb-4">Saved Quotes</h2>
+            <div className="space-y-3">
+              {data.savedQuotes.map((q, idx) => (
+                <div key={q.id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[var(--line)] p-4">
+                  <div>
+                    <div className="font-semibold text-[var(--text)]">Quote #{data.savedQuotes!.length - idx}</div>
+                    <div className="text-sm text-[var(--muted)]">Saved: {new Date(q.created_at).toLocaleString()}</div>
+                  </div>
+                  <div className="font-bold text-lg text-[var(--text)]">
+                    ${q.grand_total.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link
+                      href={`/dashboard/customers/${id}/preview?quote_id=${q.id}`}
+                      className="inline-flex items-center gap-2 rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm font-semibold text-[var(--text)] transition hover:bg-[var(--bg2)]"
+                    >
+                      Preview
+                    </Link>
+                    <a
+                      href={`/api/contractor/customers/${id}/quote-pdf?quote_id=${q.id}`}
+                      download={`quote-${q.id.slice(0, 8)}.pdf`}
+                      className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+                    >
+                      Download PDF
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteQuote(q.id)}
+                      disabled={deletingQuoteId === q.id}
+                      className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {deletingQuoteId === q.id ? '...' : 'Delete'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : session.contractor_quote_text ? (
           <section className="rounded-2xl border border-[var(--line)] bg-white p-6 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -321,7 +386,7 @@ export default function CustomerDetailPage() {
               {session.contractor_quote_text}
             </pre>
           </section>
-        )}
+        ) : null}
       </div>
     </div>
   );

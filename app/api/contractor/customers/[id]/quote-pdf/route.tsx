@@ -47,7 +47,9 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const isPreview = new URL(req.url).searchParams.get('preview') === '1';
+  const url = new URL(req.url);
+  const isPreview = url.searchParams.get('preview') === '1';
+  const quoteId = url.searchParams.get('quote_id');
   const { id: sessionId } = await params;
   const supabase = await createClient();
   const contractorId = await getContractorId(supabase);
@@ -61,7 +63,23 @@ export async function GET(
     .single();
 
   if (sessionError || !session) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  const quoteText = (session as { contractor_quote_text?: string | null }).contractor_quote_text;
+
+  let quoteText = (session as { contractor_quote_text?: string | null }).contractor_quote_text;
+  let savedAt = (session as { contractor_quote_saved_at?: string | null }).contractor_quote_saved_at ?? null;
+
+  if (quoteId) {
+    const { data: savedQuote } = await supabase
+      .from('saved_quotes')
+      .select('quote_text, created_at')
+      .eq('id', quoteId)
+      .eq('quote_session_id', sessionId)
+      .single();
+    if (savedQuote) {
+      quoteText = savedQuote.quote_text;
+      savedAt = savedQuote.created_at;
+    }
+  }
+
   if (!quoteText) return NextResponse.json({ error: 'No saved quote' }, { status: 400 });
 
   const [
@@ -134,7 +152,7 @@ export async function GET(
     colourPhotoUrl,
     colourName,
     quoteText,
-    savedAt: (session as { contractor_quote_saved_at?: string | null }).contractor_quote_saved_at ?? null,
+    savedAt,
     mapImageUrl,
   };
 

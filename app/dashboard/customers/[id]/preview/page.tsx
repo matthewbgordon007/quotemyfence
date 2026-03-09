@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 
-export default function QuotePreviewPage() {
+function PreviewContent() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const id = params.id as string;
-  const pdfUrl = `/api/contractor/customers/${id}/quote-pdf?preview=1`;
+  const quoteId = searchParams.get('quote_id');
+  const pdfUrl = `/api/contractor/customers/${id}/quote-pdf?preview=1${quoteId ? `&quote_id=${quoteId}` : ''}`;
   const [isSharing, setIsSharing] = useState(false);
 
   const handleShare = async () => {
@@ -78,5 +80,13 @@ export default function QuotePreviewPage() {
         </object>
       </div>
     </div>
+  );
+}
+
+export default function QuotePreviewPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <PreviewContent />
+    </Suspense>
   );
 }

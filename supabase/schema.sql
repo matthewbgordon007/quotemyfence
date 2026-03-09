@@ -288,6 +288,20 @@ CREATE POLICY "Allow insert quote_totals" ON quote_totals FOR INSERT WITH CHECK 
 CREATE POLICY "Allow select quote_totals" ON quote_totals FOR SELECT USING (true);
 CREATE POLICY "Allow update quote_totals" ON quote_totals FOR UPDATE USING (true);
 
+-- 16. saved_quotes (multiple saved versions of a quote)
+CREATE TABLE IF NOT EXISTS saved_quotes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  quote_session_id UUID NOT NULL REFERENCES quote_sessions(id) ON DELETE CASCADE,
+  quote_text TEXT NOT NULL,
+  grand_total NUMERIC(12,2) DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE saved_quotes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow select saved_quotes" ON saved_quotes FOR SELECT USING (true);
+CREATE POLICY "Allow insert saved_quotes" ON saved_quotes FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow delete saved_quotes" ON saved_quotes FOR DELETE USING (true);
+
 -- Public read for products/product_options/pricing_rules by contractor (via slug lookup)
 CREATE POLICY "Public read products by contractor"
   ON products FOR SELECT USING (is_active = true);
