@@ -46,7 +46,7 @@ export default function HomePage() {
 
       <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
         <nav className="flex items-center justify-between">
-          <Link href="/" className="flex items-center rounded-xl bg-black px-3 py-2 transition-opacity hover:opacity-90">
+          <Link href="/" className="flex items-center transition-opacity hover:opacity-90">
             <img
               src="/quotemyfence-logo.png"
               alt="QuoteMyFence"
