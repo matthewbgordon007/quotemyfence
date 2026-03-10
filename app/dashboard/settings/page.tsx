@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
+const ADMIN_ROLES = ['owner', 'admin'];
+
 function CompleteSetupForm({
   apiError,
   onSuccess,
@@ -148,6 +150,10 @@ export default function SettingsPage() {
       .then((r) => r.json())
       .then((data) => {
         if (data.id) {
+          if (!ADMIN_ROLES.includes(data.user_role || '')) {
+            router.replace('/dashboard');
+            return;
+          }
           setContractor(data);
           setApiError(null);
         } else {
@@ -159,7 +165,7 @@ export default function SettingsPage() {
         setApiError('Network error. Please try again.');
         setLoading(false);
       });
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (!isAdmin) return;

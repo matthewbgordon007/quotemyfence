@@ -1,6 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+const ADMIN_ROLES = ['owner', 'admin'];
 
 interface SalesTeamMember {
   id: string;
@@ -15,6 +18,7 @@ interface SalesTeamMember {
 }
 
 export default function SalesTeamPage() {
+  const router = useRouter();
   const [members, setMembers] = useState<SalesTeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -33,6 +37,15 @@ export default function SalesTeamPage() {
       .then((data) => setMembers(data.members || []))
       .finally(() => setLoading(false));
   }
+
+  useEffect(() => {
+    fetch('/api/contractor/me')
+      .then((r) => r.json())
+      .then((data) => {
+        if (!ADMIN_ROLES.includes(data?.user_role || '')) router.replace('/dashboard');
+      })
+      .catch(() => {});
+  }, [router]);
 
   useEffect(() => {
     refresh();

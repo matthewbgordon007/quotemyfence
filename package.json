@@ -7,9 +7,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "setup-hooks": "cp githooks/post-commit .git/hooks/post-commit && chmod +x .git/hooks/post-commit && echo 'Auto-push enabled: commits will push to origin automatically.'"
+    "setup-hooks": "cp githooks/post-commit .git/hooks/post-commit && chmod +x .git/hooks/post-commit && echo 'Auto-push enabled: commits will push to origin automatically.'",
+    "cap:sync": "npx cap sync ios",
+    "cap:ios": "npx cap open ios"
   },
   "dependencies": {
+    "@capacitor/cli": "^8.2.0",
+    "@capacitor/core": "^8.2.0",
+    "@capacitor/ios": "^8.2.0",
     "@hookform/resolvers": "^3.9.1",
     "@react-pdf/renderer": "^4.3.2",
     "@serwist/next": "^9.5.6",
@@ -24,6 +29,7 @@
     "react-hook-form": "^7.53.2",
     "react-leaflet": "^4.2.1",
     "resend": "^4.0.1",
+    "stripe": "^20.4.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {

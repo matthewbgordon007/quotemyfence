@@ -8,6 +8,9 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        heading: ['var(--font-heading)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      },
       colors: {
         accent: 'var(--accent, #2563eb)',
         'accent-secondary': 'var(--accent-secondary, #0ea5e9)',

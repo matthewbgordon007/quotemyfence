@@ -27,6 +27,8 @@ interface CustomerRow {
   subtotal_high: number | null;
 }
 
+const ADMIN_ROLES = ['owner', 'admin'];
+
 function formatDate(s: string): string {
   const d = new Date(s);
   const now = new Date();
@@ -44,6 +46,14 @@ export default function DashboardPage() {
   const [analyticsPeriod, setAnalyticsPeriod] = useState<AnalyticsPeriod>('month');
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/contractor/me')
+      .then((r) => r.json())
+      .then((data) => setIsAdmin(ADMIN_ROLES.includes(data?.user_role || '')))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch('/api/contractor/customers?limit=5&unviewed_count=1')
@@ -192,24 +202,28 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Link
-            href="/dashboard/settings"
-            className="rounded-2xl border border-[var(--line)] bg-white p-6 shadow-sm transition hover:border-[var(--accent)]/50"
-          >
-            <h2 className="font-semibold">Company & branding</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">
-              Logo, accent color, company info
-            </p>
-          </Link>
-          <Link
-            href="/dashboard/sales-team"
-            className="rounded-2xl border border-[var(--line)] bg-white p-6 shadow-sm transition hover:border-[var(--accent)]/50"
-          >
-            <h2 className="font-semibold">Sales Team</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">
-              Team photos & contact info for thank-you page
-            </p>
-          </Link>
+          {isAdmin && (
+            <>
+              <Link
+                href="/dashboard/settings"
+                className="rounded-2xl border border-[var(--line)] bg-white p-6 shadow-sm transition hover:border-[var(--accent)]/50"
+              >
+                <h2 className="font-semibold">Company & branding</h2>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  Logo, accent color, company info
+                </p>
+              </Link>
+              <Link
+                href="/dashboard/sales-team"
+                className="rounded-2xl border border-[var(--line)] bg-white p-6 shadow-sm transition hover:border-[var(--accent)]/50"
+              >
+                <h2 className="font-semibold">Sales Team</h2>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  Team photos & contact info for thank-you page
+                </p>
+              </Link>
+            </>
+          )}
           <Link
             href="/dashboard/products"
             className="rounded-2xl border border-[var(--line)] bg-white p-6 shadow-sm transition hover:border-[var(--accent)]/50"
