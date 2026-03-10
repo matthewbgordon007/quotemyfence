@@ -128,10 +128,19 @@ export default function SettingsPage() {
     logo_url: string | null;
     primary_color: string | null;
     quote_notification_email: string | null;
+    user_role?: string;
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [teamUsers, setTeamUsers] = useState<{ id: string; first_name: string; last_name: string; email: string; role: string; is_active: boolean }[]>([]);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteFirstName, setInviteFirstName] = useState('');
+  const [inviteLastName, setInviteLastName] = useState('');
+  const [inviteRole, setInviteRole] = useState('sales');
+  const [inviting, setInviting] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
 
   const [apiError, setApiError] = useState<string | null>(null);
+  const isAdmin = contractor?.user_role === 'owner' || contractor?.user_role === 'admin';
 
   useEffect(() => {
     fetch('/api/contractor/me')
@@ -150,6 +159,14 @@ export default function SettingsPage() {
         setLoading(false);
       });
   }, []);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetch('/api/contractor/users')
+      .then((r) => r.json())
+      .then((data) => setTeamUsers(data.users || []))
+      .catch(() => {});
+  }, [isAdmin]);
 
   function slugify(s: string) {
     return s
@@ -249,6 +266,21 @@ export default function SettingsPage() {
         apiError={apiError}
         onSuccess={() => window.location.reload()}
       />
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="rounded-xl border border-[var(--line)] bg-white p-6">
+        <p className="text-[var(--muted)]">You don&apos;t have permission to access settings.</p>
+        <button
+          type="button"
+          onClick={() => router.push('/dashboard')}
+          className="mt-4 text-sm font-medium text-[var(--accent)] hover:underline"
+        >
+          ← Back to dashboard
+        </button>
+      </div>
     );
   }
 
@@ -446,6 +478,163 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
+
+        {isAdmin && (
+          <div className="rounded-2xl border border-[var(--line)] bg-white p-6 shadow-sm">
+            <h2 className="font-semibold">Team users</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Add team members with their own logins. Admins can manage products and prices; sales/estimators see leads and the calculator.
+            </p>
+            <div className="mt-4 space-y-4">
+              <div className="rounded-lg border border-[var(--line)] p-4">
+                <h3 className="text-sm font-medium">Invite user</h3>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div>
+                    <label className="block text-xs text-[var(--muted)]">Email</label>
+                    <input
+                      type="email"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      placeholder="colleague@company.com"
+                      className="mt-0.5 w-full rounded border border-[var(--line)] px-2 py-1.5 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-[var(--muted)]">First name</label>
+                    <input
+                      type="text"
+                      value={inviteFirstName}
+                      onChange={(e) => setInviteFirstName(e.target.value)}
+                      placeholder="Jane"
+                      className="mt-0.5 w-full rounded border border-[var(--line)] px-2 py-1.5 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-[var(--muted)]">Last name</label>
+                    <input
+                      type="text"
+                      value={inviteLastName}
+                      onChange={(e) => setInviteLastName(e.target.value)}
+                      placeholder="Smith"
+                      className="mt-0.5 w-full rounded border border-[var(--line)] px-2 py-1.5 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-[var(--muted)]">Role</label>
+                    <select
+                      value={inviteRole}
+                      onChange={(e) => setInviteRole(e.target.value)}
+                      className="mt-0.5 w-full rounded border border-[var(--line)] px-2 py-1.5 text-sm"
+                    >
+                      <option value="admin">Admin</option>
+                      <option value="sales">Sales</option>
+                      <option value="estimator">Estimator</option>
+                    </select>
+                  </div>
+                </div>
+                {inviteError && <p className="mt-2 text-sm text-red-600">{inviteError}</p>}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!inviteEmail.trim()) return;
+                    setInviteError(null);
+                    setInviting(true);
+                    try {
+                      const res = await fetch('/api/contractor/users', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          email: inviteEmail.trim(),
+                          first_name: inviteFirstName.trim(),
+                          last_name: inviteLastName.trim(),
+                          role: inviteRole,
+                        }),
+                      });
+                      const data = await res.json();
+                      if (res.ok) {
+                        setInviteEmail('');
+                        setInviteFirstName('');
+                        setInviteLastName('');
+                        setInviteRole('sales');
+                        const listRes = await fetch('/api/contractor/users');
+                        const listData = await listRes.json();
+                        setTeamUsers(listData.users || []);
+                      } else {
+                        setInviteError(data.error || 'Failed to send invite');
+                      }
+                    } catch {
+                      setInviteError('Network error');
+                    } finally {
+                      setInviting(false);
+                    }
+                  }}
+                  disabled={inviting || !inviteEmail.trim()}
+                  className="mt-3 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50 hover:opacity-90"
+                >
+                  {inviting ? 'Sending...' : 'Send invite'}
+                </button>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium">Current users</h3>
+                <ul className="mt-2 divide-y divide-[var(--line)] rounded-lg border border-[var(--line)]">
+                  {teamUsers.map((u) => (
+                    <li key={u.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
+                      <span>
+                        {u.first_name} {u.last_name}
+                        <span className="ml-2 text-[var(--muted)]">({u.email})</span>
+                        {!u.is_active && <span className="ml-1 text-red-600">Inactive</span>}
+                      </span>
+                      {u.role !== 'owner' && (
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={u.role}
+                            onChange={async (e) => {
+                              const r = e.target.value;
+                              const res = await fetch(`/api/contractor/users/${u.id}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ role: r }),
+                              });
+                              if (res.ok) {
+                                const listRes = await fetch('/api/contractor/users');
+                                const listData = await listRes.json();
+                                setTeamUsers(listData.users || []);
+                              }
+                            }}
+                            className="rounded border border-[var(--line)] px-2 py-0.5 text-xs"
+                          >
+                            <option value="admin">Admin</option>
+                            <option value="sales">Sales</option>
+                            <option value="estimator">Estimator</option>
+                          </select>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!confirm(u.is_active ? 'Deactivate this user?' : 'Reactivate this user?')) return;
+                              const res = await fetch(`/api/contractor/users/${u.id}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ is_active: !u.is_active }),
+                              });
+                              if (res.ok) {
+                                const listRes = await fetch('/api/contractor/users');
+                                const listData = await listRes.json();
+                                setTeamUsers(listData.users || []);
+                              }
+                            }}
+                            className={`text-xs ${u.is_active ? 'text-red-600 hover:underline' : 'text-[var(--accent)] hover:underline'}`}
+                          >
+                            {u.is_active ? 'Deactivate' : 'Reactivate'}
+                          </button>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>

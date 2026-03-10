@@ -61,12 +61,14 @@ export async function POST(request: NextRequest) {
 
   const { data: userRow } = await supabase
     .from('users')
-    .select('contractor_id')
+    .select('contractor_id, role')
     .eq('auth_id', user.id)
     .eq('is_active', true)
     .single();
   if (!userRow?.contractor_id)
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (!['owner', 'admin'].includes(userRow.role || ''))
+    return NextResponse.json({ error: 'Admin or owner only' }, { status: 403 });
 
   const body = await request.json();
   const {

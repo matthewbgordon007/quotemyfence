@@ -14,7 +14,7 @@ export async function GET() {
 
   const { data: userRow } = await supabase
     .from('users')
-    .select('contractor_id')
+    .select('contractor_id, role')
     .eq('auth_id', user.id)
     .eq('is_active', true)
     .single();
@@ -39,7 +39,10 @@ export async function GET() {
     );
   }
 
-  return NextResponse.json(contractor);
+  return NextResponse.json({
+    ...contractor,
+    user_role: userRow.role,
+  });
 }
 
 export async function PATCH(request: NextRequest) {
@@ -55,7 +58,7 @@ export async function PATCH(request: NextRequest) {
 
   const { data: userRow } = await supabase
     .from('users')
-    .select('contractor_id')
+    .select('contractor_id, role')
     .eq('auth_id', user.id)
     .eq('is_active', true)
     .single();
@@ -63,6 +66,13 @@ export async function PATCH(request: NextRequest) {
   if (!userRow?.contractor_id) {
     return NextResponse.json(
       { error: 'Contractor account not found' },
+      { status: 403 }
+    );
+  }
+
+  if (!['owner', 'admin'].includes(userRow.role || '')) {
+    return NextResponse.json(
+      { error: 'Admin or owner only' },
       { status: 403 }
     );
   }

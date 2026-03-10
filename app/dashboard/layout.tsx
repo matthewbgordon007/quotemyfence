@@ -16,7 +16,7 @@ export default async function DashboardLayout({
 
   const { data: userRow } = await supabase
     .from('users')
-    .select('contractor_id')
+    .select('contractor_id, role')
     .eq('auth_id', user.id)
     .eq('is_active', true)
     .single();
@@ -72,7 +72,7 @@ export default async function DashboardLayout({
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
-          <DashboardNav slug={c?.slug ?? ''} isMobile={false} />
+          <DashboardNav slug={c?.slug ?? ''} userRole={userRow?.role ?? null} isMobile={false} />
         </div>
       </aside>
 
@@ -83,7 +83,7 @@ export default async function DashboardLayout({
 
       {/* Mobile Bottom Nav */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 border-t border-[var(--line)] bg-white/95 backdrop-blur-xl z-50 shadow-[0_-10px_20px_rgb(0,0,0,0.03)] pb-[env(safe-area-inset-bottom)]">
-        <DashboardNav slug={c?.slug ?? ''} isMobile={true} />
+        <DashboardNav slug={c?.slug ?? ''} userRole={userRow?.role ?? null} isMobile={true} />
       </div>
     </div>
   );
