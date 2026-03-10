@@ -33,44 +33,37 @@ const features = [
 
 function HeroIllustration() {
   return (
-    <div className="mx-auto max-w-xs sm:max-w-sm">
-      <div className="relative rounded-2xl border-2 border-[var(--line)] bg-white p-4 shadow-xl ring-4 ring-[var(--accent)]/10">
-        {/* Browser-style top bar */}
-        <div className="mb-3 flex gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-red-300" />
-          <span className="h-2.5 w-2.5 rounded-full bg-amber-300" />
-          <span className="h-2.5 w-2.5 rounded-full bg-emerald-300" />
-        </div>
-        {/* Simplified map grid with fence line */}
-        <div className="aspect-[4/3] overflow-hidden rounded-xl bg-slate-100">
-          <svg viewBox="0 0 120 90" className="h-full w-full" fill="none">
-            {/* Grid lines (map feel) */}
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-              <line key={`h${i}`} x1={0} y1={i * 18} x2={120} y2={i * 18} stroke="#cbd5e1" strokeWidth={0.5} />
-            ))}
-            {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-              <line key={`v${i}`} x1={i * 20} y1={0} x2={i * 20} y2={90} stroke="#cbd5e1" strokeWidth={0.5} />
-            ))}
-            {/* Fence line (user-drawn style) */}
-            <path
-              d="M25 70 Q45 55 65 50 Q85 45 95 30"
-              stroke="var(--accent)"
-              strokeWidth={4}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-            />
-            <path
-              d="M25 70 Q45 55 65 50 Q85 45 95 30"
-              stroke="white"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-              strokeDasharray="4 4"
-            />
+    <div className="mx-auto mt-12 flex max-w-md items-center justify-center gap-4 sm:gap-6">
+      {/* Step 1: Draw on map */}
+      <div className="flex flex-col items-center">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border-2 border-[var(--line)] bg-white shadow-sm sm:h-16 sm:w-16">
+          <svg viewBox="0 0 24 24" className="h-7 w-7 text-[var(--accent)] sm:h-8 sm:w-8" fill="none" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
           </svg>
         </div>
+        <span className="mt-2 text-xs font-medium text-[var(--muted)]">Draw</span>
+      </div>
+      <svg className="h-5 w-5 shrink-0 text-[var(--line)] sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+      </svg>
+      {/* Step 2: Get estimate */}
+      <div className="flex flex-col items-center">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border-2 border-[var(--accent)]/30 bg-[var(--accent)]/5 shadow-sm sm:h-16 sm:w-16">
+          <span className="text-lg font-bold text-[var(--accent)] sm:text-xl">$</span>
+        </div>
+        <span className="mt-2 text-xs font-medium text-[var(--muted)]">Estimate</span>
+      </div>
+      <svg className="h-5 w-5 shrink-0 text-[var(--line)] sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+      </svg>
+      {/* Step 3: Submit */}
+      <div className="flex flex-col items-center">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border-2 border-[var(--line)] bg-white shadow-sm sm:h-16 sm:w-16">
+          <svg viewBox="0 0 24 24" className="h-7 w-7 text-emerald-500 sm:h-8 sm:w-8" fill="none" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <span className="mt-2 text-xs font-medium text-[var(--muted)]">Done</span>
       </div>
     </div>
   );
