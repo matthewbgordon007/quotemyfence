@@ -37,12 +37,15 @@ interface ColourPricingRule {
   minimum_job_high: number;
 }
 
+const ADMIN_ROLES = ['owner', 'admin'];
+
 export default function ProductsPage() {
   const [types, setTypes] = useState<FenceType[]>([]);
   const [styles, setStyles] = useState<FenceStyle[]>([]);
   const [colours, setColours] = useState<ColourOption[]>([]);
   const [pricingRules, setPricingRules] = useState<ColourPricingRule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
   const [expandedStyles, setExpandedStyles] = useState<Set<string>>(new Set());
   const [showAddType, setShowAddType] = useState(false);
@@ -69,6 +72,13 @@ export default function ProductsPage() {
         setPricingRules(data.colourPricingRules || []);
       });
   }
+
+  useEffect(() => {
+    fetch('/api/contractor/me')
+      .then((r) => r.json())
+      .then((data) => setIsAdmin(ADMIN_ROLES.includes(data?.user_role || '')))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     refresh();
@@ -227,19 +237,21 @@ export default function ProductsPage() {
         <div>
           <h1 className="text-2xl font-bold">Products</h1>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Add fence types (with standard height), then styles and colours under each. Customers pick type → style → colour when designing.
+            {isAdmin ? 'Add fence types (with standard height), then styles and colours under each. Customers pick type → style → colour when designing.' : 'View your product catalog and pricing. Contact an admin to make changes.'}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowAddType(true)}
-          className="rounded-xl bg-[var(--accent)] px-4 py-2 font-semibold text-white hover:opacity-90"
-        >
-          Add fence type
-        </button>
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => setShowAddType(true)}
+            className="rounded-xl bg-[var(--accent)] px-4 py-2 font-semibold text-white hover:opacity-90"
+          >
+            Add fence type
+          </button>
+        )}
       </div>
 
-      {showAddType && (
+      {isAdmin && showAddType && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-sm rounded-2xl border border-[var(--line)] bg-white p-6 shadow-xl">
             <h2 className="font-bold">Add fence type</h2>
@@ -297,42 +309,44 @@ export default function ProductsPage() {
                 <span className="font-bold">{t.name}</span>
                 <span className="text-xs text-[var(--muted)]">({t.standard_height_ft ?? 6} ft standard)</span>
               </button>
-              <div className="flex flex-wrap items-center gap-2">
-                {editingHeightTypeId === t.id ? (
-                  <>
-                    <input
-                      type="number"
-                      step="0.5"
-                      min="1"
-                      max="20"
-                      value={editHeightValue}
-                      onChange={(e) => setEditHeightValue(e.target.value)}
-                      className="w-16 rounded border border-[var(--line)] px-2 py-1 text-sm"
-                    />
-                    <button type="button" onClick={() => updateTypeStandardHeight(t.id, Number(editHeightValue) || 6)} className="text-xs text-[var(--accent)] hover:underline">Save</button>
-                    <button type="button" onClick={() => { setEditingHeightTypeId(null); setEditHeightValue(''); }} className="text-xs text-[var(--muted)] hover:underline">Cancel</button>
-                  </>
-                ) : (
-                  <button type="button" onClick={() => { setEditingHeightTypeId(t.id); setEditHeightValue(String(t.standard_height_ft ?? 6)); }} className="text-sm font-medium text-[var(--accent)] hover:underline">
-                    Set height
+              {isAdmin && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {editingHeightTypeId === t.id ? (
+                    <>
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="1"
+                        max="20"
+                        value={editHeightValue}
+                        onChange={(e) => setEditHeightValue(e.target.value)}
+                        className="w-16 rounded border border-[var(--line)] px-2 py-1 text-sm"
+                      />
+                      <button type="button" onClick={() => updateTypeStandardHeight(t.id, Number(editHeightValue) || 6)} className="text-xs text-[var(--accent)] hover:underline">Save</button>
+                      <button type="button" onClick={() => { setEditingHeightTypeId(null); setEditHeightValue(''); }} className="text-xs text-[var(--muted)] hover:underline">Cancel</button>
+                    </>
+                  ) : (
+                    <button type="button" onClick={() => { setEditingHeightTypeId(t.id); setEditHeightValue(String(t.standard_height_ft ?? 6)); }} className="text-sm font-medium text-[var(--accent)] hover:underline">
+                      Set height
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => { setAddStyleTypeId(t.id); setNewStyleName(''); }}
+                    className="text-sm font-medium text-[var(--accent)] hover:underline"
+                  >
+                    + Style
                   </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => { setAddStyleTypeId(t.id); setNewStyleName(''); }}
-                  className="text-sm font-medium text-[var(--accent)] hover:underline"
-                >
-                  + Style
-                </button>
-                <button type="button" onClick={() => deleteType(t.id)} className="text-sm text-red-600 hover:underline">
-                  Delete
-                </button>
-              </div>
+                  <button type="button" onClick={() => deleteType(t.id)} className="text-sm text-red-600 hover:underline">
+                    Delete
+                  </button>
+                </div>
+              )}
             </div>
 
             {expandedTypes.has(t.id) && (
               <div className="border-t border-[var(--line)] bg-[var(--bg2)]/50 p-6">
-                {addStyleTypeId === t.id && (
+                {isAdmin && addStyleTypeId === t.id && (
                   <div className="mb-4 flex gap-2 rounded-lg border border-[var(--line)] bg-white p-4">
                     <input
                       type="text"
@@ -369,37 +383,39 @@ export default function ProductsPage() {
                           >
                             {expandedStyles.has(s.id) ? '▼' : '▶'} {s.style_name}
                           </button>
-                          <div className="flex gap-2">
-                            <label className="cursor-pointer text-xs text-[var(--accent)] hover:underline">
-                              Upload photo
-                              <input
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={(e) => {
-                                  const f = e.target.files?.[0];
-                                  if (f) updateStylePhoto(s.id, f);
-                                }}
-                              />
-                            </label>
-                            <button
-                              type="button"
-                              onClick={() => { setAddColourStyleId(s.id); setNewColourName(''); }}
-                              className="text-xs text-[var(--accent)] hover:underline"
-                            >
-                              + Colour
-                            </button>
-                            <button type="button" onClick={() => deleteStyle(s.id)} className="text-xs text-red-600 hover:underline">
-                              Delete
-                            </button>
-                          </div>
+                          {isAdmin && (
+                            <div className="flex gap-2">
+                              <label className="cursor-pointer text-xs text-[var(--accent)] hover:underline">
+                                Upload photo
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const f = e.target.files?.[0];
+                                    if (f) updateStylePhoto(s.id, f);
+                                  }}
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => { setAddColourStyleId(s.id); setNewColourName(''); }}
+                                className="text-xs text-[var(--accent)] hover:underline"
+                              >
+                                + Colour
+                              </button>
+                              <button type="button" onClick={() => deleteStyle(s.id)} className="text-xs text-red-600 hover:underline">
+                                Delete
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
 
                     {expandedStyles.has(s.id) && (
                       <div className="border-t border-[var(--line)] p-4">
-                        {addColourStyleId === s.id && (
+                        {isAdmin && addColourStyleId === s.id && (
                           <div className="mb-4 flex flex-wrap gap-3 rounded-lg border border-[var(--line)] bg-white p-4">
                             <input
                               type="text"
@@ -445,28 +461,30 @@ export default function ProductsPage() {
                               </div>
                               <div className="flex-1">
                                 <div className="font-medium">{c.color_name}</div>
-                                <div className="mt-1 flex gap-2">
-                                  <label className="cursor-pointer text-xs text-[var(--accent)] hover:underline">
-                                    Upload photo
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      className="hidden"
-                                      onChange={(e) => {
-                                        const f = e.target.files?.[0];
-                                        if (f) updateColourPhoto(c.id, f);
-                                      }}
-                                    />
-                                  </label>
-                                  {rule && !isEditing && (
-                                    <button type="button" onClick={() => setEditingPricing(c.id)} className="text-xs text-[var(--accent)] hover:underline">
-                                      Edit pricing
+                                {isAdmin && (
+                                  <div className="mt-1 flex gap-2">
+                                    <label className="cursor-pointer text-xs text-[var(--accent)] hover:underline">
+                                      Upload photo
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                          const f = e.target.files?.[0];
+                                          if (f) updateColourPhoto(c.id, f);
+                                        }}
+                                      />
+                                    </label>
+                                    {rule && !isEditing && (
+                                      <button type="button" onClick={() => setEditingPricing(c.id)} className="text-xs text-[var(--accent)] hover:underline">
+                                        Edit pricing
+                                      </button>
+                                    )}
+                                    <button type="button" onClick={() => deleteColour(c.id)} className="text-xs text-red-600 hover:underline">
+                                      Delete
                                     </button>
-                                  )}
-                                  <button type="button" onClick={() => deleteColour(c.id)} className="text-xs text-red-600 hover:underline">
-                                    Delete
-                                  </button>
-                                </div>
+                                  </div>
+                                )}
                                 {rule && !isEditing && (
                                   <div className="mt-1 text-xs text-[var(--muted)]">
                                     <span>${Number(rule.base_price_per_ft_low).toLocaleString('en-CA', { minimumFractionDigits: 2 })}/ft</span>
@@ -482,7 +500,7 @@ export default function ProductsPage() {
                                     )}
                                   </div>
                                 )}
-                                {isEditing && rule && (
+                                {isAdmin && isEditing && rule && (
                                   <ColourPricingForm
                                     rule={rule}
                                     onSave={(u) => updatePricing(c.id, u)}
