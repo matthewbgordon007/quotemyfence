@@ -133,6 +133,7 @@ export default function SettingsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [teamUsers, setTeamUsers] = useState<{ id: string; first_name: string; last_name: string; email: string; role: string; is_active: boolean }[]>([]);
   const [inviteEmail, setInviteEmail] = useState('');
+  const [invitePassword, setInvitePassword] = useState('');
   const [inviteFirstName, setInviteFirstName] = useState('');
   const [inviteLastName, setInviteLastName] = useState('');
   const [inviteRole, setInviteRole] = useState('sales');
@@ -483,12 +484,12 @@ export default function SettingsPage() {
           <div className="rounded-2xl border border-[var(--line)] bg-white p-6 shadow-sm">
             <h2 className="font-semibold">Team users</h2>
             <p className="mt-1 text-sm text-[var(--muted)]">
-              Add team members with their own logins. Admins can manage products and prices; sales/estimators see leads and the calculator.
+              Create logins for team members. Set email and password, then share with them. Admins can manage products and prices; sales/estimators see leads and the calculator.
             </p>
             <div className="mt-4 space-y-4">
               <div className="rounded-lg border border-[var(--line)] p-4">
-                <h3 className="text-sm font-medium">Invite user</h3>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <h3 className="text-sm font-medium">Add user</h3>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                   <div>
                     <label className="block text-xs text-[var(--muted)]">Email</label>
                     <input
@@ -496,6 +497,16 @@ export default function SettingsPage() {
                       value={inviteEmail}
                       onChange={(e) => setInviteEmail(e.target.value)}
                       placeholder="colleague@company.com"
+                      className="mt-0.5 w-full rounded border border-[var(--line)] px-2 py-1.5 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-[var(--muted)]">Password</label>
+                    <input
+                      type="password"
+                      value={invitePassword}
+                      onChange={(e) => setInvitePassword(e.target.value)}
+                      placeholder="Min 6 characters"
                       className="mt-0.5 w-full rounded border border-[var(--line)] px-2 py-1.5 text-sm"
                     />
                   </div>
@@ -536,7 +547,7 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={async () => {
-                    if (!inviteEmail.trim()) return;
+                    if (!inviteEmail.trim() || invitePassword.length < 6) return;
                     setInviteError(null);
                     setInviting(true);
                     try {
@@ -545,6 +556,7 @@ export default function SettingsPage() {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                           email: inviteEmail.trim(),
+                          password: invitePassword,
                           first_name: inviteFirstName.trim(),
                           last_name: inviteLastName.trim(),
                           role: inviteRole,
@@ -553,6 +565,7 @@ export default function SettingsPage() {
                       const data = await res.json();
                       if (res.ok) {
                         setInviteEmail('');
+                        setInvitePassword('');
                         setInviteFirstName('');
                         setInviteLastName('');
                         setInviteRole('sales');
@@ -560,7 +573,7 @@ export default function SettingsPage() {
                         const listData = await listRes.json();
                         setTeamUsers(listData.users || []);
                       } else {
-                        setInviteError(data.error || 'Failed to send invite');
+                        setInviteError(data.error || 'Failed to create user');
                       }
                     } catch {
                       setInviteError('Network error');
@@ -568,10 +581,10 @@ export default function SettingsPage() {
                       setInviting(false);
                     }
                   }}
-                  disabled={inviting || !inviteEmail.trim()}
+                  disabled={inviting || !inviteEmail.trim() || invitePassword.length < 6}
                   className="mt-3 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50 hover:opacity-90"
                 >
-                  {inviting ? 'Sending...' : 'Send invite'}
+                  {inviting ? 'Creating...' : 'Create user'}
                 </button>
               </div>
               <div>

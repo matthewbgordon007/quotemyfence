@@ -49,9 +49,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Admin or owner only' }, { status: 403 });
 
   const body = await request.json();
-  const { email, first_name, last_name, role: newRole } = body;
+  const { email, password, first_name, last_name, role: newRole } = body;
   if (!email?.trim())
     return NextResponse.json({ error: 'Email required' }, { status: 400 });
+  if (!password || String(password).length < 6)
+    return NextResponse.json({ error: 'Password required (min 6 characters)' }, { status: 400 });
 
   const validRoles = ['admin', 'sales', 'estimator'];
   const roleToSet = validRoles.includes(newRole) ? newRole : 'sales';
@@ -73,19 +75,21 @@ export async function POST(request: NextRequest) {
   if (existingUser)
     return NextResponse.json({ error: 'A user with this email already exists for your company.' }, { status: 400 });
 
-  const { data: invited, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(emailTrim, {
-    data: { redirect_to: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://quotemyfence.com'}/login` },
+  const { data: created, error: createError } = await supabaseAdmin.auth.admin.createUser({
+    email: emailTrim,
+    password: String(password),
+    email_confirm: true,
   });
 
-  if (inviteError) {
-    if (inviteError.message?.toLowerCase().includes('already registered'))
-      return NextResponse.json({ error: 'This email is already registered. They can log in and ask an admin to add them.' }, { status: 400 });
-    return NextResponse.json({ error: inviteError.message || 'Failed to send invite' }, { status: 500 });
+  if (createError) {
+    if (createError.message?.toLowerCase().includes('already registered') || createError.message?.toLowerCase().includes('already been registered'))
+      return NextResponse.json({ error: 'This email is already in use. Choose a different email.' }, { status: 400 });
+    return NextResponse.json({ error: createError.message || 'Failed to create user' }, { status: 500 });
   }
 
-  const authId = invited?.user?.id;
+  const authId = created?.user?.id;
   if (!authId)
-    return NextResponse.json({ error: 'Invite sent but could not link user. They may need to be added manually.' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
 
   const { error: insertError } = await supabaseAdmin.from('users').insert({
     contractor_id: contractorId,
@@ -101,5 +105,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: insertError.message || 'Failed to add user' }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, message: 'Invite sent. They can set a password via the email link.' });
+  return NextResponse.json({ ok: true, message: 'User created. Share the email and password with them so they can log in.' });
 }
