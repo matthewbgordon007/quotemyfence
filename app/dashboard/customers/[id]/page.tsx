@@ -45,6 +45,9 @@ export default function CustomerDetailPage() {
   const [deletingQuoteId, setDeletingQuoteId] = useState<string | null>(null);
   const [editingInfo, setEditingInfo] = useState(false);
   const [savingInfo, setSavingInfo] = useState(false);
+  const [showExportToAdmin, setShowExportToAdmin] = useState(false);
+  const [exportNotes, setExportNotes] = useState('');
+  const [submittingExport, setSubmittingExport] = useState(false);
   const [editForm, setEditForm] = useState({
     first_name: '',
     last_name: '',
@@ -95,6 +98,29 @@ export default function CustomerDetailPage() {
       }
     } finally {
       setUpdatingStatus(false);
+    }
+  };
+
+  const handleExportToAdmin = async () => {
+    setSubmittingExport(true);
+    try {
+      const res = await fetch('/api/contractor/material-quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ quote_session_id: id, description: exportNotes.trim() || undefined }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error || 'Failed to send');
+      }
+      setShowExportToAdmin(false);
+      setExportNotes('');
+      alert('Fence layout and notes sent to admin. They will prepare your material quote.');
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to send');
+    } finally {
+      setSubmittingExport(false);
     }
   };
 
@@ -448,6 +474,15 @@ export default function CustomerDetailPage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
+              {(layoutDrawing || segments.length > 0 || fence) && (
+                <button
+                  type="button"
+                  onClick={() => setShowExportToAdmin(true)}
+                  className="rounded-xl border border-amber-500 bg-amber-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-600"
+                >
+                  Export fence layout to admin →
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => router.push(`/dashboard/calculator?from=${id}`)}
@@ -509,6 +544,42 @@ export default function CustomerDetailPage() {
             </div>
           )}
         </section>
+
+      {showExportToAdmin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !submittingExport && setShowExportToAdmin(false)}>
+          <div className="w-full max-w-lg rounded-2xl border border-[var(--line)] bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold">Export fence layout to admin</h3>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Add quote notes with specifications or anything the admin should know. The layout will be sent for a material quote.
+            </p>
+            <textarea
+              value={exportNotes}
+              onChange={(e) => setExportNotes(e.target.value)}
+              placeholder="e.g. WPC privacy, 6 ft, white. Need gates. Include removal."
+              rows={4}
+              className="mt-4 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+            />
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={handleExportToAdmin}
+                disabled={submittingExport}
+                className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 hover:bg-amber-600"
+              >
+                {submittingExport ? 'Sending…' : 'Submit to admin'}
+              </button>
+              <button
+                type="button"
+                onClick={() => !submittingExport && setShowExportToAdmin(false)}
+                disabled={submittingExport}
+                className="rounded-lg border border-[var(--line)] px-4 py-2 text-sm font-medium hover:bg-[var(--bg2)] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
         <section className="rounded-2xl border border-[var(--line)] bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold">Design choice</h2>
