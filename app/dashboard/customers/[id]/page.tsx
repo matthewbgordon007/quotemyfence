@@ -11,12 +11,17 @@ function convertSegmentsToDrawing(
   totalLengthFt: number,
   gates: { gate_type: string; quantity: number }[]
 ) {
-  if (segments.length === 0) {
+  const safeGates = Array.isArray(gates) ? gates : [];
+  if (!segments?.length || segments[0] == null) {
+    return null;
+  }
+  const first = segments[0];
+  const refLat = Number(first.start_lat);
+  const refLng = Number(first.start_lng);
+  if (!Number.isFinite(refLat) || !Number.isFinite(refLng)) {
     return null;
   }
   const METERS_PER_DEG_LAT = 111320;
-  const refLat = Number(segments[0].start_lat);
-  const refLng = Number(segments[0].start_lng);
   const metersPerDegLng = 111320 * Math.cos((refLat * Math.PI) / 180);
   const M_TO_FT = 3.28084;
   function toFeet(lat: number, lng: number) {
@@ -35,7 +40,7 @@ function convertSegmentsToDrawing(
   return {
     points,
     segments: segLengths.length > 0 ? segLengths : points.length >= 2 ? [{ length_ft: total }] : [],
-    gates: gates.map((g) => ({ type: g.gate_type as 'single' | 'double', quantity: g.quantity || 0 })),
+    gates: safeGates.map((g) => ({ type: (g.gate_type || 'single') as 'single' | 'double', quantity: g.quantity || 0 })),
     total_length_ft: total,
   };
 }
@@ -283,13 +288,23 @@ export default function CustomerDetailPage() {
     );
   }
 
-  const { session, customer, property, fence, segments, gates, quoteTotals, designSummary, designOption, layoutDrawing } = data;
+  const { session, customer, property, fence, quoteTotals, designSummary, designOption, layoutDrawing } = data;
+  const segments = Array.isArray(data.segments) ? data.segments : [];
+  const gates = Array.isArray(data.gates) ? data.gates : [];
   // Derive layout from segments client-side (same as "Export to layout") – guarantees display matches map
   const displayLayout = useMemo(() => {
-    if (segments.length > 0) {
-      return convertSegmentsToDrawing(segments, fence?.total_length_ft ?? 0, gates);
+    try {
+      if (segments.length > 0) {
+        return convertSegmentsToDrawing(segments, fence?.total_length_ft ?? 0, gates);
+      }
+      const dd = layoutDrawing?.drawing_data;
+      if (dd && typeof dd === 'object' && Array.isArray((dd as { points?: unknown }).points)) {
+        return dd as { points: { x: number; y: number }[]; segments?: { length_ft: number }[]; gates?: { type: string; quantity: number }[]; total_length_ft?: number };
+      }
+      return null;
+    } catch {
+      return null;
     }
-    return layoutDrawing?.drawing_data ?? null;
   }, [segments, fence?.total_length_ft, gates, layoutDrawing?.drawing_data]);
   const center: [number, number] | undefined =
     property?.latitude != null && property?.longitude != null
