@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -245,10 +245,10 @@ export default function CustomerDetailPage() {
   }
 
   const { session, customer, property, fence, segments, gates, quoteTotals, designSummary, designOption, layoutDrawing } = data;
-  const center = useMemo<[number, number] | undefined>(() => {
-    if (property?.latitude == null || property?.longitude == null) return undefined;
-    return [Number(property.latitude), Number(property.longitude)];
-  }, [property?.latitude, property?.longitude]);
+  const center: [number, number] | undefined =
+    property?.latitude != null && property?.longitude != null
+      ? [Number(property.latitude), Number(property.longitude)]
+      : undefined;
 
   return (
     <div className="mx-auto max-w-3xl">

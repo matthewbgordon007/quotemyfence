@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -77,10 +77,8 @@ export default function MasterRequestDetailPage() {
   }
 
   const { request, layoutDrawing, customer, property, fence, segments, gates, contractor } = data;
-  const center = useMemo<[number, number] | undefined>(
-    () => (segments[0] ? [Number(segments[0].start_lat), Number(segments[0].start_lng)] : undefined),
-    [segments[0]?.start_lat, segments[0]?.start_lng]
-  );
+  const center: [number, number] | undefined =
+    segments[0] ? [Number(segments[0].start_lat), Number(segments[0].start_lng)] : undefined;
 
   return (
     <div className="mx-auto max-w-3xl">
