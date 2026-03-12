@@ -470,7 +470,13 @@ export default function CustomerDetailPage() {
             <div>
               <h2 className="text-lg font-semibold">Fence drawing</h2>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                {layoutDrawing ? 'Layout drawing (from Draw).' : 'The outline they drew on the map.'}
+                {layoutDrawing && segments.length > 0
+                  ? 'Layout drawing and map view below.'
+                  : layoutDrawing
+                    ? 'Layout drawing from Draw.'
+                    : segments.length > 0
+                      ? 'The outline they drew on the map.'
+                      : 'Export to layout or calculator to add a drawing.'}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -499,23 +505,35 @@ export default function CustomerDetailPage() {
               </button>
             </div>
           </div>
-          <div className="mt-4">
-            {layoutDrawing?.drawing_data ? (
-              <div className="min-h-[300px] rounded-lg border border-[var(--line)] overflow-hidden">
-                <LayoutDrawCanvas
-                  initialDrawing={{
-                    points: layoutDrawing.drawing_data.points ?? [],
-                    segments: layoutDrawing.drawing_data.segments ?? [],
-                    gates: (layoutDrawing.drawing_data.gates ?? []).map((g: { type: string; quantity: number }) => ({
-                      type: g.type as 'single' | 'double',
-                      quantity: g.quantity ?? 0,
-                    })),
-                    total_length_ft: layoutDrawing.drawing_data.total_length_ft ?? 0,
-                  }}
-                />
+          <div className="mt-4 space-y-4">
+            {layoutDrawing?.drawing_data && (
+              <div>
+                <h3 className="mb-2 text-sm font-medium text-[var(--muted)]">Layout drawing</h3>
+                <div className="min-h-[300px] rounded-lg border border-[var(--line)] overflow-hidden">
+                  <LayoutDrawCanvas
+                    initialDrawing={{
+                      points: layoutDrawing.drawing_data.points ?? [],
+                      segments: layoutDrawing.drawing_data.segments ?? [],
+                      gates: (layoutDrawing.drawing_data.gates ?? []).map((g: { type: string; quantity: number }) => ({
+                        type: g.type as 'single' | 'double',
+                        quantity: g.quantity ?? 0,
+                      })),
+                      total_length_ft: layoutDrawing.drawing_data.total_length_ft ?? 0,
+                    }}
+                  />
+                </div>
               </div>
-            ) : (
-              <FenceDrawingMap segments={segments} gates={gates} center={center} className="min-h-[300px]" />
+            )}
+            {segments.length > 0 && (
+              <div>
+                <h3 className="mb-2 text-sm font-medium text-[var(--muted)]">Map view</h3>
+                <FenceDrawingMap segments={segments} gates={gates} center={center} className="min-h-[300px]" />
+              </div>
+            )}
+            {!layoutDrawing?.drawing_data && segments.length === 0 && !fence && (
+              <div className="flex min-h-[200px] items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--bg2)] text-sm text-[var(--muted)]">
+                No fence drawing saved yet
+              </div>
             )}
           </div>
           {(segments.length > 0 || fence) && (
