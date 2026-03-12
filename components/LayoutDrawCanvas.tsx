@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 
 // Canvas uses feet as coordinate system. Origin at center.
 // Scale: pixels per foot for display
@@ -17,6 +17,8 @@ export interface LayoutDrawCanvasProps {
     gates: { type: 'single' | 'double'; quantity: number }[];
     total_length_ft: number;
   } | null;
+  /** When true, fit view to drawing and hide editing controls */
+  readOnly?: boolean;
   onDrawingChange?: (data: {
     points: { x: number; y: number }[];
     segments: { length_ft: number }[];
@@ -71,7 +73,7 @@ function simplifyPath(points: { x: number; y: number }[], tolerance: number): { 
 }
 
 export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvasProps>(
-  function LayoutDrawCanvas({ initialDrawing, onDrawingChange, onReset }, ref) {
+  function LayoutDrawCanvas({ initialDrawing, readOnly, onDrawingChange, onReset }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
     const svgRef = useRef<SVGSVGElement>(null);
     // Each segment is exactly one line: [start, end]
@@ -344,7 +346,28 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
 
     const baseViewSize = 280;
     const viewSize = baseViewSize / zoom;
-    const viewBox = `${-viewSize / 2} ${-viewSize / 2} ${viewSize} ${viewSize}`;
+    const defaultViewBox = `${-viewSize / 2} ${-viewSize / 2} ${viewSize} ${viewSize}`;
+
+    const fitViewBox = useMemo(() => {
+      if (!readOnly || segments.length === 0) return null;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      segments.forEach((seg) => {
+        seg.forEach((p) => {
+          if (p.x < minX) minX = p.x;
+          if (p.y < minY) minY = p.y;
+          if (p.x > maxX) maxX = p.x;
+          if (p.y > maxY) maxY = p.y;
+        });
+      });
+      if (!Number.isFinite(minX)) return null;
+      const pad = Math.max(20, (maxX - minX + maxY - minY) * 0.1);
+      const w = Math.max(40, maxX - minX + pad * 2);
+      const h = Math.max(40, maxY - minY + pad * 2);
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+      return `${cx - w / 2} ${cy - h / 2} ${w} ${h}`;
+    }, [readOnly, segments]);
+    const viewBox = fitViewBox ?? defaultViewBox;
 
     useEffect(() => {
       const el = containerRef.current;
@@ -369,13 +392,13 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       >
           <svg
             ref={svgRef}
-            className="absolute inset-0 h-full w-full cursor-crosshair touch-none"
+            className={`absolute inset-0 h-full w-full ${readOnly ? '' : 'cursor-crosshair touch-none'}`}
             viewBox={viewBox}
             preserveAspectRatio="xMidYMid meet"
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerUp}
+            onPointerDown={readOnly ? undefined : handlePointerDown}
+            onPointerMove={readOnly ? undefined : handlePointerMove}
+            onPointerUp={readOnly ? undefined : handlePointerUp}
+            onPointerCancel={readOnly ? undefined : handlePointerUp}
           >
             {/* Whiteboard Origin Marker */}
             <circle cx={0} cy={0} r={1.5} fill="#cbd5e1" />
@@ -397,7 +420,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                   {seg.map((p, pi) => (
                     <circle key={pi} cx={p.x} cy={p.y} r={1.5} fill="#1e293b" />
                   ))}
-                  {lineLengths[si]?.trim() && segments.length <= 25 && (() => {
+                  {segments.length <= 25 && (() => {
                     const mx = (seg[0].x + seg[1].x) / 2;
                     const my = (seg[0].y + seg[1].y) / 2;
                     const dx = seg[1].x - seg[0].x;
@@ -407,6 +430,9 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                     const offset = 12;
                     const px = mx + (-dy / len) * offset;
                     const py = my + (dx / len) * offset;
+                    const labelText = lineLengths[si]?.trim()
+                      ? `Line ${si + 1}: ${lineLengths[si].trim()} ft`
+                      : `Line ${si + 1}`;
                     return (
                       <text
                         x={px}
@@ -418,7 +444,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                         fontWeight="600"
                         style={{ filter: 'drop-shadow(0px 1px 2px white)' }}
                       >
-                        {lineLengths[si].trim()} ft
+                        {labelText}
                       </text>
                     );
                   })()}
@@ -469,6 +495,8 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
           </svg>
         </div>
 
+        {!readOnly && (
+        <>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {onReset && (
             <button
@@ -565,6 +593,11 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
             <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-200 inline-flex items-center justify-center text-[8px]">2</span> Tap corner to corner</span>
             <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-200 inline-flex items-center justify-center text-[8px]">3</span> Double-click to finish line</span>
           </div>
+        )}
+        </>
+        )}
+        {readOnly && segments.length > 0 && (
+          <div className="mt-2 text-sm font-medium text-[var(--muted)]">Total: {totalFeet.toFixed(1)} ft</div>
         )}
       </div>
     );
