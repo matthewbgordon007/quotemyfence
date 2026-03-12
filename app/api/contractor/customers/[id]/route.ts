@@ -76,7 +76,7 @@ export async function GET(
   ]);
 
   const fence = fences?.[0];
-  let layoutDrawing: { drawing_data: unknown } | null = null;
+  let layoutDrawing: { drawing_data: unknown; image_data_url?: string | null } | null = null;
   const layoutDrawingId = (session as { layout_drawing_id?: string }).layout_drawing_id;
   if (layoutDrawingId) {
     const { data: layout } = await supabase
@@ -84,7 +84,7 @@ export async function GET(
       .select('drawing_data, image_data_url')
       .eq('id', layoutDrawingId)
       .single();
-    if (layout) layoutDrawing = { drawing_data: layout.drawing_data, image_data_url: (layout as { image_data_url?: string }).image_data_url ?? null };
+    if (layout) layoutDrawing = { drawing_data: layout.drawing_data, image_data_url: (layout as { image_data_url?: string | null }).image_data_url ?? null };
   }
 
   let segments: { start_lat: number; start_lng: number; end_lat: number; end_lng: number; length_ft?: number }[] = [];
