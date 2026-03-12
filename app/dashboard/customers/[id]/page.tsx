@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import { convertSegmentsToDrawing } from '@/lib/convertSegmentsToDrawing';
 
 const FenceDrawingMap = dynamic(
   () => import('@/components/FenceDrawingMap').then((m) => ({ default: m.FenceDrawingMap })),
@@ -248,7 +249,28 @@ export default function CustomerDetailPage() {
     );
   }
 
-  const { session, customer, property, fence, segments, gates, quoteTotals, designSummary, designOption, layoutDrawing } = data;
+  const { session, customer, property, fence, quoteTotals, designSummary, designOption, layoutDrawing } = data;
+  const segments = Array.isArray(data.segments) ? data.segments : [];
+  const gates = Array.isArray(data.gates) ? data.gates : [];
+  // Same conversion as layout page – ensures layout canvas displays correctly
+  const layoutForDisplay = useMemo(() => {
+    if (segments.length > 0) {
+      return convertSegmentsToDrawing(segments, fence?.total_length_ft ?? 0, gates);
+    }
+    const dd = layoutDrawing?.drawing_data;
+    if (dd && typeof dd === 'object' && Array.isArray((dd as { points?: unknown }).points) && ((dd as { points: unknown[] }).points.length >= 2)) {
+      return {
+        points: (dd as { points: { x: number; y: number }[] }).points,
+        segments: (dd as { segments?: { length_ft: number }[] }).segments ?? [],
+        gates: ((dd as { gates?: { type: string; quantity: number }[] }).gates ?? []).map((g) => ({
+          type: (g.type || 'single') as 'single' | 'double',
+          quantity: g.quantity ?? 0,
+        })),
+        total_length_ft: (dd as { total_length_ft?: number }).total_length_ft ?? 0,
+      };
+    }
+    return null;
+  }, [segments, fence?.total_length_ft, gates, layoutDrawing?.drawing_data]);
   const center: [number, number] | undefined =
     property?.latitude != null && property?.longitude != null
       ? [Number(property.latitude), Number(property.longitude)]
@@ -470,7 +492,7 @@ export default function CustomerDetailPage() {
             <div>
               <h2 className="text-lg font-semibold">Fence drawing</h2>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                {layoutDrawing ? 'Layout drawing (from Draw).' : 'The outline they drew on the map.'}
+                {layoutForDisplay && segments.length > 0 ? 'Layout drawing and map view below.' : layoutForDisplay ? 'Layout drawing from Draw.' : segments.length > 0 ? 'Map view of the fence outline.' : 'Export to layout or calculator to add a drawing.'}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -499,23 +521,28 @@ export default function CustomerDetailPage() {
               </button>
             </div>
           </div>
-          <div className="mt-4">
-            {layoutDrawing?.drawing_data ? (
-              <div className="min-h-[300px] rounded-lg border border-[var(--line)] overflow-hidden">
-                <LayoutDrawCanvas
-                  initialDrawing={{
-                    points: layoutDrawing.drawing_data.points ?? [],
-                    segments: layoutDrawing.drawing_data.segments ?? [],
-                    gates: (layoutDrawing.drawing_data.gates ?? []).map((g: { type: string; quantity: number }) => ({
-                      type: g.type as 'single' | 'double',
-                      quantity: g.quantity ?? 0,
-                    })),
-                    total_length_ft: layoutDrawing.drawing_data.total_length_ft ?? 0,
-                  }}
-                />
+          <div className="mt-4 space-y-4">
+            {layoutForDisplay && layoutForDisplay.points.length >= 2 && (
+              <div>
+                <h3 className="mb-2 text-sm font-medium text-[var(--muted)]">Layout drawing</h3>
+                <div className="h-[320px] rounded-lg border border-[var(--line)] overflow-hidden">
+                  <LayoutDrawCanvas
+                    readOnly
+                    initialDrawing={layoutForDisplay}
+                  />
+                </div>
               </div>
-            ) : (
-              <FenceDrawingMap segments={segments} gates={gates} center={center} className="min-h-[300px]" />
+            )}
+            {segments.length > 0 && (
+              <div>
+                <h3 className="mb-2 text-sm font-medium text-[var(--muted)]">Map view</h3>
+                <FenceDrawingMap segments={segments} gates={gates} center={center} className="min-h-[300px]" />
+              </div>
+            )}
+            {!layoutForDisplay && segments.length === 0 && (
+              <div className="flex min-h-[200px] items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--bg2)] text-sm text-[var(--muted)]">
+                No fence drawing saved yet. Export to layout or calculator to add a drawing.
+              </div>
             )}
           </div>
           {(segments.length > 0 || fence) && (
