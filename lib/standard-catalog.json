@@ -1,0 +1,28 @@
+{
+  "exportedAt": null,
+  "source": "standard",
+  "types": [
+    { "name": "Vinyl", "standard_height_ft": 6, "display_order": 0 },
+    { "name": "Aluminum", "standard_height_ft": 6, "display_order": 1 },
+    { "name": "Wood", "standard_height_ft": 6, "display_order": 2 }
+  ],
+  "styles": [
+    { "type_index": 0, "style_name": "Privacy", "photo_url": null, "display_order": 0 },
+    { "type_index": 0, "style_name": "Semi-Private", "photo_url": null, "display_order": 1 },
+    { "type_index": 1, "style_name": "Privacy", "photo_url": null, "display_order": 0 },
+    { "type_index": 2, "style_name": "Privacy", "photo_url": null, "display_order": 0 }
+  ],
+  "colours": [
+    { "style_index": 0, "color_name": "White", "photo_url": null, "display_order": 0 },
+    { "style_index": 0, "color_name": "Tan", "photo_url": null, "display_order": 1 },
+    { "style_index": 0, "color_name": "Gray", "photo_url": null, "display_order": 2 },
+    { "style_index": 1, "color_name": "White", "photo_url": null, "display_order": 0 },
+    { "style_index": 1, "color_name": "Tan", "photo_url": null, "display_order": 1 },
+    { "style_index": 2, "color_name": "Black", "photo_url": null, "display_order": 0 },
+    { "style_index": 2, "color_name": "White", "photo_url": null, "display_order": 1 },
+    { "style_index": 2, "color_name": "Gray", "photo_url": null, "display_order": 2 },
+    { "style_index": 3, "color_name": "Natural", "photo_url": null, "display_order": 0 },
+    { "style_index": 3, "color_name": "Cedar", "photo_url": null, "display_order": 1 },
+    { "style_index": 3, "color_name": "Black", "photo_url": null, "display_order": 2 }
+  ]
+}

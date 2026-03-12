@@ -17,10 +17,31 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.quotemyfence.ca';
+
 export const metadata: Metadata = {
-  title: 'QuoteMyFence | Fence estimates + contractor dashboards',
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: 'QuoteMyFence | Fence estimates + contractor dashboards',
+    template: '%s | QuoteMyFence',
+  },
   description:
-    'QuoteMyFence helps homeowners draw fence lines on a map to get an instant estimate, and helps contractors manage products, pricing, and leads.',
+    'QuoteMyFence helps homeowners draw fence lines on a map to get an instant estimate, and helps contractors manage products, pricing, and leads. Trusted by fence contractors across Canada.',
+  keywords: ['fence estimate', 'fence quote', 'fence contractor', 'fence calculator', 'instant estimate', 'Canada'],
+  openGraph: {
+    type: 'website',
+    locale: 'en_CA',
+    url: siteUrl,
+    siteName: 'QuoteMyFence',
+    title: 'QuoteMyFence | Draw your fence. Get your estimate.',
+    description: 'Draw your fence line on a map for an instant estimate. For homeowners and fence contractors across Canada.',
+    images: [{ url: '/quotemyfence-logo.png', width: 512, height: 512, alt: 'QuoteMyFence' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'QuoteMyFence | Draw your fence. Get your estimate.',
+    description: 'Draw your fence line on a map for an instant estimate. For homeowners and fence contractors.',
+  },
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,

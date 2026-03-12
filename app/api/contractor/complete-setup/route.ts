@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/lib/supabase/server';
-import { seedCatalogFromTemplate } from '@/lib/seed-catalog-from-template';
+import { seedCatalogFromStandard } from '@/lib/seed-catalog-from-standard';
 
 function slugify(s: string): string {
   return s
@@ -125,16 +125,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const templateSlug = process.env.TEMPLATE_CONTRACTOR_SLUG?.trim();
-    if (templateSlug) {
-      const seedResult = await seedCatalogFromTemplate(
-        supabaseAdmin,
-        contractor.id,
-        templateSlug
-      );
-      if (!seedResult.ok) {
-        console.warn('complete-setup: catalog seed failed', seedResult.error);
-      }
+    const seedResult = await seedCatalogFromStandard(supabaseAdmin, contractor.id);
+    if (!seedResult.ok) {
+      console.warn('complete-setup: catalog seed failed', seedResult.error);
     }
 
     return NextResponse.json({ ok: true, contractor_id: contractor.id, slug });

@@ -26,14 +26,34 @@ export async function seedCatalogFromTemplate(
 
   const templateId = templateContractor.id;
 
-  const { data: templateTypes } = await supabaseAdmin
+  // Try fence_types by contractor_id (new schema with types-without-heights)
+  let { data: templateTypes } = await supabaseAdmin
     .from('fence_types')
-    .select('id, name, standard_height_ft, display_order')
+    .select('id, name, standard_height_ft, display_order, height_id')
     .eq('contractor_id', templateId)
     .eq('is_active', true)
     .order('display_order', { ascending: true });
 
+  // Fallback: fence_types via fence_heights (original schema before types-without-heights)
   if (!templateTypes?.length) {
+    const { data: heights } = await supabaseAdmin
+      .from('fence_heights')
+      .select('id')
+      .eq('contractor_id', templateId)
+      .eq('is_active', true);
+    if (heights?.length) {
+      const { data: typesViaHeights } = await supabaseAdmin
+        .from('fence_types')
+        .select('id, name, standard_height_ft, display_order, height_id')
+        .in('height_id', heights.map((h) => h.id))
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+      templateTypes = typesViaHeights || [];
+    }
+  }
+
+  if (!templateTypes?.length) {
+    console.warn('seed-catalog: template contractor has no fence_types (check Products page has types/styles/colours)');
     return { ok: true };
   }
 
