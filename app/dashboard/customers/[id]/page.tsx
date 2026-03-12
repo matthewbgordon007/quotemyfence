@@ -495,17 +495,26 @@ export default function CustomerDetailPage() {
               </button>
             </div>
           </div>
-          <div className="mt-4">
-            {layoutDrawing?.image_data_url ? (
-              <div className="min-h-[300px] rounded-lg border border-[var(--line)] overflow-hidden bg-white">
-                <img
-                  src={layoutDrawing.image_data_url}
-                  alt="Layout drawing"
-                  className="max-h-[400px] w-auto object-contain"
-                />
+          <div className="mt-4 space-y-4">
+            {layoutDrawing?.image_data_url && (
+              <div>
+                <h3 className="mb-2 text-sm font-medium text-[var(--muted)]">Layout drawing</h3>
+                <div className="min-h-[200px] rounded-lg border border-[var(--line)] overflow-hidden bg-white">
+                  <img
+                    src={layoutDrawing.image_data_url}
+                    alt="Layout drawing"
+                    className="max-h-[400px] w-auto object-contain"
+                  />
+                </div>
               </div>
-            ) : (
-              <FenceDrawingMap segments={segments} gates={gates} center={center} className="min-h-[300px]" />
+            )}
+            {segments.length > 0 && (
+              <div>
+                <h3 className="mb-2 text-sm font-medium text-[var(--muted)]">
+                  {layoutDrawing?.image_data_url ? 'Map view' : 'Fence outline'}
+                </h3>
+                <FenceDrawingMap segments={segments} gates={gates} center={center} className="min-h-[300px]" />
+              </div>
             )}
           </div>
           {(segments.length > 0 || fence) && (
