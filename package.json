@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "export-catalog": "node scripts/export-standard-catalog.mjs",
+    "seed-all-contractors": "node scripts/seed-all-contractors.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

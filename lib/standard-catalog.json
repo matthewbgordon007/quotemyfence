@@ -1,28 +1,235 @@
 {
-  "exportedAt": null,
-  "source": "standard",
+  "exportedAt": "2026-03-12T15:41:23.545Z",
+  "source": "gordon-landscaping",
   "types": [
-    { "name": "Vinyl", "standard_height_ft": 6, "display_order": 0 },
-    { "name": "Aluminum", "standard_height_ft": 6, "display_order": 1 },
-    { "name": "Wood", "standard_height_ft": 6, "display_order": 2 }
+    {
+      "name": "WPC",
+      "standard_height_ft": 7,
+      "display_order": 0
+    },
+    {
+      "name": "PVC",
+      "standard_height_ft": 7,
+      "display_order": 0
+    },
+    {
+      "name": "Cedar",
+      "standard_height_ft": 7,
+      "display_order": 0
+    }
   ],
   "styles": [
-    { "type_index": 0, "style_name": "Privacy", "photo_url": null, "display_order": 0 },
-    { "type_index": 0, "style_name": "Semi-Private", "photo_url": null, "display_order": 1 },
-    { "type_index": 1, "style_name": "Privacy", "photo_url": null, "display_order": 0 },
-    { "type_index": 2, "style_name": "Privacy", "photo_url": null, "display_order": 0 }
+    {
+      "type_index": 1,
+      "style_name": "Rideau",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/style-1772824593795.png",
+      "display_order": 0
+    },
+    {
+      "type_index": 1,
+      "style_name": "Sanctuary",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/style-1772824607520.png",
+      "display_order": 0
+    },
+    {
+      "type_index": 1,
+      "style_name": "Heritage",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/style-1772824619906.png",
+      "display_order": 0
+    },
+    {
+      "type_index": 0,
+      "style_name": "Wood Grain",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/style-1772825664912.jpg",
+      "display_order": 0
+    },
+    {
+      "type_index": 0,
+      "style_name": "Modern Slat",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/style-1772825675514.jpg",
+      "display_order": 0
+    },
+    {
+      "type_index": 0,
+      "style_name": "All Aluminum",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/style-1772825685103.jpg",
+      "display_order": 0
+    },
+    {
+      "type_index": 2,
+      "style_name": "Good Neighbour",
+      "photo_url": null,
+      "display_order": 0
+    }
   ],
   "colours": [
-    { "style_index": 0, "color_name": "White", "photo_url": null, "display_order": 0 },
-    { "style_index": 0, "color_name": "Tan", "photo_url": null, "display_order": 1 },
-    { "style_index": 0, "color_name": "Gray", "photo_url": null, "display_order": 2 },
-    { "style_index": 1, "color_name": "White", "photo_url": null, "display_order": 0 },
-    { "style_index": 1, "color_name": "Tan", "photo_url": null, "display_order": 1 },
-    { "style_index": 2, "color_name": "Black", "photo_url": null, "display_order": 0 },
-    { "style_index": 2, "color_name": "White", "photo_url": null, "display_order": 1 },
-    { "style_index": 2, "color_name": "Gray", "photo_url": null, "display_order": 2 },
-    { "style_index": 3, "color_name": "Natural", "photo_url": null, "display_order": 0 },
-    { "style_index": 3, "color_name": "Cedar", "photo_url": null, "display_order": 1 },
-    { "style_index": 3, "color_name": "Black", "photo_url": null, "display_order": 2 }
+    {
+      "style_index": 0,
+      "color_name": "White",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772824213270.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 0,
+      "color_name": "Adobe",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772824224142.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 0,
+      "color_name": "Light Grey",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772824232852.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 0,
+      "color_name": "Westport",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772824241489.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 0,
+      "color_name": "Dark Grey",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772824249630.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 0,
+      "color_name": "Moonlit",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772824258758.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 0,
+      "color_name": "Teak",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772824267204.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 3,
+      "color_name": "Mocha",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772825718528.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 3,
+      "color_name": "Driftwood",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772825722327.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 4,
+      "color_name": "Walnut",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772825767864.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 4,
+      "color_name": "Iron",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772825772080.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 4,
+      "color_name": "Ash",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772825776207.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 4,
+      "color_name": "Onyx",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772825780946.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 5,
+      "color_name": "Eclipse",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772825785765.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 2,
+      "color_name": "White",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772825946023.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 2,
+      "color_name": "Adobe",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772825950322.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 2,
+      "color_name": "Light Grey",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772825954841.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 2,
+      "color_name": "Westport Grey",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772825958798.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 2,
+      "color_name": "Dark Grey",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772825963754.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 2,
+      "color_name": "Teak",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772825967676.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 2,
+      "color_name": "Moonlit",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772825972322.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 1,
+      "color_name": "White",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772825982628.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 1,
+      "color_name": "Adobe",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772825986294.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 1,
+      "color_name": "Light Grey",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772825990647.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 1,
+      "color_name": "Westport Grey",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772825993908.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 1,
+      "color_name": "Dark Grey",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772825998475.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 1,
+      "color_name": "Moonlit",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772826002753.jpg",
+      "display_order": 0
+    },
+    {
+      "style_index": 1,
+      "color_name": "Teak",
+      "photo_url": "https://ojhuiyajzyzwocufdbgf.supabase.co/storage/v1/object/public/contractor-assets/5ea9a372-758f-4133-b50e-1d5c01475952/colour-1772826006749.jpg",
+      "display_order": 0
+    }
   ]
 }
