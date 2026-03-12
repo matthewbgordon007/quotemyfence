@@ -447,24 +447,22 @@ export default function CustomerDetailPage() {
                 {layoutDrawing ? 'Layout drawing (from Draw).' : 'The outline they drew on the map.'}
               </p>
             </div>
-            {segments.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => router.push(`/dashboard/calculator?from=${id}`)}
-                  className="rounded-xl border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
-                >
-                  Export to Quote Calculator →
-                </button>
-                <button
-                  type="button"
-                  onClick={() => router.push(`/dashboard/layout?from=${id}`)}
-                  className="rounded-xl border border-[var(--accent)] bg-white px-4 py-2 text-sm font-semibold text-[var(--accent)] transition hover:bg-[var(--accent)]/5"
-                >
-                  Export to layout →
-                </button>
-              </div>
-            )}
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => router.push(`/dashboard/calculator?from=${id}`)}
+                className="rounded-xl border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+              >
+                Export to Quote Calculator →
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push(`/dashboard/layout?from=${id}`)}
+                className="rounded-xl border border-[var(--accent)] bg-white px-4 py-2 text-sm font-semibold text-[var(--accent)] transition hover:bg-[var(--accent)]/5"
+              >
+                Export to layout →
+              </button>
+            </div>
           </div>
           <div className="mt-4">
             {layoutDrawing?.drawing_data ? (

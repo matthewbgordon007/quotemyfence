@@ -136,7 +136,14 @@ export default function LayoutPage() {
         );
         setInitialDrawing(drawing);
         const c = data.customer;
+        const p = data.property;
         setCustomerLabel(c ? `${c.first_name} ${c.last_name}` : null);
+        if (!layoutId && (c || p)) {
+          setTitle(
+            c ? `${c.first_name} ${c.last_name}`.trim()
+              : (p?.formatted_address && p.formatted_address !== '—' ? p.formatted_address : '') || ''
+          );
+        }
       })
       .catch(() => setInitialDrawing(null))
       .finally(() => setLoading(false));
@@ -165,6 +172,7 @@ export default function LayoutPage() {
         body: JSON.stringify({
           title: title.trim(),
           drawing_data: drawingData,
+          quote_session_id: fromId || undefined,
         }),
       });
       if (!res.ok) {
