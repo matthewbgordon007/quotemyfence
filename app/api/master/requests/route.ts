@@ -32,8 +32,8 @@ export async function GET() {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const contractorIds = [...new Set((requests || []).map((r) => r.contractor_id))];
-  const layoutIds = [...new Set((requests || []).map((r) => r.layout_drawing_id))];
+  const contractorIds = Array.from(new Set((requests || []).map((r) => r.contractor_id)));
+  const layoutIds = Array.from(new Set((requests || []).map((r) => r.layout_drawing_id)));
 
   const { data: contractors } = await supabase
     .from('contractors')

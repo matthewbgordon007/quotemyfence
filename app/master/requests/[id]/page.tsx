@@ -138,13 +138,13 @@ export default function MasterRequestDetailPage() {
               <div className="min-h-[300px] rounded-lg border border-[var(--line)] overflow-hidden">
                 <LayoutDrawCanvas
                   initialDrawing={{
-                    points: layoutDrawing.drawing_data.points ?? [],
-                    segments: layoutDrawing.drawing_data.segments ?? [],
-                    gates: (layoutDrawing.drawing_data.gates ?? []).map((g: { type: string; quantity: number }) => ({
+                    points: layoutDrawing!.drawing_data!.points ?? [],
+                    segments: layoutDrawing!.drawing_data!.segments ?? [],
+                    gates: (layoutDrawing!.drawing_data!.gates ?? []).map((g: { type: string; quantity: number }) => ({
                       type: g.type as 'single' | 'double',
                       quantity: g.quantity ?? 0,
                     })),
-                    total_length_ft: layoutDrawing.drawing_data.total_length_ft ?? 0,
+                    total_length_ft: layoutDrawing!.drawing_data!.total_length_ft ?? 0,
                   }}
                 />
               </div>
