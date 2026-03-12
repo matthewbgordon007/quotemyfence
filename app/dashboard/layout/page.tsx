@@ -84,6 +84,9 @@ export default function LayoutPage() {
   const [customerLabel, setCustomerLabel] = useState<string | null>(null);
   const [addLength, setAddLength] = useState('');
   const [resetKey, setResetKey] = useState(0);
+  const [materialDesc, setMaterialDesc] = useState('');
+  const [showMaterialModal, setShowMaterialModal] = useState(false);
+  const [submittingMaterial, setSubmittingMaterial] = useState(false);
 
   useEffect(() => {
     fetch('/api/contractor/layouts', { credentials: 'include' })
@@ -196,6 +199,43 @@ export default function LayoutPage() {
     setAddLength('');
   }
 
+  async function handleGetMaterialList() {
+    const desc = materialDesc.trim();
+    if (!desc) {
+      alert('Please add a description with the specifics of your quote (materials, preferences, etc.) before requesting a material list.');
+      return;
+    }
+    const lid = layoutId || (window.location.search.match(/layout=([^&]+)/)?.[1]);
+    if (!lid) {
+      alert('Please save the layout first before requesting a material quote.');
+      return;
+    }
+    setSubmittingMaterial(true);
+    try {
+      const res = await fetch('/api/contractor/material-quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          layout_drawing_id: lid,
+          quote_session_id: fromId || undefined,
+          description: desc,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to submit');
+      }
+      setShowMaterialModal(false);
+      setMaterialDesc('');
+      alert('Material quote request sent! Your admin will prepare a quote for this layout.');
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to send request');
+    } finally {
+      setSubmittingMaterial(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
@@ -276,6 +316,57 @@ export default function LayoutPage() {
           </div>
         </div>
       </div>
+
+      {layoutId && (
+        <div className="border-b border-[var(--line)] bg-[var(--bg2)] px-4 py-3">
+          <button
+            type="button"
+            onClick={() => setShowMaterialModal(true)}
+            className="rounded-lg border border-[var(--accent)] bg-white px-4 py-2 text-sm font-medium text-[var(--accent)] hover:bg-[var(--accent)]/5"
+          >
+            Get material list
+          </button>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            Send this layout to admin for a material quote. You&apos;ll need to add a description first.
+          </p>
+        </div>
+      )}
+
+      {showMaterialModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !submittingMaterial && setShowMaterialModal(false)}>
+          <div className="w-full max-w-lg rounded-2xl border border-[var(--line)] bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold">Request material quote</h3>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Describe the specifics of your quote—materials, preferences, quantities, or anything you need the admin to know.
+            </p>
+            <textarea
+              value={materialDesc}
+              onChange={(e) => setMaterialDesc(e.target.value)}
+              placeholder="e.g. WPC privacy fence, 6 ft height, white. Need H-posts every 8 ft. Include gate hardware."
+              rows={4}
+              className="mt-4 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+            />
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={handleGetMaterialList}
+                disabled={submittingMaterial || !materialDesc.trim()}
+                className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50 hover:opacity-90"
+              >
+                {submittingMaterial ? 'Sending…' : 'Send to admin'}
+              </button>
+              <button
+                type="button"
+                onClick={() => !submittingMaterial && setShowMaterialModal(false)}
+                disabled={submittingMaterial}
+                className="rounded-lg border border-[var(--line)] px-4 py-2 text-sm font-medium hover:bg-[var(--bg2)] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="relative flex-1 p-4">
         <LayoutDrawCanvas

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface CustomerRow {
   id: string;
@@ -58,11 +59,22 @@ const STATUS_TABS = [
 type LeadFilter = 'all' | 'new' | 'contacted' | 'quoted' | 'won' | 'lost';
 
 export default function CustomersPage() {
+  const router = useRouter();
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [leadFilter, setLeadFilter] = useState<LeadFilter>('new');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showNewLead, setShowNewLead] = useState(false);
+  const [newLead, setNewLead] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    phone: '',
+    lead_source: '',
+    formatted_address: '',
+  });
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     const params = leadFilter === 'all' ? '' : `?lead_filter=${leadFilter}`;
@@ -94,6 +106,42 @@ export default function CustomersPage() {
     }
   };
 
+  async function handleCreateLead(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newLead.first_name.trim() || !newLead.last_name.trim() || !newLead.email.trim()) {
+      alert('First name, last name, and email are required.');
+      return;
+    }
+    setCreating(true);
+    try {
+      const res = await fetch('/api/contractor/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          first_name: newLead.first_name.trim(),
+          last_name: newLead.last_name.trim(),
+          email: newLead.email.trim(),
+          phone: newLead.phone.trim() || undefined,
+          lead_source: newLead.lead_source.trim() || undefined,
+          formatted_address: newLead.formatted_address.trim() || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to create lead');
+      }
+      const { id } = await res.json();
+      setShowNewLead(false);
+      setNewLead({ first_name: '', last_name: '', email: '', phone: '', lead_source: '', formatted_address: '' });
+      router.push(`/dashboard/customers/${id}`);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to create lead');
+    } finally {
+      setCreating(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -104,10 +152,108 @@ export default function CustomersPage() {
 
   return (
     <div className="mx-auto max-w-4xl">
-      <h1 className="text-2xl font-bold">Customers</h1>
-      <p className="mt-1 text-sm text-[var(--muted)]">
-        Everyone who started or completed a quote. Mark as contacted once you reach out so you don&apos;t double-contact.
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Leads</h1>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Everyone who started or completed a quote. Create new leads manually or track submissions.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowNewLead(true)}
+          className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+        >
+          + New lead
+        </button>
+      </div>
+
+      {showNewLead && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !creating && setShowNewLead(false)}>
+          <div className="w-full max-w-md rounded-2xl border border-[var(--line)] bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold">Create new lead</h2>
+            <form onSubmit={handleCreateLead} className="mt-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[var(--muted)]">First name *</label>
+                <input
+                  type="text"
+                  value={newLead.first_name}
+                  onChange={(e) => setNewLead((p) => ({ ...p, first_name: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--muted)]">Last name *</label>
+                <input
+                  type="text"
+                  value={newLead.last_name}
+                  onChange={(e) => setNewLead((p) => ({ ...p, last_name: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--muted)]">Email *</label>
+                <input
+                  type="email"
+                  value={newLead.email}
+                  onChange={(e) => setNewLead((p) => ({ ...p, email: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--muted)]">Phone</label>
+                <input
+                  type="tel"
+                  value={newLead.phone}
+                  onChange={(e) => setNewLead((p) => ({ ...p, phone: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+                  placeholder="(555) 123-4567"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--muted)]">Address</label>
+                <input
+                  type="text"
+                  value={newLead.formatted_address}
+                  onChange={(e) => setNewLead((p) => ({ ...p, formatted_address: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+                  placeholder="123 Main St, City, Province"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--muted)]">Lead source</label>
+                <input
+                  type="text"
+                  value={newLead.lead_source}
+                  onChange={(e) => setNewLead((p) => ({ ...p, lead_source: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+                  placeholder="e.g. Referral, Website"
+                />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 hover:opacity-90"
+                >
+                  {creating ? 'Creating…' : 'Create lead'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => !creating && setShowNewLead(false)}
+                  disabled={creating}
+                  className="rounded-xl border border-[var(--line)] px-4 py-2 text-sm font-medium text-[var(--text)] disabled:opacity-50 hover:bg-[var(--bg2)]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex flex-wrap gap-2">

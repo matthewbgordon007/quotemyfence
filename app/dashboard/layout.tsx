@@ -14,6 +14,13 @@ export default async function DashboardLayout({
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  const { data: master } = await supabase
+    .from('master_admins')
+    .select('id')
+    .eq('auth_id', user.id)
+    .single();
+  if (master) redirect('/master');
+
   const { data: userRow } = await supabase
     .from('users')
     .select('contractor_id, role')

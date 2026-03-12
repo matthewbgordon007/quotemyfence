@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 async function getContractorId(supabase: Awaited<ReturnType<typeof createClient>>) {
@@ -126,6 +126,65 @@ export async function GET(
     savedQuotes: savedQuotes ?? [],
     layoutDrawing,
   });
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: sessionId } = await params;
+  const supabase = await createClient();
+  const contractorId = await getContractorId(supabase);
+  if (!contractorId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { data: session, error: sessionError } = await supabase
+    .from('quote_sessions')
+    .select('id')
+    .eq('id', sessionId)
+    .eq('contractor_id', contractorId)
+    .single();
+
+  if (sessionError || !session) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  const body = await request.json();
+  const customerUpdates: Record<string, unknown> = {};
+  if (body.first_name != null) customerUpdates.first_name = String(body.first_name).trim();
+  if (body.last_name != null) customerUpdates.last_name = String(body.last_name).trim();
+  if (body.email != null) customerUpdates.email = String(body.email).trim();
+  if (body.phone != null) customerUpdates.phone = body.phone ? String(body.phone).trim() : null;
+  if (body.lead_source != null) customerUpdates.lead_source = body.lead_source ? String(body.lead_source).trim() : null;
+
+  const propertyUpdates: Record<string, unknown> = {};
+  if (body.formatted_address != null) propertyUpdates.formatted_address = String(body.formatted_address).trim() || '—';
+  if (body.street_address != null) propertyUpdates.street_address = body.street_address ? String(body.street_address).trim() : null;
+  if (body.city != null) propertyUpdates.city = body.city ? String(body.city).trim() : null;
+  if (body.province_state != null) propertyUpdates.province_state = body.province_state ? String(body.province_state).trim() : null;
+  if (body.postal_zip != null) propertyUpdates.postal_zip = body.postal_zip ? String(body.postal_zip).trim() : null;
+  if (body.country != null) propertyUpdates.country = body.country ? String(body.country).trim() : null;
+
+  if (Object.keys(customerUpdates).length > 0) {
+    const { error: custErr } = await supabase
+      .from('customers')
+      .update(customerUpdates)
+      .eq('quote_session_id', sessionId)
+      .eq('contractor_id', contractorId);
+    if (custErr) return NextResponse.json({ error: custErr.message }, { status: 500 });
+  }
+
+  if (Object.keys(propertyUpdates).length > 0) {
+    const { error: propErr } = await supabase
+      .from('properties')
+      .update(propertyUpdates)
+      .eq('quote_session_id', sessionId);
+    if (propErr) return NextResponse.json({ error: propErr.message }, { status: 500 });
+  }
+
+  await supabase
+    .from('quote_sessions')
+    .update({ last_active_at: new Date().toISOString() })
+    .eq('id', sessionId);
+
+  return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(

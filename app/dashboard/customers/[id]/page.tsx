@@ -18,7 +18,7 @@ const LayoutDrawCanvas = dynamic(
 interface ClientDetail {
   session: { status: string; current_step: string; last_active_at: string; lead_status?: string; contractor_quote_text?: string | null; contractor_quote_saved_at?: string | null };
   customer: { first_name: string; last_name: string; email: string; phone: string | null; lead_source: string | null } | null;
-  property: { formatted_address: string; city: string | null; province_state: string | null; postal_zip: string | null; latitude: number | null; longitude: number | null } | null;
+  property: { formatted_address: string; street_address?: string | null; city: string | null; province_state: string | null; postal_zip: string | null; country?: string | null; latitude?: number | null; longitude?: number | null } | null;
   fence: {
     total_length_ft: number;
     has_removal: boolean;
@@ -43,6 +43,21 @@ export default function CustomerDetailPage() {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deletingQuoteId, setDeletingQuoteId] = useState<string | null>(null);
+  const [editingInfo, setEditingInfo] = useState(false);
+  const [savingInfo, setSavingInfo] = useState(false);
+  const [editForm, setEditForm] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    phone: '',
+    lead_source: '',
+    formatted_address: '',
+    street_address: '',
+    city: '',
+    province_state: '',
+    postal_zip: '',
+    country: '',
+  });
 
   const handleDelete = async () => {
     if (!confirm('Delete this customer and all their quote data? This cannot be undone.')) return;
@@ -122,6 +137,72 @@ export default function CustomerDetailPage() {
     fetch(`/api/contractor/customers/${id}/viewed`, { method: 'POST' }).catch(() => {});
   }, [id, data]);
 
+  useEffect(() => {
+    if (data?.customer || data?.property) {
+      setEditForm({
+        first_name: data.customer?.first_name ?? '',
+        last_name: data.customer?.last_name ?? '',
+        email: data.customer?.email ?? '',
+        phone: data.customer?.phone ?? '',
+        lead_source: data.customer?.lead_source ?? '',
+        formatted_address: data.property?.formatted_address ?? '',
+        street_address: data.property?.street_address ?? '',
+        city: data.property?.city ?? '',
+        province_state: data.property?.province_state ?? '',
+        postal_zip: data.property?.postal_zip ?? '',
+        country: data.property?.country ?? '',
+      });
+    }
+  }, [data]);
+
+  const handleSaveInfo = async () => {
+    setSavingInfo(true);
+    try {
+      const res = await fetch(`/api/contractor/customers/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to save');
+      }
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              customer: prev.customer
+                ? {
+                    ...prev.customer,
+                    first_name: editForm.first_name,
+                    last_name: editForm.last_name,
+                    email: editForm.email,
+                    phone: editForm.phone || null,
+                    lead_source: editForm.lead_source || null,
+                  }
+                : prev.customer,
+              property: prev.property
+                ? {
+                    ...prev.property,
+                    formatted_address: editForm.formatted_address || '—',
+                    street_address: editForm.street_address || null,
+                    city: editForm.city || null,
+                    province_state: editForm.province_state || null,
+                    postal_zip: editForm.postal_zip || null,
+                    country: editForm.country || null,
+                  }
+                : prev.property,
+            }
+          : null
+      );
+      setEditingInfo(false);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setSavingInfo(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -189,36 +270,172 @@ export default function CustomerDetailPage() {
 
       <div className="mt-8 space-y-6">
         <section className="rounded-2xl border border-[var(--line)] bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold">Contact</h2>
-          <dl className="mt-3 space-y-2 text-sm">
-            <div>
-              <dt className="text-[var(--muted)]">Name</dt>
-              <dd>{customer ? `${customer.first_name} ${customer.last_name}` : '—'}</dd>
-            </div>
-            <div>
-              <dt className="text-[var(--muted)]">Email</dt>
-              <dd><a href={`mailto:${customer?.email}`} className="text-[var(--accent)] hover:underline">{customer?.email ?? '—'}</a></dd>
-            </div>
-            <div>
-              <dt className="text-[var(--muted)]">Phone</dt>
-              <dd>{customer?.phone ? <a href={`tel:${customer.phone}`} className="text-[var(--accent)] hover:underline">{customer.phone}</a> : '—'}</dd>
-            </div>
-            {customer?.lead_source && (
-              <div>
-                <dt className="text-[var(--muted)]">Lead source</dt>
-                <dd>{customer.lead_source}</dd>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Contact</h2>
+            {!editingInfo ? (
+              <button
+                type="button"
+                onClick={() => setEditingInfo(true)}
+                className="text-sm font-medium text-[var(--accent)] hover:underline"
+              >
+                Edit
+              </button>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleSaveInfo}
+                  disabled={savingInfo}
+                  className="text-sm font-medium text-[var(--accent)] hover:underline disabled:opacity-50"
+                >
+                  {savingInfo ? 'Saving…' : 'Save'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setEditingInfo(false); setEditForm({ first_name: customer?.first_name ?? '', last_name: customer?.last_name ?? '', email: customer?.email ?? '', phone: customer?.phone ?? '', lead_source: customer?.lead_source ?? '', formatted_address: property?.formatted_address ?? '', street_address: property?.street_address ?? '', city: property?.city ?? '', province_state: property?.province_state ?? '', postal_zip: property?.postal_zip ?? '', country: property?.country ?? '' }); }}
+                  disabled={savingInfo}
+                  className="text-sm font-medium text-[var(--muted)] hover:underline disabled:opacity-50"
+                >
+                  Cancel
+                </button>
               </div>
             )}
-          </dl>
+          </div>
+          {editingInfo ? (
+            <div className="mt-4 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--muted)]">First name</label>
+                  <input
+                    type="text"
+                    value={editForm.first_name}
+                    onChange={(e) => setEditForm((p) => ({ ...p, first_name: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--muted)]">Last name</label>
+                  <input
+                    type="text"
+                    value={editForm.last_name}
+                    onChange={(e) => setEditForm((p) => ({ ...p, last_name: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--muted)]">Email</label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--muted)]">Phone</label>
+                <input
+                  type="tel"
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--muted)]">Lead source</label>
+                <input
+                  type="text"
+                  value={editForm.lead_source}
+                  onChange={(e) => setEditForm((p) => ({ ...p, lead_source: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--muted)]">Address</label>
+                <input
+                  type="text"
+                  value={editForm.formatted_address}
+                  onChange={(e) => setEditForm((p) => ({ ...p, formatted_address: e.target.value }))}
+                  placeholder="123 Main St, City, Province"
+                  className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--muted)]">City</label>
+                  <input
+                    type="text"
+                    value={editForm.city}
+                    onChange={(e) => setEditForm((p) => ({ ...p, city: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--muted)]">Province / State</label>
+                  <input
+                    type="text"
+                    value={editForm.province_state}
+                    onChange={(e) => setEditForm((p) => ({ ...p, province_state: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--muted)]">Postal / Zip</label>
+                  <input
+                    type="text"
+                    value={editForm.postal_zip}
+                    onChange={(e) => setEditForm((p) => ({ ...p, postal_zip: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--muted)]">Country</label>
+                  <input
+                    type="text"
+                    value={editForm.country}
+                    onChange={(e) => setEditForm((p) => ({ ...p, country: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <dl className="mt-3 space-y-2 text-sm">
+              <div>
+                <dt className="text-[var(--muted)]">Name</dt>
+                <dd>{customer ? `${customer.first_name} ${customer.last_name}` : '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-[var(--muted)]">Email</dt>
+                <dd><a href={`mailto:${customer?.email}`} className="text-[var(--accent)] hover:underline">{customer?.email ?? '—'}</a></dd>
+              </div>
+              <div>
+                <dt className="text-[var(--muted)]">Phone</dt>
+                <dd>{customer?.phone ? <a href={`tel:${customer.phone}`} className="text-[var(--accent)] hover:underline">{customer.phone}</a> : '—'}</dd>
+              </div>
+              {(customer?.lead_source || editingInfo) && (
+                <div>
+                  <dt className="text-[var(--muted)]">Lead source</dt>
+                  <dd>{customer?.lead_source ?? '—'}</dd>
+                </div>
+              )}
+            </dl>
+          )}
         </section>
 
         <section className="rounded-2xl border border-[var(--line)] bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold">Address</h2>
-          <p className="mt-2 text-[var(--text)]">{property?.formatted_address ?? '—'}</p>
-          {(property?.city || property?.province_state || property?.postal_zip) && (
-            <p className="mt-1 text-sm text-[var(--muted)]">
-              {[property.city, property.province_state, property.postal_zip].filter(Boolean).join(', ')}
-            </p>
+          {!editingInfo && (
+            <>
+              <p className="mt-2 text-[var(--text)]">{property?.formatted_address ?? '—'}</p>
+              {(property?.city || property?.province_state || property?.postal_zip) && (
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  {[property.city, property.province_state, property.postal_zip].filter(Boolean).join(', ')}
+                </p>
+              )}
+            </>
           )}
         </section>
 
