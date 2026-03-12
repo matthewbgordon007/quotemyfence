@@ -32,22 +32,25 @@ export function FenceDrawingMap({ segments, gates = [], center, className = '' }
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<import('leaflet').Map | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [mapError, setMapError] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    if (!mounted || typeof window === 'undefined' || !containerRef.current || segments.length === 0)
+    if (!mounted || typeof window === 'undefined' || !containerRef.current || !Array.isArray(segments) || segments.length === 0)
       return;
 
+    setMapError(false);
     let cancelled = false;
     import('leaflet').then((L) => {
       if (cancelled || !containerRef.current) return;
-      safeRemoveMap(mapRef.current);
-      mapRef.current = null;
+      try {
+        safeRemoveMap(mapRef.current);
+        mapRef.current = null;
 
-      const map = L.default.map(containerRef.current!, { attributionControl: false }).setView(
+        const map = L.default.map(containerRef.current!, { attributionControl: false }).setView(
         center ?? [Number(segments[0].start_lat), Number(segments[0].start_lng)],
         18
       );
@@ -111,6 +114,11 @@ export function FenceDrawingMap({ segments, gates = [], center, className = '' }
             .addTo(map);
         }
       });
+      } catch {
+        if (!cancelled) setMapError(true);
+      }
+    }).catch(() => {
+      if (!cancelled) setMapError(true);
     });
 
     return () => {
@@ -121,7 +129,15 @@ export function FenceDrawingMap({ segments, gates = [], center, className = '' }
     };
   }, [mounted, segments, gates, center]);
 
-  if (segments.length === 0) {
+  if (mapError) {
+    return (
+      <div className={`flex min-h-[280px] items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--bg2)] text-sm text-[var(--muted)] ${className}`}>
+        Map unavailable
+      </div>
+    );
+  }
+
+  if (!Array.isArray(segments) || segments.length === 0) {
     return (
       <div className={`flex items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--bg2)] ${className}`}>
         <span className="text-sm text-[var(--muted)]">No fence drawing saved</span>

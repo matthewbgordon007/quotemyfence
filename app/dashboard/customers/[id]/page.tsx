@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import { DrawingErrorBoundary } from '@/components/DrawingErrorBoundary';
 
 // Same conversion as layout page "Export to layout" – map segments → canvas layout
 function convertSegmentsToDrawing(
@@ -46,12 +47,12 @@ function convertSegmentsToDrawing(
 }
 
 const FenceDrawingMap = dynamic(
-  () => import('@/components/FenceDrawingMap').then((m) => ({ default: m.FenceDrawingMap })),
+  () => import('@/components/FenceDrawingMap').then((m) => ({ default: m.FenceDrawingMap })).catch(() => ({ default: () => <div className="min-h-[280px] rounded-lg border border-[var(--line)] bg-[var(--bg2)] flex items-center justify-center text-sm text-[var(--muted)]">Map unavailable</div> })),
   { ssr: false, loading: () => <div className="min-h-[300px] animate-pulse rounded-lg border border-[var(--line)] bg-[var(--bg2)]" /> }
 );
 
 const LayoutDrawCanvas = dynamic(
-  () => import('@/components/LayoutDrawCanvas').then((m) => ({ default: m.LayoutDrawCanvas })),
+  () => import('@/components/LayoutDrawCanvas').then((m) => ({ default: m.LayoutDrawCanvas })).catch(() => ({ default: () => <div className="min-h-[280px] rounded-lg border border-[var(--line)] bg-[var(--bg2)] flex items-center justify-center text-sm text-[var(--muted)]">Layout unavailable</div> })),
   { ssr: false, loading: () => <div className="min-h-[300px] animate-pulse rounded-lg border border-[var(--line)] bg-[var(--bg2)]" /> }
 );
 
@@ -288,7 +289,14 @@ export default function CustomerDetailPage() {
     );
   }
 
-  const { session, customer, property, fence, quoteTotals, designSummary, designOption, layoutDrawing } = data;
+  const session = data.session ?? { status: '', current_step: '', last_active_at: new Date().toISOString(), lead_status: 'new' };
+  const customer = data.customer ?? null;
+  const property = data.property ?? null;
+  const fence = data.fence ?? null;
+  const quoteTotals = data.quoteTotals ?? null;
+  const designSummary = data.designSummary ?? null;
+  const designOption = data.designOption ?? null;
+  const layoutDrawing = data.layoutDrawing ?? null;
   const segments = Array.isArray(data.segments) ? data.segments : [];
   const gates = Array.isArray(data.gates) ? data.gates : [];
   // Derive layout from segments client-side (same as "Export to layout") – guarantees display matches map
@@ -562,6 +570,7 @@ export default function CustomerDetailPage() {
               </button>
             </div>
           </div>
+          <DrawingErrorBoundary>
           <div className="mt-4 space-y-4">
             {displayLayout && (displayLayout.points?.length ?? 0) >= 2 && (
               <div>
@@ -594,6 +603,7 @@ export default function CustomerDetailPage() {
               </div>
             )}
           </div>
+          </DrawingErrorBoundary>
           {(segments.length > 0 || fence) && (
             <div className="mt-4 space-y-2">
               {segments.length > 0 && (
