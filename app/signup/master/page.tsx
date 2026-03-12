@@ -11,7 +11,6 @@ export default function MasterSignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -33,9 +32,7 @@ export default function MasterSignupPage() {
 
       const res = await fetch('/api/master/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ invite_code: inviteCode }),
       });
 
       if (!res.ok) {
@@ -60,18 +57,9 @@ export default function MasterSignupPage() {
       <div className="w-full max-w-md rounded-2xl border border-[var(--line)] bg-white p-8 shadow-xl">
         <h1 className="text-2xl font-bold tracking-tight">Master admin signup</h1>
         <p className="mt-2 text-sm text-[var(--muted)]">
-          You need an invite code from the owner to create an admin account.
+          Create an admin account to receive and prepare material quotes from contractors.
         </p>
         <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-3">
-          <input
-            type="text"
-            placeholder="Invite code"
-            value={inviteCode}
-            onChange={(e) => setInviteCode(e.target.value)}
-            required
-            autoComplete="off"
-            className="rounded-xl border border-[var(--line)] px-4 py-3 outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
-          />
           <input
             type="email"
             placeholder="Email"
