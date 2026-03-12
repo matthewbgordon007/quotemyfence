@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { HomeownerSearch } from './HomeownerSearch';
+import { ProductScreenshot } from '@/components/ProductScreenshot';
+import { ProductVideo } from '@/components/ProductVideo';
 
 const SCHEDULE_CALL_URL = 'https://calendar.app.google/8r7KjwiPTXWBCDoj9';
 const DEMO_SLUG = 'demo-fence';
@@ -89,6 +91,52 @@ export default function HomePage() {
           </div>
           <p className="mt-4 text-sm text-[var(--muted)]">Instant access. No signup required for the demo.</p>
         </header>
+
+        {/* Product preview: dashboard, fence drawing, quote flow */}
+        <section className="mt-20">
+          <h2 className="text-center font-heading text-2xl font-bold tracking-tight text-[var(--text)] sm:text-3xl">
+            See QuoteMyFence in action
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-center text-[var(--muted)]">
+            Real screenshots from the platform—dashboard, fence drawing, and quote flow.
+          </p>
+          <div className="mt-10 grid gap-10 lg:grid-cols-1">
+            <div className="rounded-2xl border-2 border-[var(--line)] bg-white p-6 shadow-sm sm:p-8">
+              <h3 className="font-heading text-lg font-bold text-[var(--text)]">Contractor dashboard</h3>
+              <p className="mt-1 text-sm text-[var(--muted)]">Manage leads, view quotes, and track your pipeline.</p>
+              <div className="mt-4">
+                <ProductScreenshot
+                  src="/images/dashboard.png"
+                  alt="QuoteMyFence contractor dashboard"
+                  fallbackLabel="dashboard"
+                />
+              </div>
+            </div>
+            <div className="rounded-2xl border-2 border-[var(--line)] bg-white p-6 shadow-sm sm:p-8">
+              <h3 className="font-heading text-lg font-bold text-[var(--text)]">Fence drawing on map</h3>
+              <p className="mt-1 text-sm text-[var(--muted)]">Customers draw their fence line on a satellite map for accurate measurements.</p>
+              <div className="mt-4 space-y-4">
+                <ProductScreenshot
+                  src="/images/fence-drawing.png"
+                  alt="Fence drawing on satellite map"
+                  fallbackLabel="fence drawing"
+                />
+                <ProductVideo src="/images/fence-drawing-demo.mp4" fallbackLabel="fence-drawing-demo.mp4" />
+              </div>
+            </div>
+            <div className="rounded-2xl border-2 border-[var(--line)] bg-white p-6 shadow-sm sm:p-8">
+              <h3 className="font-heading text-lg font-bold text-[var(--text)]">Quote &amp; estimate flow</h3>
+              <p className="mt-1 text-sm text-[var(--muted)]">Contact → Location → Draw → Design → Review → Submit.</p>
+              <div className="mt-4">
+                <ProductScreenshot
+                  src="/images/quote-flow.png"
+                  alt="Quote flow: design and review pages"
+                  fallbackLabel="quote flow"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* Your 24/7 salesperson */}
         <section className="mt-20 rounded-2xl border-2 border-[var(--line)] bg-white p-8 shadow-sm sm:p-10">

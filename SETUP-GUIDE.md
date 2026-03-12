@@ -259,6 +259,18 @@ After that, when a homeowner submits a quote, the contractor and customer emails
 
 ---
 
+## Optional: Template catalog for new contractors
+
+You can set **Gordon Landscaping** (or any contractor) as the standard catalog. New contractors who sign up will start with the same fence types, styles, and colours, but with **blank pricing**—they set their own prices in the Products page.
+
+1. Add to `.env.local`:
+   - `TEMPLATE_CONTRACTOR_SLUG=gordon-landscaping` (use the exact slug of your template contractor)
+2. Restart the app.
+3. New signups will automatically receive the template catalog.
+4. Contractors can add new types, styles, or colours and edit pricing on Dashboard → Products.
+
+---
+
 ## Quick reference
 
 | What you want to do        | Command or place              |
