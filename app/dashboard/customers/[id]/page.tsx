@@ -511,6 +511,7 @@ export default function CustomerDetailPage() {
                 <h3 className="mb-2 text-sm font-medium text-[var(--muted)]">Layout drawing</h3>
                 <div className="min-h-[300px] rounded-lg border border-[var(--line)] overflow-hidden">
                   <LayoutDrawCanvas
+                    readOnly
                     initialDrawing={{
                       points: layoutDrawing.drawing_data.points ?? [],
                       segments: layoutDrawing.drawing_data.segments ?? [],

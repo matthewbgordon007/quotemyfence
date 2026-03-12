@@ -1,6 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
+function segmentsToDrawing(
+  segs: { start_lat: number; start_lng: number; end_lat: number; end_lng: number; length_ft?: number }[],
+  totalLengthFt: number,
+  gateRows: { gate_type: string; quantity: number }[]
+): { points: { x: number; y: number }[]; segments: { length_ft: number }[]; gates: { type: string; quantity: number }[]; total_length_ft: number } {
+  if (!segs?.length) {
+    return { points: [], segments: [], gates: gateRows.map((g) => ({ type: g.gate_type, quantity: g.quantity || 0 })), total_length_ft: totalLengthFt };
+  }
+  const METERS_PER_DEG_LAT = 111320;
+  const refLat = Number(segs[0].start_lat);
+  const refLng = Number(segs[0].start_lng);
+  const metersPerDegLng = 111320 * Math.cos((refLat * Math.PI) / 180);
+  const M_TO_FT = 3.28084;
+  function toFeet(lat: number, lng: number) {
+    const dx = (lng - refLng) * metersPerDegLng;
+    const dy = (lat - refLat) * METERS_PER_DEG_LAT;
+    return { x: dx * M_TO_FT, y: -dy * M_TO_FT };
+  }
+  const points: { x: number; y: number }[] = [];
+  const segLengths: { length_ft: number }[] = [];
+  for (const seg of segs) {
+    if (points.length === 0) points.push(toFeet(Number(seg.start_lat), Number(seg.start_lng)));
+    points.push(toFeet(Number(seg.end_lat), Number(seg.end_lng)));
+    if (seg.length_ft != null) segLengths.push({ length_ft: Number(seg.length_ft) });
+  }
+  const total = totalLengthFt > 0 ? totalLengthFt : segLengths.reduce((s, x) => s + x.length_ft, 0);
+  return {
+    points,
+    segments: segLengths.length > 0 ? segLengths : points.length >= 2 ? [{ length_ft: total }] : [],
+    gates: gateRows.map((g) => ({ type: g.gate_type, quantity: g.quantity || 0 })),
+    total_length_ft: total,
+  };
+}
+
 async function getContractorId(supabase: Awaited<ReturnType<typeof createClient>>) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
@@ -111,6 +145,12 @@ export async function GET(
         designSummary = [opt.height_ft && `${opt.height_ft} ft`, prod?.name, opt.style_name, opt.color].filter(Boolean).join(' • ');
       }
     }
+  }
+
+  // If no layout from Draw tool but we have fence segments, synthesize layout (canvas format) from map data
+  if (!layoutDrawing && segments.length > 0 && fence) {
+    const synthesized = segmentsToDrawing(segments, Number(fence.total_length_ft) || 0, gates);
+    layoutDrawing = { drawing_data: synthesized };
   }
 
   return NextResponse.json({
