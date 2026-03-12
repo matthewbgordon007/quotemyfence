@@ -36,18 +36,14 @@ export async function GET(
   let fence = null;
   let segments: { start_lat: number; start_lng: number; end_lat: number; end_lng: number; length_ft?: number }[] = [];
   let gates: { gate_type: string; quantity: number }[] = [];
-  let layoutDrawing: { drawing_data: unknown; title: string; image_data_url?: string | null } | null = null;
+  let layoutDrawing: { drawing_data: unknown; title: string } | null = null;
 
   const { data: layout } = await supabase
     .from('layout_drawings')
-    .select('id, title, drawing_data, image_data_url')
+    .select('id, title, drawing_data')
     .eq('id', req.layout_drawing_id)
     .single();
-  if (layout) layoutDrawing = {
-    drawing_data: layout.drawing_data,
-    title: layout.title,
-    image_data_url: (layout as { image_data_url?: string | null }).image_data_url ?? null,
-  };
+  if (layout) layoutDrawing = { drawing_data: layout.drawing_data, title: layout.title };
 
   if (sessionId) {
     const [{ data: sess }, { data: cust }, { data: prop }, { data: fences }] = await Promise.all([

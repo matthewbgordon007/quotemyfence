@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -17,7 +17,7 @@ const LayoutDrawCanvas = dynamic(
 
 interface MasterRequestDetail {
   request: { id: string; description: string; status: string; master_response: string | null; created_at?: string };
-  layoutDrawing: { drawing_data: any; title: string; image_data_url?: string | null } | null;
+  layoutDrawing: { drawing_data: any; title: string } | null;
   session: any;
   customer: { first_name: string; last_name: string; email: string; phone: string | null } | null;
   property: { formatted_address: string; city?: string | null; province_state?: string | null; postal_zip?: string | null } | null;
@@ -77,10 +77,8 @@ export default function MasterRequestDetailPage() {
   }
 
   const { request, layoutDrawing, customer, property, fence, segments, gates, contractor } = data;
-  const center = useMemo<[number, number] | undefined>(
-    () => (segments[0] ? [Number(segments[0].start_lat), Number(segments[0].start_lng)] : undefined),
-    [segments[0]?.start_lat, segments[0]?.start_lng]
-  );
+  const center: [number, number] | undefined =
+    segments[0] ? [Number(segments[0].start_lat), Number(segments[0].start_lng)] : undefined;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -135,47 +133,25 @@ export default function MasterRequestDetailPage() {
 
         <section className="rounded-2xl border border-[var(--line)] bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold">Layout drawing</h2>
-          <div className="mt-4 space-y-4">
-            {layoutDrawing?.image_data_url && (
-              <div>
-                <h3 className="mb-2 text-sm font-medium text-[var(--muted)]">Layout screenshot</h3>
-                <div className="min-h-[200px] rounded-lg border border-[var(--line)] overflow-hidden bg-white">
-                  <img
-                    src={layoutDrawing.image_data_url}
-                    alt="Layout drawing"
-                    className="max-h-[400px] w-auto object-contain"
-                  />
-                </div>
+          <div className="mt-4">
+            {layoutDrawing?.drawing_data?.points?.length >= 2 ? (
+              <div className="min-h-[300px] rounded-lg border border-[var(--line)] overflow-hidden">
+                <LayoutDrawCanvas
+                  readOnly
+                  initialDrawing={{
+                    points: layoutDrawing!.drawing_data!.points ?? [],
+                    segments: layoutDrawing!.drawing_data!.segments ?? [],
+                    gates: (layoutDrawing!.drawing_data!.gates ?? []).map((g: { type: string; quantity: number }) => ({
+                      type: g.type as 'single' | 'double',
+                      quantity: g.quantity ?? 0,
+                    })),
+                    total_length_ft: layoutDrawing!.drawing_data!.total_length_ft ?? 0,
+                  }}
+                />
               </div>
-            )}
-            {layoutDrawing?.drawing_data?.points?.length >= 2 && !layoutDrawing?.image_data_url && (
-              <div>
-                <h3 className="mb-2 text-sm font-medium text-[var(--muted)]">Layout</h3>
-                <div className="min-h-[300px] rounded-lg border border-[var(--line)] overflow-hidden">
-                  <LayoutDrawCanvas
-                    readOnly
-                    initialDrawing={{
-                      points: layoutDrawing!.drawing_data!.points ?? [],
-                      segments: layoutDrawing!.drawing_data!.segments ?? [],
-                      gates: (layoutDrawing!.drawing_data!.gates ?? []).map((g: { type: string; quantity: number }) => ({
-                        type: g.type as 'single' | 'double',
-                        quantity: g.quantity ?? 0,
-                      })),
-                      total_length_ft: layoutDrawing!.drawing_data!.total_length_ft ?? 0,
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-            {segments.length > 0 && (
-              <div>
-                <h3 className="mb-2 text-sm font-medium text-[var(--muted)]">
-                  {layoutDrawing?.image_data_url ? 'Map view' : 'Fence outline'}
-                </h3>
-                <FenceDrawingMap segments={segments} gates={gates} center={center} className="min-h-[300px]" />
-              </div>
-            )}
-            {!layoutDrawing?.image_data_url && !layoutDrawing?.drawing_data?.points?.length && segments.length === 0 && (
+            ) : segments.length > 0 ? (
+              <FenceDrawingMap segments={segments} gates={gates} center={center} className="min-h-[300px]" />
+            ) : (
               <p className="text-[var(--muted)]">No drawing available</p>
             )}
           </div>
