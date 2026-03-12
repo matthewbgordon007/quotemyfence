@@ -548,16 +548,19 @@ export default function CustomerDetailPage() {
             </div>
           </div>
           <div className="mt-4 space-y-4">
-            {displayLayout && displayLayout.points.length >= 2 && (
+            {displayLayout && (displayLayout.points?.length ?? 0) >= 2 && (
               <div>
                 <h3 className="mb-2 text-sm font-medium text-[var(--muted)]">Layout drawing</h3>
                 <div className="h-[320px] rounded-lg border border-[var(--line)] overflow-hidden">
                   <LayoutDrawCanvas
                     readOnly
                     initialDrawing={{
-                      points: displayLayout.points,
+                      points: displayLayout.points ?? [],
                       segments: displayLayout.segments ?? [],
-                      gates: displayLayout.gates ?? [],
+                      gates: (displayLayout.gates ?? []).map((g: { type: string; quantity: number }) => ({
+                        type: g.type as 'single' | 'double',
+                        quantity: g.quantity ?? 0,
+                      })),
                       total_length_ft: displayLayout.total_length_ft ?? 0,
                     }}
                   />
