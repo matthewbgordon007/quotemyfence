@@ -1,18 +1,72 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import html2canvas from 'html2canvas';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { LayoutDrawCanvas, LayoutDrawCanvasRef } from '@/components/LayoutDrawCanvas';
-import { convertSegmentsToDrawing } from '@/lib/convertSegmentsToDrawing';
 
 type SavedLayout = { id: string; title: string; created_at: string; updated_at: string };
+
+type ApiSegment = { start_lat: number; start_lng: number; end_lat: number; end_lng: number; length_ft?: number };
+
+// Convert lat/lng segments to x,y in feet (origin at first point)
+function convertSegmentsToDrawing(
+  segments: ApiSegment[],
+  totalLengthFt: number,
+  gates: { gate_type: string; quantity: number }[]
+): {
+  points: { x: number; y: number }[];
+  segments: { length_ft: number }[];
+  gates: { type: 'single' | 'double'; quantity: number }[];
+  total_length_ft: number;
+} {
+  if (segments.length === 0) {
+    return {
+      points: [],
+      segments: [],
+      gates: gates.map((g) => ({ type: g.gate_type as 'single' | 'double', quantity: g.quantity || 0 })),
+      total_length_ft: totalLengthFt,
+    };
+  }
+  const METERS_PER_DEG_LAT = 111320;
+  const refLat = Number(segments[0].start_lat);
+  const refLng = Number(segments[0].start_lng);
+  const metersPerDegLng = 111320 * Math.cos((refLat * Math.PI) / 180);
+  const M_TO_FT = 3.28084;
+
+  function toFeet(lat: number, lng: number): { x: number; y: number } {
+    const dx = (lng - refLng) * metersPerDegLng;
+    const dy = (lat - refLat) * METERS_PER_DEG_LAT;
+    return { x: dx * M_TO_FT, y: -dy * M_TO_FT };
+  }
+
+  const points: { x: number; y: number }[] = [];
+  const segLengths: { length_ft: number }[] = [];
+  for (const seg of segments) {
+    if (points.length === 0) {
+      points.push(toFeet(Number(seg.start_lat), Number(seg.start_lng)));
+    }
+    points.push(toFeet(Number(seg.end_lat), Number(seg.end_lng)));
+    if (seg.length_ft != null) {
+      segLengths.push({ length_ft: Number(seg.length_ft) });
+    }
+  }
+  const total = totalLengthFt > 0 ? totalLengthFt : segLengths.reduce((s, x) => s + x.length_ft, 0);
+  return {
+    points,
+    segments: segLengths.length > 0 ? segLengths : points.length >= 2 ? [{ length_ft: total }] : [],
+    gates: gates.map((g) => ({ type: g.gate_type as 'single' | 'double', quantity: g.quantity || 0 })),
+    total_length_ft: total,
+  };
+}
 
 export default function LayoutPage() {
   const searchParams = useSearchParams();
   const fromId = searchParams.get('from');
   const layoutId = searchParams.get('layout');
   const drawRef = useRef<LayoutDrawCanvasRef>(null);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
   const [initialDrawing, setInitialDrawing] = useState<{
     points: { x: number; y: number }[];
     segments: { length_ft: number }[];
@@ -113,6 +167,16 @@ export default function LayoutPage() {
     }
     setSaving(true);
     try {
+      let imageDataUrl: string | undefined;
+      if (canvasContainerRef.current) {
+        const canvas = await html2canvas(canvasContainerRef.current, {
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          scale: 1,
+          logging: false,
+        });
+        imageDataUrl = canvas.toDataURL('image/png');
+      }
       const res = await fetch('/api/contractor/layouts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -121,6 +185,7 @@ export default function LayoutPage() {
           title: title.trim(),
           drawing_data: drawingData,
           quote_session_id: fromId || undefined,
+          image_data_url: imageDataUrl,
         }),
       });
       if (!res.ok) {
@@ -324,7 +389,7 @@ export default function LayoutPage() {
         </div>
       )}
 
-      <div className="relative flex-1 p-4">
+      <div ref={canvasContainerRef} className="relative flex-1 p-4">
         <LayoutDrawCanvas
           ref={drawRef}
           key={`${resetKey}-${layoutId || 'new'}-${initialDrawing ? 'loaded' : 'init'}`}

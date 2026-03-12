@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   if (!contractorId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await request.json();
-  const { title, drawing_data, quote_session_id } = body;
+  const { title, drawing_data, quote_session_id, image_data_url } = body;
   if (!title?.trim()) return NextResponse.json({ error: 'title required' }, { status: 400 });
 
   const drawingData = drawing_data ?? {};
@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
       contractor_id: contractorId,
       title: String(title).trim(),
       drawing_data: drawingData,
+      image_data_url: image_data_url && typeof image_data_url === 'string' ? image_data_url.slice(0, 500000) : null,
       updated_at: new Date().toISOString(),
     })
     .select()

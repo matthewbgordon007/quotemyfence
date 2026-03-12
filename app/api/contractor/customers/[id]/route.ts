@@ -81,10 +81,10 @@ export async function GET(
   if (layoutDrawingId) {
     const { data: layout } = await supabase
       .from('layout_drawings')
-      .select('drawing_data')
+      .select('drawing_data, image_data_url')
       .eq('id', layoutDrawingId)
       .single();
-    if (layout) layoutDrawing = { drawing_data: layout.drawing_data };
+    if (layout) layoutDrawing = { drawing_data: layout.drawing_data, image_data_url: (layout as { image_data_url?: string }).image_data_url ?? null };
   }
 
   let segments: { start_lat: number; start_lng: number; end_lat: number; end_lng: number; length_ft?: number }[] = [];
