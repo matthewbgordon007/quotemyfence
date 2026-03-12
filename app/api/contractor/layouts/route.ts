@@ -37,17 +37,61 @@ export async function POST(request: NextRequest) {
   const { title, drawing_data } = body;
   if (!title?.trim()) return NextResponse.json({ error: 'title required' }, { status: 400 });
 
-  const { data, error } = await supabase
+  const drawingData = drawing_data ?? {};
+  const totalLengthFt = Number((drawingData as { total_length_ft?: number }).total_length_ft) || 0;
+
+  const { data: layout, error: layoutError } = await supabase
     .from('layout_drawings')
     .insert({
       contractor_id: contractorId,
       title: String(title).trim(),
-      drawing_data: drawing_data ?? {},
+      drawing_data: drawingData,
       updated_at: new Date().toISOString(),
     })
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+  if (layoutError) return NextResponse.json({ error: layoutError.message }, { status: 500 });
+
+  const { data: session, error: sessionError } = await supabase
+    .from('quote_sessions')
+    .insert({
+      contractor_id: contractorId,
+      layout_drawing_id: layout.id,
+      status: 'drawing_saved',
+      current_step: 'draw',
+      last_active_at: new Date().toISOString(),
+    })
+    .select('id')
+    .single();
+
+  if (sessionError) return NextResponse.json({ error: sessionError.message }, { status: 500 });
+
+  const placeholderEmail = `layout-${layout.id}@pending.quotemyfence.local`;
+
+  const { error: customerError } = await supabase.from('customers').insert({
+    quote_session_id: session.id,
+    contractor_id: contractorId,
+    first_name: 'Layout',
+    last_name: String(title).trim(),
+    email: placeholderEmail,
+    lead_source: 'Layout drawing',
+  });
+  if (customerError) return NextResponse.json({ error: customerError.message }, { status: 500 });
+
+  const { error: propertyError } = await supabase.from('properties').insert({
+    quote_session_id: session.id,
+    formatted_address: String(title).trim(),
+  });
+  if (propertyError) return NextResponse.json({ error: propertyError.message }, { status: 500 });
+
+  const { error: fenceError } = await supabase.from('fences').insert({
+    quote_session_id: session.id,
+    label: 'Main',
+    total_length_ft: totalLengthFt,
+    has_removal: false,
+  });
+  if (fenceError) return NextResponse.json({ error: fenceError.message }, { status: 500 });
+
+  return NextResponse.json({ ...layout, lead_id: session.id });
 }

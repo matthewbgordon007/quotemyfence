@@ -173,6 +173,10 @@ export default function LayoutPage() {
       const listData = await listRes.json();
       setSavedLayouts(listData.layouts || []);
       window.history.replaceState(null, '', `/dashboard/layout?layout=${saved.id}`);
+      if (saved.lead_id) {
+        window.location.href = `/dashboard/customers/${saved.lead_id}`;
+        return;
+      }
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Failed to save');
     } finally {

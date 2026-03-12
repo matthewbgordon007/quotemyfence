@@ -42,6 +42,17 @@ export async function GET(
   ]);
 
   const fence = fences?.[0];
+  let layoutDrawing: { drawing_data: unknown } | null = null;
+  const layoutDrawingId = (session as { layout_drawing_id?: string }).layout_drawing_id;
+  if (layoutDrawingId) {
+    const { data: layout } = await supabase
+      .from('layout_drawings')
+      .select('drawing_data')
+      .eq('id', layoutDrawingId)
+      .single();
+    if (layout) layoutDrawing = { drawing_data: layout.drawing_data };
+  }
+
   let segments: { start_lat: number; start_lng: number; end_lat: number; end_lng: number; length_ft?: number }[] = [];
   let gates: { gate_type: string; quantity: number }[] = [];
   let designSummary: string | null = null;
@@ -113,6 +124,7 @@ export async function GET(
     designSummary,
     designOption,
     savedQuotes: savedQuotes ?? [],
+    layoutDrawing,
   });
 }
 

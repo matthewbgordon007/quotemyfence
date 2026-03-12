@@ -10,6 +10,11 @@ const FenceDrawingMap = dynamic(
   { ssr: false, loading: () => <div className="min-h-[300px] animate-pulse rounded-lg border border-[var(--line)] bg-[var(--bg2)]" /> }
 );
 
+const LayoutDrawCanvas = dynamic(
+  () => import('@/components/LayoutDrawCanvas').then((m) => ({ default: m.LayoutDrawCanvas })),
+  { ssr: false, loading: () => <div className="min-h-[300px] animate-pulse rounded-lg border border-[var(--line)] bg-[var(--bg2)]" /> }
+);
+
 interface ClientDetail {
   session: { status: string; current_step: string; last_active_at: string; lead_status?: string; contractor_quote_text?: string | null; contractor_quote_saved_at?: string | null };
   customer: { first_name: string; last_name: string; email: string; phone: string | null; lead_source: string | null } | null;
@@ -26,6 +31,7 @@ interface ClientDetail {
   designSummary: string | null;
   designOption: { height_ft?: number; type?: string; style?: string; colour?: string } | null;
   savedQuotes?: { id: string; created_at: string; grand_total: number; calculator_state?: any }[];
+  layoutDrawing?: { drawing_data: { points?: { x: number; y: number }[]; segments?: { length_ft: number }[]; gates?: { type: string; quantity: number }[]; total_length_ft?: number } } | null;
 }
 
 export default function CustomerDetailPage() {
@@ -135,7 +141,7 @@ export default function CustomerDetailPage() {
     );
   }
 
-  const { session, customer, property, fence, segments, gates, quoteTotals, designSummary, designOption } = data;
+  const { session, customer, property, fence, segments, gates, quoteTotals, designSummary, designOption, layoutDrawing } = data;
   const center: [number, number] | undefined =
     property?.latitude != null && property?.longitude != null
       ? [Number(property.latitude), Number(property.longitude)]
@@ -221,7 +227,7 @@ export default function CustomerDetailPage() {
             <div>
               <h2 className="text-lg font-semibold">Fence drawing</h2>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                The outline they drew on the map.
+                {layoutDrawing ? 'Layout drawing (from Draw).' : 'The outline they drew on the map.'}
               </p>
             </div>
             {segments.length > 0 && (
@@ -244,7 +250,23 @@ export default function CustomerDetailPage() {
             )}
           </div>
           <div className="mt-4">
-            <FenceDrawingMap segments={segments} gates={gates} center={center} className="min-h-[300px]" />
+            {layoutDrawing?.drawing_data ? (
+              <div className="min-h-[300px] rounded-lg border border-[var(--line)] overflow-hidden">
+                <LayoutDrawCanvas
+                  initialDrawing={{
+                    points: layoutDrawing.drawing_data.points ?? [],
+                    segments: layoutDrawing.drawing_data.segments ?? [],
+                    gates: (layoutDrawing.drawing_data.gates ?? []).map((g: { type: string; quantity: number }) => ({
+                      type: g.type as 'single' | 'double',
+                      quantity: g.quantity ?? 0,
+                    })),
+                    total_length_ft: layoutDrawing.drawing_data.total_length_ft ?? 0,
+                  }}
+                />
+              </div>
+            ) : (
+              <FenceDrawingMap segments={segments} gates={gates} center={center} className="min-h-[300px]" />
+            )}
           </div>
           {(segments.length > 0 || fence) && (
             <div className="mt-4 space-y-2">
