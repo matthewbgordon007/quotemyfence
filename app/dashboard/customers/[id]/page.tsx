@@ -1,58 +1,17 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { DrawingErrorBoundary } from '@/components/DrawingErrorBoundary';
-
-// Same conversion as layout page "Export to layout" – map segments → canvas layout
-function convertSegmentsToDrawing(
-  segments: { start_lat: number; start_lng: number; end_lat: number; end_lng: number; length_ft?: number }[],
-  totalLengthFt: number,
-  gates: { gate_type: string; quantity: number }[]
-) {
-  const safeGates = Array.isArray(gates) ? gates : [];
-  if (!segments?.length || segments[0] == null) {
-    return null;
-  }
-  const first = segments[0];
-  const refLat = Number(first.start_lat);
-  const refLng = Number(first.start_lng);
-  if (!Number.isFinite(refLat) || !Number.isFinite(refLng)) {
-    return null;
-  }
-  const METERS_PER_DEG_LAT = 111320;
-  const metersPerDegLng = 111320 * Math.cos((refLat * Math.PI) / 180);
-  const M_TO_FT = 3.28084;
-  function toFeet(lat: number, lng: number) {
-    const dx = (lng - refLng) * metersPerDegLng;
-    const dy = (lat - refLat) * METERS_PER_DEG_LAT;
-    return { x: dx * M_TO_FT, y: -dy * M_TO_FT };
-  }
-  const points: { x: number; y: number }[] = [];
-  const segLengths: { length_ft: number }[] = [];
-  for (const seg of segments) {
-    if (points.length === 0) points.push(toFeet(Number(seg.start_lat), Number(seg.start_lng)));
-    points.push(toFeet(Number(seg.end_lat), Number(seg.end_lng)));
-    if (seg.length_ft != null) segLengths.push({ length_ft: Number(seg.length_ft) });
-  }
-  const total = totalLengthFt > 0 ? totalLengthFt : segLengths.reduce((s, x) => s + x.length_ft, 0);
-  return {
-    points,
-    segments: segLengths.length > 0 ? segLengths : points.length >= 2 ? [{ length_ft: total }] : [],
-    gates: safeGates.map((g) => ({ type: (g.gate_type || 'single') as 'single' | 'double', quantity: g.quantity || 0 })),
-    total_length_ft: total,
-  };
-}
 
 const FenceDrawingMap = dynamic(
-  () => import('@/components/FenceDrawingMap').then((m) => ({ default: m.FenceDrawingMap })).catch(() => ({ default: () => <div className="min-h-[280px] rounded-lg border border-[var(--line)] bg-[var(--bg2)] flex items-center justify-center text-sm text-[var(--muted)]">Map unavailable</div> })),
+  () => import('@/components/FenceDrawingMap').then((m) => ({ default: m.FenceDrawingMap })),
   { ssr: false, loading: () => <div className="min-h-[300px] animate-pulse rounded-lg border border-[var(--line)] bg-[var(--bg2)]" /> }
 );
 
 const LayoutDrawCanvas = dynamic(
-  () => import('@/components/LayoutDrawCanvas').then((m) => ({ default: m.LayoutDrawCanvas })).catch(() => ({ default: () => <div className="min-h-[280px] rounded-lg border border-[var(--line)] bg-[var(--bg2)] flex items-center justify-center text-sm text-[var(--muted)]">Layout unavailable</div> })),
+  () => import('@/components/LayoutDrawCanvas').then((m) => ({ default: m.LayoutDrawCanvas })),
   { ssr: false, loading: () => <div className="min-h-[300px] animate-pulse rounded-lg border border-[var(--line)] bg-[var(--bg2)]" /> }
 );
 
@@ -289,31 +248,7 @@ export default function CustomerDetailPage() {
     );
   }
 
-  const session = data.session ?? { status: '', current_step: '', last_active_at: new Date().toISOString(), lead_status: 'new' };
-  const customer = data.customer ?? null;
-  const property = data.property ?? null;
-  const fence = data.fence ?? null;
-  const quoteTotals = data.quoteTotals ?? null;
-  const designSummary = data.designSummary ?? null;
-  const designOption = data.designOption ?? null;
-  const layoutDrawing = data.layoutDrawing ?? null;
-  const segments = Array.isArray(data.segments) ? data.segments : [];
-  const gates = Array.isArray(data.gates) ? data.gates : [];
-  // Derive layout from segments client-side (same as "Export to layout") – guarantees display matches map
-  const displayLayout = useMemo(() => {
-    try {
-      if (segments.length > 0) {
-        return convertSegmentsToDrawing(segments, fence?.total_length_ft ?? 0, gates);
-      }
-      const dd = layoutDrawing?.drawing_data;
-      if (dd && typeof dd === 'object' && Array.isArray((dd as { points?: unknown }).points)) {
-        return dd as { points: { x: number; y: number }[]; segments?: { length_ft: number }[]; gates?: { type: string; quantity: number }[]; total_length_ft?: number };
-      }
-      return null;
-    } catch {
-      return null;
-    }
-  }, [segments, fence?.total_length_ft, gates, layoutDrawing?.drawing_data]);
+  const { session, customer, property, fence, segments, gates, quoteTotals, designSummary, designOption, layoutDrawing } = data;
   const center: [number, number] | undefined =
     property?.latitude != null && property?.longitude != null
       ? [Number(property.latitude), Number(property.longitude)]
@@ -535,13 +470,7 @@ export default function CustomerDetailPage() {
             <div>
               <h2 className="text-lg font-semibold">Fence drawing</h2>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                {layoutDrawing && segments.length > 0
-                  ? 'Layout drawing and map view below.'
-                  : layoutDrawing
-                    ? 'Layout drawing from Draw.'
-                    : segments.length > 0
-                      ? 'The outline they drew on the map.'
-                      : 'Export to layout or calculator to add a drawing.'}
+                {layoutDrawing ? 'Layout drawing (from Draw).' : 'The outline they drew on the map.'}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -570,40 +499,25 @@ export default function CustomerDetailPage() {
               </button>
             </div>
           </div>
-          <DrawingErrorBoundary>
-          <div className="mt-4 space-y-4">
-            {displayLayout && (displayLayout.points?.length ?? 0) >= 2 && (
-              <div>
-                <h3 className="mb-2 text-sm font-medium text-[var(--muted)]">Layout drawing</h3>
-                <div className="h-[320px] rounded-lg border border-[var(--line)] overflow-hidden">
-                  <LayoutDrawCanvas
-                    readOnly
-                    initialDrawing={{
-                      points: displayLayout.points ?? [],
-                      segments: displayLayout.segments ?? [],
-                      gates: (displayLayout.gates ?? []).map((g: { type: string; quantity: number }) => ({
-                        type: g.type as 'single' | 'double',
-                        quantity: g.quantity ?? 0,
-                      })),
-                      total_length_ft: displayLayout.total_length_ft ?? 0,
-                    }}
-                  />
-                </div>
+          <div className="mt-4">
+            {layoutDrawing?.drawing_data ? (
+              <div className="min-h-[300px] rounded-lg border border-[var(--line)] overflow-hidden">
+                <LayoutDrawCanvas
+                  initialDrawing={{
+                    points: layoutDrawing.drawing_data.points ?? [],
+                    segments: layoutDrawing.drawing_data.segments ?? [],
+                    gates: (layoutDrawing.drawing_data.gates ?? []).map((g: { type: string; quantity: number }) => ({
+                      type: g.type as 'single' | 'double',
+                      quantity: g.quantity ?? 0,
+                    })),
+                    total_length_ft: layoutDrawing.drawing_data.total_length_ft ?? 0,
+                  }}
+                />
               </div>
-            )}
-            {segments.length > 0 && (
-              <div>
-                <h3 className="mb-2 text-sm font-medium text-[var(--muted)]">Map view</h3>
-                <FenceDrawingMap segments={segments} gates={gates} center={center} className="min-h-[300px]" />
-              </div>
-            )}
-            {!displayLayout && segments.length === 0 && !fence && (
-              <div className="flex min-h-[200px] items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--bg2)] text-sm text-[var(--muted)]">
-                No fence drawing saved yet
-              </div>
+            ) : (
+              <FenceDrawingMap segments={segments} gates={gates} center={center} className="min-h-[300px]" />
             )}
           </div>
-          </DrawingErrorBoundary>
           {(segments.length > 0 || fence) && (
             <div className="mt-4 space-y-2">
               {segments.length > 0 && (
