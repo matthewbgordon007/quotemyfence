@@ -88,3 +88,9 @@ body {
 .animation-delay-400 { animation-delay: 400ms; }
 .animation-delay-2000 { animation-delay: 2s; }
 .animation-delay-4000 { animation-delay: 4s; }
+
+/* Section separator - dashed line */
+.section-divider {
+  border: none;
+  border-top: 2px dashed rgb(59 130 246 / 0.6);
+}

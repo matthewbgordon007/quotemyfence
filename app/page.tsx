@@ -1,21 +1,8 @@
 import type { Metadata } from 'next';
-import Image from 'next/image';
 import Link from 'next/link';
-import { ProductScreenshot } from '@/components/ProductScreenshot';
-import { ProductVideo } from '@/components/ProductVideo';
-import { FloatingScreenshot } from '@/components/FloatingScreenshot';
-import { FadeInScreenshot } from '@/components/FadeInScreenshot';
-import { RotatingScreenshots } from '@/components/RotatingScreenshots';
 import { AutoplayOnViewVideo } from '@/components/AutoplayOnViewVideo';
 import { QuoteProcessVideo } from '@/components/QuoteProcessVideo';
 import { FAQAccordion } from '@/components/FAQAccordion';
-
-// Brand images
-const STOCK = {
-  heroFence: '/images/whitepvc-fence.png',
-  fenceContractor: '/images/whitepvc-fence.png',
-  propertyYard: '/images/residential-neighborhood.png',
-};
 
 const SCHEDULE_CALL_URL = 'https://calendar.app.google/vuWD6xi7CfNptAon9';
 const DEMO_URL = 'https://www.quotemyfence.ca/estimate/demo-fence-inc/contact';
@@ -95,209 +82,204 @@ const features = [
 
 export default function HomePage() {
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-slate-100">
-      {/* Dynamic layered background - gradient + animated mesh + pattern */}
-      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-slate-50 to-indigo-50" />
-        <div
-          className="absolute inset-0 opacity-[0.5]"
-          style={{
-            backgroundImage: `
-              radial-gradient(at 40% 20%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
-              radial-gradient(at 80% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
-              radial-gradient(at 0% 50%, rgba(14, 165, 233, 0.1) 0px, transparent 50%),
-              radial-gradient(at 80% 50%, rgba(59, 130, 246, 0.08) 0px, transparent 50%)
-            `,
-          }}
-        />
-        <div className="absolute inset-0 opacity-[0.4]" style={{
-          backgroundImage: `radial-gradient(circle at 1px 1px, rgb(148 163 184 / 0.15) 1px, transparent 0)`,
-          backgroundSize: '40px 40px',
-        }} />
-        <div className="absolute -right-32 -top-32 h-[28rem] w-[28rem] rounded-full animate-blob bg-blue-300/25 blur-3xl" />
-        <div className="absolute -bottom-32 -left-32 h-[28rem] w-[28rem] rounded-full animate-blob animation-delay-2000 bg-indigo-300/20 blur-3xl" />
-        <div className="absolute right-1/3 top-1/4 h-80 w-80 rounded-full animate-blob animation-delay-4000 bg-sky-300/20 blur-3xl" />
-      </div>
+    <div className="relative min-h-screen overflow-x-hidden">
+      {/* Fixed vertical Blog tab - right edge */}
+      <Link
+        href="/blog"
+        className="fixed right-0 top-1/2 z-50 flex w-12 -translate-y-1/2 rotate-90 origin-center items-center justify-center rounded-bl-lg bg-blue-600 py-3 text-sm font-bold text-white shadow-lg transition-all hover:bg-blue-700"
+      >
+        Blog
+      </Link>
 
-      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
-        {/* Nav */}
-        <nav className="flex items-center justify-between rounded-2xl border border-slate-200/60 bg-white/90 px-4 py-3 shadow-md backdrop-blur-sm transition-all duration-300 hover:shadow-lg sm:px-6">
+      {/* ========== HERO - Dark full-width ========== */}
+      <section className="relative bg-slate-900">
+        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+          {/* Nav */}
+          <nav className="flex items-center justify-between rounded-2xl border border-slate-700/60 bg-slate-800/90 px-4 py-3 backdrop-blur-sm sm:px-6">
           <Link href="/" className="flex items-center transition-opacity hover:opacity-90">
             <img src="/quotemyfence-logo.png" alt="QuoteMyFence" className="h-11 w-auto sm:h-12" />
           </Link>
           <div className="flex items-center gap-2 sm:gap-4">
-            <Link href="/blog" className="text-sm font-semibold text-slate-600 transition-all duration-200 hover:text-slate-900">
+            <Link href="/blog" className="text-sm font-semibold text-slate-300 transition-colors hover:text-white">
               Blog
             </Link>
-            <Link href="/login" className="text-sm font-semibold text-slate-600 transition-all duration-200 hover:text-slate-900">
+            <Link href="/login" className="text-sm font-semibold text-slate-300 transition-colors hover:text-white">
               Member login
             </Link>
             <a
               href={SCHEDULE_CALL_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-lg"
+              className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition-all hover:bg-blue-500"
             >
               Book a call
             </a>
             <Link
               href="/signup"
-              className="rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 px-4 py-2.5 text-sm font-bold text-white shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:from-blue-700 hover:to-blue-600 hover:shadow-lg"
+              className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition-all hover:bg-blue-500"
             >
               Limited-time: $199.99/mo
             </Link>
           </div>
-        </nav>
+          </nav>
 
-        {/* Hero */}
-        <header className="mt-16 text-center sm:mt-20 lg:mt-28">
-          <div className="inline-flex items-center gap-2 rounded-full bg-blue-100 px-4 py-1.5 text-sm font-bold text-blue-800">
-            The #1 fence estimate software—trusted industry-wide
-          </div>
-          <h1 className="mt-6 font-heading text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl md:text-6xl lg:text-7xl">
-            Turn tire-kickers into{' '}
-            <span className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 bg-clip-text text-transparent">
-              ready-to-buy leads
-            </span>
-          </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-600 sm:text-xl">
-            The game-changer you&apos;ve been waiting for. Cut the back-and-forth—let homeowners get instant, accurate estimates on satellite maps. <strong>Pre-qualified leads 24/7.</strong> Scale your fence business without the grind.
-          </p>
-          <div className="mt-10 flex flex-col flex-wrap items-center justify-center gap-4 sm:flex-row">
-            <a
-              href={DEMO_URL}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-4 text-lg font-bold text-white shadow-xl shadow-blue-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:from-blue-700 hover:to-blue-800"
-            >
-              Try the demo free—see the magic
-            </a>
-            <a
-              href={SCHEDULE_CALL_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-slate-300 bg-white px-8 py-4 text-lg font-bold text-slate-800 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-blue-400 hover:bg-blue-50 hover:shadow-xl"
-            >
-              Book a meeting
-            </a>
-            <a
-              href={`mailto:${CONTACT_EMAIL}`}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-8 py-4 text-lg font-bold text-white shadow-xl shadow-blue-500/25 transition-all duration-300 hover:-translate-y-1 hover:bg-blue-700 hover:shadow-2xl"
-            >
-              Contact us
-            </a>
-          </div>
-          <p className="mt-5 text-sm text-slate-500">No credit card. No commitment. See why contractors are switching—in 60 seconds.</p>
-          <div className="mx-auto mt-12 flex justify-center px-2 sm:mt-16">
-            <AutoplayOnViewVideo
-              src="/videos/QuoteProcess.mp4"
-              className="w-full max-w-6xl"
-            />
-          </div>
-          <section className="relative mx-auto mt-16 max-w-6xl">
-            <h2 className="text-center font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-              A buying experience that sells for you
-            </h2>
-            <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">
-              From curiosity to commitment in 3 seamless steps. Customers love the wow factor—you&apos;ll love the qualified leads.
-            </p>
-            <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-3">
-              {stepsForCustomers.map((s, i) => (
-                <div key={i} className="flex flex-col gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
-                    {i + 1}
-                  </span>
-                  <h3 className="font-heading text-lg font-bold text-slate-900">{s.title}</h3>
-                  <p className="text-slate-600">{s.desc}</p>
-                </div>
-              ))}
-            </div>
-            <div className="mt-10 flex justify-center">
+          {/* Hero - split layout */}
+          <div className="grid items-center gap-12 py-16 lg:grid-cols-2 lg:gap-16 lg:py-24">
+            <div>
+              <h1 className="font-heading text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
+                Qualified leads, around the clock, delivered straight to your inbox
+              </h1>
+              <p className="mt-6 text-lg text-slate-300">
+                Stop chasing unqualified leads. Give your customers a buying experience they&apos;ll love, accessible any time. QuoteMyFence pre-qualifies customers so you know before you go.
+              </p>
               <a
                 href={DEMO_URL}
-                className="rounded-2xl bg-blue-600 px-8 py-4 font-bold text-white shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-xl"
+                className="mt-8 inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-8 py-4 text-lg font-bold text-white shadow-xl transition-all hover:bg-blue-500"
               >
+                TRY THE DEMO FOR FREE
+              </a>
+            </div>
+            <div className="relative">
+              <div className="overflow-hidden rounded-2xl border-2 border-dashed border-blue-500/50 shadow-2xl">
+                <AutoplayOnViewVideo src="/videos/QuoteProcess.mp4" className="w-full" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ========== STATS BANNER - Dark with dashed divider ========== */}
+      <section className="bg-slate-900">
+        <hr className="section-divider" />
+        <div className="mx-auto max-w-6xl px-4 py-12 text-center sm:px-6 lg:px-8">
+          <p className="font-heading text-4xl font-extrabold text-blue-400 sm:text-5xl">10K+</p>
+          <p className="mt-2 text-xl font-bold text-white">Quotes generated</p>
+          <p className="mt-1 text-sm text-slate-400">Thousands of leads qualified through our instant estimate tool</p>
+        </div>
+      </section>
+
+      {/* ========== CUSTOMER STEPS - White, two-column ========== */}
+      <section className="bg-white">
+        <hr className="section-divider" />
+        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+          <h2 className="font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
+            Your customers will love our project estimate calculator
+          </h2>
+          <p className="mt-2 text-lg text-blue-600">Create an instant project budget in 3 easy steps</p>
+          <div className="mt-12 grid gap-12 lg:grid-cols-2 lg:items-center">
+            <div className="space-y-6">
+              {stepsForCustomers.map((s, i) => (
+                <div key={i} className="flex gap-4 rounded-2xl border-2 border-dashed border-blue-400/60 bg-white p-6 shadow-md">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-blue-500 text-lg font-bold text-blue-600">
+                    {i + 1}
+                  </span>
+                  <div>
+                    <h3 className="font-heading font-bold text-slate-900">{s.title}:</h3>
+                    <p className="mt-1 text-slate-600">{s.desc}</p>
+                  </div>
+                </div>
+              ))}
+              <a href={DEMO_URL} className="inline-block rounded-2xl bg-blue-600 px-8 py-4 font-bold text-white transition-all hover:bg-blue-700">
                 Try the demo
               </a>
             </div>
-          </section>
-        </header>
-
-        {/* Stats */}
-        <section className="mt-20 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {[
-            { label: 'Contractors growing', value: '100+' },
-            { label: 'Quotes generated', value: '10K+' },
-            { label: 'Service area', value: 'Global' },
-            { label: '24/7', value: 'Lead engine' },
-          ].map((stat) => (
-            <div key={stat.label} className="rounded-2xl border border-slate-200/60 bg-white/95 p-6 text-center shadow-lg backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl">
-              <p className="text-2xl font-extrabold text-slate-900 sm:text-3xl">{stat.value}</p>
-              <p className="mt-1 text-sm font-medium text-slate-600">{stat.label}</p>
+            <div className="overflow-hidden rounded-2xl border-2 border-dashed border-blue-400/60 shadow-xl">
+              <img src="/images/screenshots/app-01.png" alt="Leads dashboard" className="w-full" />
             </div>
-          ))}
+          </div>
+        </div>
+      </section>
+
+        {/* ========== HOW IT WORKS - Contractor steps ========== */}
+        <section className="relative bg-slate-100">
+          <hr className="section-divider" />
+          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+            <h2 className="text-center font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
+              Launch in minutes. Scale forever.
+            </h2>
+            <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600">
+              The easiest way to start capturing and converting fence leads. No learning curve. No tech headaches.
+            </p>
+            <div className="mt-12 flex flex-col items-center justify-center gap-8 sm:flex-row sm:gap-12">
+              {stepsForContractors.map((s, i) => (
+                <div key={i} className="flex flex-col items-center text-center">
+                  <span className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-dashed border-blue-500 bg-blue-600 text-xl font-bold text-white">
+                    {i + 1}
+                  </span>
+                  <p className="mt-4 font-heading font-bold text-slate-900">{s.title}</p>
+                  <p className="mt-1 max-w-xs text-sm text-slate-600">{s.desc}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-12 flex justify-center">
+              <a href={DEMO_URL} className="rounded-2xl bg-blue-600 px-10 py-4 font-bold text-white transition-all hover:bg-blue-700">
+                TRY FREE DEMO
+              </a>
+            </div>
+          </div>
         </section>
 
-        {/* Floating screenshot strip */}
-        <section className="mt-20 flex flex-wrap items-center justify-center gap-6 py-8">
-          <FloatingScreenshot src="/images/screenshots/app-02.png" alt="Contact form" delay={0} />
-          <FloatingScreenshot src="/images/screenshots/app-10.png" alt="Review" delay={200} />
-          <FloatingScreenshot src="/images/screenshots/app-13.png" alt="Thank you" delay={400} />
-        </section>
-
-        {/* Features - colorful grid */}
-        <section className="mt-20">
-          <h2 className="text-center font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
-            Built to scale. Designed to convert.
-          </h2>
-          <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">
-            The all-in-one powerhouse that streamlines your entire quote-to-close pipeline. Stop leaving money on the table.
-          </p>
-          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {features.map((f) => (
-              <div
-                key={f.title}
-                className={`rounded-2xl ${f.bg} p-6 shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:ring-2 hover:ring-blue-200/60`}
-              >
-                <h3 className={`font-heading text-lg font-bold ${f.text}`}>{f.title}</h3>
-                <p className="mt-2 text-sm text-slate-600">{f.desc}</p>
+        {/* ========== Features - two-column with dashed borders ========== */}
+        <section className="bg-slate-50">
+          <hr className="section-divider" />
+          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+            <h2 className="font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
+              Finally, contractor software that&apos;s easy to setup and custom to your business
+            </h2>
+            <p className="mt-2 text-slate-600">Start pre-qualifying your leads in minutes with 3 easy steps.</p>
+            <div className="mt-12 grid gap-12 lg:grid-cols-2 lg:items-start">
+              <div className="space-y-6">
+                {features.map((f) => (
+                  <div key={f.title} className={`rounded-2xl ${f.bg} border-2 border-dashed border-blue-400/50 p-6`}>
+                    <h3 className={`font-heading font-bold ${f.text}`}>{f.title}</h3>
+                    <p className="mt-2 text-slate-600">{f.desc}</p>
+                  </div>
+                ))}
+                <a href={DEMO_URL} className="inline-block rounded-2xl bg-blue-600 px-8 py-4 font-bold text-white transition-all hover:bg-blue-700">
+                  Try the demo
+                </a>
               </div>
-            ))}
+              <div className="overflow-hidden rounded-2xl border-2 border-dashed border-blue-400/60 shadow-xl">
+                <img src="/images/screenshots/app-06.png" alt="Quote calculator" className="w-full" />
+              </div>
+            </div>
           </div>
         </section>
 
-        {/* Product preview - app screenshots with dynamic effects */}
-        <section className="mt-24">
-          <h2 className="text-center font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
-            See the magic in action
-          </h2>
-          <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">
-            Real screenshots from the platform that&apos;s winning over contractors. Experience it yourself—no strings attached.
-          </p>
-          <div className="mt-12 flex justify-center">
-            <a
-              href={DEMO_URL}
-              className="rounded-2xl bg-blue-600 px-8 py-4 font-bold text-white shadow-xl shadow-blue-500/25 transition-all duration-300 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-2xl"
-            >
-              Launch live demo
-            </a>
-          </div>
-          <div className="mt-16 grid gap-16 lg:grid-cols-2 lg:gap-12">
-            <FadeInScreenshot src="/images/screenshots/app-01.png" alt="Leads dashboard" />
-            <FadeInScreenshot src="/images/screenshots/app-06.png" alt="Quote calculator" className="lg:mt-12" />
-            <FadeInScreenshot src="/images/screenshots/app-15.png" alt="Quote calculator with segments" />
-            <FadeInScreenshot src="/images/screenshots/app-03.png" alt="Products configuration" className="lg:mt-12" />
-          </div>
-          <div className="mt-16">
-            <h3 className="text-center font-heading text-xl font-bold text-slate-900">The full platform—at a glance</h3>
-            <RotatingScreenshots count={6} className="mt-8" />
+        {/* ========== Product preview ========== */}
+        <section className="bg-white">
+          <hr className="section-divider" />
+          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+            <h2 className="font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
+              See the magic in action
+            </h2>
+            <p className="mt-2 text-slate-600">
+              Real screenshots from the platform that&apos;s winning over contractors. Experience it yourself—no strings attached.
+            </p>
+            <div className="mt-8">
+              <a href={DEMO_URL} className="inline-block rounded-2xl bg-blue-600 px-8 py-4 font-bold text-white transition-all hover:bg-blue-700">
+                Launch live demo
+              </a>
+            </div>
+            <div className="mt-16 grid gap-12 lg:grid-cols-2">
+              <div className="overflow-hidden rounded-2xl border-2 border-dashed border-blue-400/60">
+                <img src="/images/screenshots/app-15.png" alt="Quote calculator with segments" className="w-full" />
+              </div>
+              <div className="overflow-hidden rounded-2xl border-2 border-dashed border-blue-400/60">
+                <img src="/images/screenshots/app-03.png" alt="Products configuration" className="w-full" />
+              </div>
+            </div>
           </div>
         </section>
 
         {/* Quote calculator */}
-        <section className="mt-24">
-          <h2 className="text-center font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+        <section className="bg-slate-50">
+          <hr className="section-divider" />
+          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+          <h2 className="font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
             The quote calculator that closes deals
           </h2>
-          <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600">
+          <p className="mt-3 text-slate-600">
             Turn incoming requests into polished, professional quotes—in seconds. Your pricing, your rules, zero hassle.
           </p>
           <div className="mx-auto mt-12 flex justify-center">
@@ -311,50 +293,18 @@ export default function HomePage() {
               className="w-full max-w-5xl"
             />
           </div>
-        </section>
-
-        {/* How it works - contractors */}
-        <section className="relative mt-24">
-          <h2 className="text-center font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-            Launch in minutes. Scale forever.
-          </h2>
-          <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600">
-            The easiest way to start capturing and converting fence leads. No learning curve. No tech headaches. Just results.
-          </p>
-          <div className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-3 lg:gap-12">
-            {stepsForContractors.map((s, i) => (
-              <div key={i} className="flex flex-col gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
-                  {i + 1}
-                </span>
-                <h3 className="font-heading text-lg font-bold text-slate-900">{s.title}</h3>
-                <p className="text-slate-600">{s.desc}</p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-12 flex flex-wrap justify-center gap-3">
-            <a
-              href={DEMO_URL}
-              className="rounded-2xl bg-blue-600 px-7 py-3.5 font-bold text-white shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-xl"
-            >
-              Try it yourself
-            </a>
-            <Link
-              href="/signup"
-              className="rounded-2xl border-2 border-slate-300 bg-white px-7 py-3.5 font-bold text-slate-800 transition-all duration-300 hover:-translate-y-0.5 hover:border-blue-400 hover:bg-blue-50 hover:shadow-lg"
-            >
-              Limited-time: $199.99/mo
-            </Link>
           </div>
         </section>
 
-        {/* Testimonials */}
-        <section className="mt-24">
+        {/* Testimonials + Social proof */}
+        <section className="bg-white">
+          <hr className="section-divider" />
+          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
           <h2 className="text-center font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
-            Loved by contractors & suppliers nationwide
+            Join over 100+ contractors who save time with QuoteMyFence
           </h2>
-          <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">
-            Don&apos;t just take our word for it—see why industry pros are making the switch.
+          <p className="mx-auto mt-2 text-center text-slate-600">
+            Pre-qualified leads, delivered. See why industry pros are making the switch.
           </p>
           <div className="mt-12 grid gap-8 md:grid-cols-3">
             {testimonials.map((t) => (
@@ -372,11 +322,14 @@ export default function HomePage() {
               </div>
             ))}
           </div>
+          </div>
         </section>
 
         {/* Contractor CTA */}
-        <section className="mt-24">
-          <div className="group mx-auto max-w-2xl rounded-3xl bg-gradient-to-br from-blue-50 to-indigo-50 p-10 shadow-xl ring-1 ring-blue-100/50 transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:ring-2 hover:ring-blue-300/50 sm:p-12">
+        <section className="bg-slate-50">
+          <hr className="section-divider" />
+          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
+          <div className="group mx-auto max-w-2xl rounded-3xl border-2 border-dashed border-blue-400/60 bg-white p-10 shadow-xl transition-all hover:shadow-2xl sm:p-12">
             <h2 className="font-heading text-2xl font-bold text-slate-900">Ready to 10x your fence lead flow?</h2>
             <p className="mt-2 text-slate-600">Join the contractors who&apos;ve ditched the quote chaos. One platform. One link. Endless qualified leads.</p>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:justify-center sm:gap-4">
@@ -397,23 +350,27 @@ export default function HomePage() {
               </a>
             </div>
           </div>
+          </div>
         </section>
 
         {/* FAQ */}
-        <section className="mt-24" id="faq">
-          <h2 className="text-center font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
+        <section className="bg-white" id="faq">
+          <hr className="section-divider" />
+          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+          <h2 className="font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
             Frequently asked questions
           </h2>
-          <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">
+          <p className="mt-3 text-slate-600">
             Everything you need to know about QuoteMyFence.
           </p>
           <div className="mt-12">
             <FAQAccordion items={faqs} />
           </div>
+          </div>
         </section>
 
         {/* Big CTA */}
-        <section className="mt-24 rounded-3xl bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 p-12 text-center shadow-2xl transition-all duration-300 hover:shadow-[0_25px_60px_-15px_rgba(59,130,246,0.4)] sm:p-16">
+        <section className="mx-4 mb-4 rounded-3xl bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 p-12 text-center shadow-2xl sm:mx-6 sm:p-16 lg:mx-8">
           <h2 className="font-heading text-3xl font-bold text-white sm:text-4xl">
             Your fence business deserves more than guesswork
           </h2>
@@ -445,7 +402,7 @@ export default function HomePage() {
         </section>
 
         {/* Footer */}
-        <footer className="mt-24 rounded-2xl bg-slate-900 px-8 py-12 text-slate-300 sm:px-12">
+        <footer className="mx-auto mb-8 max-w-6xl rounded-2xl bg-slate-900 px-8 py-12 text-slate-300 sm:mx-6 sm:px-12 lg:mx-8">
           <div className="flex flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <img src="/quotemyfence-logo.png" alt="QuoteMyFence" className="h-10 w-auto opacity-90" />
@@ -481,7 +438,6 @@ export default function HomePage() {
             © <span suppressHydrationWarning>{new Date().getFullYear()}</span> QuoteMyFence. All rights reserved.
           </p>
         </footer>
-      </div>
     </div>
   );
 }
