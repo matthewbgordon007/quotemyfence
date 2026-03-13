@@ -55,12 +55,12 @@ export function QuoteProcessVideo({ src, steps, className = '' }: QuoteProcessVi
       <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
         {steps.map((s, i) => (
           <div key={i} className="flex flex-col gap-1">
-            <h3 className="font-heading text-lg font-bold text-slate-900">{s.title}</h3>
-            <p className="text-slate-600">{s.desc}</p>
+            <h3 className="font-heading text-lg font-bold text-white">{s.title}</h3>
+            <p className="text-slate-400">{s.desc}</p>
           </div>
         ))}
       </div>
-      <div className="relative w-full shrink-0 overflow-hidden rounded-2xl border border-slate-200/60 bg-slate-900 shadow-xl ring-1 ring-slate-200/30" style={{ aspectRatio: '16/9' }}>
+      <div className="relative w-full shrink-0 overflow-hidden rounded-2xl border border-slate-700/60 bg-slate-900 shadow-xl" style={{ aspectRatio: '16/9' }}>
         {mounted ? (
         <video
           ref={videoRef}

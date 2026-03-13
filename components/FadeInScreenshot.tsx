@@ -25,7 +25,7 @@ export function FadeInScreenshot({ src, alt, className = '' }: { src: string; al
       ref={ref}
       className={`transition-all duration-700 ${visible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'} ${className}`}
     >
-      <div className="relative aspect-video overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-xl ring-1 ring-slate-200/30">
+      <div className="relative aspect-video overflow-hidden rounded-xl border border-slate-700/60 bg-slate-800/50 shadow-xl">
         <Image src={src} alt={alt} fill className="object-cover" sizes="(max-width: 768px) 100vw, 400px" />
       </div>
     </div>
