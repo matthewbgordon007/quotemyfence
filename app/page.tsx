@@ -3,10 +3,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ProductScreenshot } from '@/components/ProductScreenshot';
 import { ProductVideo } from '@/components/ProductVideo';
-import { AppScreenshotCarousel } from '@/components/AppScreenshotCarousel';
 import { FloatingScreenshot } from '@/components/FloatingScreenshot';
 import { FadeInScreenshot } from '@/components/FadeInScreenshot';
 import { RotatingScreenshots } from '@/components/RotatingScreenshots';
+import { AutoplayOnViewVideo } from '@/components/AutoplayOnViewVideo';
+import { QuoteProcessVideo } from '@/components/QuoteProcessVideo';
 
 // Brand images
 const STOCK = {
@@ -39,21 +40,21 @@ const stepsForCustomers = [
 const testimonials = [
   {
     quote: 'Customers love drawing their fence on the map—no more back-and-forth for measurements. We get better leads and they get instant estimates.',
-    name: 'Sarah M.',
-    role: 'Fence Contractor, Ontario',
-    avatar: 'S',
+    name: 'Gordon Landscaping',
+    role: 'Contractor',
+    avatar: 'G',
   },
   {
     quote: 'QuoteMyFence has been a game-changer. We close more jobs because homeowners come to us pre-qualified and ready to buy.',
-    name: 'Mike T.',
-    role: 'Landscape & Fence Co.',
-    avatar: 'M',
+    name: 'Cura Construction',
+    role: 'Contractor',
+    avatar: 'C',
   },
   {
     quote: 'The demo sold me in 5 minutes. My customers get instant prices and I get leads with real fence drawings. Win-win.',
-    name: 'Jessica L.',
-    role: 'Fence Pro, BC',
-    avatar: 'J',
+    name: 'Canadian Fence Material Supply',
+    role: 'Supplier',
+    avatar: 'C',
   },
 ];
 
@@ -143,9 +144,39 @@ export default function HomePage() {
             </a>
           </div>
           <p className="mt-5 text-sm text-slate-500">No signup required for the demo. Instant access.</p>
-          <div className="relative mx-auto mt-16 max-w-5xl sm:mt-20">
-            <AppScreenshotCarousel className="shadow-2xl ring-1 ring-slate-200/50" />
+          <div className="mx-auto mt-12 flex justify-center px-2 sm:mt-16">
+            <AutoplayOnViewVideo
+              src="/videos/QuoteProcess.mp4"
+              className="w-full max-w-6xl"
+            />
           </div>
+          <section className="relative mx-auto mt-16 max-w-6xl">
+            <h2 className="text-center font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+              Your customers will love it
+            </h2>
+            <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">
+              Create an instant project budget in 3 easy steps.
+            </p>
+            <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-3">
+              {stepsForCustomers.map((s, i) => (
+                <div key={i} className="flex flex-col gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
+                    {i + 1}
+                  </span>
+                  <h3 className="font-heading text-lg font-bold text-slate-900">{s.title}</h3>
+                  <p className="text-slate-600">{s.desc}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-10 flex justify-center">
+              <a
+                href={DEMO_URL}
+                className="rounded-2xl bg-blue-600 px-8 py-4 font-bold text-white shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-xl"
+              >
+                Try the demo
+              </a>
+            </div>
+          </section>
         </header>
 
         {/* Stats */}
@@ -219,90 +250,69 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* How it works - contractors */}
-        <section className="relative mt-24 overflow-hidden rounded-3xl bg-gradient-to-br from-blue-50 to-indigo-50 p-8 shadow-xl transition-all duration-300 hover:shadow-2xl sm:p-12 lg:p-16">
-          <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
-            <div className="relative hidden min-h-[320px] overflow-visible lg:block lg:min-h-[400px]">
-              <FloatingScreenshot src="/images/screenshots/app-04.png" alt="Products" className="absolute left-0 top-0 w-72 max-w-[90%]" delay={0} />
-              <FloatingScreenshot src="/images/screenshots/app-07.png" alt="Design picker" className="absolute bottom-4 right-0 w-60 max-w-[85%]" delay={600} />
-            </div>
-            <div className="space-y-8 p-4 sm:p-6 lg:p-0">
-          <h2 className="text-center font-heading text-3xl font-bold text-slate-900 sm:text-4xl lg:text-left">
-            Easy setup for contractors
+        {/* Quote calculator */}
+        <section className="mt-24">
+          <h2 className="text-center font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+            Quote calculator
           </h2>
-          <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">
-            Start pre-qualifying leads in minutes.
+          <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600">
+            Set your pricing, then turn lead requests into customer quotes.
           </p>
-          <div className="mt-12 grid gap-8 sm:grid-cols-3">
-            {stepsForContractors.map((s, i) => (
-              <div key={i} className="group rounded-2xl bg-white p-6 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:ring-2 hover:ring-blue-200/60">
-                <span className="mt-2 inline-block rounded-full bg-blue-600 px-3 py-1 text-sm font-bold text-white">
-                  Step {i + 1}
-                </span>
-                <h3 className="mt-3 font-heading text-xl font-bold text-slate-900">{s.title}</h3>
-                <p className="mt-2 text-slate-600">{s.desc}</p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-10 flex flex-wrap justify-center gap-4">
-            <a
-              href={DEMO_URL}
-              className="rounded-2xl bg-blue-600 px-8 py-4 font-bold text-white shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-xl"
-            >
-              Try it yourself
-            </a>
-            <Link href="/signup" className="rounded-2xl border-2 border-slate-300 bg-white px-8 py-4 font-bold text-slate-800 transition-all duration-300 hover:-translate-y-0.5 hover:border-blue-400 hover:bg-blue-50 hover:shadow-lg">
-              Sign up free
-            </Link>
-          </div>
-            </div>
+          <div className="mx-auto mt-12 flex justify-center">
+            <QuoteProcessVideo
+              src="/videos/Contractor123.mp4"
+              segments={[
+                { startTime: 0, title: '1. Set your product price', desc: 'Define fence types, styles, colours, and pricing.' },
+                { startTime: 9.5, title: '2. Make your quote', desc: 'Turn lead requests into customer quotes.' },
+                { startTime: 45.2, title: '3. Make your fence layout', desc: 'Draw the fence line on the map.' },
+              ]}
+              className="w-full max-w-5xl"
+            />
           </div>
         </section>
 
-        {/* Customer experience */}
-        <section className="mt-24 overflow-hidden rounded-3xl bg-gradient-to-br from-sky-50 to-blue-50 p-8 shadow-xl transition-all duration-300 hover:shadow-2xl sm:p-12 lg:p-16">
-          <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
-            <div className="order-2 space-y-8 p-4 sm:p-6 lg:order-1 lg:p-0">
-          <h2 className="text-center font-heading text-3xl font-bold text-slate-900 sm:text-4xl lg:text-left">
-            Your customers will love it
+        {/* How it works - contractors */}
+        <section className="relative mt-24">
+          <h2 className="text-center font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+            Easy setup for contractors
           </h2>
-          <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">
-            Create an instant project budget in 3 easy steps.
+          <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600">
+            Start pre-qualifying leads in minutes.
           </p>
-          <div className="mt-12 grid gap-8 sm:grid-cols-3">
-            {stepsForCustomers.map((s, i) => (
-              <div key={i} className="rounded-2xl bg-white p-6 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:ring-2 hover:ring-sky-200/60">
-                <span className="mt-2 inline-block rounded-full bg-blue-600 px-3 py-1 text-sm font-bold text-white">
-                  Step {i + 1}
+          <div className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-3 lg:gap-12">
+            {stepsForContractors.map((s, i) => (
+              <div key={i} className="flex flex-col gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
+                  {i + 1}
                 </span>
-                <h3 className="mt-3 font-heading text-xl font-bold text-slate-900">{s.title}</h3>
-                <p className="mt-2 text-slate-600">{s.desc}</p>
+                <h3 className="font-heading text-lg font-bold text-slate-900">{s.title}</h3>
+                <p className="text-slate-600">{s.desc}</p>
               </div>
             ))}
           </div>
-          <div className="mt-10 flex justify-center">
+          <div className="mt-12 flex flex-wrap justify-center gap-3">
             <a
               href={DEMO_URL}
-              className="rounded-2xl bg-blue-600 px-8 py-4 font-bold text-white shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-xl"
+              className="rounded-2xl bg-blue-600 px-7 py-3.5 font-bold text-white shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-xl"
             >
-              Try the demo
+              Try it yourself
             </a>
-          </div>
-            </div>
-            <div className="relative order-1 flex min-h-[280px] items-center justify-center overflow-visible sm:min-h-[340px] lg:order-2 lg:min-h-[420px]">
-              <FloatingScreenshot src="/images/screenshots/app-09.png" alt="Address search" className="w-56" delay={0} />
-              <FloatingScreenshot src="/images/screenshots/app-14.png" alt="Map drawing" className="absolute right-4 top-1/2 w-48 -translate-y-1/2" delay={400} />
-            </div>
+            <Link
+              href="/signup"
+              className="rounded-2xl border-2 border-slate-300 bg-white px-7 py-3.5 font-bold text-slate-800 transition-all duration-300 hover:-translate-y-0.5 hover:border-blue-400 hover:bg-blue-50 hover:shadow-lg"
+            >
+              Sign up free
+            </Link>
           </div>
         </section>
 
         {/* Testimonials */}
         <section className="mt-24">
           <h2 className="text-center font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
-            Trusted by fence contractors
+            Trusted by contractors and suppliers
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">
-            See what contractors are saying about QuoteMyFence.
+            See what contractors and suppliers are saying about QuoteMyFence.
           </p>
           <div className="mt-12 grid gap-8 md:grid-cols-3">
             {testimonials.map((t) => (
@@ -411,7 +421,7 @@ export default function HomePage() {
             </div>
           </div>
           <p className="mt-10 border-t border-slate-700 pt-8 text-sm text-slate-500">
-            © {new Date().getFullYear()} QuoteMyFence. All rights reserved.
+            © <span suppressHydrationWarning>{new Date().getFullYear()}</span> QuoteMyFence. All rights reserved.
           </p>
         </footer>
       </div>
