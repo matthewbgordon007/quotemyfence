@@ -3,6 +3,10 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ProductScreenshot } from '@/components/ProductScreenshot';
 import { ProductVideo } from '@/components/ProductVideo';
+import { AppScreenshotCarousel } from '@/components/AppScreenshotCarousel';
+import { FloatingScreenshot } from '@/components/FloatingScreenshot';
+import { FadeInScreenshot } from '@/components/FadeInScreenshot';
+import { RotatingScreenshots } from '@/components/RotatingScreenshots';
 
 // Brand images
 const STOCK = {
@@ -139,18 +143,8 @@ export default function HomePage() {
             </a>
           </div>
           <p className="mt-5 text-sm text-slate-500">No signup required for the demo. Instant access.</p>
-          <div className="relative mx-auto mt-16 max-w-5xl overflow-hidden rounded-2xl px-2 shadow-2xl ring-1 ring-slate-200/50 sm:mt-20 sm:px-4">
-            <div className="aspect-[16/9] w-full min-h-[280px] sm:min-h-[320px]">
-              <Image
-                src={STOCK.heroFence}
-                alt="Residential property with white fence"
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 100vw, 1024px"
-                priority
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 via-transparent to-transparent" />
-            </div>
+          <div className="relative mx-auto mt-16 max-w-5xl sm:mt-20">
+            <AppScreenshotCarousel className="shadow-2xl ring-1 ring-slate-200/50" />
           </div>
         </header>
 
@@ -167,6 +161,13 @@ export default function HomePage() {
               <p className="mt-1 text-sm font-medium text-slate-600">{stat.label}</p>
             </div>
           ))}
+        </section>
+
+        {/* Floating screenshot strip */}
+        <section className="mt-20 flex flex-wrap items-center justify-center gap-6 py-8">
+          <FloatingScreenshot src="/images/screenshots/app-02.png" alt="Contact form" delay={0} />
+          <FloatingScreenshot src="/images/screenshots/app-10.png" alt="Review" delay={200} />
+          <FloatingScreenshot src="/images/screenshots/app-13.png" alt="Thank you" delay={400} />
         </section>
 
         {/* Features - colorful grid */}
@@ -190,7 +191,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Product preview */}
+        {/* Product preview - app screenshots with dynamic effects */}
         <section className="mt-24">
           <h2 className="text-center font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
             See it in action
@@ -206,43 +207,24 @@ export default function HomePage() {
               Launch demo
             </a>
           </div>
-          <div className="mt-10 grid gap-10 lg:grid-cols-1">
-            <div className="rounded-2xl bg-white p-6 shadow-xl ring-1 ring-slate-200/50 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:ring-blue-200/60 sm:p-8">
-              <h3 className="font-heading text-xl font-bold text-slate-900">Contractor dashboard</h3>
-              <p className="mt-1 text-slate-600">Manage leads, view quotes, and track your pipeline.</p>
-              <div className="mt-4">
-                <ProductScreenshot src="/images/dashboard.png" alt="Contractor dashboard" fallbackLabel="dashboard" />
-              </div>
-            </div>
-            <div className="rounded-2xl bg-white p-6 shadow-xl ring-1 ring-slate-200/50 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:ring-blue-200/60 sm:p-8">
-              <h3 className="font-heading text-xl font-bold text-slate-900">Fence drawing on map</h3>
-              <p className="mt-1 text-slate-600">Customers draw on a satellite map for accurate measurements.</p>
-              <div className="mt-4 space-y-4">
-                <ProductScreenshot src="/images/fence-drawing.png" alt="Fence drawing" fallbackLabel="fence drawing" />
-                <ProductVideo src="/images/fence-drawing-demo.mp4" fallbackLabel="fence-drawing-demo.mp4" />
-              </div>
-            </div>
-            <div className="rounded-2xl bg-white p-6 shadow-xl ring-1 ring-slate-200/50 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:ring-blue-200/60 sm:p-8">
-              <h3 className="font-heading text-xl font-bold text-slate-900">Quote flow</h3>
-              <p className="mt-1 text-slate-600">Contact → Location → Draw → Design → Review → Submit.</p>
-              <div className="mt-4">
-                <ProductScreenshot src="/images/quote-flow.png" alt="Quote flow" fallbackLabel="quote flow" />
-              </div>
-            </div>
+          <div className="mt-16 grid gap-16 lg:grid-cols-2 lg:gap-12">
+            <FadeInScreenshot src="/images/screenshots/app-01.png" alt="Leads dashboard" />
+            <FadeInScreenshot src="/images/screenshots/app-06.png" alt="Quote calculator" className="lg:mt-12" />
+            <FadeInScreenshot src="/images/screenshots/app-15.png" alt="Quote calculator with segments" />
+            <FadeInScreenshot src="/images/screenshots/app-03.png" alt="Products configuration" className="lg:mt-12" />
+          </div>
+          <div className="mt-16">
+            <h3 className="text-center font-heading text-xl font-bold text-slate-900">Platform highlights</h3>
+            <RotatingScreenshots count={6} className="mt-8" />
           </div>
         </section>
 
         {/* How it works - contractors */}
-        <section className="mt-24 overflow-hidden rounded-3xl bg-gradient-to-br from-blue-50 to-indigo-50 p-8 shadow-xl transition-all duration-300 hover:shadow-2xl sm:p-12 lg:p-16">
+        <section className="relative mt-24 overflow-hidden rounded-3xl bg-gradient-to-br from-blue-50 to-indigo-50 p-8 shadow-xl transition-all duration-300 hover:shadow-2xl sm:p-12 lg:p-16">
           <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
-            <div className="relative hidden min-h-[320px] overflow-hidden rounded-2xl lg:block lg:min-h-[400px]">
-              <Image
-                src={STOCK.fenceContractor}
-                alt="Professional fence contractor"
-                fill
-                className="object-cover transition-transform duration-500 hover:scale-105"
-                sizes="(max-width: 1024px) 0, 560px"
-              />
+            <div className="relative hidden min-h-[320px] overflow-visible lg:block lg:min-h-[400px]">
+              <FloatingScreenshot src="/images/screenshots/app-04.png" alt="Products" className="absolute left-0 top-0 w-72 max-w-[90%]" delay={0} />
+              <FloatingScreenshot src="/images/screenshots/app-07.png" alt="Design picker" className="absolute bottom-4 right-0 w-60 max-w-[85%]" delay={600} />
             </div>
             <div className="space-y-8 p-4 sm:p-6 lg:p-0">
           <h2 className="text-center font-heading text-3xl font-bold text-slate-900 sm:text-4xl lg:text-left">
@@ -307,14 +289,9 @@ export default function HomePage() {
             </a>
           </div>
             </div>
-            <div className="relative order-1 min-h-[280px] overflow-hidden rounded-2xl sm:min-h-[340px] lg:order-2 lg:min-h-[420px]">
-              <Image
-                src={STOCK.propertyYard}
-                alt="Residential property yard"
-                fill
-                className="object-cover transition-transform duration-500 hover:scale-105"
-                sizes="(max-width: 1024px) 100vw, 560px"
-              />
+            <div className="relative order-1 flex min-h-[280px] items-center justify-center overflow-visible sm:min-h-[340px] lg:order-2 lg:min-h-[420px]">
+              <FloatingScreenshot src="/images/screenshots/app-09.png" alt="Address search" className="w-56" delay={0} />
+              <FloatingScreenshot src="/images/screenshots/app-14.png" alt="Map drawing" className="absolute right-4 top-1/2 w-48 -translate-y-1/2" delay={400} />
             </div>
           </div>
         </section>
