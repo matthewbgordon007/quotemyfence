@@ -15,9 +15,9 @@ const STOCK = {
   propertyYard: '/images/residential-neighborhood.png',
 };
 
-const SCHEDULE_CALL_URL = 'https://calendar.app.google/8r7KjwiPTXWBCDoj9';
+const SCHEDULE_CALL_URL = 'https://calendar.app.google/vuWD6xi7CfNptAon9';
 const DEMO_URL = 'https://www.quotemyfence.ca/estimate/demo-fence-inc/contact';
-const CONTACT_EMAIL = 'hello@quotemyfence.ca';
+const CONTACT_EMAIL = 'info@quotemyfence.ca';
 
 export const metadata: Metadata = {
   title: 'Fence estimate software for contractors | QuoteMyFence',

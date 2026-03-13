@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { OptimizedProductImage } from '@/components/OptimizedProductImage';
 import { useEstimate } from '../EstimateContext';
 
 export default function CompletePage() {
@@ -66,9 +67,9 @@ export default function CompletePage() {
                 key={member.id}
                 className="flex items-start gap-4 rounded-xl border border-[var(--line)] bg-slate-50/80 p-5"
               >
-                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-white shadow">
+                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-white shadow">
                   {member.photo_url ? (
-                    <img src={member.photo_url} alt={member.name} className="h-full w-full object-cover" />
+                    <OptimizedProductImage src={member.photo_url} alt={member.name} fill sizes="64px" className="object-cover" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center bg-[var(--accent)]/20 text-xl font-bold text-[var(--accent)]">
                       {member.name.charAt(0)}

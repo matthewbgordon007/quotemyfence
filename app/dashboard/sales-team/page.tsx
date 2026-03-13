@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { OptimizedProductImage } from '@/components/OptimizedProductImage';
 import { useRouter } from 'next/navigation';
 
 const ADMIN_ROLES = ['owner', 'admin'];
@@ -267,9 +268,9 @@ export default function SalesTeamPage() {
         {members.map((m) => (
           <div key={m.id} className="flex flex-col gap-4 rounded-2xl border border-[var(--line)] bg-white p-4 shadow-sm">
             <div className="flex items-center gap-4">
-              <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-[var(--line)] bg-[var(--bg2)]">
+              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-[var(--line)] bg-[var(--bg2)]">
                 {m.photo_url ? (
-                  <img src={m.photo_url} alt={m.name} className="h-full w-full object-cover" />
+                  <OptimizedProductImage src={m.photo_url} alt={m.name} fill sizes="64px" className="object-cover" />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-xl font-bold text-[var(--muted)]">
                     {m.name.charAt(0)}

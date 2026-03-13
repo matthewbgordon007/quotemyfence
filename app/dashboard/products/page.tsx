@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { OptimizedProductImage } from '@/components/OptimizedProductImage';
 
 interface FenceType {
   id: string;
@@ -368,9 +369,9 @@ export default function ProductsPage() {
                   return (
                   <div key={s.id} className="mb-4 rounded-xl border border-[var(--line)] bg-white">
                     <div className="flex items-center gap-4 px-4 py-3">
-                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-[var(--line)] bg-white">
+                      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-[var(--line)] bg-white">
                         {s.photo_url ? (
-                          <img src={s.photo_url} alt={s.style_name} className="h-full w-full object-contain" />
+                          <OptimizedProductImage src={s.photo_url} alt={s.style_name} fill sizes="48px" className="object-contain" />
                         ) : (
                           <div className="flex h-full items-center justify-center text-xs text-[var(--muted)]">No photo</div>
                         )}
@@ -459,9 +460,9 @@ export default function ProductsPage() {
                           const styleRule = getStyleRule(s.id);
                           return (
                             <div key={c.id} className="flex items-start gap-4 rounded-lg border border-[var(--line)] bg-[var(--bg2)]/30 p-4">
-                              <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border bg-[var(--bg2)]">
+                              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border bg-[var(--bg2)]">
                                 {c.photo_url ? (
-                                  <img src={c.photo_url} alt={c.color_name} className="h-full w-full object-cover" />
+                                  <OptimizedProductImage src={c.photo_url} alt={c.color_name} fill sizes="64px" className="object-cover" />
                                 ) : (
                                   <div className="flex h-full items-center justify-center text-xs text-[var(--muted)]">No photo</div>
                                 )}

@@ -4,6 +4,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useEstimate } from '../EstimateContext';
 import { DesignSimpleOptions } from '../DesignSimpleOptions';
+import { OptimizedProductImage } from '@/components/OptimizedProductImage';
 
 type ProductOption = {
   id: string;
@@ -209,11 +210,11 @@ export default function DesignPage() {
                       }}
                       className={selectCard(selectedStyleId === s.id)}
                     >
-                      <div className="flex min-h-[200px] items-start justify-center overflow-hidden rounded-lg bg-[var(--bg2)]">
+                      <div className="relative h-[200px] w-full overflow-hidden rounded-lg bg-[var(--bg2)]">
                         {s.photo_url ? (
-                          <img src={s.photo_url} alt={s.style_name} className="max-h-[200px] w-full object-contain object-top" />
+                          <OptimizedProductImage src={s.photo_url} alt={s.style_name} fill sizes="(max-width: 768px) 50vw, 220px" className="object-contain object-top" />
                         ) : (
-                          <div className="flex min-h-[200px] w-full items-center justify-center text-sm text-[var(--muted)]">{s.style_name}</div>
+                          <div className="flex h-full w-full items-center justify-center text-sm text-[var(--muted)]">{s.style_name}</div>
                         )}
                       </div>
                       <div className="mt-2 font-medium">{s.style_name}</div>
@@ -234,9 +235,9 @@ export default function DesignPage() {
                       onClick={() => setSelectedColourId(c.id)}
                       className={selectCard(selectedColourId === c.id)}
                     >
-                      <div className="aspect-video overflow-hidden rounded-lg bg-[var(--bg2)]">
+                      <div className="relative aspect-video overflow-hidden rounded-lg bg-[var(--bg2)]">
                         {c.photo_url ? (
-                          <img src={c.photo_url} alt={c.color_name} className="h-full w-full object-cover" />
+                          <OptimizedProductImage src={c.photo_url} alt={c.color_name} fill sizes="(max-width: 768px) 50vw, 200px" className="object-cover" />
                         ) : (
                           <div className="flex h-full items-center justify-center text-sm text-[var(--muted)]">{c.color_name}</div>
                         )}
