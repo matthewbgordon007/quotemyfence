@@ -8,6 +8,7 @@ import { FadeInScreenshot } from '@/components/FadeInScreenshot';
 import { RotatingScreenshots } from '@/components/RotatingScreenshots';
 import { AutoplayOnViewVideo } from '@/components/AutoplayOnViewVideo';
 import { QuoteProcessVideo } from '@/components/QuoteProcessVideo';
+import { FAQAccordion } from '@/components/FAQAccordion';
 
 // Brand images
 const STOCK = {
@@ -58,6 +59,33 @@ const testimonials = [
   },
 ];
 
+const faqs = [
+  {
+    question: 'How does QuoteMyFence work?',
+    answer: 'QuoteMyFence lets homeowners enter their address, draw their fence line on a satellite map, and get an instant estimate. As a contractor, you set your products, styles, colours, and pricing. Customers use your branded link, and you receive pre-qualified leads with real measurements—no more back-and-forth.',
+  },
+  {
+    question: 'How much does QuoteMyFence cost?',
+    answer: 'Special promotional pricing is $199.99 CAD per month. That includes your custom quote link, full product and pricing control, lead management dashboard, and 24/7 capture. No hidden fees. Cancel anytime.',
+  },
+  {
+    question: 'Do customers need to sign up to get a quote?',
+    answer: 'No. Homeowners can try the demo and get an instant estimate without creating an account. For your custom contractor link, you control whether customers need to submit contact info—most choose to collect it so you can follow up on leads.',
+  },
+  {
+    question: 'Is the satellite map accurate for measurements?',
+    answer: 'Yes. We use high-resolution satellite imagery so customers draw directly on their property. The measurements are calculated from real geographic data, giving you reliable lengths for fence quotes—far more accurate than phone estimates or rough sketches.',
+  },
+  {
+    question: 'Can I use my own branding and pricing?',
+    answer: 'Absolutely. QuoteMyFence is fully white-label. Your link, your logo, your products, your prices. You define fence types (PVC, WPC, etc.), styles, colours, and per-foot or per-segment pricing. Customers see your brand—not ours.',
+  },
+  {
+    question: 'What if I need help setting up?',
+    answer: 'We offer onboarding support and can walk you through product setup, pricing rules, and best practices. Book a call or email us—we want you winning more jobs.',
+  },
+];
+
 const features = [
   { title: '24/7 lead machine', desc: 'Capture hot leads around the clock—even while you sleep. Set it and forget it.', bg: 'bg-blue-50', text: 'text-blue-700' },
   { title: 'Satellite-precise mapping', desc: 'Cut the site-visit guesswork. Customers draw on real imagery—measurements that close.', bg: 'bg-blue-100', text: 'text-blue-700' },
@@ -87,6 +115,9 @@ export default function HomePage() {
             <img src="/quotemyfence-logo.png" alt="QuoteMyFence" className="h-11 w-auto sm:h-12" />
           </Link>
           <div className="flex items-center gap-2 sm:gap-4">
+            <Link href="/blog" className="text-sm font-semibold text-slate-600 transition-all duration-200 hover:text-slate-900">
+              Blog
+            </Link>
             <Link href="/login" className="text-sm font-semibold text-slate-600 transition-all duration-200 hover:text-slate-900">
               Member login
             </Link>
@@ -357,6 +388,19 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* FAQ */}
+        <section className="mt-24" id="faq">
+          <h2 className="text-center font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
+            Frequently asked questions
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">
+            Everything you need to know about QuoteMyFence.
+          </p>
+          <div className="mt-12">
+            <FAQAccordion items={faqs} />
+          </div>
+        </section>
+
         {/* Big CTA */}
         <section className="mt-24 rounded-3xl bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 p-12 text-center shadow-2xl transition-all duration-300 hover:shadow-[0_25px_60px_-15px_rgba(59,130,246,0.4)] sm:p-16">
           <h2 className="font-heading text-3xl font-bold text-white sm:text-4xl">
@@ -404,7 +448,9 @@ export default function HomePage() {
                 <div className="mt-3 flex flex-col gap-2 text-sm">
                   <Link href="/signup" className="hover:text-white">Sign up</Link>
                   <Link href="/login" className="hover:text-white">Log in</Link>
+                  <Link href="/blog" className="hover:text-white">Blog</Link>
                   <a href={DEMO_URL} className="hover:text-white">Try demo</a>
+                  <a href="/#faq" className="hover:text-white">FAQ</a>
                 </div>
               </div>
               <div>
