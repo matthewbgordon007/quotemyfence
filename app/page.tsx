@@ -96,16 +96,27 @@ const features = [
 export default function HomePage() {
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-slate-100">
-      {/* Layered background - gradient + pattern */}
+      {/* Dynamic layered background - gradient + animated mesh + pattern */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-slate-50 to-indigo-50" />
+        <div
+          className="absolute inset-0 opacity-[0.5]"
+          style={{
+            backgroundImage: `
+              radial-gradient(at 40% 20%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
+              radial-gradient(at 80% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
+              radial-gradient(at 0% 50%, rgba(14, 165, 233, 0.1) 0px, transparent 50%),
+              radial-gradient(at 80% 50%, rgba(59, 130, 246, 0.08) 0px, transparent 50%)
+            `,
+          }}
+        />
         <div className="absolute inset-0 opacity-[0.4]" style={{
           backgroundImage: `radial-gradient(circle at 1px 1px, rgb(148 163 184 / 0.15) 1px, transparent 0)`,
           backgroundSize: '40px 40px',
         }} />
-        <div className="absolute -right-32 -top-32 h-[28rem] w-[28rem] rounded-full bg-blue-300/25 blur-3xl" />
-        <div className="absolute -bottom-32 -left-32 h-[28rem] w-[28rem] rounded-full bg-indigo-300/20 blur-3xl" />
-        <div className="absolute right-1/3 top-1/4 h-80 w-80 rounded-full bg-sky-300/20 blur-3xl" />
+        <div className="absolute -right-32 -top-32 h-[28rem] w-[28rem] rounded-full animate-blob bg-blue-300/25 blur-3xl" />
+        <div className="absolute -bottom-32 -left-32 h-[28rem] w-[28rem] rounded-full animate-blob animation-delay-2000 bg-indigo-300/20 blur-3xl" />
+        <div className="absolute right-1/3 top-1/4 h-80 w-80 rounded-full animate-blob animation-delay-4000 bg-sky-300/20 blur-3xl" />
       </div>
 
       <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
@@ -141,7 +152,7 @@ export default function HomePage() {
         {/* Hero */}
         <header className="mt-16 text-center sm:mt-20 lg:mt-28">
           <div className="inline-flex items-center gap-2 rounded-full bg-blue-100 px-4 py-1.5 text-sm font-bold text-blue-800">
-            🔥 The #1 fence estimate software—trusted industry-wide
+            The #1 fence estimate software—trusted industry-wide
           </div>
           <h1 className="mt-6 font-heading text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl md:text-6xl lg:text-7xl">
             Turn tire-kickers into{' '}
@@ -174,7 +185,7 @@ export default function HomePage() {
               Contact us
             </a>
           </div>
-          <p className="mt-5 text-sm text-slate-500">✨ No credit card. No commitment. See why contractors are switching—in 60 seconds.</p>
+          <p className="mt-5 text-sm text-slate-500">No credit card. No commitment. See why contractors are switching—in 60 seconds.</p>
           <div className="mx-auto mt-12 flex justify-center px-2 sm:mt-16">
             <AutoplayOnViewVideo
               src="/videos/QuoteProcess.mp4"
