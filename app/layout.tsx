@@ -60,6 +60,7 @@ export default function RootLayout({
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <link rel="preload" href="/videos/QuoteProcess.mp4" as="video" type="video/mp4" />
       </head>
       <body
         className="min-h-screen antialiased selection:bg-blue-100 font-sans"

@@ -36,7 +36,7 @@ export function QuoteProcessVideo({ src, segments, className = '' }: QuoteProces
           setIsVisible(entry.isIntersecting);
         });
       },
-      { threshold: 0.25 }
+      { threshold: 0.1, rootMargin: '50px' }
     );
     observer.observe(container);
     return () => observer.disconnect();
@@ -46,8 +46,12 @@ export function QuoteProcessVideo({ src, segments, className = '' }: QuoteProces
     const video = videoRef.current;
     if (!video || !isVisible) return;
 
-    video.play().catch(() => {});
-  }, [isVisible]);
+    const tryPlay = () => video.play().catch(() => {});
+    tryPlay();
+    const onCanPlay = () => tryPlay();
+    video.addEventListener('canplay', onCanPlay, { once: true });
+    return () => video.removeEventListener('canplay', onCanPlay);
+  }, [isVisible, mounted]);
 
   useEffect(() => {
     const video = videoRef.current;
