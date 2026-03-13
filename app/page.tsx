@@ -261,10 +261,10 @@ export default function HomePage() {
           <div className="mx-auto mt-12 flex justify-center">
             <QuoteProcessVideo
               src="/videos/Contractor123.mp4"
-              segments={[
-                { startTime: 0, title: '1. Set your product price', desc: 'Define fence types, styles, colours, and pricing.' },
-                { startTime: 9.5, title: '2. Make your quote', desc: 'Turn lead requests into customer quotes.' },
-                { startTime: 45.2, title: '3. Make your fence layout', desc: 'Draw the fence line on the map.' },
+              steps={[
+                { title: '1. Set your product price', desc: 'Define fence types, styles, colours, and pricing.' },
+                { title: '2. Make your quote', desc: 'Turn lead requests into customer quotes.' },
+                { title: '3. Make your fence layout', desc: 'Draw the fence line on the map.' },
               ]}
               className="w-full max-w-5xl"
             />

@@ -2,25 +2,22 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-interface Segment {
-  startTime: number;
+interface Step {
   title: string;
   desc: string;
 }
 
 interface QuoteProcessVideoProps {
   src: string;
-  segments: Segment[];
+  steps: Step[];
   className?: string;
 }
 
-export function QuoteProcessVideo({ src, segments, className = '' }: QuoteProcessVideoProps) {
+export function QuoteProcessVideo({ src, steps, className = '' }: QuoteProcessVideoProps) {
   const [mounted, setMounted] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const lastIndexRef = useRef(0);
 
   useEffect(() => {
     setMounted(true);
@@ -53,45 +50,15 @@ export function QuoteProcessVideo({ src, segments, className = '' }: QuoteProces
     return () => video.removeEventListener('canplay', onCanPlay);
   }, [isVisible, mounted]);
 
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const handleTimeUpdate = () => {
-      const time = video.currentTime;
-      let newIndex = 0;
-      for (let i = segments.length - 1; i >= 0; i--) {
-        if (time >= segments[i].startTime) {
-          newIndex = i;
-          break;
-        }
-      }
-      if (newIndex !== lastIndexRef.current) {
-        lastIndexRef.current = newIndex;
-        setActiveIndex(newIndex);
-      }
-    };
-
-    video.addEventListener('timeupdate', handleTimeUpdate);
-    return () => video.removeEventListener('timeupdate', handleTimeUpdate);
-  }, [segments]);
-
-  const segment = segments[activeIndex];
-
   return (
     <div ref={containerRef} className={`relative flex flex-col ${className}`}>
-      <div className="mb-4 h-16 shrink-0 px-1">
-        {mounted ? (
-          <>
-            <h3 className="font-heading text-xl font-bold text-slate-900">{segment.title}</h3>
-            <p className="mt-1 text-slate-600">{segment.desc}</p>
-          </>
-        ) : (
-          <>
-            <div className="h-7 w-48 animate-pulse rounded bg-slate-200" />
-            <div className="mt-2 h-4 w-64 animate-pulse rounded bg-slate-100" />
-          </>
-        )}
+      <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {steps.map((s, i) => (
+          <div key={i} className="flex flex-col gap-1">
+            <h3 className="font-heading text-lg font-bold text-slate-900">{s.title}</h3>
+            <p className="text-slate-600">{s.desc}</p>
+          </div>
+        ))}
       </div>
       <div className="relative w-full shrink-0 overflow-hidden rounded-2xl border border-slate-200/60 bg-slate-900 shadow-xl ring-1 ring-slate-200/30" style={{ aspectRatio: '16/9' }}>
         {mounted ? (
