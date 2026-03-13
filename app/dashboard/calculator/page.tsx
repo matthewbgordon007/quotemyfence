@@ -25,6 +25,7 @@ type Product = {
 type PricingRule = {
   product_option_id?: string;
   colour_option_id?: string;
+  fence_style_id?: string;
   base_price_per_ft_low: number;
   base_price_per_ft_high: number;
   single_gate_low: number;
@@ -95,6 +96,7 @@ export default function CalculatorPage() {
   const [styles, setStyles] = useState<FenceStyle[]>([]);
   const [colours, setColours] = useState<ColourOption[]>([]);
   const [colourPricingRules, setColourPricingRules] = useState<PricingRule[]>([]);
+  const [stylePricingRules, setStylePricingRules] = useState<PricingRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [quoteAddress, setQuoteAddress] = useState('');
   const [homeownerName, setHomeownerName] = useState('');
@@ -135,6 +137,7 @@ export default function CalculatorPage() {
         const hierarchyStyles = Array.isArray(hierarchyData?.fenceStyles) ? hierarchyData.fenceStyles : [];
         const hierarchyColours = Array.isArray(hierarchyData?.colourOptions) ? hierarchyData.colourOptions : [];
         const colourRules = Array.isArray(hierarchyData?.colourPricingRules) ? hierarchyData.colourPricingRules : [];
+        const styleRules = Array.isArray(hierarchyData?.stylePricingRules) ? hierarchyData.stylePricingRules : [];
 
         setProducts(prods);
         setTypes(hierarchyTypes);
@@ -142,6 +145,7 @@ export default function CalculatorPage() {
         setColours(hierarchyColours);
         setPricingRules(rules);
         setColourPricingRules(colourRules);
+        setStylePricingRules(styleRules);
 
         const firstType = hierarchyTypes[0];
         if (firstType) {
@@ -149,9 +153,13 @@ export default function CalculatorPage() {
           const firstStyle = typeStyles[0];
           if (firstStyle) {
             const styleColours = hierarchyColours.filter((c: ColourOption) => c.fence_style_id === firstStyle.id);
-            const firstColourWithRule = styleColours.find((c: ColourOption) =>
-              colourRules.some((r: { colour_option_id?: string }) => r?.colour_option_id === c.id)
-            );
+            const styleHasRule = styleRules.some((r: { fence_style_id?: string }) => r?.fence_style_id === firstStyle.id);
+            const colourHasRule = (c: ColourOption) =>
+              styleRules.some((r: { fence_style_id?: string }) => r?.fence_style_id === c.fence_style_id) ||
+              colourRules.some((r: { colour_option_id?: string }) => r?.colour_option_id === c.id);
+            const firstColourWithRule = styleHasRule
+              ? styleColours[0]
+              : styleColours.find(colourHasRule);
             if (firstColourWithRule) {
               setSelectedTypeId(firstType.id);
               setSelectedStyleId(firstStyle.id);
@@ -249,9 +257,28 @@ export default function CalculatorPage() {
             }
             setSegmentAssignments({ lhs_adj: null, lhs: null, back: null, rhs: null, rhs_adj: null });
           }
-          
+
           if (gateList.length > 0) {
             setCustomerGates(gateList);
+          }
+
+          if (fence?.selected_colour_option_id) {
+            setSelectedColourId(fence.selected_colour_option_id);
+            fetch('/api/contractor/product-hierarchy')
+              .then((r) => r.ok ? r.json() : null)
+              .then((h) => {
+                if (!h?.colourOptions?.length) return;
+                const colour = h.colourOptions.find((c: ColourOption) => c.id === fence.selected_colour_option_id);
+                if (!colour) return;
+                const style = (h.fenceStyles || []).find((s: FenceStyle) => s.id === colour.fence_style_id);
+                if (!style) return;
+                const type = (h.fenceTypes || []).find((t: FenceType) => t.id === style.fence_type_id);
+                if (type) {
+                  setSelectedTypeId(type.id);
+                  setSelectedStyleId(style.id);
+                }
+              })
+              .catch(() => {});
           }
         })
         .catch(() => {});
@@ -260,13 +287,20 @@ export default function CalculatorPage() {
 
   const stylesForType = selectedTypeId ? styles.filter((s) => s.fence_type_id === selectedTypeId) : [];
   const coloursForStyle = selectedStyleId ? colours.filter((c) => c.fence_style_id === selectedStyleId) : [];
-  const coloursWithPricing = coloursForStyle.filter((c) =>
-    colourPricingRules.some((r) => r.colour_option_id === c.id)
-  );
+  const styleHasPricing = (styleId: string) =>
+    stylePricingRules.some((r) => r.fence_style_id === styleId);
+  const colourHasPricing = (c: ColourOption) =>
+    styleHasPricing(c.fence_style_id) || colourPricingRules.some((r) => r.colour_option_id === c.id);
+  const coloursWithPricing = coloursForStyle.filter(colourHasPricing);
 
-  const rule = selectedColourId
+  const selectedColour = colours.find((c) => c.id === selectedColourId);
+  const styleRule = selectedColour
+    ? stylePricingRules.find((r) => r.fence_style_id === selectedColour.fence_style_id)
+    : null;
+  const colourRule = selectedColourId
     ? colourPricingRules.find((r) => r.colour_option_id === selectedColourId)
     : null;
+  const rule = styleRule ?? colourRule ?? null;
 
   const pricePerFt = rule
     ? (safeNum(rule.base_price_per_ft_low) + safeNum(rule.base_price_per_ft_high)) / 2 || 0
@@ -282,16 +316,17 @@ export default function CalculatorPage() {
 
   const selectedType = types.find((t) => t.id === selectedTypeId);
   const selectedStyle = styles.find((s) => s.id === selectedStyleId);
-  const selectedColour = colours.find((c) => c.id === selectedColourId);
+  const selectedColourDisplay = colours.find((c) => c.id === selectedColourId);
   const optionLabel = selectedType
-    ? [selectedType.name, selectedStyle?.style_name, selectedColour?.color_name].filter(Boolean).join(' • ')
+    ? [selectedType.name, selectedStyle?.style_name, selectedColourDisplay?.color_name].filter(Boolean).join(' • ')
     : null;
 
   const hasHierarchyOptions = types.some((t) => {
     const typeStyles = styles.filter((s) => s.fence_type_id === t.id);
     return typeStyles.some((s) => {
       const styleColours = colours.filter((c) => c.fence_style_id === s.id);
-      return styleColours.some((c) => colourPricingRules.some((r) => r.colour_option_id === c.id));
+      return stylePricingRules.some((r) => r.fence_style_id === s.id) ||
+        styleColours.some((c) => colourPricingRules.some((r) => r.colour_option_id === c.id));
     });
   });
 
@@ -384,9 +419,10 @@ export default function CalculatorPage() {
       const firstStyle = tStyles[0];
       if (firstStyle) {
         const sColours = colours.filter((c) => c.fence_style_id === firstStyle.id);
-        const firstWithRule = sColours.find((c) =>
-          colourPricingRules.some((r) => r.colour_option_id === c.id)
-        );
+        const styleHasRule = stylePricingRules.some((r) => r.fence_style_id === firstStyle.id);
+        const firstWithRule = styleHasRule
+          ? sColours[0]
+          : sColours.find((c) => colourPricingRules.some((r) => r.colour_option_id === c.id));
         setSelectedTypeId(types[0].id);
         setSelectedStyleId(firstStyle.id);
         setSelectedColourId(firstWithRule?.id ?? null);
@@ -594,9 +630,10 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                         if (firstStyle) {
                           setSelectedStyleId(firstStyle.id);
                           const sColours = colours.filter((c) => c.fence_style_id === firstStyle.id);
-                          const firstWithRule = sColours.find((c) =>
-                            colourPricingRules.some((r) => r.colour_option_id === c.id)
-                          );
+                          const styleHasRule = stylePricingRules.some((r) => r.fence_style_id === firstStyle.id);
+                          const firstWithRule = styleHasRule
+                            ? sColours[0]
+                            : sColours.find((c) => colourPricingRules.some((r) => r.colour_option_id === c.id));
                           if (firstWithRule) setSelectedColourId(firstWithRule.id);
                         }
                       }
@@ -620,9 +657,10 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                         setSelectedColourId(null);
                         if (id) {
                           const sColours = colours.filter((c) => c.fence_style_id === id);
-                          const firstWithRule = sColours.find((c) =>
-                            colourPricingRules.some((r) => r.colour_option_id === c.id)
-                          );
+                          const styleHasRule = stylePricingRules.some((r) => r.fence_style_id === id);
+                          const firstWithRule = styleHasRule
+                            ? sColours[0]
+                            : sColours.find((c) => colourPricingRules.some((r) => r.colour_option_id === c.id));
                           if (firstWithRule) setSelectedColourId(firstWithRule.id);
                         }
                       }}
