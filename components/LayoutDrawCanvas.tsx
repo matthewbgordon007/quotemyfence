@@ -51,27 +51,6 @@ function pointToSegmentDist(p: { x: number; y: number }, a: { x: number; y: numb
   return dist(p, np);
 }
 
-function simplifyPath(points: { x: number; y: number }[], tolerance: number): { x: number; y: number }[] {
-  if (points.length <= 2) return points;
-  let dmax = 0;
-  let index = 0;
-  const end = points.length - 1;
-  for (let i = 1; i < end; i++) {
-    const d = pointToSegmentDist(points[i], points[0], points[end]);
-    if (d > dmax) {
-      index = i;
-      dmax = d;
-    }
-  }
-  if (dmax > tolerance) {
-    const recResults1 = simplifyPath(points.slice(0, index + 1), tolerance);
-    const recResults2 = simplifyPath(points.slice(index), tolerance);
-    return recResults1.slice(0, -1).concat(recResults2);
-  } else {
-    return [points[0], points[end]];
-  }
-}
-
 export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvasProps>(
   function LayoutDrawCanvas({ initialDrawing, readOnly, onDrawingChange, onReset }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -88,11 +67,12 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       return out;
     });
     const [currentPath, setCurrentPath] = useState<{ x: number; y: number }[]>([]);
-    const [swipePath, setSwipePath] = useState<{ x: number; y: number }[]>([]);
     const lastClickTime = useRef(0);
     const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
+    const pointerDownPan = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
     const pointerDownTime = useRef(0);
-    const isSwiping = useRef(false);
+    const isPanning = useRef(false);
+    const [pan, setPan] = useState({ x: 0, y: 0 });
     const [placedGates, setPlacedGates] = useState<{ type: 'single' | 'double'; x: number; y: number }[]>(() => {
       const gates = initialDrawing?.gates ?? [];
       const pts = initialDrawing?.points ?? [];
@@ -216,9 +196,9 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       e.currentTarget.setPointerCapture(e.pointerId);
       const pt = clientToFeet(e.clientX, e.clientY);
       pointerDownPos.current = pt;
+      pointerDownPan.current = { ...pan };
       pointerDownTime.current = Date.now();
-      isSwiping.current = false;
-      setSwipePath([pt]);
+      isPanning.current = false;
     }
 
     function handlePointerMove(e: React.PointerEvent<SVGSVGElement>) {
@@ -230,17 +210,16 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
 
       if (pointerDownPos.current) {
         const d = dist(pointerDownPos.current, pt);
-        if (!isSwiping.current && d > 2) {
-          isSwiping.current = true;
+        if (!isPanning.current && d > 2) {
+          isPanning.current = true;
         }
 
-        if (isSwiping.current) {
-          setSwipePath((prev) => {
-            const last = prev[prev.length - 1];
-            if (!last || dist(last, pt) > 1) {
-              return [...prev, pt];
-            }
-            return prev;
+        if (isPanning.current) {
+          const dx = pt.x - pointerDownPos.current.x;
+          const dy = pt.y - pointerDownPos.current.y;
+          setPan({
+            x: pointerDownPan.current.x + dx,
+            y: pointerDownPan.current.y + dy,
           });
         }
       } else {
@@ -257,29 +236,12 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         const d = dist(pointerDownPos.current, pt);
         const time = Date.now() - pointerDownTime.current;
 
-        if (!isSwiping.current && d < 2 && time < 500) {
+        if (!isPanning.current && d < 2 && time < 500) {
           handleClickInternal(pt);
-        } else if (isSwiping.current) {
-          setSwipePath((prev) => {
-            const simplified = simplifyPath(prev, 3.0);
-            if (simplified.length >= 2) {
-              const newSegs: { x: number; y: number }[][] = [];
-              const newLens: string[] = [];
-              for (let i = 0; i < simplified.length - 1; i++) {
-                newSegs.push([simplified[i], simplified[i + 1]]);
-                newLens.push('');
-              }
-              setSegments((s) => [...s, ...newSegs]);
-              setLineLengths((l) => [...l, ...newLens]);
-            }
-            return [];
-          });
-          setCurrentPath([]);
         }
 
         pointerDownPos.current = null;
-        isSwiping.current = false;
-        setSwipePath([]);
+        isPanning.current = false;
       }
     }
 
@@ -346,7 +308,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
 
     const baseViewSize = 280;
     const viewSize = baseViewSize / zoom;
-    const defaultViewBox = `${-viewSize / 2} ${-viewSize / 2} ${viewSize} ${viewSize}`;
+    const defaultViewBox = `${-viewSize / 2 - pan.x} ${-viewSize / 2 - pan.y} ${viewSize} ${viewSize}`;
 
     const fitViewBox = useMemo(() => {
       if (!readOnly || segments.length === 0) return null;
@@ -450,18 +412,6 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                   })()}
                 </g>
               ) : null
-            )}
-
-            {swipePath.length >= 2 && (
-              <polyline
-                points={swipePath.map((p) => `${p.x},${p.y}`).join(' ')}
-                fill="none"
-                stroke="#1e293b"
-                strokeWidth={1.5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                opacity={0.8}
-              />
             )}
 
             {currentPath.length > 0 && (
@@ -589,9 +539,10 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         )}
         {mode === 'draw' && (
           <div className="mt-2 text-sm text-[var(--muted)] flex items-center gap-2 flex-wrap">
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-200 inline-flex items-center justify-center text-[8px]">1</span> Click or swipe to sketch</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-200 inline-flex items-center justify-center text-[8px]">2</span> Tap corner to corner</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-200 inline-flex items-center justify-center text-[8px]">3</span> Double-click to finish line</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-200 inline-flex items-center justify-center text-[8px]">1</span> Click to start line</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-200 inline-flex items-center justify-center text-[8px]">2</span> Click to end line</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-200 inline-flex items-center justify-center text-[8px]">3</span> Double-click to start new section</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-200 inline-flex items-center justify-center text-[8px]">4</span> Click and drag to move around</span>
           </div>
         )}
         </>

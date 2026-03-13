@@ -400,7 +400,7 @@ export default function LayoutPage() {
       </div>
 
       <p className="py-2 text-center text-xs text-[var(--muted)]">
-        Click to add points, double-click to start a new section. Add segments by length or export from a customer quote.
+        Click to start line, click to end line. Double-click to start new section. Click and drag to move around.
       </p>
     </div>
   );
