@@ -22,19 +22,19 @@ const CONTACT_EMAIL = 'info@quotemyfence.ca';
 
 export const metadata: Metadata = {
   title: 'Fence estimate software for contractors | QuoteMyFence',
-  description: 'Qualified fence leads, around the clock. Give your customers an instant estimate tool they love. Draw on map → Get price → Submit. Try the demo free.',
+  description: 'The #1 fence estimate software. Turn tire-kickers into ready-to-buy leads. Instant quotes, satellite mapping, 24/7 lead capture. Try free.',
 };
 
 const stepsForContractors = [
-  { title: 'Add your link', desc: 'Put your custom quote link on your website, social media, or business cards' },
-  { title: 'Define your products', desc: 'Set your fence types, styles, colours, and pricing in minutes' },
-  { title: 'Collect leads', desc: 'Start getting qualified quote requests 24/7—even while you sleep' },
+  { title: 'Add your link', desc: 'Embed your branded quote link anywhere—website, social, Google, business cards. One link, endless leads.' },
+  { title: 'Define your products', desc: 'Set types, styles, colours & pricing in minutes. Turn-key setup—no IT required.' },
+  { title: 'Collect pre-qualified leads', desc: '24/7 lead engine. Homeowners come ready with measurements & budgets. Close faster.' },
 ];
 
 const stepsForCustomers = [
-  { title: 'Find the property', desc: 'Type your address to see your yard on a satellite map' },
-  { title: 'Draw the project', desc: 'Trace your fence line with our intuitive drawing tool' },
-  { title: 'Get an instant estimate', desc: 'Receive your project budget in seconds—no waiting' },
+  { title: 'Find the property', desc: 'Satellite-precise mapping—customers see their yard in seconds. Zero guesswork.' },
+  { title: 'Draw the project', desc: 'Intuitive, point-and-click simplicity. Fence lines, gates, extensions—done.' },
+  { title: 'Get an instant estimate', desc: 'Real numbers, real fast. No callbacks. No ballpark quotes. Just clarity.' },
 ];
 
 const testimonials = [
@@ -59,10 +59,10 @@ const testimonials = [
 ];
 
 const features = [
-  { title: '24/7 lead generation', desc: 'Your estimate tool works while you sleep', bg: 'bg-blue-50', text: 'text-blue-700' },
-  { title: 'Satellite map accuracy', desc: 'Customers draw on real property imagery', bg: 'bg-blue-100', text: 'text-blue-700' },
-  { title: 'Instant pricing', desc: 'No more ballpark quotes—real numbers, real fast', bg: 'bg-indigo-50', text: 'text-indigo-700' },
-  { title: 'Custom branding', desc: 'Your link, your products, your prices', bg: 'bg-sky-50', text: 'text-sky-700' },
+  { title: '24/7 lead machine', desc: 'Capture hot leads around the clock—even while you sleep. Set it and forget it.', bg: 'bg-blue-50', text: 'text-blue-700' },
+  { title: 'Satellite-precise mapping', desc: 'Cut the site-visit guesswork. Customers draw on real imagery—measurements that close.', bg: 'bg-blue-100', text: 'text-blue-700' },
+  { title: 'Instant, accurate pricing', desc: 'No ballparks. No callbacks. Real numbers that build trust and speed decisions.', bg: 'bg-indigo-50', text: 'text-indigo-700' },
+  { title: 'White-label your brand', desc: 'Your link. Your products. Your prices. 100% customizable—look like the pros.', bg: 'bg-sky-50', text: 'text-sky-700' },
 ];
 
 export default function HomePage() {
@@ -102,7 +102,7 @@ export default function HomePage() {
               href="/signup"
               className="rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 px-4 py-2.5 text-sm font-bold text-white shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:from-blue-700 hover:to-blue-600 hover:shadow-lg"
             >
-              Start free
+              Limited-time: $199.99/mo
             </Link>
           </div>
         </nav>
@@ -110,23 +110,23 @@ export default function HomePage() {
         {/* Hero */}
         <header className="mt-16 text-center sm:mt-20 lg:mt-28">
           <div className="inline-flex items-center gap-2 rounded-full bg-blue-100 px-4 py-1.5 text-sm font-bold text-blue-800">
-            Fence estimate software for contractors
+            🔥 The #1 fence estimate software—trusted industry-wide
           </div>
           <h1 className="mt-6 font-heading text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl md:text-6xl lg:text-7xl">
-            Qualified fence leads,{' '}
+            Turn tire-kickers into{' '}
             <span className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 bg-clip-text text-transparent">
-              around the clock
+              ready-to-buy leads
             </span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-600 sm:text-xl">
-            Stop chasing unqualified leads. Give customers a buying experience they love—instant estimates on a real map. Available globally.
+            The game-changer you&apos;ve been waiting for. Cut the back-and-forth—let homeowners get instant, accurate estimates on satellite maps. <strong>Pre-qualified leads 24/7.</strong> Scale your fence business without the grind.
           </p>
           <div className="mt-10 flex flex-col flex-wrap items-center justify-center gap-4 sm:flex-row">
             <a
               href={DEMO_URL}
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-4 text-lg font-bold text-white shadow-xl shadow-blue-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:from-blue-700 hover:to-blue-800"
             >
-              Try the demo free
+              Try the demo free—see the magic
             </a>
             <a
               href={SCHEDULE_CALL_URL}
@@ -143,7 +143,7 @@ export default function HomePage() {
               Contact us
             </a>
           </div>
-          <p className="mt-5 text-sm text-slate-500">No signup required for the demo. Instant access.</p>
+          <p className="mt-5 text-sm text-slate-500">✨ No credit card. No commitment. See why contractors are switching—in 60 seconds.</p>
           <div className="mx-auto mt-12 flex justify-center px-2 sm:mt-16">
             <AutoplayOnViewVideo
               src="/videos/QuoteProcess.mp4"
@@ -152,10 +152,10 @@ export default function HomePage() {
           </div>
           <section className="relative mx-auto mt-16 max-w-6xl">
             <h2 className="text-center font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-              Your customers will love it
+              A buying experience that sells for you
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">
-              Create an instant project budget in 3 easy steps.
+              From curiosity to commitment in 3 seamless steps. Customers love the wow factor—you&apos;ll love the qualified leads.
             </p>
             <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-3">
               {stepsForCustomers.map((s, i) => (
@@ -182,10 +182,10 @@ export default function HomePage() {
         {/* Stats */}
         <section className="mt-20 grid grid-cols-2 gap-4 sm:grid-cols-4">
           {[
-            { label: 'Contractors', value: '100+' },
-            { label: 'Estimates', value: '10K+' },
-            { label: 'Service', value: 'Global' },
-            { label: '24/7', value: 'Lead capture' },
+            { label: 'Contractors growing', value: '100+' },
+            { label: 'Quotes generated', value: '10K+' },
+            { label: 'Service area', value: 'Global' },
+            { label: '24/7', value: 'Lead engine' },
           ].map((stat) => (
             <div key={stat.label} className="rounded-2xl border border-slate-200/60 bg-white/95 p-6 text-center shadow-lg backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl">
               <p className="text-2xl font-extrabold text-slate-900 sm:text-3xl">{stat.value}</p>
@@ -204,10 +204,10 @@ export default function HomePage() {
         {/* Features - colorful grid */}
         <section className="mt-20">
           <h2 className="text-center font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
-            Everything you need to grow
+            Built to scale. Designed to convert.
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">
-            Built for fence contractors who want more qualified leads and happier customers.
+            The all-in-one powerhouse that streamlines your entire quote-to-close pipeline. Stop leaving money on the table.
           </p>
           <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {features.map((f) => (
@@ -225,17 +225,17 @@ export default function HomePage() {
         {/* Product preview - app screenshots with dynamic effects */}
         <section className="mt-24">
           <h2 className="text-center font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
-            See it in action
+            See the magic in action
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">
-            Real screenshots from the platform. Try the demo to experience it yourself.
+            Real screenshots from the platform that&apos;s winning over contractors. Experience it yourself—no strings attached.
           </p>
           <div className="mt-12 flex justify-center">
             <a
               href={DEMO_URL}
               className="rounded-2xl bg-blue-600 px-8 py-4 font-bold text-white shadow-xl shadow-blue-500/25 transition-all duration-300 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-2xl"
             >
-              Launch demo
+              Launch live demo
             </a>
           </div>
           <div className="mt-16 grid gap-16 lg:grid-cols-2 lg:gap-12">
@@ -245,7 +245,7 @@ export default function HomePage() {
             <FadeInScreenshot src="/images/screenshots/app-03.png" alt="Products configuration" className="lg:mt-12" />
           </div>
           <div className="mt-16">
-            <h3 className="text-center font-heading text-xl font-bold text-slate-900">Platform highlights</h3>
+            <h3 className="text-center font-heading text-xl font-bold text-slate-900">The full platform—at a glance</h3>
             <RotatingScreenshots count={6} className="mt-8" />
           </div>
         </section>
@@ -253,18 +253,18 @@ export default function HomePage() {
         {/* Quote calculator */}
         <section className="mt-24">
           <h2 className="text-center font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-            Quote calculator
+            The quote calculator that closes deals
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600">
-            Set your pricing, then turn lead requests into customer quotes.
+            Turn incoming requests into polished, professional quotes—in seconds. Your pricing, your rules, zero hassle.
           </p>
           <div className="mx-auto mt-12 flex justify-center">
             <QuoteProcessVideo
               src="/videos/Contractor123.mp4"
               steps={[
-                { title: '1. Set your product price', desc: 'Define fence types, styles, colours, and pricing.' },
-                { title: '2. Make your quote', desc: 'Turn lead requests into customer quotes.' },
-                { title: '3. Make your fence layout', desc: 'Draw the fence line on the map.' },
+                { title: '1. Set your product price', desc: 'Define types, styles, colours & pricing in minutes. Your catalog, your rules.' },
+                { title: '2. Make your quote', desc: 'One-click conversion. Turn lead requests into polished, professional quotes.' },
+                { title: '3. Make your fence layout', desc: 'Map-precise drawings. Customers sketch it—you deliver with confidence.' },
               ]}
               className="w-full max-w-5xl"
             />
@@ -274,10 +274,10 @@ export default function HomePage() {
         {/* How it works - contractors */}
         <section className="relative mt-24">
           <h2 className="text-center font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-            Easy setup for contractors
+            Launch in minutes. Scale forever.
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600">
-            Start pre-qualifying leads in minutes.
+            The easiest way to start capturing and converting fence leads. No learning curve. No tech headaches. Just results.
           </p>
           <div className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-3 lg:gap-12">
             {stepsForContractors.map((s, i) => (
@@ -301,7 +301,7 @@ export default function HomePage() {
               href="/signup"
               className="rounded-2xl border-2 border-slate-300 bg-white px-7 py-3.5 font-bold text-slate-800 transition-all duration-300 hover:-translate-y-0.5 hover:border-blue-400 hover:bg-blue-50 hover:shadow-lg"
             >
-              Sign up free
+              Limited-time: $199.99/mo
             </Link>
           </div>
         </section>
@@ -309,10 +309,10 @@ export default function HomePage() {
         {/* Testimonials */}
         <section className="mt-24">
           <h2 className="text-center font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
-            Trusted by contractors and suppliers
+            Loved by contractors & suppliers nationwide
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">
-            See what contractors and suppliers are saying about QuoteMyFence.
+            Don&apos;t just take our word for it—see why industry pros are making the switch.
           </p>
           <div className="mt-12 grid gap-8 md:grid-cols-3">
             {testimonials.map((t) => (
@@ -335,14 +335,14 @@ export default function HomePage() {
         {/* Contractor CTA */}
         <section className="mt-24">
           <div className="group mx-auto max-w-2xl rounded-3xl bg-gradient-to-br from-blue-50 to-indigo-50 p-10 shadow-xl ring-1 ring-blue-100/50 transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:ring-2 hover:ring-blue-300/50 sm:p-12">
-            <h2 className="font-heading text-2xl font-bold text-slate-900">Start capturing qualified leads</h2>
-            <p className="mt-2 text-slate-600">Manage products, pricing, and leads. Share your custom estimate link with customers.</p>
+            <h2 className="font-heading text-2xl font-bold text-slate-900">Ready to 10x your fence lead flow?</h2>
+            <p className="mt-2 text-slate-600">Join the contractors who&apos;ve ditched the quote chaos. One platform. One link. Endless qualified leads.</p>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:justify-center sm:gap-4">
               <Link
                 href="/signup"
                 className="rounded-xl bg-blue-600 px-8 py-5 text-center text-lg font-bold text-white shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-xl"
               >
-                Sign up free
+                Limited-time: $199.99/mo
               </Link>
               <Link href="/login" className="rounded-xl border-2 border-slate-300 bg-white px-8 py-5 text-center text-lg font-bold text-slate-800 transition-all duration-300 hover:-translate-y-0.5 hover:border-blue-400 hover:bg-blue-50 hover:shadow-md">
                 Log in
@@ -360,10 +360,10 @@ export default function HomePage() {
         {/* Big CTA */}
         <section className="mt-24 rounded-3xl bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 p-12 text-center shadow-2xl transition-all duration-300 hover:shadow-[0_25px_60px_-15px_rgba(59,130,246,0.4)] sm:p-16">
           <h2 className="font-heading text-3xl font-bold text-white sm:text-4xl">
-            Ready to capture more leads?
+            Your fence business deserves more than guesswork
           </h2>
           <p className="mx-auto mt-4 max-w-lg text-lg text-blue-100">
-            Book a call to see how QuoteMyFence can help your fence business grow.
+            See the platform in action. Discover how contractors are closing more deals with less effort. Your future leads are waiting.
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <a
@@ -395,7 +395,7 @@ export default function HomePage() {
             <div>
               <img src="/quotemyfence-logo.png" alt="QuoteMyFence" className="h-10 w-auto opacity-90" />
               <p className="mt-4 max-w-xs text-sm">
-                Fence estimate software for contractors. Qualified leads, 24/7. Global service.
+                The fence industry&apos;s go-to for instant estimates & qualified leads. Scale smarter. 24/7. Global.
               </p>
             </div>
             <div className="flex flex-wrap gap-8">
