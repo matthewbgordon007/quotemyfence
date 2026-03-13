@@ -23,8 +23,8 @@ interface ColourOption {
   photo_url: string | null;
 }
 
-interface ColourPricingRule {
-  colour_option_id: string;
+interface StylePricingRule {
+  fence_style_id: string;
   base_price_per_ft_low: number;
   base_price_per_ft_high: number;
   single_gate_low: number;
@@ -43,7 +43,7 @@ export default function ProductsPage() {
   const [types, setTypes] = useState<FenceType[]>([]);
   const [styles, setStyles] = useState<FenceStyle[]>([]);
   const [colours, setColours] = useState<ColourOption[]>([]);
-  const [pricingRules, setPricingRules] = useState<ColourPricingRule[]>([]);
+  const [stylePricingRules, setStylePricingRules] = useState<StylePricingRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
@@ -55,10 +55,7 @@ export default function ProductsPage() {
   const [newStyleName, setNewStyleName] = useState('');
   const [addColourStyleId, setAddColourStyleId] = useState<string | null>(null);
   const [newColourName, setNewColourName] = useState('');
-  const [newColourPricePerFt, setNewColourPricePerFt] = useState('74.99');
-  const [newColourSingleGate, setNewColourSingleGate] = useState('450');
-  const [newColourDoubleGate, setNewColourDoubleGate] = useState('800');
-  const [editingPricing, setEditingPricing] = useState<string | null>(null);
+  const [editingStylePricing, setEditingStylePricing] = useState<string | null>(null);
   const [editingHeightTypeId, setEditingHeightTypeId] = useState<string | null>(null);
   const [editHeightValue, setEditHeightValue] = useState('');
 
@@ -69,7 +66,7 @@ export default function ProductsPage() {
         setTypes(data.fenceTypes || []);
         setStyles(data.fenceStyles || []);
         setColours(data.colourOptions || []);
-        setPricingRules(data.colourPricingRules || []);
+        setStylePricingRules(data.stylePricingRules || []);
       });
   }
 
@@ -85,8 +82,8 @@ export default function ProductsPage() {
     setLoading(false);
   }, []);
 
-  function getRule(colourId: string) {
-    return pricingRules.find((r) => r.colour_option_id === colourId);
+  function getStyleRule(styleId: string) {
+    return stylePricingRules.find((r) => r.fence_style_id === styleId);
   }
 
   function stylesForType(tId: string) {
@@ -146,18 +143,12 @@ export default function ProductsPage() {
       body: JSON.stringify({
         fence_style_id: styleId,
         color_name: newColourName.trim(),
-        base_price_per_ft: Number(newColourPricePerFt) || 74.99,
-        single_gate: Number(newColourSingleGate) || 450,
-        double_gate: Number(newColourDoubleGate) || 800,
       }),
     });
     if (res.ok) {
       refresh();
       setAddColourStyleId(null);
       setNewColourName('');
-      setNewColourPricePerFt('74.99');
-      setNewColourSingleGate('450');
-      setNewColourDoubleGate('800');
     }
   }
 
@@ -209,17 +200,24 @@ export default function ProductsPage() {
     }
   }
 
-  async function updatePricing(colourId: string, updates: Partial<ColourPricingRule>) {
-    const res = await fetch('/api/contractor/product-hierarchy/colour-pricing', {
+  async function updateStylePricing(styleId: string, updates: Partial<StylePricingRule>) {
+    const res = await fetch('/api/contractor/product-hierarchy/style-pricing', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ colour_option_id: colourId, ...updates }),
+      body: JSON.stringify({ fence_style_id: styleId, ...updates }),
     });
     if (res.ok) {
-      setPricingRules((prev) =>
-        prev.map((r) => (r.colour_option_id === colourId ? { ...r, ...updates } : r))
-      );
-      setEditingPricing(null);
+      const data = await res.json();
+      setStylePricingRules((prev) => {
+        const idx = prev.findIndex((r) => r.fence_style_id === styleId);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = { ...next[idx], ...data };
+          return next;
+        }
+        return [...prev, data];
+      });
+      setEditingStylePricing(null);
     }
   }
 
@@ -364,7 +362,10 @@ export default function ProductsPage() {
                   </div>
                 )}
 
-                {stylesForType(t.id).map((s) => (
+                {stylesForType(t.id).map((s) => {
+                  const styleRule = getStyleRule(s.id);
+                  const isEditingStylePricing = editingStylePricing === s.id;
+                  return (
                   <div key={s.id} className="mb-4 rounded-xl border border-[var(--line)] bg-white">
                     <div className="flex items-center gap-4 px-4 py-3">
                       <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-[var(--line)] bg-white">
@@ -384,7 +385,12 @@ export default function ProductsPage() {
                             {expandedStyles.has(s.id) ? '▼' : '▶'} {s.style_name}
                           </button>
                           {isAdmin && (
-                            <div className="flex gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              {styleRule && !isEditingStylePricing && (
+                                <span className="text-xs text-[var(--muted)]">
+                                  ${Number(styleRule.base_price_per_ft_low).toLocaleString('en-CA', { minimumFractionDigits: 2 })}/ft
+                                </span>
+                              )}
                               <label className="cursor-pointer text-xs text-[var(--accent)] hover:underline">
                                 Upload photo
                                 <input
@@ -399,6 +405,13 @@ export default function ProductsPage() {
                               </label>
                               <button
                                 type="button"
+                                onClick={() => setEditingStylePricing(isEditingStylePricing ? null : s.id)}
+                                className="text-xs text-[var(--accent)] hover:underline"
+                              >
+                                {styleRule ? 'Edit pricing' : 'Set pricing'}
+                              </button>
+                              <button
+                                type="button"
                                 onClick={() => { setAddColourStyleId(s.id); setNewColourName(''); }}
                                 className="text-xs text-[var(--accent)] hover:underline"
                               >
@@ -410,6 +423,13 @@ export default function ProductsPage() {
                             </div>
                           )}
                         </div>
+                        {isAdmin && isEditingStylePricing && (
+                          <StylePricingForm
+                            rule={styleRule ?? { fence_style_id: s.id, base_price_per_ft_low: 74.99, base_price_per_ft_high: 74.99, single_gate_low: 450, single_gate_high: 450, double_gate_low: 800, double_gate_high: 800, removal_price_per_ft_low: 5, removal_price_per_ft_high: 5, minimum_job_low: 500, minimum_job_high: 500 }}
+                            onSave={(u) => updateStylePricing(s.id, u)}
+                            onCancel={() => setEditingStylePricing(null)}
+                          />
+                        )}
                       </div>
                     </div>
 
@@ -424,18 +444,6 @@ export default function ProductsPage() {
                               placeholder="Colour name (e.g. White, Brown)"
                               className="min-w-[120px] flex-1 rounded border px-3 py-2"
                             />
-                            <div>
-                              <label className="block text-xs text-[var(--muted)]">Price $/ft</label>
-                              <input type="number" step="0.01" min="0" value={newColourPricePerFt} onChange={(e) => setNewColourPricePerFt(e.target.value)} className="w-24 rounded border px-2 py-1.5 text-sm" />
-                            </div>
-                            <div>
-                              <label className="block text-xs text-[var(--muted)]">Single gate $</label>
-                              <input type="number" step="0.01" min="0" value={newColourSingleGate} onChange={(e) => setNewColourSingleGate(e.target.value)} className="w-24 rounded border px-2 py-1.5 text-sm" />
-                            </div>
-                            <div>
-                              <label className="block text-xs text-[var(--muted)]">Double gate $</label>
-                              <input type="number" step="0.01" min="0" value={newColourDoubleGate} onChange={(e) => setNewColourDoubleGate(e.target.value)} className="w-24 rounded border px-2 py-1.5 text-sm" />
-                            </div>
                             <div className="flex items-end gap-2">
                               <button type="button" onClick={() => addColour(s.id)} className="rounded bg-[var(--accent)] px-3 py-2 text-white">
                                 Add colour
@@ -448,8 +456,7 @@ export default function ProductsPage() {
                         )}
 
                         {coloursForStyle(s.id).map((c) => {
-                          const rule = getRule(c.id);
-                          const isEditing = editingPricing === c.id;
+                          const styleRule = getStyleRule(s.id);
                           return (
                             <div key={c.id} className="flex items-start gap-4 rounded-lg border border-[var(--line)] bg-[var(--bg2)]/30 p-4">
                               <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border bg-[var(--bg2)]">
@@ -475,37 +482,26 @@ export default function ProductsPage() {
                                         }}
                                       />
                                     </label>
-                                    {rule && !isEditing && (
-                                      <button type="button" onClick={() => setEditingPricing(c.id)} className="text-xs text-[var(--accent)] hover:underline">
-                                        Edit pricing
-                                      </button>
-                                    )}
                                     <button type="button" onClick={() => deleteColour(c.id)} className="text-xs text-red-600 hover:underline">
                                       Delete
                                     </button>
                                   </div>
                                 )}
-                                {rule && !isEditing && (
+                                {styleRule && (
                                   <div className="mt-1 text-xs text-[var(--muted)]">
-                                    <span>${Number(rule.base_price_per_ft_low).toLocaleString('en-CA', { minimumFractionDigits: 2 })}/ft</span>
+                                    <span>${Number(styleRule.base_price_per_ft_low).toLocaleString('en-CA', { minimumFractionDigits: 2 })}/ft</span>
                                     <span className="mx-1">•</span>
-                                    <span>Single gate ${Number(rule.single_gate_low).toLocaleString('en-CA', { minimumFractionDigits: 0 })}</span>
+                                    <span>Single gate ${Number(styleRule.single_gate_low).toLocaleString('en-CA', { minimumFractionDigits: 0 })}</span>
                                     <span className="mx-1">•</span>
-                                    <span>Double gate ${Number(rule.double_gate_low).toLocaleString('en-CA', { minimumFractionDigits: 0 })}</span>
-                                    {rule.removal_price_per_ft_low > 0 && (
+                                    <span>Double gate ${Number(styleRule.double_gate_low).toLocaleString('en-CA', { minimumFractionDigits: 0 })}</span>
+                                    {styleRule.removal_price_per_ft_low > 0 && (
                                       <>
                                         <span className="mx-1">•</span>
-                                        <span>Removal ${Number(rule.removal_price_per_ft_low).toLocaleString('en-CA', { minimumFractionDigits: 2 })}/ft</span>
+                                        <span>Removal ${Number(styleRule.removal_price_per_ft_low).toLocaleString('en-CA', { minimumFractionDigits: 2 })}/ft</span>
                                       </>
                                     )}
+                                    <span className="ml-1 text-[var(--muted)]">(inherited from style)</span>
                                   </div>
-                                )}
-                                {isAdmin && isEditing && rule && (
-                                  <ColourPricingForm
-                                    rule={rule}
-                                    onSave={(u) => updatePricing(c.id, u)}
-                                    onCancel={() => setEditingPricing(null)}
-                                  />
                                 )}
                               </div>
                             </div>
@@ -514,7 +510,7 @@ export default function ProductsPage() {
                       </div>
                     )}
                   </div>
-                ))}
+                );})}
               </div>
             )}
           </div>
@@ -524,13 +520,13 @@ export default function ProductsPage() {
   );
 }
 
-function ColourPricingForm({
+function StylePricingForm({
   rule,
   onSave,
   onCancel,
 }: {
-  rule: ColourPricingRule;
-  onSave: (u: Partial<ColourPricingRule>) => void;
+  rule: StylePricingRule;
+  onSave: (u: Partial<StylePricingRule>) => void;
   onCancel: () => void;
 }) {
   const [pricePerFt, setPricePerFt] = useState(String(rule.base_price_per_ft_low));

@@ -45,12 +45,21 @@ export async function GET() {
   const colourIds = (colours || []).map((c) => c.id);
 
   let colourPricingRules: { colour_option_id: string; [k: string]: unknown }[] = [];
+  let stylePricingRules: { fence_style_id: string; [k: string]: unknown }[] = [];
   if (colourIds.length > 0) {
     const { data: rules } = await supabase
       .from('colour_pricing_rules')
       .select('*')
       .in('colour_option_id', colourIds);
     colourPricingRules = rules || [];
+  }
+  if (styleIds.length > 0) {
+    const { data: styleRules } = await supabase
+      .from('style_pricing_rules')
+      .select('*')
+      .in('fence_style_id', styleIds)
+      .eq('is_active', true);
+    stylePricingRules = styleRules || [];
   }
 
   return NextResponse.json({
@@ -59,5 +68,6 @@ export async function GET() {
     fenceStyles: styles || [],
     colourOptions: colours || [],
     colourPricingRules,
+    stylePricingRules,
   });
 }

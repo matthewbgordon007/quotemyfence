@@ -41,27 +41,6 @@ export async function POST(request: NextRequest) {
 
   if (colourErr) return NextResponse.json({ error: colourErr.message }, { status: 500 });
 
-  const p = base_price_per_ft !== undefined ? Number(base_price_per_ft) : 74.99;
-  const s = single_gate !== undefined ? Number(single_gate) : 450;
-  const d = double_gate !== undefined ? Number(double_gate) : 800;
-  const r = removal_price_per_ft !== undefined ? Number(removal_price_per_ft) : 5;
-  const m = minimum_job !== undefined ? Number(minimum_job) : 500;
-
-  await supabase.from('colour_pricing_rules').insert({
-    contractor_id: contractorId,
-    colour_option_id: colour.id,
-    base_price_per_ft_low: p,
-    base_price_per_ft_high: p,
-    single_gate_low: s,
-    single_gate_high: s,
-    double_gate_low: d,
-    double_gate_high: d,
-    removal_price_per_ft_low: r,
-    removal_price_per_ft_high: r,
-    minimum_job_low: m,
-    minimum_job_high: m,
-    is_active: true,
-  });
-
+  // Pricing is set at style level, not per colour. No colour_pricing_rule created.
   return NextResponse.json(colour);
 }

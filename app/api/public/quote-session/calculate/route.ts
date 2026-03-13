@@ -21,13 +21,29 @@ export async function POST(request: NextRequest) {
     let ruleRow: { base_price_per_ft_low: number; base_price_per_ft_high: number; single_gate_low: number; single_gate_high: number; double_gate_low: number; double_gate_high: number; removal_price_per_ft_low: number; removal_price_per_ft_high: number; minimum_job_low: number; minimum_job_high: number; tax_mode?: string } | null = null;
 
     if (colour_option_id) {
-      const { data, error } = await supabase
-        .from('colour_pricing_rules')
-        .select('*')
-        .eq('colour_option_id', colour_option_id)
-        .eq('is_active', true)
+      const { data: colour } = await supabase
+        .from('colour_options')
+        .select('fence_style_id')
+        .eq('id', colour_option_id)
         .single();
-      if (!error && data) ruleRow = data;
+      if (colour?.fence_style_id) {
+        const { data: styleRule, error: styleErr } = await supabase
+          .from('style_pricing_rules')
+          .select('*')
+          .eq('fence_style_id', colour.fence_style_id)
+          .eq('is_active', true)
+          .single();
+        if (!styleErr && styleRule) ruleRow = styleRule;
+      }
+      if (!ruleRow) {
+        const { data, error } = await supabase
+          .from('colour_pricing_rules')
+          .select('*')
+          .eq('colour_option_id', colour_option_id)
+          .eq('is_active', true)
+          .single();
+        if (!error && data) ruleRow = data;
+      }
     } else if (product_option_id) {
       const { data, error } = await supabase
         .from('pricing_rules')
