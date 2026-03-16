@@ -55,9 +55,9 @@ export default async function BlogPostPage({ params }: Props) {
         }} />
       </div>
 
-      <div className="w-full px-4 py-6 sm:px-8 lg:px-12 xl:px-16">
+      <div className="w-full safe-area-x py-6 sm:px-8 lg:px-12 xl:px-16">
         {/* Nav */}
-        <nav className="flex items-center justify-between border-b border-slate-700/60 bg-slate-900/80 px-4 py-4 backdrop-blur-xl sm:px-8">
+        <nav className="safe-area-t flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/60 bg-slate-900/80 px-4 py-3 backdrop-blur-xl sm:px-8 sm:py-4">
           <Link href="/" className="flex items-center transition-opacity hover:opacity-90">
             <img src="/quotemyfence-logo.png" alt="QuoteMyFence" className="h-11 w-auto sm:h-12" />
           </Link>
@@ -85,7 +85,7 @@ export default async function BlogPostPage({ params }: Props) {
         </Link>
 
         {/* Article */}
-        <article className="mt-8 rounded-2xl border border-slate-700/60 bg-slate-800/40 p-8 shadow-xl backdrop-blur-sm sm:mt-12 sm:p-12">
+        <article className="mt-6 rounded-2xl border border-slate-700/60 bg-slate-800/40 p-5 shadow-xl backdrop-blur-sm sm:mt-12 sm:p-8 lg:p-12">
           <div className="border-l-4 border-blue-500 pl-6">
             <time className="text-sm font-medium text-slate-500" dateTime={post.date}>
               {formatDate(post.date)}
@@ -127,7 +127,7 @@ export default async function BlogPostPage({ params }: Props) {
         </article>
 
         {/* CTA */}
-        <div className="mt-12 flex flex-col items-center gap-6 rounded-2xl border border-slate-700/60 bg-slate-800/40 p-8 text-center backdrop-blur-sm sm:flex-row sm:justify-center">
+        <div className="mt-10 flex flex-col items-center gap-4 rounded-2xl border border-slate-700/60 bg-slate-800/40 p-6 text-center backdrop-blur-sm sm:mt-12 sm:flex-row sm:justify-center sm:gap-6 sm:p-8">
           <Link href="/blog" className="rounded-xl border border-slate-600 px-6 py-3 font-semibold text-slate-300 transition-all hover:border-slate-500 hover:bg-slate-700/50 hover:text-white">
             View all posts
           </Link>
@@ -140,7 +140,7 @@ export default async function BlogPostPage({ params }: Props) {
         </div>
 
         {/* Footer */}
-        <footer className="mt-16 border-t border-slate-800 py-8">
+        <footer className="safe-area-b mt-12 border-t border-slate-800 py-8 sm:mt-16">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <Link href="/" className="flex items-center opacity-80 transition-opacity hover:opacity-100">
               <img src="/quotemyfence-logo.png" alt="QuoteMyFence" className="h-8 w-auto" />

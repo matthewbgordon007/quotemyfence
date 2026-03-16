@@ -38,26 +38,26 @@ export default function BlogPage() {
         }} />
       </div>
 
-      <div className="w-full px-4 py-6 sm:px-8 lg:px-12 xl:px-16">
-        {/* Nav */}
-        <nav className="flex items-center justify-between border-b border-slate-700/60 bg-slate-900/80 px-4 py-4 backdrop-blur-xl sm:px-8">
-          <Link href="/" className="flex items-center transition-opacity hover:opacity-90">
-            <img src="/quotemyfence-logo.png" alt="QuoteMyFence" className="h-11 w-auto sm:h-12" />
+      <div className="w-full safe-area-x py-6 sm:px-8 lg:px-12 xl:px-16">
+        {/* Nav - mobile-friendly */}
+        <nav className="safe-area-t flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/60 bg-slate-900/80 px-4 py-3 backdrop-blur-xl sm:gap-4 sm:px-8 sm:py-4">
+          <Link href="/" className="flex shrink-0 items-center transition-opacity hover:opacity-90" aria-label="QuoteMyFence home">
+            <img src="/quotemyfence-logo.png" alt="QuoteMyFence" className="h-10 w-auto sm:h-12" />
           </Link>
-          <div className="flex items-center gap-2 sm:gap-4">
-            <Link href="/blog" className="text-sm font-semibold text-blue-400">Blog</Link>
-            <Link href="/login" className="text-sm font-semibold text-slate-300 transition-colors hover:text-white">Member login</Link>
-            <a href={SCHEDULE_CALL_URL} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition-all hover:bg-blue-500">
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-4">
+            <Link href="/blog" className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl px-3 py-2.5 text-sm font-semibold text-blue-400">Blog</Link>
+            <Link href="/login" className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-300 transition-colors hover:text-white">Member login</Link>
+            <a href={SCHEDULE_CALL_URL} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition-all hover:bg-blue-500 sm:py-2.5">
               Book a call
             </a>
-            <Link href="/signup" className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition-all hover:bg-blue-500">
+            <Link href="/signup" className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition-all hover:bg-blue-500 sm:py-2.5">
               Limited-time: $199.99/mo
             </Link>
           </div>
         </nav>
 
         {/* Hero */}
-        <header className="pt-16 pb-12 text-center sm:pt-24">
+        <header className="pt-12 pb-10 text-center sm:pt-24 sm:pb-12">
           <span className="inline-block rounded-full border border-blue-500/40 bg-blue-500/10 px-4 py-1.5 text-sm font-semibold text-blue-400">
             Insights & tips
           </span>
@@ -71,7 +71,7 @@ export default function BlogPage() {
 
         {/* Featured post */}
         <Link href={`/blog/${featured.slug}`} className="group block">
-          <article className="relative overflow-hidden rounded-2xl border border-slate-700/60 bg-gradient-to-br from-slate-800/90 to-slate-900/90 p-8 shadow-2xl backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-blue-500/40 hover:shadow-blue-500/10 hover:shadow-2xl sm:p-10 lg:p-12">
+          <article className="relative overflow-hidden rounded-2xl border border-slate-700/60 bg-gradient-to-br from-slate-800/90 to-slate-900/90 p-5 shadow-2xl backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-blue-500/40 hover:shadow-blue-500/10 hover:shadow-2xl sm:p-8 lg:p-12">
             <div className="absolute right-0 top-0 h-64 w-64 translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-500/10 blur-3xl transition-all group-hover:bg-blue-500/20" />
             <div className="absolute bottom-0 left-0 h-32 w-32 -translate-x-1/2 translate-y-1/2 rounded-full bg-cyan-500/5 blur-2xl" />
             <div className="relative">
@@ -101,12 +101,12 @@ export default function BlogPage() {
         </Link>
 
         {/* Posts grid */}
-        <div className="mt-16">
+        <div className="mt-12 sm:mt-16">
           <h2 className="font-heading text-xl font-bold text-slate-300">More articles</h2>
-          <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="mt-6 grid gap-4 sm:mt-8 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {rest.map((post) => (
               <Link key={post.slug} href={`/blog/${post.slug}`} className="group block">
-                <article className="relative h-full overflow-hidden rounded-2xl border border-slate-700/60 bg-slate-800/50 p-6 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-blue-500/30 hover:bg-slate-800/80 hover:shadow-xl hover:shadow-blue-500/5">
+                <article className="relative h-full overflow-hidden rounded-2xl border border-slate-700/60 bg-slate-800/50 p-5 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-blue-500/30 hover:bg-slate-800/80 hover:shadow-xl hover:shadow-blue-500/5 sm:p-6">
                   <div className="absolute right-0 top-0 h-24 w-24 translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-500/5 blur-2xl group-hover:bg-blue-500/10 transition-colors" />
                   <time className="text-sm text-slate-500" dateTime={post.date}>
                     {formatDate(post.date)}
@@ -130,7 +130,7 @@ export default function BlogPage() {
         </div>
 
         {/* CTA */}
-        <div className="mt-24 rounded-2xl border border-slate-700/60 bg-gradient-to-r from-blue-600/20 to-cyan-600/20 p-8 text-center backdrop-blur-sm sm:p-12">
+        <div className="mt-12 rounded-2xl border border-slate-700/60 bg-gradient-to-r from-blue-600/20 to-cyan-600/20 p-6 text-center backdrop-blur-sm sm:mt-24 sm:p-8 lg:p-12">
           <p className="text-lg font-semibold text-white">Ready to quote fence jobs 3x faster?</p>
           <p className="mt-2 text-slate-400">Try the demo and see the platform in action.</p>
           <div className="mt-6 flex flex-wrap justify-center gap-4">
@@ -144,7 +144,7 @@ export default function BlogPage() {
         </div>
 
         {/* Footer */}
-        <footer className="mt-16 border-t border-slate-800 py-8">
+        <footer className="safe-area-b mt-12 border-t border-slate-800 py-8 sm:mt-16">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <Link href="/" className="flex items-center opacity-80 transition-opacity hover:opacity-100">
               <img src="/quotemyfence-logo.png" alt="QuoteMyFence" className="h-8 w-auto" />

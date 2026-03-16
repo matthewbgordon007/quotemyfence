@@ -94,3 +94,17 @@ body {
   border: none;
   border-top: 2px dashed rgb(59 130 246 / 0.6);
 }
+
+/* Safe area for notched devices (iPhone X+) - prevents content under notch/home indicator */
+@supports (padding: env(safe-area-inset-top)) {
+  .safe-area-x {
+    padding-left: max(1.25rem, env(safe-area-inset-left));
+    padding-right: max(1.25rem, env(safe-area-inset-right));
+  }
+  .safe-area-t {
+    padding-top: max(0.5rem, env(safe-area-inset-top));
+  }
+  .safe-area-b {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
