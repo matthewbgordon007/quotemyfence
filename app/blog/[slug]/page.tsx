@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { blogPosts } from '@/lib/blog-posts';
+import { JsonLd } from '@/components/JsonLd';
+import { SITE_URL, canonical, SEO_DEFAULTS } from '@/lib/seo';
 
 const SCHEDULE_CALL_URL = 'https://calendar.app.google/vuWD6xi7CfNptAon9';
 const DEMO_URL = 'https://www.quotemyfence.ca/estimate/demo-fence-inc/contact';
@@ -18,9 +20,27 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const post = blogPosts.find((p) => p.slug === slug);
   if (!post) return { title: 'Post not found' };
+  const url = canonical(`/blog/${slug}`);
   return {
     title: `${post.title} | QuoteMyFence Blog`,
     description: post.excerpt,
+    openGraph: {
+      ...SEO_DEFAULTS.openGraph,
+      type: 'article',
+      url,
+      title: `${post.title} | QuoteMyFence Blog`,
+      description: post.excerpt,
+      publishedTime: post.date,
+      modifiedTime: post.date,
+      authors: [post.author],
+      siteName: SEO_DEFAULTS.openGraph.siteName,
+    },
+    twitter: {
+      ...SEO_DEFAULTS.twitter,
+      title: post.title,
+      description: post.excerpt,
+    },
+    alternates: { canonical: url },
   };
 }
 
@@ -35,9 +55,35 @@ export default async function BlogPostPage({ params }: Props) {
   if (!post) notFound();
 
   const paragraphs = post.content.split('\n\n').filter(Boolean);
+  const postUrl = canonical(`/blog/${slug}`);
+
+  const articleJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: post.title,
+    description: post.excerpt,
+    url: postUrl,
+    datePublished: post.date,
+    dateModified: post.date,
+    author: { '@type': 'Organization', name: post.author },
+    publisher: { '@id': `${SITE_URL}/#organization` },
+    mainEntityOfPage: { '@type': 'WebPage', '@id': postUrl },
+  };
+
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
+      { '@type': 'ListItem', position: 2, name: 'Blog', item: canonical('/blog') },
+      { '@type': 'ListItem', position: 3, name: post.title, item: postUrl },
+    ],
+  };
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-slate-950">
+      <JsonLd data={articleJsonLd} />
+      <JsonLd data={breadcrumbJsonLd} />
       {/* Background */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950" />

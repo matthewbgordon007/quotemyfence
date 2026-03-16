@@ -1,13 +1,52 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { blogPosts } from '@/lib/blog-posts';
+import { JsonLd } from '@/components/JsonLd';
+import { SITE_URL, canonical, SEO_DEFAULTS } from '@/lib/seo';
 
 const SCHEDULE_CALL_URL = 'https://calendar.app.google/vuWD6xi7CfNptAon9';
 const DEMO_URL = 'https://www.quotemyfence.ca/estimate/demo-fence-inc/contact';
 
 export const metadata: Metadata = {
-  title: 'Blog | QuoteMyFence',
+  title: 'Blog | Fence Contractor Tips, Guides & Lead Generation | QuoteMyFence',
+  description:
+    'Tips, guides, and insights for fence contractors. Learn how to quote faster, win more leads, and grow your fence business. Instant quotes, satellite mapping, and lead capture.',
+  keywords: [
+    'fence contractor blog',
+    'fence quote tips',
+    'fence lead generation',
+    'fence estimate software',
+    ...SEO_DEFAULTS.keywords.slice(0, 6),
+  ],
+  openGraph: {
+    ...SEO_DEFAULTS.openGraph,
+    url: canonical('/blog'),
+    title: 'Blog | Fence Contractor Tips & Lead Generation | QuoteMyFence',
+    description:
+      'Tips, guides, and insights for fence contractors. Quote faster, win more leads, grow your fence business.',
+  },
+  twitter: {
+    ...SEO_DEFAULTS.twitter,
+    title: 'Blog | QuoteMyFence',
+    description: 'Tips, guides, and insights for fence contractors. Quote faster, win more leads.',
+  },
+  alternates: { canonical: canonical('/blog') },
+};
+
+const blogListJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Blog',
+  name: 'QuoteMyFence Blog',
   description: 'Tips, guides, and insights for fence contractors. Learn how to quote faster, win more leads, and grow your fence business.',
+  url: canonical('/blog'),
+  publisher: { '@id': `${SITE_URL}/#organization` },
+  blogPost: blogPosts.map((p) => ({
+    '@type': 'BlogPosting',
+    headline: p.title,
+    url: canonical(`/blog/${p.slug}`),
+    datePublished: p.date,
+    author: { '@type': 'Organization', name: p.author },
+  })),
 };
 
 function formatDate(dateStr: string) {
@@ -20,6 +59,7 @@ export default function BlogPage() {
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-slate-950">
+      <JsonLd data={blogListJsonLd} />
       {/* Background gradient mesh */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950" />
@@ -152,6 +192,8 @@ export default function BlogPage() {
             <div className="flex gap-6 text-sm text-slate-500">
               <Link href="/" className="hover:text-slate-300">Home</Link>
               <Link href="/blog" className="hover:text-slate-300">Blog</Link>
+              <Link href="/press" className="hover:text-slate-300">Press</Link>
+              <Link href="/partners" className="hover:text-slate-300">Partners</Link>
               <Link href="/login" className="hover:text-slate-300">Log in</Link>
             </div>
           </div>

@@ -6,14 +6,26 @@ import { FAQAccordion } from '@/components/FAQAccordion';
 import { FloatingScreenshot } from '@/components/FloatingScreenshot';
 import { FadeInScreenshot } from '@/components/FadeInScreenshot';
 import { RotatingScreenshots } from '@/components/RotatingScreenshots';
+import { JsonLd } from '@/components/JsonLd';
+import { SITE_URL, canonical, SEO_DEFAULTS } from '@/lib/seo';
 
 const SCHEDULE_CALL_URL = 'https://calendar.app.google/vuWD6xi7CfNptAon9';
 const DEMO_URL = 'https://www.quotemyfence.ca/estimate/demo-fence-inc/contact';
 const CONTACT_EMAIL = 'info@quotemyfence.ca';
 
 export const metadata: Metadata = {
-  title: 'Fence estimate software for contractors | QuoteMyFence',
-  description: 'The #1 fence estimate software. Turn tire-kickers into ready-to-buy leads. Instant quotes, satellite mapping, 24/7 lead capture. Try free.',
+  title: 'Fence Estimate Software for Contractors | Instant Quotes & Lead Capture | QuoteMyFence',
+  description:
+    'The #1 fence estimate software. Turn tire-kickers into ready-to-buy leads. Instant quotes, satellite mapping, 24/7 lead capture. Trusted by fence contractors across Canada. Try free.',
+  keywords: SEO_DEFAULTS.keywords,
+  openGraph: {
+    ...SEO_DEFAULTS.openGraph,
+    url: canonical('/'),
+    title: 'QuoteMyFence | #1 Fence Estimate Software for Contractors | Instant Quotes & Lead Capture',
+    description: SEO_DEFAULTS.description,
+  },
+  twitter: SEO_DEFAULTS.twitter,
+  alternates: { canonical: canonical('/') },
 };
 
 const stepsForContractors = [
@@ -83,9 +95,67 @@ const features = [
   { title: 'White-label your brand', desc: 'Your link. Your products. Your prices. 100% customizable—look like the pros.', bg: 'bg-sky-50', text: 'text-sky-700' },
 ];
 
+const organizationJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  '@id': `${SITE_URL}/#organization`,
+  name: SEO_DEFAULTS.organization.name,
+  url: SEO_DEFAULTS.organization.url,
+  logo: SEO_DEFAULTS.organization.logo,
+  description: SEO_DEFAULTS.organization.description,
+  email: SEO_DEFAULTS.organization.email,
+  foundingDate: SEO_DEFAULTS.organization.foundingDate,
+};
+
+const websiteJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: SEO_DEFAULTS.siteName,
+  url: SITE_URL,
+  description: SEO_DEFAULTS.description,
+  publisher: { '@id': `${SITE_URL}/#organization` },
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: { '@type': 'EntryPoint', urlTemplate: `${SITE_URL}/?s={search_term_string}` },
+    'query-input': 'required name=search_term_string',
+  },
+};
+
+const softwareJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'QuoteMyFence',
+  applicationCategory: 'BusinessApplication',
+  operatingSystem: 'Web',
+  description: SEO_DEFAULTS.description,
+  url: SITE_URL,
+  author: { '@id': `${SITE_URL}/#organization` },
+  offers: {
+    '@type': 'Offer',
+    price: '199.99',
+    priceCurrency: 'CAD',
+    priceValidUntil: '2026-12-31',
+    availability: 'https://schema.org/InStock',
+  },
+};
+
 export default function HomePage() {
+  const faqJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((faq) => ({
+      '@type': 'Question',
+      name: faq.question,
+      acceptedAnswer: { '@type': 'Answer', text: faq.answer },
+    })),
+  };
+
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-slate-950">
+      <JsonLd data={organizationJsonLd} />
+      <JsonLd data={websiteJsonLd} />
+      <JsonLd data={softwareJsonLd} />
+      <JsonLd data={faqJsonLd} />
       {/* Background - matches blog */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950" />
@@ -122,12 +192,13 @@ export default function HomePage() {
           </div>
         </nav>
 
+        <main id="main-content">
         {/* Hero - more breathing room on mobile */}
-        <section className="pt-12 text-center sm:pt-24 lg:pt-28">
+        <section className="pt-12 text-center sm:pt-24 lg:pt-28" aria-labelledby="hero-heading">
           <span className="inline-block rounded-full border border-blue-500/40 bg-blue-500/10 px-4 py-1.5 text-sm font-semibold text-blue-400">
             The #1 fence estimate software—trusted industry-wide
           </span>
-          <h1 className="mt-5 font-heading text-3xl font-extrabold tracking-tight text-white sm:mt-6 sm:text-5xl md:text-6xl lg:text-7xl">
+          <h1 id="hero-heading" className="mt-5 font-heading text-3xl font-extrabold tracking-tight text-white sm:mt-6 sm:text-5xl md:text-6xl lg:text-7xl">
             Turn tire-kickers into{' '}
             <span className="bg-gradient-to-r from-blue-400 via-blue-300 to-cyan-400 bg-clip-text text-transparent">
               ready-to-buy leads
@@ -424,6 +495,8 @@ export default function HomePage() {
                   <Link href="/signup" className="hover:text-white">Sign up</Link>
                   <Link href="/login" className="hover:text-white">Log in</Link>
                   <Link href="/blog" className="hover:text-white">Blog</Link>
+                  <Link href="/press" className="hover:text-white">Press</Link>
+                  <Link href="/partners" className="hover:text-white">Partners</Link>
                   <a href={DEMO_URL} className="hover:text-white">Try demo</a>
                   <a href="/#faq" className="hover:text-white">FAQ</a>
                 </div>
@@ -445,6 +518,7 @@ export default function HomePage() {
             © <span suppressHydrationWarning>{new Date().getFullYear()}</span> QuoteMyFence. All rights reserved.
           </p>
         </footer>
+        </main>
       </div>
     </div>
   );

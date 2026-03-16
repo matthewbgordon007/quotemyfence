@@ -22,32 +22,57 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.quotemyfence.ca
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: 'QuoteMyFence | Fence estimates + contractor dashboards',
+    default: 'QuoteMyFence | #1 Fence Estimate Software for Contractors | Instant Quotes & Lead Capture',
     template: '%s | QuoteMyFence',
   },
   description:
-    'QuoteMyFence helps homeowners draw fence lines on a map to get an instant estimate, and helps contractors manage products, pricing, and leads. Trusted by fence contractors across Canada.',
-  keywords: ['fence estimate', 'fence quote', 'fence contractor', 'fence calculator', 'instant estimate', 'Canada'],
+    'The #1 fence estimate software for contractors. Turn tire-kickers into ready-to-buy leads. Instant quotes, satellite mapping, 24/7 lead capture. Trusted across Canada. Try free.',
+  keywords: [
+    'fence estimate software',
+    'fence quote software',
+    'fence contractor software',
+    'instant fence estimate',
+    'fence quote calculator',
+    'fence lead generation',
+    'fence estimate tool',
+    'satellite fence mapping',
+    'fence contractor leads',
+    'Canada fence software',
+    'fence business software',
+    'quote my fence',
+  ],
   openGraph: {
     type: 'website',
     locale: 'en_CA',
     url: siteUrl,
     siteName: 'QuoteMyFence',
-    title: 'QuoteMyFence | Draw your fence. Get your estimate.',
-    description: 'Draw your fence line on a map for an instant estimate. For homeowners and fence contractors across Canada.',
-    images: [{ url: '/quotemyfence-logo.png', width: 512, height: 512, alt: 'QuoteMyFence' }],
+    title: 'QuoteMyFence | #1 Fence Estimate Software for Contractors | Instant Quotes & Lead Capture',
+    description:
+      'The #1 fence estimate software. Turn tire-kickers into ready-to-buy leads. Instant quotes, satellite mapping, 24/7 lead capture. Trusted by fence contractors across Canada.',
+    images: [
+      {
+        url: '/quotemyfence-logo.png',
+        width: 512,
+        height: 512,
+        alt: 'QuoteMyFence - Fence estimate software for contractors',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'QuoteMyFence | Draw your fence. Get your estimate.',
-    description: 'Draw your fence line on a map for an instant estimate. For homeowners and fence contractors.',
+    title: 'QuoteMyFence | #1 Fence Estimate Software for Contractors',
+    description:
+      'Instant quotes, satellite mapping, 24/7 lead capture. Trusted by fence contractors across Canada. Try free.',
   },
+  robots: { index: true, follow: true },
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
     title: 'QuoteMyFence',
   },
+  category: 'technology',
+  applicationName: 'QuoteMyFence',
 };
 
 export default function RootLayout({

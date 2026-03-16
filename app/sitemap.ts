@@ -3,40 +3,48 @@ import { createClient } from '@supabase/supabase-js';
 import { blogPosts } from '@/lib/blog-posts';
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.quotemyfence.ca';
+const base = siteUrl.replace(/\/$/, '');
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
     {
-      url: siteUrl,
+      url: base,
       lastModified: new Date(),
       changeFrequency: 'weekly',
       priority: 1,
     },
     {
-      url: `${siteUrl}/login`,
+      url: `${base}/signup`,
       lastModified: new Date(),
       changeFrequency: 'monthly',
-      priority: 0.5,
+      priority: 0.9,
     },
     {
-      url: `${siteUrl}/signup`,
+      url: `${base}/blog`,
       lastModified: new Date(),
-      changeFrequency: 'monthly',
+      changeFrequency: 'weekly',
       priority: 0.8,
     },
     {
-      url: `${siteUrl}/blog`,
+      url: `${base}/press`,
       lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.7,
+      changeFrequency: 'monthly',
+      priority: 0.6,
+    },
+    {
+      url: `${base}/partners`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly',
+      priority: 0.6,
     },
     ...blogPosts.map((post) => ({
-      url: `${siteUrl}/blog/${post.slug}`,
+      url: `${base}/blog/${post.slug}`,
       lastModified: new Date(post.date),
       changeFrequency: 'monthly' as const,
-      priority: 0.6,
+      priority: 0.7,
     })),
   ];
+  // Login intentionally omitted from sitemap (noindex); high-value pages only
 
   try {
     const supabase = createClient(
@@ -49,7 +57,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .eq('is_active', true);
 
     const contractorPages: MetadataRoute.Sitemap = (contractors || []).map((c) => ({
-      url: `${siteUrl}/estimate/${c.slug}/contact`,
+      url: `${base}/estimate/${c.slug}/contact`,
       lastModified: c.updated_at ? new Date(c.updated_at) : new Date(),
       changeFrequency: 'weekly' as const,
       priority: 0.7,
