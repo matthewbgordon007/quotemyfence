@@ -1,5 +1,5 @@
 -- Run in Supabase SQL editor to create storage bucket for contractor logos & product images
--- Bucket: contractor-assets (public read for logos/images)
+-- Bucket: contractor-assets (public read for logos/images). Images only (JPG, PNG, WebP, GIF) — no PDF.
 
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (

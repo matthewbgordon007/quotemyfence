@@ -159,34 +159,62 @@ export default function ProductsPage() {
     if (res.ok) refresh();
   }
 
+  const [uploadingPhoto, setUploadingPhoto] = useState<string | null>(null);
+
   async function updateStylePhoto(styleId: string, file: File) {
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('type', 'style');
-    const res = await fetch('/api/contractor/upload', { method: 'POST', body: fd });
-    const data = await res.json();
-    if (!res.ok || !data.url) return;
-    await fetch(`/api/contractor/product-hierarchy/styles/${styleId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ photo_url: data.url }),
-    });
-    refresh();
+    setUploadingPhoto(`style-${styleId}`);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('type', 'style');
+      const res = await fetch('/api/contractor/upload', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!res.ok || !data.url) {
+        alert(data.error || 'Upload failed. Use JPG, PNG, WebP or GIF (max 5MB).');
+        return;
+      }
+      const patchRes = await fetch(`/api/contractor/product-hierarchy/styles/${styleId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photo_url: data.url }),
+      });
+      const patchData = patchRes.ok ? null : await patchRes.json().catch(() => ({}));
+      if (!patchRes.ok) {
+        alert(patchData?.error || 'Photo uploaded but could not save. Try again.');
+        return;
+      }
+      refresh();
+    } finally {
+      setUploadingPhoto(null);
+    }
   }
 
   async function updateColourPhoto(colourId: string, file: File) {
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('type', 'colour');
-    const res = await fetch('/api/contractor/upload', { method: 'POST', body: fd });
-    const data = await res.json();
-    if (!res.ok || !data.url) return;
-    await fetch(`/api/contractor/product-hierarchy/colours/${colourId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ photo_url: data.url }),
-    });
-    refresh();
+    setUploadingPhoto(`colour-${colourId}`);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('type', 'colour');
+      const res = await fetch('/api/contractor/upload', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!res.ok || !data.url) {
+        alert(data.error || 'Upload failed. Use JPG, PNG, WebP or GIF (max 5MB).');
+        return;
+      }
+      const patchRes = await fetch(`/api/contractor/product-hierarchy/colours/${colourId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photo_url: data.url }),
+      });
+      const patchData = patchRes.ok ? null : await patchRes.json().catch(() => ({}));
+      if (!patchRes.ok) {
+        alert(patchData?.error || 'Photo uploaded but could not save. Try again.');
+        return;
+      }
+      refresh();
+    } finally {
+      setUploadingPhoto(null);
+    }
   }
 
   async function updateTypeStandardHeight(typeId: string, standard_height_ft: number) {
@@ -392,15 +420,19 @@ export default function ProductsPage() {
                                   ${Number(styleRule.base_price_per_ft_low).toLocaleString('en-CA', { minimumFractionDigits: 2 })}/ft
                                 </span>
                               )}
-                              <label className="cursor-pointer text-xs text-[var(--accent)] hover:underline">
-                                Upload photo
+                              <label className={uploadingPhoto === `style-${s.id}` ? 'cursor-wait text-xs text-[var(--muted)]' : 'cursor-pointer text-xs text-[var(--accent)] hover:underline'}>
+                                {uploadingPhoto === `style-${s.id}` ? 'Uploading…' : 'Upload photo (JPG, PNG, WebP, GIF)'}
                                 <input
                                   type="file"
-                                  accept="image/*"
+                                  accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
                                   className="hidden"
+                                  disabled={!!uploadingPhoto}
                                   onChange={(e) => {
                                     const f = e.target.files?.[0];
-                                    if (f) updateStylePhoto(s.id, f);
+                                    if (f) {
+                                      updateStylePhoto(s.id, f);
+                                      e.target.value = '';
+                                    }
                                   }}
                                 />
                               </label>
@@ -471,15 +503,19 @@ export default function ProductsPage() {
                                 <div className="font-medium">{c.color_name}</div>
                                 {isAdmin && (
                                   <div className="mt-1 flex gap-2">
-                                    <label className="cursor-pointer text-xs text-[var(--accent)] hover:underline">
-                                      Upload photo
+                                    <label className={uploadingPhoto === `colour-${c.id}` ? 'cursor-wait text-xs text-[var(--muted)]' : 'cursor-pointer text-xs text-[var(--accent)] hover:underline'}>
+                                      {uploadingPhoto === `colour-${c.id}` ? 'Uploading…' : 'Upload photo (JPG, PNG, WebP, GIF)'}
                                       <input
                                         type="file"
-                                        accept="image/*"
+                                        accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
                                         className="hidden"
+                                        disabled={!!uploadingPhoto}
                                         onChange={(e) => {
                                           const f = e.target.files?.[0];
-                                          if (f) updateColourPhoto(c.id, f);
+                                          if (f) {
+                                            updateColourPhoto(c.id, f);
+                                            e.target.value = '';
+                                          }
                                         }}
                                       />
                                     </label>

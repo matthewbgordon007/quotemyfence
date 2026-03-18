@@ -38,8 +38,9 @@ export async function POST(request: NextRequest) {
       formData = await request.formData();
     } catch (formErr) {
       console.error('formData parse error:', formErr);
+      const errMsg = formErr instanceof Error ? formErr.message : String(formErr);
       return NextResponse.json(
-        { error: 'Could not parse upload. File may be too large (max 5MB).' },
+        { error: errMsg.includes('body') || errMsg.includes('size') ? 'File too large. Try an image under 4MB.' : 'Could not parse upload. Try a smaller image (under 4MB).' },
         { status: 400 }
       );
     }
@@ -53,11 +54,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+    // Use extension as source of truth (server FormData can have empty/inconsistent file.type)
+    const ext = (file.name.split('.').pop() || '').toLowerCase() || 'png';
     const allowed = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    const isPdf = ext === 'pdf' || file.type === 'application/pdf';
+    if (isPdf) {
+      return NextResponse.json(
+        { error: 'Product photos must be images (JPG, PNG, WebP or GIF). PDFs are not supported.' },
+        { status: 400 }
+      );
+    }
     if (!allowed.includes(ext)) {
       return NextResponse.json(
-        { error: 'Invalid file type. Use JPG, PNG, WebP or GIF.' },
+        { error: `Invalid file type. Use JPG, PNG, WebP or GIF (got .${ext || 'unknown'}).` },
         { status: 400 }
       );
     }
