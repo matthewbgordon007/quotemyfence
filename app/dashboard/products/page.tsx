@@ -61,7 +61,7 @@ export default function ProductsPage() {
   const [editHeightValue, setEditHeightValue] = useState('');
 
   function refresh() {
-    fetch('/api/contractor/product-hierarchy')
+    fetch('/api/contractor/product-hierarchy', { cache: 'no-store' })
       .then((r) => r.json())
       .then((data) => {
         setTypes(data.fenceTypes || []);
@@ -178,11 +178,12 @@ export default function ProductsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ photo_url: data.url }),
       });
-      const patchData = patchRes.ok ? null : await patchRes.json().catch(() => ({}));
+      const patchData = await patchRes.json().catch(() => ({}));
       if (!patchRes.ok) {
         alert(patchData?.error || 'Photo uploaded but could not save. Try again.');
         return;
       }
+      setStyles((prev) => prev.map((st) => (st.id === styleId ? { ...st, photo_url: data.url } : st)));
       refresh();
     } finally {
       setUploadingPhoto(null);
@@ -206,11 +207,12 @@ export default function ProductsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ photo_url: data.url }),
       });
-      const patchData = patchRes.ok ? null : await patchRes.json().catch(() => ({}));
+      const patchData = await patchRes.json().catch(() => ({}));
       if (!patchRes.ok) {
         alert(patchData?.error || 'Photo uploaded but could not save. Try again.');
         return;
       }
+      setColours((prev) => prev.map((c) => (c.id === colourId ? { ...c, photo_url: data.url } : c)));
       refresh();
     } finally {
       setUploadingPhoto(null);
@@ -399,7 +401,7 @@ export default function ProductsPage() {
                     <div className="flex items-center gap-4 px-4 py-3">
                       <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-[var(--line)] bg-white">
                         {s.photo_url ? (
-                          <OptimizedProductImage src={s.photo_url} alt={s.style_name} fill sizes="48px" className="object-contain" />
+                          <OptimizedProductImage key={s.photo_url} src={s.photo_url} alt={s.style_name} fill sizes="48px" className="object-contain" />
                         ) : (
                           <div className="flex h-full items-center justify-center text-xs text-[var(--muted)]">No photo</div>
                         )}
@@ -494,7 +496,7 @@ export default function ProductsPage() {
                             <div key={c.id} className="flex items-start gap-4 rounded-lg border border-[var(--line)] bg-[var(--bg2)]/30 p-4">
                               <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border bg-[var(--bg2)]">
                                 {c.photo_url ? (
-                                  <OptimizedProductImage src={c.photo_url} alt={c.color_name} fill sizes="64px" className="object-cover" />
+                                  <OptimizedProductImage key={c.photo_url} src={c.photo_url} alt={c.color_name} fill sizes="64px" className="object-cover" />
                                 ) : (
                                   <div className="flex h-full items-center justify-center text-xs text-[var(--muted)]">No photo</div>
                                 )}

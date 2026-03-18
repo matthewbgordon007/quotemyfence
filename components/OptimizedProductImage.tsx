@@ -27,7 +27,7 @@ export function OptimizedProductImage({
     );
   }
 
-  const unopt = src.startsWith('blob:') || src.startsWith('data:');
+  const unopt = src.startsWith('blob:') || src.startsWith('data:') || src.includes('supabase.co/storage');
 
   if (fill) {
     return (
