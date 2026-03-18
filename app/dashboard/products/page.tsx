@@ -170,7 +170,7 @@ export default function ProductsPage() {
       const res = await fetch('/api/contractor/upload', { method: 'POST', body: fd });
       const data = await res.json();
       if (!res.ok || !data.url) {
-        alert(data.error || 'Upload failed. Use JPG, PNG, WebP or GIF (max 5MB).');
+        alert(data.error || 'Upload failed. Use JPG, PNG, WebP, GIF or HEIC (max 5MB).');
         return;
       }
       const patchRes = await fetch(`/api/contractor/product-hierarchy/styles/${styleId}`, {
@@ -199,7 +199,7 @@ export default function ProductsPage() {
       const res = await fetch('/api/contractor/upload', { method: 'POST', body: fd });
       const data = await res.json();
       if (!res.ok || !data.url) {
-        alert(data.error || 'Upload failed. Use JPG, PNG, WebP or GIF (max 5MB).');
+        alert(data.error || 'Upload failed. Use JPG, PNG, WebP, GIF or HEIC (max 5MB).');
         return;
       }
       const patchRes = await fetch(`/api/contractor/product-hierarchy/colours/${colourId}`, {
@@ -423,10 +423,10 @@ export default function ProductsPage() {
                                 </span>
                               )}
                               <label className={uploadingPhoto === `style-${s.id}` ? 'cursor-wait text-xs text-[var(--muted)]' : 'cursor-pointer text-xs text-[var(--accent)] hover:underline'}>
-                                {uploadingPhoto === `style-${s.id}` ? 'Uploading…' : 'Upload photo (JPG, PNG, WebP, GIF)'}
+                                {uploadingPhoto === `style-${s.id}` ? 'Uploading…' : 'Upload photo (JPG, PNG, WebP, GIF, HEIC)'}
                                 <input
                                   type="file"
-                                  accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                                  accept="image/jpeg,image/jpg,image/png,image/webp,image/gif,image/heic,image/heif"
                                   className="hidden"
                                   disabled={!!uploadingPhoto}
                                   onChange={(e) => {
@@ -506,10 +506,10 @@ export default function ProductsPage() {
                                 {isAdmin && (
                                   <div className="mt-1 flex gap-2">
                                     <label className={uploadingPhoto === `colour-${c.id}` ? 'cursor-wait text-xs text-[var(--muted)]' : 'cursor-pointer text-xs text-[var(--accent)] hover:underline'}>
-                                      {uploadingPhoto === `colour-${c.id}` ? 'Uploading…' : 'Upload photo (JPG, PNG, WebP, GIF)'}
+                                      {uploadingPhoto === `colour-${c.id}` ? 'Uploading…' : 'Upload photo (JPG, PNG, WebP, GIF, HEIC)'}
                                       <input
                                         type="file"
-                                        accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                                        accept="image/jpeg,image/jpg,image/png,image/webp,image/gif,image/heic,image/heif"
                                         className="hidden"
                                         disabled={!!uploadingPhoto}
                                         onChange={(e) => {

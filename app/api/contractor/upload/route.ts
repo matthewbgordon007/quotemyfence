@@ -56,17 +56,17 @@ export async function POST(request: NextRequest) {
 
     // Use extension as source of truth (server FormData can have empty/inconsistent file.type)
     const ext = (file.name.split('.').pop() || '').toLowerCase() || 'png';
-    const allowed = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    const allowed = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif'];
     const isPdf = ext === 'pdf' || file.type === 'application/pdf';
     if (isPdf) {
       return NextResponse.json(
-        { error: 'Product photos must be images (JPG, PNG, WebP or GIF). PDFs are not supported.' },
+        { error: 'Product photos must be images (JPG, PNG, WebP, GIF or HEIC). PDFs are not supported.' },
         { status: 400 }
       );
     }
     if (!allowed.includes(ext)) {
       return NextResponse.json(
-        { error: `Invalid file type. Use JPG, PNG, WebP or GIF (got .${ext || 'unknown'}).` },
+        { error: `Invalid file type. Use JPG, PNG, WebP, GIF or HEIC (got .${ext || 'unknown'}).` },
         { status: 400 }
       );
     }

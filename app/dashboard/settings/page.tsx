@@ -323,7 +323,7 @@ export default function SettingsPage() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/jpg,image/png,image/webp,image/gif,image/heic,image/heif"
                 className="hidden"
                 onChange={handleLogoUpload}
               />

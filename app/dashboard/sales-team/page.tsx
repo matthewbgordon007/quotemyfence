@@ -190,7 +190,7 @@ export default function SalesTeamPage() {
                     {photoUploading ? 'Uploading...' : 'Upload photo'}
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/jpeg,image/jpg,image/png,image/webp,image/gif,image/heic,image/heif"
                       className="hidden"
                       disabled={photoUploading}
                       onChange={(e) => {
