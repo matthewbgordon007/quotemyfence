@@ -11,10 +11,14 @@ async function getContractorId(supabase: Awaited<ReturnType<typeof createClient>
 async function canEditStyle(supabase: Awaited<ReturnType<typeof createClient>>, styleId: string, contractorId: string) {
   const { data: fs } = await supabase.from('fence_styles').select('fence_type_id').eq('id', styleId).single();
   if (!fs) return false;
-  const { data: ft } = await supabase.from('fence_types').select('height_id').eq('id', fs.fence_type_id).single();
+  const { data: ft } = await supabase.from('fence_types').select('height_id, contractor_id').eq('id', fs.fence_type_id).single();
   if (!ft) return false;
-  const { data: h } = await supabase.from('fence_heights').select('contractor_id').eq('id', ft.height_id).single();
-  return h?.contractor_id === contractorId;
+  if (ft.contractor_id && ft.contractor_id === contractorId) return true;
+  if (ft.height_id) {
+    const { data: h } = await supabase.from('fence_heights').select('contractor_id').eq('id', ft.height_id).single();
+    return h?.contractor_id === contractorId;
+  }
+  return false;
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -43,12 +47,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const contractorId = await getContractorId(supabase);
   if (!contractorId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { data: fs } = await supabase.from('fence_styles').select('fence_type_id').eq('id', id).single();
-  if (!fs) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  const { data: ft } = await supabase.from('fence_types').select('height_id').eq('id', fs.fence_type_id).single();
-  if (!ft) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  const { data: h } = await supabase.from('fence_heights').select('contractor_id').eq('id', ft.height_id).single();
-  if (!h || h.contractor_id !== contractorId) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  const allowed = await canEditStyle(supabase, id, contractorId);
+  if (!allowed) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const { error } = await supabase.from('fence_styles').delete().eq('id', id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
