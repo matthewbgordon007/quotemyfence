@@ -19,12 +19,12 @@ export function FAQAccordion({ items }: FAQAccordionProps) {
       {items.map((item, i) => (
         <div
           key={i}
-          className="overflow-hidden rounded-2xl border border-slate-700/60 bg-slate-700/30 transition-all duration-300 hover:border-blue-500/30"
+          className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 transition-all duration-300 hover:border-blue-200"
         >
           <button
             type="button"
             onClick={() => setOpenIndex(openIndex === i ? null : i)}
-            className="flex w-full items-center justify-between px-6 py-5 text-left font-heading text-lg font-bold text-white transition-colors hover:bg-slate-700/50"
+            className="flex w-full items-center justify-between px-6 py-5 text-left font-heading text-lg font-bold text-slate-900 transition-colors hover:bg-slate-100"
           >
             <span>{item.question}</span>
             <span
@@ -36,8 +36,8 @@ export function FAQAccordion({ items }: FAQAccordionProps) {
             </span>
           </button>
           {openIndex === i && (
-            <div className="border-t border-slate-700/60 px-6 py-5">
-              <p className="text-slate-400 leading-relaxed">{item.answer}</p>
+            <div className="border-t border-slate-200 px-6 py-5">
+              <p className="text-slate-600 leading-relaxed">{item.answer}</p>
             </div>
           )}
         </div>

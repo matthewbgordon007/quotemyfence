@@ -58,35 +58,28 @@ export default function BlogPage() {
   const [featured, ...rest] = blogPosts;
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-slate-950">
+    <div className="relative min-h-screen overflow-x-hidden bg-slate-100">
       <JsonLd data={blogListJsonLd} />
-      {/* Background gradient mesh */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950" />
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-100 via-slate-50 to-slate-100" />
         <div
-          className="absolute inset-0 opacity-30"
+          className="absolute inset-0 opacity-40"
           style={{
-            backgroundImage: `radial-gradient(at 40% 20%, rgba(59, 130, 246, 0.2) 0px, transparent 50%),
-              radial-gradient(at 80% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
-              radial-gradient(at 0% 80%, rgba(14, 165, 233, 0.1) 0px, transparent 50%)`,
+            backgroundImage: `radial-gradient(at 40% 20%, rgba(59, 130, 246, 0.08) 0px, transparent 50%),
+              radial-gradient(at 80% 0%, rgba(99, 102, 241, 0.06) 0px, transparent 50%),
+              radial-gradient(at 0% 80%, rgba(14, 165, 233, 0.05) 0px, transparent 50%)`,
           }}
         />
-        <div className="absolute inset-0 opacity-[0.03]" style={{
-          backgroundImage: `linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)`,
-          backgroundSize: '60px 60px',
-        }} />
       </div>
 
       <div className="w-full safe-area-x py-6 sm:px-8 lg:px-12 xl:px-16">
-        {/* Nav - mobile-friendly */}
-        <nav className="safe-area-t flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/60 bg-slate-900/80 px-4 py-3 backdrop-blur-xl sm:gap-4 sm:px-8 sm:py-4">
+        <nav className="safe-area-t flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-xl sm:gap-4 sm:px-8 sm:py-4">
           <Link href="/" className="flex shrink-0 items-center transition-opacity hover:opacity-90" aria-label="QuoteMyFence home">
             <img src="/quotemyfence-logo.png" alt="QuoteMyFence" className="h-10 w-auto sm:h-12" />
           </Link>
           <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-4">
-            <Link href="/blog" className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl px-3 py-2.5 text-sm font-semibold text-blue-400">Blog</Link>
-            <Link href="/login" className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-300 transition-colors hover:text-white">Member login</Link>
+            <Link href="/blog" className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl px-3 py-2.5 text-sm font-semibold text-blue-600">Blog</Link>
+            <Link href="/login" className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:text-slate-900">Member login</Link>
             <a href={SCHEDULE_CALL_URL} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition-all hover:bg-blue-500 sm:py-2.5">
               Book a call
             </a>
@@ -96,40 +89,36 @@ export default function BlogPage() {
           </div>
         </nav>
 
-        {/* Hero */}
         <header className="pt-12 pb-10 text-center sm:pt-24 sm:pb-12">
-          <span className="inline-block rounded-full border border-blue-500/40 bg-blue-500/10 px-4 py-1.5 text-sm font-semibold text-blue-400">
+          <span className="inline-block rounded-full border border-blue-200 bg-blue-50 px-4 py-1.5 text-sm font-semibold text-blue-600">
             Insights & tips
           </span>
-          <h1 className="mt-4 font-heading text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
-            The <span className="bg-gradient-to-r from-blue-400 via-blue-300 to-cyan-400 bg-clip-text text-transparent">QuoteMyFence</span> blog
+          <h1 className="mt-4 font-heading text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
+            The <span className="bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-600 bg-clip-text text-transparent">QuoteMyFence</span> blog
           </h1>
-          <p className="mx-auto mt-4 max-w-xl text-lg text-slate-400">
+          <p className="mx-auto mt-4 max-w-xl text-lg text-slate-600">
             Tips, guides, and insights for fence contractors. Quote faster. Win more leads. Scale smarter.
           </p>
         </header>
 
-        {/* Featured post */}
         <Link href={`/blog/${featured.slug}`} className="group block">
-          <article className="relative overflow-hidden rounded-2xl border border-slate-700/60 bg-gradient-to-br from-slate-800/90 to-slate-900/90 p-5 shadow-2xl backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-blue-500/40 hover:shadow-blue-500/10 hover:shadow-2xl sm:p-8 lg:p-12">
-            <div className="absolute right-0 top-0 h-64 w-64 translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-500/10 blur-3xl transition-all group-hover:bg-blue-500/20" />
-            <div className="absolute bottom-0 left-0 h-32 w-32 -translate-x-1/2 translate-y-1/2 rounded-full bg-cyan-500/5 blur-2xl" />
+          <article className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl sm:p-8 lg:p-12">
             <div className="relative">
-              <span className="inline-block rounded-lg bg-blue-500/20 px-3 py-1 text-xs font-bold uppercase tracking-wider text-blue-400">
+              <span className="inline-block rounded-lg bg-blue-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-blue-600">
                 Featured
               </span>
               <time className="mt-4 block text-sm text-slate-500" dateTime={featured.date}>
                 {formatDate(featured.date)}
               </time>
-              <h2 className="mt-2 font-heading text-2xl font-bold text-white transition-colors group-hover:text-blue-300 sm:text-3xl">
+              <h2 className="mt-2 font-heading text-2xl font-bold text-slate-900 transition-colors group-hover:text-blue-600 sm:text-3xl">
                 {featured.title}
               </h2>
-              <p className="mt-4 max-w-2xl text-slate-400 leading-relaxed">
+              <p className="mt-4 max-w-2xl text-slate-600 leading-relaxed">
                 {featured.excerpt}
               </p>
               <div className="mt-6 flex items-center gap-4">
                 <span className="text-sm text-slate-500">{featured.author}</span>
-                <span className="inline-flex items-center gap-2 text-sm font-semibold text-blue-400 transition-transform group-hover:translate-x-1">
+                <span className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 transition-transform group-hover:translate-x-1">
                   Read article
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
@@ -142,22 +131,21 @@ export default function BlogPage() {
 
         {/* Posts grid */}
         <div className="mt-12 sm:mt-16">
-          <h2 className="font-heading text-xl font-bold text-slate-300">More articles</h2>
+          <h2 className="font-heading text-xl font-bold text-slate-700">More articles</h2>
           <div className="mt-6 grid gap-4 sm:mt-8 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {rest.map((post) => (
               <Link key={post.slug} href={`/blog/${post.slug}`} className="group block">
-                <article className="relative h-full overflow-hidden rounded-2xl border border-slate-700/60 bg-slate-800/50 p-5 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-blue-500/30 hover:bg-slate-800/80 hover:shadow-xl hover:shadow-blue-500/5 sm:p-6">
-                  <div className="absolute right-0 top-0 h-24 w-24 translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-500/5 blur-2xl group-hover:bg-blue-500/10 transition-colors" />
+                <article className="relative h-full overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-lg sm:p-6">
                   <time className="text-sm text-slate-500" dateTime={post.date}>
                     {formatDate(post.date)}
                   </time>
-                  <h3 className="mt-3 font-heading text-lg font-bold text-white transition-colors group-hover:text-blue-300">
+                  <h3 className="mt-3 font-heading text-lg font-bold text-slate-900 transition-colors group-hover:text-blue-600">
                     {post.title}
                   </h3>
-                  <p className="mt-3 line-clamp-3 text-sm text-slate-400 leading-relaxed">
+                  <p className="mt-3 line-clamp-3 text-sm text-slate-600 leading-relaxed">
                     {post.excerpt}
                   </p>
-                  <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-blue-400 transition-transform group-hover:translate-x-1">
+                  <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-blue-600 transition-transform group-hover:translate-x-1">
                     Read more
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -169,35 +157,33 @@ export default function BlogPage() {
           </div>
         </div>
 
-        {/* CTA */}
-        <div className="mt-12 rounded-2xl border border-slate-700/60 bg-gradient-to-r from-blue-600/20 to-cyan-600/20 p-6 text-center backdrop-blur-sm sm:mt-24 sm:p-8 lg:p-12">
-          <p className="text-lg font-semibold text-white">Ready to quote fence jobs 3x faster?</p>
-          <p className="mt-2 text-slate-400">Try the demo and see the platform in action.</p>
+        <div className="mt-12 rounded-2xl border border-slate-200 bg-gradient-to-r from-blue-50 to-cyan-50 p-6 text-center shadow-sm sm:mt-24 sm:p-8 lg:p-12">
+          <p className="text-lg font-semibold text-slate-900">Ready to quote fence jobs 3x faster?</p>
+          <p className="mt-2 text-slate-600">Try the demo and see the platform in action.</p>
           <div className="mt-6 flex flex-wrap justify-center gap-4">
             <Link href={DEMO_URL} className="rounded-xl bg-blue-600 px-6 py-3 font-bold text-white transition-all hover:bg-blue-500">
               Try the demo
             </Link>
-            <Link href="/" className="rounded-xl border border-slate-600 px-6 py-3 font-semibold text-slate-300 transition-all hover:border-slate-500 hover:bg-slate-800/50 hover:text-white">
+            <Link href="/" className="rounded-xl border border-slate-300 px-6 py-3 font-semibold text-slate-700 transition-all hover:bg-slate-50 hover:text-slate-900">
               Back to home
             </Link>
           </div>
         </div>
 
-        {/* Footer */}
-        <footer className="safe-area-b mt-12 border-t border-slate-800 py-8 sm:mt-16">
+        <footer className="safe-area-b mt-12 border-t border-slate-200 bg-white/80 py-8 sm:mt-16">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <Link href="/" className="flex items-center opacity-80 transition-opacity hover:opacity-100">
               <img src="/quotemyfence-logo.png" alt="QuoteMyFence" className="h-8 w-auto" />
             </Link>
-            <div className="flex gap-6 text-sm text-slate-500">
-              <Link href="/" className="hover:text-slate-300">Home</Link>
-              <Link href="/blog" className="hover:text-slate-300">Blog</Link>
-              <Link href="/press" className="hover:text-slate-300">Press</Link>
-              <Link href="/partners" className="hover:text-slate-300">Partners</Link>
-              <Link href="/login" className="hover:text-slate-300">Log in</Link>
+            <div className="flex gap-6 text-sm text-slate-600">
+              <Link href="/" className="hover:text-slate-900">Home</Link>
+              <Link href="/blog" className="hover:text-slate-900">Blog</Link>
+              <Link href="/press" className="hover:text-slate-900">Press</Link>
+              <Link href="/partners" className="hover:text-slate-900">Partners</Link>
+              <Link href="/login" className="hover:text-slate-900">Log in</Link>
             </div>
           </div>
-          <p className="mt-6 text-sm text-slate-600">
+          <p className="mt-6 text-sm text-slate-500">
             © {new Date().getFullYear()} QuoteMyFence. All rights reserved.
           </p>
         </footer>
