@@ -7,7 +7,7 @@ import { FloatingScreenshot } from '@/components/FloatingScreenshot';
 import { FadeInScreenshot } from '@/components/FadeInScreenshot';
 import { RotatingScreenshots } from '@/components/RotatingScreenshots';
 import { JsonLd } from '@/components/JsonLd';
-import { HeroHighlightSection } from '@/components/HeroHighlightSection';
+import { DemoVideoTitle } from '@/components/DemoVideoTitle';
 import { SITE_URL, canonical, SEO_DEFAULTS } from '@/lib/seo';
 
 const SCHEDULE_CALL_URL = 'https://calendar.app.google/vuWD6xi7CfNptAon9';
@@ -228,13 +228,9 @@ export default function HomePage() {
           </div>
           <p className="mt-4 text-sm text-slate-500 sm:mt-5">No credit card. No commitment. See why contractors are switching—in 60 seconds.</p>
 
-          {/* Hero highlight - interactive buzzword section */}
-          <div className="mt-12 sm:mt-16 -mx-4 sm:-mx-8 lg:-mx-12 rounded-2xl overflow-hidden border border-slate-200/80 shadow-lg">
-            <HeroHighlightSection />
-          </div>
-
-          <div className="mx-auto mt-10 flex justify-center px-1 sm:mt-16 sm:px-2">
-            <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-2xl shadow-slate-200/50">
+          <div className="mx-auto mt-10 flex flex-col items-center justify-center px-1 sm:mt-16 sm:px-2">
+            <DemoVideoTitle />
+            <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-2xl shadow-slate-200/50 w-full max-w-6xl">
               <AutoplayOnViewVideo src="/videos/QuoteProcess.mp4" className="w-full max-w-6xl" />
             </div>
           </div>
