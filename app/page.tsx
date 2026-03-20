@@ -7,6 +7,7 @@ import { FloatingScreenshot } from '@/components/FloatingScreenshot';
 import { FadeInScreenshot } from '@/components/FadeInScreenshot';
 import { RotatingScreenshots } from '@/components/RotatingScreenshots';
 import { JsonLd } from '@/components/JsonLd';
+import { HeroHighlightSection } from '@/components/HeroHighlightSection';
 import { SITE_URL, canonical, SEO_DEFAULTS } from '@/lib/seo';
 
 const SCHEDULE_CALL_URL = 'https://calendar.app.google/vuWD6xi7CfNptAon9';
@@ -156,15 +157,27 @@ export default function HomePage() {
       <JsonLd data={websiteJsonLd} />
       <JsonLd data={softwareJsonLd} />
       <JsonLd data={faqJsonLd} />
-      {/* Background - soft gradient */}
+      {/* Background - soft gradient with blue streaks */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-slate-100 via-slate-50 to-slate-100" />
         <div
-          className="absolute inset-0 opacity-40"
+          className="absolute inset-0 opacity-60"
           style={{
-            backgroundImage: `radial-gradient(at 40% 20%, rgba(59, 130, 246, 0.08) 0px, transparent 50%),
-              radial-gradient(at 80% 0%, rgba(99, 102, 241, 0.06) 0px, transparent 50%),
-              radial-gradient(at 0% 80%, rgba(14, 165, 233, 0.05) 0px, transparent 50%)`,
+            backgroundImage: `
+              radial-gradient(at 20% 30%, rgba(59, 130, 246, 0.15) 0px, transparent 45%),
+              radial-gradient(at 80% 20%, rgba(99, 102, 241, 0.12) 0px, transparent 45%),
+              radial-gradient(at 0% 70%, rgba(14, 165, 233, 0.1) 0px, transparent 45%),
+              radial-gradient(at 60% 80%, rgba(37, 99, 235, 0.08) 0px, transparent 40%),
+              linear-gradient(135deg, transparent 0%, rgba(59, 130, 246, 0.04) 25%, transparent 50%),
+              linear-gradient(225deg, transparent 0%, rgba(99, 102, 241, 0.05) 25%, transparent 50%)
+            `,
+          }}
+        />
+        {/* Subtle blue streak accent */}
+        <div
+          className="absolute left-0 top-0 h-[500px] w-full opacity-40"
+          style={{
+            background: `linear-gradient(105deg, transparent 15%, rgba(59, 130, 246, 0.07) 35%, rgba(99, 102, 241, 0.05) 55%, transparent 75%)`,
           }}
         />
       </div>
@@ -214,6 +227,12 @@ export default function HomePage() {
             </a>
           </div>
           <p className="mt-4 text-sm text-slate-500 sm:mt-5">No credit card. No commitment. See why contractors are switching—in 60 seconds.</p>
+
+          {/* Hero highlight - interactive buzzword section */}
+          <div className="mt-12 sm:mt-16 -mx-4 sm:-mx-8 lg:-mx-12 rounded-2xl overflow-hidden border border-slate-200/80 shadow-lg">
+            <HeroHighlightSection />
+          </div>
+
           <div className="mx-auto mt-10 flex justify-center px-1 sm:mt-16 sm:px-2">
             <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-2xl shadow-slate-200/50">
               <AutoplayOnViewVideo src="/videos/QuoteProcess.mp4" className="w-full max-w-6xl" />
