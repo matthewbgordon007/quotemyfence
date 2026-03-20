@@ -103,6 +103,7 @@ export default function CalculatorPage() {
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
   const [selectedStyleId, setSelectedStyleId] = useState<string | null>(null);
   const [selectedColourId, setSelectedColourId] = useState<string | null>(null);
+  const [pricePerFtOverride, setPricePerFtOverride] = useState<number | null>(null);
   const [segments, setSegments] = useState<Segment[]>(() => JSON.parse(JSON.stringify(SEGMENTS)));
   const [extendAdd, setExtendAdd] = useState(EXTEND_ADD);
   const [singleGateQty, setSingleGateQty] = useState(0);
@@ -192,6 +193,7 @@ export default function CalculatorPage() {
             if (st.selectedTypeId) setSelectedTypeId(st.selectedTypeId);
             if (st.selectedStyleId) setSelectedStyleId(st.selectedStyleId);
             if (st.selectedColourId) setSelectedColourId(st.selectedColourId);
+            if (st.pricePerFtOverride != null) setPricePerFtOverride(st.pricePerFtOverride);
             if (st.segments) setSegments(st.segments);
             if (st.extendAdd) setExtendAdd(st.extendAdd);
             if (st.singleGateQty != null) setSingleGateQty(st.singleGateQty);
@@ -302,9 +304,10 @@ export default function CalculatorPage() {
     : null;
   const rule = styleRule ?? colourRule ?? null;
 
-  const pricePerFt = rule
+  const cataloguePricePerFt = rule
     ? (safeNum(rule.base_price_per_ft_low) + safeNum(rule.base_price_per_ft_high)) / 2 || 0
     : 0;
+  const pricePerFt = pricePerFtOverride != null ? pricePerFtOverride : cataloguePricePerFt;
   const singleGatePrice = rule
     ? (safeNum(rule.single_gate_low) + safeNum(rule.single_gate_high)) / 2 || 0
     : 0;
@@ -406,6 +409,7 @@ export default function CalculatorPage() {
   function resetCalculator() {
     setQuoteAddress('');
     setHomeownerName('');
+    setPricePerFtOverride(null);
     setCustomerSegments([]);
     setCustomerMapCenter(undefined);
     setSegmentAssignments({});
@@ -486,6 +490,7 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
       selectedTypeId,
       selectedStyleId,
       selectedColourId,
+      pricePerFtOverride,
       segments,
       extendAdd,
       singleGateQty,
@@ -624,6 +629,7 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                       setSelectedTypeId(id);
                       setSelectedStyleId(null);
                       setSelectedColourId(null);
+                      setPricePerFtOverride(null);
                       if (id) {
                         const tStyles = styles.filter((s) => s.fence_type_id === id);
                         const firstStyle = tStyles[0];
@@ -655,6 +661,7 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                         const id = e.target.value || null;
                         setSelectedStyleId(id);
                         setSelectedColourId(null);
+                        setPricePerFtOverride(null);
                         if (id) {
                           const sColours = colours.filter((c) => c.fence_style_id === id);
                           const styleHasRule = stylePricingRules.some((r) => r.fence_style_id === id);
@@ -677,7 +684,10 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                     <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">Colour</label>
                     <select
                       value={selectedColourId || ''}
-                      onChange={(e) => setSelectedColourId(e.target.value || null)}
+                      onChange={(e) => {
+                        setSelectedColourId(e.target.value || null);
+                        setPricePerFtOverride(null);
+                      }}
                       className="w-full rounded-xl border border-[var(--line)] px-3 py-2.5 text-base bg-white disabled:opacity-50"
                       disabled={!selectedStyleId}
                     >
@@ -688,6 +698,36 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                     </select>
                   </div>
                 </div>
+                {selectedColourId && (
+                  <div className="pt-2">
+                    <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">Price per ft (from catalogue • editable for this quote only)</label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[var(--muted)]">$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min={0}
+                        value={pricePerFt > 0 ? pricePerFt : ''}
+                        onChange={(e) => {
+                          const v = safeNum(e.target.value);
+                          setPricePerFtOverride(v > 0 ? v : null);
+                        }}
+                        placeholder={cataloguePricePerFt > 0 ? String(cataloguePricePerFt) : '—'}
+                        className="w-28 rounded-xl border border-[var(--line)] px-3 py-2.5 text-base font-medium"
+                      />
+                      <span className="text-xs text-[var(--muted)]">/ft</span>
+                      {pricePerFtOverride != null && (
+                        <button
+                          type="button"
+                          onClick={() => setPricePerFtOverride(null)}
+                          className="text-xs text-[var(--accent)] hover:underline"
+                        >
+                          Reset to catalogue
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
               
               <div className="space-y-4 pt-4 border-t border-[var(--line)]">
