@@ -24,6 +24,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `${post.title} | QuoteMyFence Blog`,
     description: post.excerpt,
+    keywords: [
+      'fence contractor tips',
+      'fence estimate software',
+      'fence lead generation',
+      ...post.title.toLowerCase().split(' ').filter((w) => w.length > 4).slice(0, 4),
+    ],
     openGraph: {
       ...SEO_DEFAULTS.openGraph,
       type: 'article',
@@ -34,6 +40,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       modifiedTime: post.date,
       authors: [post.author],
       siteName: SEO_DEFAULTS.openGraph.siteName,
+      section: 'Fence Contractor Insights',
+      tags: ['fence quoting', 'fence leads', 'contractor software'],
     },
     twitter: {
       ...SEO_DEFAULTS.twitter,

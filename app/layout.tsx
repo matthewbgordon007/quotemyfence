@@ -51,19 +51,27 @@ export const metadata: Metadata = {
       'The #1 fence estimate software. Turn tire-kickers into ready-to-buy leads. Instant quotes, satellite mapping, 24/7 lead capture. Trusted by fence contractors across Canada.',
     images: [
       {
-        url: '/quotemyfence-logo.png',
-        width: 512,
-        height: 512,
-        alt: 'QuoteMyFence - Fence estimate software for contractors',
+        url: '/QuoteMyFence.png',
+        width: 1200,
+        height: 630,
+        alt: 'QuoteMyFence fence estimate software',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
+    site: '@quotemyfence',
     title: 'QuoteMyFence | #1 Fence Estimate Software for Contractors',
     description:
       'Instant quotes, satellite mapping, 24/7 lead capture. Trusted by fence contractors across Canada. Try free.',
+    images: ['/QuoteMyFence.png'],
   },
+  alternates: {
+    canonical: '/',
+  },
+  authors: [{ name: 'QuoteMyFence Team', url: siteUrl }],
+  creator: 'QuoteMyFence',
+  publisher: 'QuoteMyFence',
   robots: { index: true, follow: true },
   manifest: '/manifest.json',
   appleWebApp: {

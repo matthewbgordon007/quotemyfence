@@ -8,8 +8,18 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: '*',
-        allow: ['/', '/blog', '/blog/', '/signup', '/estimate/'],
-        disallow: ['/dashboard', '/dashboard/', '/api', '/auth', '/master'],
+        allow: '/',
+        disallow: ['/dashboard', '/dashboard/', '/api', '/auth', '/master', '/login'],
+      },
+      {
+        userAgent: 'Googlebot',
+        allow: '/',
+        disallow: ['/dashboard', '/api', '/master', '/login'],
+      },
+      {
+        userAgent: 'Bingbot',
+        allow: '/',
+        disallow: ['/dashboard', '/api', '/master', '/login'],
       },
     ],
     sitemap: `${siteUrl}/sitemap.xml`,

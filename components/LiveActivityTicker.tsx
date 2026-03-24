@@ -2,16 +2,65 @@
 
 import { useEffect, useState } from 'react';
 
-const ITEMS = [
-  'New contractor from Ontario started a demo',
-  'Fence supplier in Alberta generated 14 leads this week',
-  'Landscaping team in BC booked 3 calls today',
-  'Contractor in Quebec published their quote page',
-  'Installer in Nova Scotia closed a same-day quote',
+const PROVINCES = [
+  'Ontario',
+  'Alberta',
+  'British Columbia',
+  'Quebec',
+  'Nova Scotia',
+  'Saskatchewan',
+  'Manitoba',
+  'New Brunswick',
+  'Newfoundland and Labrador',
+  'Prince Edward Island',
 ];
 
+const BUSINESS_TYPES = [
+  'Fence contractor',
+  'Fence installer',
+  'Landscaping company',
+  'Deck and fence crew',
+  'Outdoor renovation team',
+  'Material supplier',
+  'Property services company',
+  'General contractor',
+  'Residential fencing team',
+  'Commercial fencing team',
+];
+
+const ACTIONS = [
+  'started a live demo',
+  'published a branded quote page',
+  'booked a strategy call',
+  'sent a same-day quote',
+  'captured new homeowner leads',
+  'updated product pricing',
+  'added seasonal fence packages',
+  'launched a Google Business quote link',
+  'closed a high-intent lead',
+  'generated map-based fence estimates',
+];
+
+const TIME_WINDOWS = [
+  'in the last hour',
+  'today',
+  'this afternoon',
+  'this morning',
+  'this week',
+  'in the last 24 hours',
+];
+
+const ITEMS = PROVINCES.flatMap((province) =>
+  BUSINESS_TYPES.flatMap((businessType, idx) =>
+    ACTIONS.slice(0, 5).map((action, actionIdx) => {
+      const timeWindow = TIME_WINDOWS[(idx + actionIdx) % TIME_WINDOWS.length];
+      return `${businessType} in ${province} ${action} ${timeWindow}`;
+    })
+  )
+).slice(0, 120);
+
 export function LiveActivityTicker() {
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(() => Math.floor(Math.random() * ITEMS.length));
 
   useEffect(() => {
     const id = setInterval(() => setIndex((v) => (v + 1) % ITEMS.length), 3200);
