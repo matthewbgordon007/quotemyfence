@@ -1,6 +1,6 @@
 import { defaultCache } from "@serwist/next/worker";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { Serwist } from "serwist";
+import { NetworkOnly, Serwist } from "serwist";
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -15,7 +15,17 @@ const serwist = new Serwist({
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
-  runtimeCaching: defaultCache,
+  // Authenticated contractor APIs must never be served from the generic "apis" cache
+  // (stale GET responses revert client UI, e.g. sales team "receives leads").
+  runtimeCaching: [
+    {
+      matcher: ({ sameOrigin, url: { pathname } }) =>
+        sameOrigin && pathname.startsWith("/api/contractor/"),
+      method: "GET",
+      handler: new NetworkOnly({ networkTimeoutSeconds: 15 }),
+    },
+    ...defaultCache,
+  ],
 });
 
 serwist.addEventListeners();

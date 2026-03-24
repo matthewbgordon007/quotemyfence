@@ -33,7 +33,10 @@ export default function SalesTeamPage() {
   const [photoUploading, setPhotoUploading] = useState(false);
 
   function refresh() {
-    fetch('/api/contractor/sales-team')
+    fetch('/api/contractor/sales-team', {
+      credentials: 'include',
+      cache: 'no-store',
+    })
       .then((r) => r.json())
       .then((data) => setMembers(data.members || []))
       .finally(() => setLoading(false));
@@ -130,19 +133,35 @@ export default function SalesTeamPage() {
   }
 
   async function handleSetLeadRecipient(id: string, checked: boolean) {
-    // Optimistic update so checkbox responds immediately
+    const previous = members;
     setMembers((prev) =>
       prev.map((m) =>
         m.id === id ? { ...m, receives_leads: checked } : checked ? { ...m, receives_leads: false } : m
       )
     );
-    const res = await fetch(`/api/contractor/sales-team/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ receives_leads: checked }),
-    });
-    refresh(); // Sync with server (revert if PATCH failed)
+    try {
+      const res = await fetch(`/api/contractor/sales-team/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ receives_leads: checked }),
+      });
+      if (!res.ok) {
+        setMembers(previous);
+        return;
+      }
+      const updated = (await res.json()) as SalesTeamMember;
+      // Trust the PATCH response — a cached GET after this was reverting the checkbox.
+      setMembers((prev) =>
+        prev.map((m) => {
+          if (m.id === updated.id) return { ...m, ...updated };
+          if (checked && updated.receives_leads === true) return { ...m, receives_leads: false };
+          return m;
+        })
+      );
+    } catch {
+      setMembers(previous);
+    }
   }
 
   if (loading) {
