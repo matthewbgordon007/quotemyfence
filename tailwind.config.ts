@@ -22,11 +22,16 @@ const config: Config = {
           '33%': { transform: 'translate(30px, -30px) scale(1.1)' },
           '66%': { transform: 'translate(-20px, 20px) scale(0.95)' },
         },
+        marquee: {
+          '0%': { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-50%)' },
+        },
       },
       animation: {
         float: 'float 4s ease-in-out infinite',
         'fade-in-up': 'fade-in-up 0.7s ease-out forwards',
         blob: 'blob 8s ease-in-out infinite',
+        marquee: 'marquee 25s linear infinite',
       },
       fontFamily: {
         heading: ['var(--font-heading)', 'ui-sans-serif', 'system-ui', 'sans-serif'],

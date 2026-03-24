@@ -8,6 +8,13 @@ import { FadeInScreenshot } from '@/components/FadeInScreenshot';
 import { RotatingScreenshots } from '@/components/RotatingScreenshots';
 import { JsonLd } from '@/components/JsonLd';
 import { DemoVideoTitle } from '@/components/DemoVideoTitle';
+import { SiteNav } from '@/components/SiteNav';
+import { TrustBar } from '@/components/TrustBar';
+import { AnimatedCounter } from '@/components/AnimatedCounter';
+import { ScrollReveal } from '@/components/ScrollReveal';
+import { LogoMarquee } from '@/components/LogoMarquee';
+import { ComparisonBlock } from '@/components/ComparisonBlock';
+import { BackToTop } from '@/components/BackToTop';
 import { SITE_URL, canonical, SEO_DEFAULTS } from '@/lib/seo';
 
 const SCHEDULE_CALL_URL = 'https://calendar.app.google/vuWD6xi7CfNptAon9';
@@ -182,24 +189,9 @@ export default function HomePage() {
         />
       </div>
 
-      <div className="w-full safe-area-x py-6 sm:px-8 lg:px-12 xl:px-16">
-        {/* Nav - light theme */}
-        <nav className="safe-area-t flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-xl sm:gap-4 sm:px-8 sm:py-4">
-          <Link href="/" className="flex shrink-0 items-center transition-opacity hover:opacity-90" aria-label="QuoteMyFence home">
-            <img src="/quotemyfence-logo.png" alt="QuoteMyFence" className="h-10 w-auto sm:h-12" />
-          </Link>
-          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-4">
-            <Link href="/blog" className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl px-3 py-2.5 text-sm font-semibold text-blue-600">Blog</Link>
-            <Link href="/login" className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:text-slate-900">Member login</Link>
-            <a href={SCHEDULE_CALL_URL} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition-all hover:bg-blue-500 sm:py-2.5">
-              Book a call
-            </a>
-            <Link href="/signup" className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition-all hover:bg-blue-500 sm:py-2.5">
-              Limited-time: $199.99/mo
-            </Link>
-          </div>
-        </nav>
+      <SiteNav />
 
+      <div className="w-full safe-area-x pt-[73px] sm:pt-[77px] pb-6 sm:px-8 lg:px-12 xl:px-16">
         <main id="main-content">
         {/* Hero - more breathing room on mobile */}
         <section className="pt-12 text-center sm:pt-24 lg:pt-28" aria-labelledby="hero-heading">
@@ -227,6 +219,7 @@ export default function HomePage() {
             </a>
           </div>
           <p className="mt-4 text-sm text-slate-500 sm:mt-5">No credit card. No commitment. See why contractors are switching—in 60 seconds.</p>
+          <TrustBar />
 
           <div className="mx-auto mt-10 flex flex-col items-center justify-center px-1 sm:mt-16 sm:px-2">
             <DemoVideoTitle />
@@ -237,6 +230,7 @@ export default function HomePage() {
         </section>
 
         {/* Customer steps */}
+        <ScrollReveal>
         <section className="mt-12 rounded-2xl border border-slate-200 bg-white py-10 shadow-sm sm:mt-20 sm:py-16">
           <div className="px-5 sm:px-6 lg:px-8">
             <h2 className="text-center font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
@@ -261,8 +255,27 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+        </ScrollReveal>
+
+        {/* Old way vs new way comparison */}
+        <ScrollReveal delay={100}>
+          <section className="mt-12 rounded-2xl border border-slate-200 bg-white py-10 shadow-sm sm:mt-20 sm:py-16">
+            <div className="px-5 sm:px-6 lg:px-8">
+              <h2 className="text-center font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+                Stop guessing. Start closing.
+              </h2>
+              <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">
+                See the difference between the old way and the QuoteMyFence way.
+              </p>
+              <div className="mt-10">
+                <ComparisonBlock />
+              </div>
+            </div>
+          </section>
+        </ScrollReveal>
 
         {/* Quote calculator */}
+        <ScrollReveal>
         <section className="mt-12 rounded-2xl border border-slate-200 bg-white py-10 shadow-sm sm:mt-20 sm:py-16">
           <div className="px-5 sm:px-6 lg:px-8">
             <h2 className="text-center font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
@@ -284,23 +297,44 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+        </ScrollReveal>
+
+        {/* Logo marquee - who uses us */}
+        <ScrollReveal>
+          <section className="mt-12 overflow-hidden rounded-2xl border border-slate-200 bg-white/80 sm:mt-20">
+            <p className="pt-6 text-center text-sm font-medium text-slate-500">Trusted by fence professionals across Canada</p>
+            <LogoMarquee />
+          </section>
+        </ScrollReveal>
 
         {/* Stats */}
-        <section className="mt-12 grid grid-cols-2 gap-3 sm:mt-20 sm:gap-4 sm:grid-cols-4">
-          {[
-            { label: 'Contractors growing', value: '100+' },
-            { label: 'Quotes generated', value: '10K+' },
-            { label: 'Service area', value: 'Global' },
-            { label: '24/7', value: 'Lead engine' },
-          ].map((stat) => (
-            <div key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm transition-all hover:-translate-y-1 hover:border-blue-200 sm:p-6">
-              <p className="text-2xl font-extrabold text-slate-900 sm:text-3xl">{stat.value}</p>
-              <p className="mt-1 text-sm font-medium text-slate-600">{stat.label}</p>
+        <ScrollReveal>
+          <section className="mt-12 grid grid-cols-2 gap-3 sm:mt-20 sm:gap-4 sm:grid-cols-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm transition-all hover:-translate-y-1 hover:border-blue-200 sm:p-6">
+              <p className="text-2xl font-extrabold text-slate-900 sm:text-3xl">
+                <AnimatedCounter value={100} suffix="+" />
+              </p>
+              <p className="mt-1 text-sm font-medium text-slate-600">Contractors growing</p>
             </div>
-          ))}
-        </section>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm transition-all hover:-translate-y-1 hover:border-blue-200 sm:p-6">
+              <p className="text-2xl font-extrabold text-slate-900 sm:text-3xl">
+                <AnimatedCounter value={10} suffix="K+" />
+              </p>
+              <p className="mt-1 text-sm font-medium text-slate-600">Quotes generated</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm transition-all hover:-translate-y-1 hover:border-blue-200 sm:p-6">
+              <p className="text-2xl font-extrabold text-slate-900 sm:text-3xl">Global</p>
+              <p className="mt-1 text-sm font-medium text-slate-600">Service area</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm transition-all hover:-translate-y-1 hover:border-blue-200 sm:p-6">
+              <p className="text-2xl font-extrabold text-slate-900 sm:text-3xl">24/7</p>
+              <p className="mt-1 text-sm font-medium text-slate-600">Lead engine</p>
+            </div>
+          </section>
+        </ScrollReveal>
 
         {/* Floating screenshot strip */}
+        <ScrollReveal delay={100}>
         <section className="mt-12 flex flex-wrap items-center justify-center gap-4 rounded-2xl border border-slate-200 bg-white py-6 shadow-sm sm:mt-20 sm:gap-6 sm:py-8">
           <div className="flex w-full flex-wrap items-center justify-center gap-4 px-5 sm:gap-6 sm:px-4">
             <FloatingScreenshot src="/images/screenshots/app-02.png" alt="Contact form" delay={0} />
@@ -308,8 +342,10 @@ export default function HomePage() {
             <FloatingScreenshot src="/images/screenshots/app-13.png" alt="Thank you" delay={400} />
           </div>
         </section>
+        </ScrollReveal>
 
         {/* Features */}
+        <ScrollReveal>
         <section className="mt-12 rounded-2xl border border-slate-200 bg-white py-10 shadow-sm sm:mt-20 sm:py-16">
           <div className="px-5 sm:px-6 lg:px-8">
             <h2 className="text-center font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
@@ -328,8 +364,10 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+        </ScrollReveal>
 
         {/* Product preview */}
+        <ScrollReveal delay={100}>
         <section className="mt-12 rounded-2xl border border-slate-200 bg-white py-10 shadow-sm sm:mt-20 sm:py-16">
           <div className="px-5 sm:px-6 lg:px-8">
             <h2 className="text-center font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
@@ -363,8 +401,10 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+        </ScrollReveal>
 
         {/* How it works - contractors */}
+        <ScrollReveal>
         <section className="relative mt-12 rounded-2xl border border-slate-200 bg-white py-10 shadow-sm sm:mt-20 sm:py-16">
           <div className="px-5 sm:px-6 lg:px-8">
             <h2 className="text-center font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
@@ -392,8 +432,10 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+        </ScrollReveal>
 
         {/* Testimonials */}
+        <ScrollReveal delay={100}>
         <section className="mt-12 rounded-2xl border border-slate-200 bg-white py-10 shadow-sm sm:mt-20 sm:py-16">
           <div className="px-5 sm:px-6 lg:px-8">
             <h2 className="text-center font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
@@ -418,6 +460,7 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+        </ScrollReveal>
 
         {/* Contractor CTA */}
         <section className="mt-12 rounded-2xl border border-slate-200 bg-gradient-to-r from-blue-50 to-cyan-50 py-10 shadow-sm sm:mt-20 sm:py-16">
@@ -530,6 +573,7 @@ export default function HomePage() {
         </footer>
         </main>
       </div>
+      <BackToTop />
     </div>
   );
 }
