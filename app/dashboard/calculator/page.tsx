@@ -2,11 +2,20 @@
 
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
+
+const field =
+  'rounded-xl border border-slate-200/90 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20';
 
 const FenceDrawingMap = dynamic(
   () => import('@/components/FenceDrawingMap').then((m) => ({ default: m.FenceDrawingMap })),
-  { ssr: false, loading: () => <div className="min-h-[200px] animate-pulse rounded-lg border border-[var(--line)] bg-[var(--bg2)]" /> }
+  {
+    ssr: false,
+    loading: () => (
+      <div className="min-h-[220px] animate-pulse rounded-xl border border-slate-200/80 bg-slate-100/80" />
+    ),
+  }
 );
 
 type ProductOption = {
@@ -126,8 +135,8 @@ export default function CalculatorPage() {
     async function load() {
       try {
         const [productsRes, hierarchyRes] = await Promise.all([
-          fetch('/api/contractor/products'),
-          fetch('/api/contractor/product-hierarchy'),
+          fetch('/api/contractor/products', { cache: 'no-store' }),
+          fetch('/api/contractor/product-hierarchy', { cache: 'no-store' }),
         ]);
         const productsData = productsRes.ok ? await productsRes.json() : {};
         const hierarchyData = hierarchyRes.ok ? await hierarchyRes.json() : {};
@@ -561,67 +570,106 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
 
   if (loading) {
     return (
-      <div className="text-[var(--muted)]">Loading products…</div>
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 pb-8">
+        <div className="h-8 w-72 animate-pulse rounded-lg bg-slate-200/80" />
+        <div className="h-4 max-w-xl animate-pulse rounded bg-slate-200/60" />
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(300px,380px)]">
+          <div className="space-y-4">
+            <div className="h-80 animate-pulse rounded-2xl bg-slate-200/70" />
+            <div className="h-96 animate-pulse rounded-2xl bg-slate-200/50" />
+          </div>
+          <div className="h-72 animate-pulse rounded-2xl bg-slate-200/60" />
+        </div>
+      </div>
     );
   }
 
   if (!hasHierarchyOptions) {
     return (
-      <div className="rounded-xl border border-[var(--line)] bg-white p-6">
-        <h2 className="text-lg font-bold">Quote Calculator</h2>
-        <p className="mt-2 text-[var(--muted)]">
-          Add fence types, styles, and colours with pricing in{' '}
-          <a href="/dashboard/products" className="text-[var(--accent)] underline">
-            Products
-          </a>{' '}
-          to use the calculator.
+      <div className="mx-auto max-w-lg rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-8 py-12 text-center">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Quote calculator</p>
+        <h2 className="mt-2 text-xl font-bold tracking-tight text-slate-900">Set up products first</h2>
+        <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-slate-600">
+          Add fence types, styles, and colours with pricing in Products, then return here to price jobs.
         </p>
+        <Link
+          href="/dashboard/products"
+          className="mt-8 inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-500"
+        >
+          Go to Products
+        </Link>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold">Quote Calculator</h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          Build quotes from your product catalog. Enter lengths in meters or feet.
-        </p>
+    <div className="mx-auto w-full max-w-6xl space-y-8 pb-8">
+      <div className="flex flex-col gap-6 border-b border-slate-200/80 pb-8 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-sm font-medium text-slate-500">Sales tools</p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Quote calculator</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
+            Build quotes from your catalog. Enter lengths in meters or feet, map customer drawing lines to sides when
+            available, then copy or save.
+          </p>
+          {fromCustomerId && (
+            <Link
+              href={`/dashboard/customers/${fromCustomerId}`}
+              className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-blue-600 transition hover:text-blue-500"
+            >
+              <span aria-hidden>←</span> Back to this lead
+            </Link>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/dashboard/products"
+            className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+          >
+            Products
+          </Link>
+          <Link
+            href="/dashboard/customers"
+            className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+          >
+            Leads
+          </Link>
+        </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="space-y-4">
-          <div className="rounded-xl border border-[var(--line)] bg-white shadow-sm overflow-hidden">
-            <div className="border-b border-[var(--line)] bg-[var(--bg2)] px-4 py-3">
-              <h2 className="font-semibold">Quote setup</h2>
-              <p className="text-xs text-[var(--muted)]">Homeowner • Address • Type • Style • Colour • Gates • Tax</p>
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(300px,380px)] lg:items-start">
+        <div className="space-y-6">
+          <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+            <div className="border-b border-slate-100 bg-slate-50/90 px-5 py-4">
+              <h2 className="text-base font-semibold text-slate-900">Quote setup</h2>
+              <p className="mt-0.5 text-xs text-slate-500">Homeowner • Address • Product • Gates • Tax</p>
             </div>
-            <div className="p-4 space-y-5">
+            <div className="space-y-6 p-5 sm:p-6">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">Homeowner name</label>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">Homeowner name</label>
                   <input
                     type="text"
                     value={homeownerName}
                     onChange={(e) => setHomeownerName(e.target.value)}
                     placeholder="e.g., John Smith"
-                    className="w-full rounded-xl border border-[var(--line)] px-3 py-2.5 text-base"
+                    className={field}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">Address / location</label>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">Address / location</label>
                   <input
                     type="text"
                     value={quoteAddress}
                     onChange={(e) => setQuoteAddress(e.target.value)}
                     placeholder="e.g., 113 Ocala Street"
-                    className="w-full rounded-xl border border-[var(--line)] px-3 py-2.5 text-base"
+                    className={field}
                   />
                 </div>
               </div>
-              <div className="space-y-4 pt-4 border-t border-[var(--line)]">
+              <div className="space-y-4 border-t border-slate-100 pt-6">
                 <div>
-                  <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">Fence Type</label>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">Fence type</label>
                   <select
                     value={selectedTypeId || ''}
                     onChange={(e) => {
@@ -644,7 +692,7 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                         }
                       }
                     }}
-                    className="w-full rounded-xl border border-[var(--line)] px-3 py-2.5 text-base bg-white"
+                    className={field}
                   >
                     <option value="">Select type</option>
                     {types.map((t) => (
@@ -652,9 +700,9 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                     ))}
                   </select>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">Style</label>
+                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Style</label>
                     <select
                       value={selectedStyleId || ''}
                       onChange={(e) => {
@@ -671,7 +719,7 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                           if (firstWithRule) setSelectedColourId(firstWithRule.id);
                         }
                       }}
-                      className="w-full rounded-xl border border-[var(--line)] px-3 py-2.5 text-base bg-white disabled:opacity-50"
+                      className={`${field} disabled:cursor-not-allowed disabled:opacity-50`}
                       disabled={!selectedTypeId}
                     >
                       <option value="">Select style</option>
@@ -681,14 +729,14 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">Colour</label>
+                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Colour</label>
                     <select
                       value={selectedColourId || ''}
                       onChange={(e) => {
                         setSelectedColourId(e.target.value || null);
                         setPricePerFtOverride(null);
                       }}
-                      className="w-full rounded-xl border border-[var(--line)] px-3 py-2.5 text-base bg-white disabled:opacity-50"
+                      className={`${field} disabled:cursor-not-allowed disabled:opacity-50`}
                       disabled={!selectedStyleId}
                     >
                       <option value="">Select colour</option>
@@ -699,10 +747,12 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                   </div>
                 </div>
                 {selectedColourId && (
-                  <div className="pt-2">
-                    <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">Price per ft (from catalogue • editable for this quote only)</label>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[var(--muted)]">$</span>
+                  <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-4">
+                    <label className="mb-2 block text-sm font-medium text-slate-700">
+                      Price per ft <span className="font-normal text-slate-500">(catalogue default — editable for this quote only)</span>
+                    </label>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-slate-600">$</span>
                       <input
                         type="number"
                         step="0.01"
@@ -713,14 +763,14 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                           setPricePerFtOverride(v > 0 ? v : null);
                         }}
                         placeholder={cataloguePricePerFt > 0 ? String(cataloguePricePerFt) : '—'}
-                        className="w-28 rounded-xl border border-[var(--line)] px-3 py-2.5 text-base font-medium"
+                        className="w-32 rounded-xl border border-slate-200/90 bg-white px-3 py-2.5 text-sm font-semibold tabular-nums text-slate-900 shadow-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
                       />
-                      <span className="text-xs text-[var(--muted)]">/ft</span>
+                      <span className="text-xs text-slate-500">/ ft</span>
                       {pricePerFtOverride != null && (
                         <button
                           type="button"
                           onClick={() => setPricePerFtOverride(null)}
-                          className="text-xs text-[var(--accent)] hover:underline"
+                          className="text-xs font-semibold text-blue-600 hover:text-blue-500 hover:underline"
                         >
                           Reset to catalogue
                         </button>
@@ -729,35 +779,35 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                   </div>
                 )}
               </div>
-              
-              <div className="space-y-4 pt-4 border-t border-[var(--line)]">
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+
+              <div className="space-y-4 border-t border-slate-100 pt-6">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                   <div>
-                    <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">Single gates</label>
+                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Single gates</label>
                     <input
                       type="number"
                       min={0}
                       value={singleGateQty}
                       onChange={(e) => setSingleGateQty(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                      className="w-full rounded-xl border border-[var(--line)] px-3 py-2.5 text-base"
+                      className={field}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">Double gates</label>
+                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Double gates</label>
                     <input
                       type="number"
                       min={0}
                       value={doubleGateQty}
                       onChange={(e) => setDoubleGateQty(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                      className="w-full rounded-xl border border-[var(--line)] px-3 py-2.5 text-base"
+                      className={field}
                     />
                   </div>
                   <div className="col-span-2 sm:col-span-1">
-                    <label className="block text-sm font-medium text-[var(--muted)] mb-1.5">Gate side</label>
+                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Gate side</label>
                     <select
                       value={gateSideKey}
                       onChange={(e) => setGateSideKey(e.target.value)}
-                      className="w-full rounded-xl border border-[var(--line)] px-3 py-2.5 text-base bg-white"
+                      className={field}
                     >
                       {segments.map((s) => (
                         <option key={s.key} value={s.key}>{s.name}</option>
@@ -767,59 +817,83 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                 </div>
               </div>
 
-              <div className="space-y-4 pt-4 border-t border-[var(--line)]">
-                <div className="flex flex-wrap items-center gap-4">
-                  <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--bg2)] px-4 py-3 text-base font-medium hover:bg-[var(--line)] transition-colors flex-1 min-w-[140px]">
+              <div className="space-y-4 border-t border-slate-100 pt-6">
+                <div className="flex flex-wrap gap-3">
+                  <label className="flex min-w-[140px] flex-1 cursor-pointer items-center gap-3 rounded-xl border border-slate-200/90 bg-white px-4 py-3 text-sm font-medium text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50">
                     <input
                       type="checkbox"
                       checked={hasRemoval}
                       onChange={(e) => setHasRemoval(e.target.checked)}
-                      className="h-5 w-5 rounded border-[var(--line)] text-[var(--accent)]"
+                      className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500/30"
                     />
                     <span>Removal</span>
                   </label>
-                  <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--bg2)] px-4 py-3 text-base font-medium hover:bg-[var(--line)] transition-colors flex-1 min-w-[140px]">
+                  <label className="flex min-w-[140px] flex-1 cursor-pointer items-center gap-3 rounded-xl border border-slate-200/90 bg-white px-4 py-3 text-sm font-medium text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50">
                     <input
                       type="checkbox"
                       checked={applyTax}
                       onChange={(e) => setApplyTax(e.target.checked)}
-                      className="h-5 w-5 rounded border-[var(--line)] text-[var(--accent)]"
+                      className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500/30"
                     />
-                    <span>Tax ({taxRate}%)</span>
+                    <span>Apply tax</span>
                   </label>
                 </div>
-                <div className="flex items-center justify-between gap-4 p-3 bg-[var(--bg2)] rounded-xl border border-[var(--line)]">
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium">Extend Add</span>
-                    <span className="text-xs text-[var(--muted)]">Feet added when extending lines</span>
+                {applyTax && (
+                  <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/90 px-4 py-3">
+                    <label htmlFor="tax-rate" className="text-sm font-medium text-slate-700">
+                      Tax rate (%)
+                    </label>
+                    <input
+                      id="tax-rate"
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.5}
+                      value={taxRate}
+                      onChange={(e) => setTaxRate(Math.min(100, Math.max(0, safeNum(e.target.value))))}
+                      className="w-24 rounded-lg border border-slate-200/90 bg-white px-3 py-2 text-sm font-semibold tabular-nums text-slate-900 shadow-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+                )}
+                <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-100 bg-slate-50/90 p-4">
+                  <div className="flex min-w-0 flex-col">
+                    <span className="text-sm font-semibold text-slate-900">Extend add</span>
+                    <span className="text-xs text-slate-500">Extra feet when a segment uses &quot;Extend&quot;</span>
                   </div>
                   <input
                     type="number"
                     step="0.1"
                     value={extendAdd}
                     onChange={(e) => setExtendAdd(safeNum(e.target.value) || EXTEND_ADD)}
-                    className="w-20 rounded-lg border border-[var(--line)] px-3 py-1.5 text-base text-center"
+                    className="w-24 shrink-0 rounded-lg border border-slate-200/90 bg-white px-3 py-2 text-center text-sm font-medium tabular-nums text-slate-900 shadow-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="rounded-xl border border-[var(--line)] bg-white shadow-sm overflow-hidden">
-            <div className="border-b border-[var(--line)] bg-[var(--bg2)] px-4 py-3">
-              <h2 className="font-semibold">Segments</h2>
-              <p className="text-xs text-[var(--muted)]">Enter meters or feet • Extend • Shared (50%)</p>
+          <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+            <div className="border-b border-slate-100 bg-slate-50/90 px-5 py-4">
+              <h2 className="text-base font-semibold text-slate-900">Segments</h2>
+              <p className="mt-0.5 text-xs text-slate-500">Meters or feet • Extend • Shared fence (50%)</p>
             </div>
             {customerSegments.length > 0 && customerMapCenter && (
-              <div className="p-4 border-b border-[var(--line)]">
-                <p className="text-xs font-medium text-[var(--muted)] mb-2">Customer&apos;s drawing — use the numbered lines below to assign each to the correct side (LHS, Back, RHS, etc.)</p>
-                <FenceDrawingMap segments={customerSegments} gates={customerGates} center={customerMapCenter} className="min-h-[200px] rounded-lg overflow-hidden" />
+              <div className="border-b border-slate-100 p-5">
+                <p className="mb-3 text-xs font-medium leading-relaxed text-slate-600">
+                  Customer drawing — assign each numbered line to the correct side (LHS, back, RHS, etc.).
+                </p>
+                <FenceDrawingMap
+                  segments={customerSegments}
+                  gates={customerGates}
+                  center={customerMapCenter}
+                  className="min-h-[220px] overflow-hidden rounded-xl border border-slate-200/80"
+                />
               </div>
             )}
-            <div className="hidden md:block overflow-x-auto">
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-[var(--line)] bg-[var(--bg2)]">
+                  <tr className="border-b border-slate-200/80 bg-slate-50/90">
                     <th className="px-3 py-2 text-left font-medium">Segment</th>
                     {customerSegments.length > 0 && (
                       <th className="px-3 py-2 text-left font-medium">From line</th>
@@ -834,24 +908,24 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                 </thead>
                 <tbody>
                   {segments.map((seg, idx) => (
-                    <tr key={seg.key} className="border-b border-[var(--line)] hover:bg-[var(--bg2)]/50 transition-colors">
-                      <td className="px-3 py-2">
+                    <tr key={seg.key} className="border-b border-slate-100 transition-colors hover:bg-slate-50/80">
+                      <td className="px-3 py-2.5">
                         <input
                           type="text"
                           value={seg.name}
                           onChange={(e) => updateSegment(idx, { name: e.target.value })}
-                          className="w-32 rounded border border-[var(--line)] px-2 py-1.5 text-sm font-medium bg-transparent focus:bg-white transition-colors"
+                          className="w-36 rounded-lg border border-slate-200/90 bg-white px-2 py-1.5 text-sm font-medium text-slate-900 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-500/25"
                         />
                       </td>
                       {customerSegments.length > 0 && (
-                        <td className="px-3 py-2">
+                        <td className="px-3 py-2.5">
                           <select
                             value={segmentAssignments[seg.key] != null ? String(segmentAssignments[seg.key]) : ''}
                             onChange={(e) => {
                               const v = e.target.value;
                               assignLineToSegment(seg.key, idx, v === '' ? null : parseInt(v, 10));
                             }}
-                            className="rounded border border-[var(--line)] px-2 py-1 text-xs w-full max-w-[140px] bg-transparent"
+                            className="w-full max-w-[150px] rounded-lg border border-slate-200/90 bg-white px-2 py-1.5 text-xs font-medium text-slate-800 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-500/25"
                           >
                             <option value="">—</option>
                             {customerSegments.map((cs, i) => (
@@ -862,41 +936,41 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                           </select>
                         </td>
                       )}
-                      <td className="px-3 py-2 text-right">
+                      <td className="px-3 py-2.5 text-right">
                         <input
                           type="number"
                           step="0.01"
                           min={0}
                           value={seg.meters || ''}
                           onChange={(e) => syncFromMeters(idx, safeNum(e.target.value))}
-                          className="w-24 rounded border border-[var(--line)] px-2 py-1 text-right"
+                          className="w-24 rounded-lg border border-slate-200/90 bg-white px-2 py-1.5 text-right text-sm tabular-nums outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-500/25"
                         />
                       </td>
-                      <td className="px-3 py-2 text-right">
+                      <td className="px-3 py-2.5 text-right">
                         <input
                           type="number"
                           step="0.01"
                           min={0}
                           value={seg.feet || ''}
                           onChange={(e) => syncFromFeet(idx, safeNum(e.target.value))}
-                          className="w-24 rounded border border-[var(--line)] px-2 py-1 text-right"
+                          className="w-24 rounded-lg border border-slate-200/90 bg-white px-2 py-1.5 text-right text-sm tabular-nums outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-500/25"
                         />
                       </td>
-                      <td className="px-3 py-2 text-center">
+                      <td className="px-3 py-2.5 text-center">
                         <input
                           type="checkbox"
                           checked={seg.extend}
                           onChange={(e) => updateSegment(idx, { extend: e.target.checked })}
-                          className="rounded border-[var(--line)] text-[var(--accent)]"
+                          className="h-4 w-4 rounded border-slate-300 text-blue-600"
                         />
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2.5">
                         <div className="flex items-center gap-2">
                           <input
                             type="checkbox"
                             checked={seg.shared}
                             onChange={(e) => updateSegment(idx, { shared: e.target.checked })}
-                            className="rounded border-[var(--line)] text-[var(--accent)]"
+                            className="h-4 w-4 rounded border-slate-300 text-blue-600"
                           />
                           {seg.shared && (
                             <input
@@ -904,19 +978,19 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                               placeholder="Neighbour"
                               value={seg.sharedWith}
                               onChange={(e) => updateSegment(idx, { sharedWith: e.target.value })}
-                              className="flex-1 min-w-0 rounded border border-[var(--line)] px-2 py-1 text-xs"
+                              className="min-w-0 flex-1 rounded-lg border border-slate-200/90 bg-white px-2 py-1 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-500/25"
                             />
                           )}
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-right font-medium">
+                      <td className="px-3 py-2.5 text-right text-sm font-semibold tabular-nums text-slate-900">
                         {moneyCAD(segmentCosts[seg.key] ?? 0)}
                       </td>
-                      <td className="px-3 py-2 text-center">
+                      <td className="px-3 py-2.5 text-center">
                         <button
                           type="button"
                           onClick={() => removeSegment(idx)}
-                          className="text-red-500 hover:bg-red-50 p-1.5 rounded transition-colors"
+                          className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
                           title="Remove line"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
@@ -930,20 +1004,22 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
 
             <div className="flex flex-col md:hidden">
               {segments.map((seg, idx) => (
-                <div key={seg.key} className="border-b border-[var(--line)] p-4 space-y-3">
-                  <div className="flex justify-between items-center font-bold text-[var(--text)]">
+                <div key={seg.key} className="space-y-4 border-b border-slate-100 p-5 last:border-b-0">
+                  <div className="flex items-center justify-between gap-3">
                     <input
                       type="text"
                       value={seg.name}
                       onChange={(e) => updateSegment(idx, { name: e.target.value })}
-                      className="w-1/2 rounded border-b border-transparent focus:border-[var(--line)] focus:bg-[var(--bg2)] px-1 py-0.5 text-base font-bold bg-transparent transition-colors outline-none"
+                      className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-base font-bold text-slate-900 outline-none transition-colors focus:border-slate-200 focus:bg-slate-50"
                     />
-                    <div className="flex items-center gap-3">
-                      <span className="text-lg">{moneyCAD(segmentCosts[seg.key] ?? 0)}</span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="text-base font-bold tabular-nums text-slate-900">
+                        {moneyCAD(segmentCosts[seg.key] ?? 0)}
+                      </span>
                       <button
                         type="button"
                         onClick={() => removeSegment(idx)}
-                        className="text-red-500 bg-red-50 rounded p-1.5"
+                        className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
                         title="Remove line"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
@@ -952,15 +1028,15 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                   </div>
                   
                   {customerSegments.length > 0 && (
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-[var(--muted)] font-medium">Assign line</span>
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="font-medium text-slate-600">Assign line</span>
                       <select
                         value={segmentAssignments[seg.key] != null ? String(segmentAssignments[seg.key]) : ''}
                         onChange={(e) => {
                           const v = e.target.value;
                           assignLineToSegment(seg.key, idx, v === '' ? null : parseInt(v, 10));
                         }}
-                        className="rounded-lg border border-[var(--line)] px-2 py-1.5 text-sm bg-[var(--bg2)] max-w-[160px]"
+                        className="max-w-[180px] rounded-xl border border-slate-200/90 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
                       >
                         <option value="">—</option>
                         {customerSegments.map((cs, i) => (
@@ -974,77 +1050,79 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-medium text-[var(--muted)] mb-1">Meters</label>
+                      <label className="mb-1 block text-xs font-medium text-slate-600">Meters</label>
                       <input
                         type="number"
                         step="0.01"
                         min={0}
                         value={seg.meters || ''}
                         onChange={(e) => syncFromMeters(idx, safeNum(e.target.value))}
-                        className="w-full rounded-xl border border-[var(--line)] px-3 py-2 text-base font-medium"
+                        className={field}
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-[var(--muted)] mb-1">Feet</label>
+                      <label className="mb-1 block text-xs font-medium text-slate-600">Feet</label>
                       <input
                         type="number"
                         step="0.01"
                         min={0}
                         value={seg.feet || ''}
                         onChange={(e) => syncFromFeet(idx, safeNum(e.target.value))}
-                        className="w-full rounded-xl border border-[var(--line)] px-3 py-2 text-base font-medium"
+                        className={field}
                       />
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-4 pt-1">
-                    <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--bg2)] px-3 py-2 text-sm font-medium hover:bg-[var(--line)] transition-colors">
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200/90 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50">
                       <input
                         type="checkbox"
                         checked={seg.extend}
                         onChange={(e) => updateSegment(idx, { extend: e.target.checked })}
-                        className="h-4 w-4 rounded border-[var(--line)] text-[var(--accent)]"
+                        className="h-4 w-4 rounded border-slate-300 text-blue-600"
                       />
-                      <span>Extend (+{extendAdd}ft)</span>
+                      <span>Extend (+{extendAdd} ft)</span>
                     </label>
-                    <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--bg2)] px-3 py-2 text-sm font-medium hover:bg-[var(--line)] transition-colors">
+                    <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200/90 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50">
                       <input
                         type="checkbox"
                         checked={seg.shared}
                         onChange={(e) => updateSegment(idx, { shared: e.target.checked })}
-                        className="h-4 w-4 rounded border-[var(--line)] text-[var(--accent)]"
+                        className="h-4 w-4 rounded border-slate-300 text-blue-600"
                       />
                       <span>Shared 50%</span>
                     </label>
                   </div>
 
                   {seg.shared && (
-                    <div className="pt-1">
+                    <div>
                       <input
                         type="text"
                         placeholder="Neighbour name (optional)"
                         value={seg.sharedWith}
                         onChange={(e) => updateSegment(idx, { sharedWith: e.target.value })}
-                        className="w-full rounded-xl border border-[var(--line)] px-3 py-2 text-sm"
+                        className={field}
                       />
                     </div>
                   )}
                 </div>
               ))}
             </div>
-            <div className="p-4 flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-3 border-t border-slate-100 bg-slate-50/50 p-5">
               <button
                 type="button"
                 onClick={addSegment}
-                className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-opacity flex items-center gap-2"
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-500"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
                 Add line
               </button>
               <button
                 type="button"
                 onClick={resetCalculator}
-                className="rounded-lg border border-[var(--line)] px-4 py-2 text-sm font-medium hover:bg-[var(--bg2)] transition-colors"
+                className="rounded-xl border border-slate-200/90 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
               >
                 Reset calculator
               </button>
@@ -1052,55 +1130,55 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
           </div>
         </div>
 
-        <div className="space-y-4 lg:sticky lg:top-6">
-          <div className="rounded-xl border border-[var(--line)] bg-white shadow-sm overflow-hidden">
-            <div className="border-b border-[var(--line)] bg-[var(--bg2)] px-4 py-3">
-              <h2 className="font-semibold">Totals</h2>
-              <p className="text-xs text-[var(--muted)]">Private • Shared • Gates • Deposit</p>
+        <div className="flex flex-col gap-6 lg:sticky lg:top-4 lg:self-start">
+          <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+            <div className="border-b border-slate-100 bg-slate-50/90 px-5 py-4">
+              <h2 className="text-base font-semibold text-slate-900">Totals</h2>
+              <p className="mt-0.5 text-xs text-slate-500">Private • Shared • Gates • Tax • Deposit</p>
             </div>
-            <div className="p-5 space-y-4">
-              <div className="flex justify-between text-base">
-                <span className="text-[var(--muted)]">Private</span>
-                <span className="font-semibold">{moneyCAD(privateTotal)}</span>
+            <div className="space-y-3 p-5 sm:p-6">
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-600">Private</span>
+                <span className="font-semibold tabular-nums text-slate-900">{moneyCAD(privateTotal)}</span>
               </div>
-              <div className="flex justify-between text-base">
-                <span className="text-[var(--muted)]">Shared</span>
-                <span className="font-semibold">{moneyCAD(sharedTotal)}</span>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-600">Shared</span>
+                <span className="font-semibold tabular-nums text-slate-900">{moneyCAD(sharedTotal)}</span>
               </div>
-              <div className="flex justify-between text-base">
-                <span className="text-[var(--muted)]">Gates</span>
-                <span className="font-semibold">{moneyCAD(gateTotal)}</span>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-600">Gates</span>
+                <span className="font-semibold tabular-nums text-slate-900">{moneyCAD(gateTotal)}</span>
               </div>
-              <div className="flex justify-between text-base">
-                <span className="text-[var(--muted)]">Removal</span>
-                <span className="font-semibold">{moneyCAD(removalTotal)}</span>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-600">Removal</span>
+                <span className="font-semibold tabular-nums text-slate-900">{moneyCAD(removalTotal)}</span>
               </div>
-              <div className="flex justify-between text-base pt-3 border-t border-[var(--line)]">
-                <span className="font-medium">Subtotal</span>
-                <span className="font-bold">{moneyCAD(subtotal)}</span>
+              <div className="flex justify-between border-t border-slate-100 pt-3 text-sm">
+                <span className="font-medium text-slate-800">Subtotal</span>
+                <span className="font-bold tabular-nums text-slate-900">{moneyCAD(subtotal)}</span>
               </div>
               {applyTax && (
-                <div className="flex justify-between text-base">
-                  <span className="text-[var(--muted)]">Tax ({taxRate}%)</span>
-                  <span>{moneyCAD(taxAmount)}</span>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">Tax ({taxRate}%)</span>
+                  <span className="tabular-nums text-slate-900">{moneyCAD(taxAmount)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-xl pt-3 border-t border-[var(--line)]">
-                <span className="font-bold">Grand total</span>
-                <span className="font-bold text-[var(--accent)]">{moneyCAD(grandTotal)}</span>
+              <div className="flex justify-between border-t border-slate-100 pt-4 text-lg">
+                <span className="font-bold text-slate-900">Grand total</span>
+                <span className="font-bold tabular-nums text-blue-600">{moneyCAD(grandTotal)}</span>
               </div>
-              <div className="flex justify-between text-base pt-1">
-                <span className="text-[var(--muted)]">10% deposit</span>
-                <span className="font-semibold">{moneyCAD(deposit)}</span>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-600">10% deposit</span>
+                <span className="font-semibold tabular-nums text-slate-900">{moneyCAD(deposit)}</span>
               </div>
             </div>
-            <div className="p-5 border-t border-[var(--line)] space-y-3">
+            <div className="space-y-3 border-t border-slate-100 bg-slate-50/40 p-5">
               {fromCustomerId ? (
                 <button
                   type="button"
                   onClick={saveToCustomer}
                   disabled={savingToCustomer}
-                  className="w-full rounded-xl bg-[var(--accent)] px-4 py-4 text-base font-bold text-white shadow-md hover:opacity-90 disabled:opacity-50 transition-opacity"
+                  className="w-full rounded-xl bg-blue-600 px-4 py-3.5 text-sm font-bold text-white shadow-sm shadow-blue-600/25 transition hover:bg-blue-500 disabled:opacity-50"
                 >
                   {savingToCustomer ? 'Saving…' : 'Save to customer'}
                 </button>
@@ -1109,31 +1187,36 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                   type="button"
                   onClick={saveAsNewQuote}
                   disabled={savingToCustomer}
-                  className="w-full rounded-xl bg-[var(--accent)] px-4 py-4 text-base font-bold text-white shadow-md hover:opacity-90 disabled:opacity-50 transition-opacity"
+                  className="w-full rounded-xl bg-blue-600 px-4 py-3.5 text-sm font-bold text-white shadow-sm shadow-blue-600/25 transition hover:bg-blue-500 disabled:opacity-50"
                 >
-                  {savingToCustomer ? 'Saving…' : 'Save Quote'}
+                  {savingToCustomer ? 'Saving…' : 'Save quote'}
                 </button>
               )}
               <button
                 type="button"
                 onClick={copyQuote}
-                className={`w-full rounded-xl px-4 py-4 text-base font-bold shadow-md hover:opacity-90 transition-opacity ${fromCustomerId ? 'border border-[var(--line)] bg-white text-[var(--text)]' : 'bg-[var(--accent)] text-white'}`}
+                className={`w-full rounded-xl px-4 py-3.5 text-sm font-bold shadow-sm transition ${
+                  fromCustomerId
+                    ? 'border border-slate-200/90 bg-white text-slate-900 hover:border-slate-300 hover:bg-slate-50'
+                    : 'bg-white text-blue-700 ring-1 ring-inset ring-blue-200 hover:bg-blue-50/80'
+                }`}
               >
                 Copy quote text
               </button>
             </div>
           </div>
 
-          <div className="rounded-xl border border-[var(--line)] bg-white shadow-sm overflow-hidden">
-            <div className="border-b border-[var(--line)] bg-[var(--bg2)] px-4 py-3">
-              <h2 className="font-semibold">Generated quote</h2>
+          <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+            <div className="border-b border-slate-100 bg-slate-50/90 px-5 py-4">
+              <h2 className="text-base font-semibold text-slate-900">Generated quote</h2>
+              <p className="mt-0.5 text-xs text-slate-500">Read-only — copy or save from above</p>
             </div>
-            <div className="p-4">
+            <div className="p-4 sm:p-5">
               <textarea
                 readOnly
                 value={quoteText}
                 rows={14}
-                className="w-full rounded-lg border border-[var(--line)] bg-[var(--bg2)] px-3 py-2 text-xs font-mono resize-y"
+                className="w-full resize-y rounded-xl border border-slate-200/90 bg-slate-50/80 px-4 py-3 text-xs font-mono leading-relaxed text-slate-800 outline-none focus:border-slate-300 focus:ring-1 focus:ring-slate-200"
               />
             </div>
           </div>
