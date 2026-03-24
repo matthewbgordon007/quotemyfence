@@ -21,6 +21,8 @@ interface CustomerRow {
   has_removal: boolean | null;
   subtotal_low: number | null;
   subtotal_high: number | null;
+  total_low: number | null;
+  total_high: number | null;
 }
 
 function stepLabel(step: string, status: string): string {
@@ -338,7 +340,9 @@ export default function CustomersPage() {
                           ? `${c.total_length_ft.toFixed(0)} ft`
                           : '—'}
                         {c.has_removal && ' • Removal'}
-                        {c.subtotal_low != null && c.subtotal_high != null && (
+                        {(c.total_low != null && c.total_high != null) ? (
+                          <> • ${c.total_low.toLocaleString('en-CA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}–${c.total_high.toLocaleString('en-CA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</>
+                        ) : (c.subtotal_low != null && c.subtotal_high != null) && (
                           <> • ${c.subtotal_low.toLocaleString('en-CA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}–${c.subtotal_high.toLocaleString('en-CA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</>
                         )}
                       </div>

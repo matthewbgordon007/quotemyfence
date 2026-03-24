@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
 
   const { data: fences } = await supabase
     .from('fences')
-    .select('quote_session_id, total_length_ft, has_removal, subtotal_low, subtotal_high')
+    .select('quote_session_id, total_length_ft, has_removal, subtotal_low, subtotal_high, total_low, total_high')
     .in('quote_session_id', sessionIds);
 
   const customerBySession = new Map((customers || []).map((c) => [c.quote_session_id, c]));
@@ -119,6 +119,8 @@ export async function GET(request: NextRequest) {
       has_removal: fence?.has_removal ?? null,
       subtotal_low: fence?.subtotal_low ?? null,
       subtotal_high: fence?.subtotal_high ?? null,
+      total_low: fence?.total_low ?? null,
+      total_high: fence?.total_high ?? null,
     };
   });
 

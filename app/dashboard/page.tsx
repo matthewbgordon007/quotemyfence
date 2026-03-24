@@ -25,6 +25,8 @@ interface CustomerRow {
   total_length_ft: number | null;
   subtotal_low: number | null;
   subtotal_high: number | null;
+  total_low: number | null;
+  total_high: number | null;
 }
 
 const ADMIN_ROLES = ['owner', 'admin'];
@@ -186,7 +188,9 @@ export default function DashboardPage() {
                       </td>
                       <td className="px-4 py-3 text-[var(--muted)]">
                         {c.total_length_ft != null ? `${c.total_length_ft.toFixed(0)} ft` : '—'}
-                        {c.subtotal_low != null && c.subtotal_high != null && (
+                        {(c.total_low != null && c.total_high != null) ? (
+                          <> • ${c.total_low.toLocaleString('en-CA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}–${c.total_high.toLocaleString('en-CA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</>
+                        ) : (c.subtotal_low != null && c.subtotal_high != null) && (
                           <> • ${c.subtotal_low.toLocaleString('en-CA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}–${c.subtotal_high.toLocaleString('en-CA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</>
                         )}
                       </td>
