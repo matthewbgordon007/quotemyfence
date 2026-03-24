@@ -15,6 +15,15 @@ import { ScrollReveal } from '@/components/ScrollReveal';
 import { LogoMarquee } from '@/components/LogoMarquee';
 import { ComparisonBlock } from '@/components/ComparisonBlock';
 import { BackToTop } from '@/components/BackToTop';
+import { ROICalculator } from '@/components/ROICalculator';
+import { LiveActivityTicker } from '@/components/LiveActivityTicker';
+import { StickyMobileCTA } from '@/components/StickyMobileCTA';
+import { ScrollProgress } from '@/components/ScrollProgress';
+import { CinematicCursor } from '@/components/CinematicCursor';
+import { TestimonialsCarousel } from '@/components/TestimonialsCarousel';
+import { CaseStudyStrip } from '@/components/CaseStudyStrip';
+import { DesktopCTARail } from '@/components/DesktopCTARail';
+import { TiltCard } from '@/components/TiltCard';
 import { SITE_URL, canonical, SEO_DEFAULTS } from '@/lib/seo';
 
 const SCHEDULE_CALL_URL = 'https://calendar.app.google/vuWD6xi7CfNptAon9';
@@ -160,6 +169,8 @@ export default function HomePage() {
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-slate-100">
+      <ScrollProgress />
+      <CinematicCursor />
       <JsonLd data={organizationJsonLd} />
       <JsonLd data={websiteJsonLd} />
       <JsonLd data={softwareJsonLd} />
@@ -220,6 +231,7 @@ export default function HomePage() {
           </div>
           <p className="mt-4 text-sm text-slate-500 sm:mt-5">No credit card. No commitment. See why contractors are switching—in 60 seconds.</p>
           <TrustBar />
+          <LiveActivityTicker />
 
           <div className="mx-auto mt-10 flex flex-col items-center justify-center px-1 sm:mt-16 sm:px-2">
             <DemoVideoTitle />
@@ -310,27 +322,35 @@ export default function HomePage() {
         {/* Stats */}
         <ScrollReveal>
           <section className="mt-12 grid grid-cols-2 gap-3 sm:mt-20 sm:gap-4 sm:grid-cols-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm transition-all hover:-translate-y-1 hover:border-blue-200 sm:p-6">
+            <TiltCard className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm transition-all hover:border-blue-200 sm:p-6">
               <p className="text-2xl font-extrabold text-slate-900 sm:text-3xl">
                 <AnimatedCounter value={100} suffix="+" />
               </p>
               <p className="mt-1 text-sm font-medium text-slate-600">Contractors growing</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm transition-all hover:-translate-y-1 hover:border-blue-200 sm:p-6">
+            </TiltCard>
+            <TiltCard className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm transition-all hover:border-blue-200 sm:p-6">
               <p className="text-2xl font-extrabold text-slate-900 sm:text-3xl">
                 <AnimatedCounter value={10} suffix="K+" />
               </p>
               <p className="mt-1 text-sm font-medium text-slate-600">Quotes generated</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm transition-all hover:-translate-y-1 hover:border-blue-200 sm:p-6">
+            </TiltCard>
+            <TiltCard className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm transition-all hover:border-blue-200 sm:p-6">
               <p className="text-2xl font-extrabold text-slate-900 sm:text-3xl">Global</p>
               <p className="mt-1 text-sm font-medium text-slate-600">Service area</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm transition-all hover:-translate-y-1 hover:border-blue-200 sm:p-6">
+            </TiltCard>
+            <TiltCard className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm transition-all hover:border-blue-200 sm:p-6">
               <p className="text-2xl font-extrabold text-slate-900 sm:text-3xl">24/7</p>
               <p className="mt-1 text-sm font-medium text-slate-600">Lead engine</p>
-            </div>
+            </TiltCard>
           </section>
+        </ScrollReveal>
+
+        <ScrollReveal delay={120}>
+          <ROICalculator />
+        </ScrollReveal>
+
+        <ScrollReveal delay={100}>
+          <CaseStudyStrip />
         </ScrollReveal>
 
         {/* Floating screenshot strip */}
@@ -444,20 +464,7 @@ export default function HomePage() {
             <p className="mx-auto mt-3 max-w-xl text-center text-slate-600">
               Don&apos;t just take our word for it—see why industry pros are making the switch.
             </p>
-            <div className="mt-8 grid gap-6 sm:mt-12 sm:gap-8 md:grid-cols-3">
-              {testimonials.map((t) => (
-                <div key={t.name} className="rounded-2xl border border-slate-200 bg-slate-50 p-5 transition-all hover:-translate-y-1 hover:border-blue-200 sm:p-6">
-                  <p className="text-lg font-medium text-slate-700">&ldquo;{t.quote}&rdquo;</p>
-                  <div className="mt-6 flex items-center gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-lg font-bold text-white">{t.avatar}</div>
-                    <div>
-                      <p className="font-bold text-slate-900">{t.name}</p>
-                      <p className="text-sm text-slate-500">{t.role}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <TestimonialsCarousel items={testimonials} />
           </div>
         </section>
         </ScrollReveal>
@@ -574,6 +581,8 @@ export default function HomePage() {
         </main>
       </div>
       <BackToTop />
+      <DesktopCTARail />
+      <StickyMobileCTA />
     </div>
   );
 }

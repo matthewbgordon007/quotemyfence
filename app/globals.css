@@ -31,6 +31,7 @@ body {
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji';
   color: var(--text);
   background: linear-gradient(180deg, var(--bg1), var(--bg2) 45%, #fff 100%);
+  background-attachment: fixed;
 }
 
 /* Leaflet fix for Next.js */
@@ -88,6 +89,17 @@ body {
 .animation-delay-400 { animation-delay: 400ms; }
 .animation-delay-2000 { animation-delay: 2s; }
 .animation-delay-4000 { animation-delay: 4s; }
+
+/* Subtle cinematic grain overlay option for premium look */
+.grain-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.06;
+  background-image: radial-gradient(circle at 1px 1px, rgb(15 23 42 / 0.25) 1px, transparent 0);
+  background-size: 8px 8px;
+}
 
 /* Section separator - dashed line */
 .section-divider {
