@@ -8,7 +8,10 @@ const CASES = [
 
 export function CaseStudyStrip() {
   return (
-    <section className="mt-12 rounded-2xl border border-slate-200 bg-white py-8 shadow-sm sm:mt-20 sm:py-10">
+    <section
+      id="case-studies"
+      className="mt-12 scroll-mt-24 rounded-2xl border border-slate-200 bg-white py-8 shadow-sm sm:mt-20 sm:py-10"
+    >
       <div className="px-5 sm:px-6 lg:px-8">
         <h3 className="text-center font-heading text-2xl font-bold text-slate-900">Real outcomes from early adopters</h3>
         <div className="mt-6 grid gap-4 md:grid-cols-3">

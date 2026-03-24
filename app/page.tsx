@@ -30,11 +30,22 @@ const SCHEDULE_CALL_URL = 'https://calendar.app.google/vuWD6xi7CfNptAon9';
 const DEMO_URL = 'https://www.quotemyfence.ca/estimate/demo-fence-inc/contact';
 const CONTACT_EMAIL = 'info@quotemyfence.ca';
 
+const HOME_SECTION_KEYWORDS = [
+  'fence estimate demo video',
+  'instant fence quote calculator',
+  'fence quote ROI calculator',
+  'fence contractor software features',
+  'satellite fence mapping tool',
+  'fence lead generation pricing',
+  'QuoteMyFence how it works',
+  'fence estimate software FAQ',
+];
+
 export const metadata: Metadata = {
   title: 'Fence Estimate Software for Contractors | Instant Quotes & Lead Capture | QuoteMyFence',
   description:
     'The #1 fence estimate software. Turn tire-kickers into ready-to-buy leads. Instant quotes, satellite mapping, 24/7 lead capture. Trusted by fence contractors across Canada. Try free.',
-  keywords: SEO_DEFAULTS.keywords,
+  keywords: [...SEO_DEFAULTS.keywords, ...HOME_SECTION_KEYWORDS],
   openGraph: {
     ...SEO_DEFAULTS.openGraph,
     url: canonical('/'),
@@ -205,7 +216,7 @@ export default function HomePage() {
       <div className="w-full safe-area-x pt-[73px] sm:pt-[77px] pb-6 sm:px-8 lg:px-12 xl:px-16">
         <main id="main-content">
         {/* Hero - more breathing room on mobile */}
-        <section className="pt-12 text-center sm:pt-24 lg:pt-28" aria-labelledby="hero-heading">
+        <section id="hero" className="scroll-mt-24 pt-12 text-center sm:pt-24 lg:pt-28" aria-labelledby="hero-heading">
           <span className="inline-block rounded-full border border-blue-200 bg-blue-50 px-4 py-1.5 text-sm font-semibold text-blue-600">
             The #1 fence estimate software—trusted industry-wide
           </span>
@@ -233,7 +244,7 @@ export default function HomePage() {
           <TrustBar />
           <LiveActivityTicker />
 
-          <div className="mx-auto mt-10 flex flex-col items-center justify-center px-1 sm:mt-16 sm:px-2">
+          <div id="demo" className="mx-auto mt-10 scroll-mt-24 flex flex-col items-center justify-center px-1 sm:mt-16 sm:px-2">
             <DemoVideoTitle />
             <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-2xl shadow-slate-200/50 w-full max-w-6xl">
               <AutoplayOnViewVideo src="/videos/QuoteProcess.mp4" className="w-full max-w-6xl" />
@@ -243,7 +254,7 @@ export default function HomePage() {
 
         {/* Customer steps */}
         <ScrollReveal>
-        <section className="mt-12 rounded-2xl border border-slate-200 bg-white py-10 shadow-sm sm:mt-20 sm:py-16">
+        <section id="customer-experience" className="mt-12 scroll-mt-24 rounded-2xl border border-slate-200 bg-white py-10 shadow-sm sm:mt-20 sm:py-16">
           <div className="px-5 sm:px-6 lg:px-8">
             <h2 className="text-center font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
               A buying experience that sells for you
@@ -271,7 +282,7 @@ export default function HomePage() {
 
         {/* Old way vs new way comparison */}
         <ScrollReveal delay={100}>
-          <section className="mt-12 rounded-2xl border border-slate-200 bg-white py-10 shadow-sm sm:mt-20 sm:py-16">
+          <section id="comparison" className="mt-12 scroll-mt-24 rounded-2xl border border-slate-200 bg-white py-10 shadow-sm sm:mt-20 sm:py-16">
             <div className="px-5 sm:px-6 lg:px-8">
               <h2 className="text-center font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
                 Stop guessing. Start closing.
@@ -288,7 +299,7 @@ export default function HomePage() {
 
         {/* Quote calculator */}
         <ScrollReveal>
-        <section className="mt-12 rounded-2xl border border-slate-200 bg-white py-10 shadow-sm sm:mt-20 sm:py-16">
+        <section id="quote-calculator" className="mt-12 scroll-mt-24 rounded-2xl border border-slate-200 bg-white py-10 shadow-sm sm:mt-20 sm:py-16">
           <div className="px-5 sm:px-6 lg:px-8">
             <h2 className="text-center font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
               The quote calculator that closes deals
@@ -313,7 +324,7 @@ export default function HomePage() {
 
         {/* Logo marquee - who uses us */}
         <ScrollReveal>
-          <section className="mt-12 overflow-hidden rounded-2xl border border-slate-200 bg-white/80 sm:mt-20">
+          <section id="customers" className="mt-12 scroll-mt-24 overflow-hidden rounded-2xl border border-slate-200 bg-white/80 sm:mt-20">
             <p className="pt-6 text-center text-sm font-medium text-slate-500">Trusted by fence professionals across Canada</p>
             <LogoMarquee />
           </section>
@@ -321,7 +332,7 @@ export default function HomePage() {
 
         {/* Stats */}
         <ScrollReveal>
-          <section className="mt-12 grid grid-cols-2 gap-3 sm:mt-20 sm:gap-4 sm:grid-cols-4">
+          <section id="stats" className="mt-12 scroll-mt-24 grid grid-cols-2 gap-3 sm:mt-20 sm:gap-4 sm:grid-cols-4">
             <TiltCard className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm transition-all hover:border-blue-200 sm:p-6">
               <p className="text-2xl font-extrabold text-slate-900 sm:text-3xl">
                 <AnimatedCounter value={100} suffix="+" />
@@ -355,7 +366,7 @@ export default function HomePage() {
 
         {/* Floating screenshot strip */}
         <ScrollReveal delay={100}>
-        <section className="mt-12 flex flex-wrap items-center justify-center gap-4 rounded-2xl border border-slate-200 bg-white py-6 shadow-sm sm:mt-20 sm:gap-6 sm:py-8">
+        <section id="screenshots" className="mt-12 scroll-mt-24 flex flex-wrap items-center justify-center gap-4 rounded-2xl border border-slate-200 bg-white py-6 shadow-sm sm:mt-20 sm:gap-6 sm:py-8">
           <div className="flex w-full flex-wrap items-center justify-center gap-4 px-5 sm:gap-6 sm:px-4">
             <FloatingScreenshot src="/images/screenshots/app-02.png" alt="Contact form" delay={0} />
             <FloatingScreenshot src="/images/screenshots/app-10.png" alt="Review" delay={200} />
@@ -366,7 +377,7 @@ export default function HomePage() {
 
         {/* Features */}
         <ScrollReveal>
-        <section className="mt-12 rounded-2xl border border-slate-200 bg-white py-10 shadow-sm sm:mt-20 sm:py-16">
+        <section id="features" className="mt-12 scroll-mt-24 rounded-2xl border border-slate-200 bg-white py-10 shadow-sm sm:mt-20 sm:py-16">
           <div className="px-5 sm:px-6 lg:px-8">
             <h2 className="text-center font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
               Built to scale. Designed to convert.
@@ -388,7 +399,7 @@ export default function HomePage() {
 
         {/* Product preview */}
         <ScrollReveal delay={100}>
-        <section className="mt-12 rounded-2xl border border-slate-200 bg-white py-10 shadow-sm sm:mt-20 sm:py-16">
+        <section id="platform" className="mt-12 scroll-mt-24 rounded-2xl border border-slate-200 bg-white py-10 shadow-sm sm:mt-20 sm:py-16">
           <div className="px-5 sm:px-6 lg:px-8">
             <h2 className="text-center font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
               See the magic in action
@@ -425,7 +436,7 @@ export default function HomePage() {
 
         {/* How it works - contractors */}
         <ScrollReveal>
-        <section className="relative mt-12 rounded-2xl border border-slate-200 bg-white py-10 shadow-sm sm:mt-20 sm:py-16">
+        <section id="how-it-works" className="relative mt-12 scroll-mt-24 rounded-2xl border border-slate-200 bg-white py-10 shadow-sm sm:mt-20 sm:py-16">
           <div className="px-5 sm:px-6 lg:px-8">
             <h2 className="text-center font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
               Launch in minutes. Scale forever.
@@ -456,7 +467,7 @@ export default function HomePage() {
 
         {/* Testimonials */}
         <ScrollReveal delay={100}>
-        <section className="mt-12 rounded-2xl border border-slate-200 bg-white py-10 shadow-sm sm:mt-20 sm:py-16">
+        <section id="testimonials" className="mt-12 scroll-mt-24 rounded-2xl border border-slate-200 bg-white py-10 shadow-sm sm:mt-20 sm:py-16">
           <div className="px-5 sm:px-6 lg:px-8">
             <h2 className="text-center font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
               Loved by contractors &amp; suppliers nationwide
@@ -470,7 +481,7 @@ export default function HomePage() {
         </ScrollReveal>
 
         {/* Contractor CTA */}
-        <section className="mt-12 rounded-2xl border border-slate-200 bg-gradient-to-r from-blue-50 to-cyan-50 py-10 shadow-sm sm:mt-20 sm:py-16">
+        <section id="pricing" className="mt-12 scroll-mt-24 rounded-2xl border border-slate-200 bg-gradient-to-r from-blue-50 to-cyan-50 py-10 shadow-sm sm:mt-20 sm:py-16">
           <div className="px-5 sm:px-6 lg:px-8">
             <div className="group mx-auto max-w-2xl rounded-3xl border border-blue-200 bg-white p-6 transition-all hover:border-blue-300 sm:p-10 lg:p-12">
               <h2 className="font-heading text-2xl font-bold text-slate-900">Ready to 10x your fence lead flow?</h2>
@@ -491,7 +502,7 @@ export default function HomePage() {
         </section>
 
         {/* FAQ */}
-        <section className="mt-12 rounded-2xl border border-slate-200 bg-white py-10 shadow-sm sm:mt-20 sm:py-16" id="faq">
+        <section className="mt-12 scroll-mt-24 rounded-2xl border border-slate-200 bg-white py-10 shadow-sm sm:mt-20 sm:py-16" id="faq">
           <div className="px-5 sm:px-6 lg:px-8">
             <h2 className="text-center font-heading text-3xl font-bold text-slate-900 sm:text-4xl">
               Frequently asked questions
@@ -506,7 +517,7 @@ export default function HomePage() {
         </section>
 
         {/* Big CTA */}
-        <section className="mt-12 rounded-2xl border border-slate-700/60 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 p-6 text-center sm:mt-20 sm:p-12 lg:p-16">
+        <section id="contact" className="mt-12 scroll-mt-24 rounded-2xl border border-slate-700/60 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 p-6 text-center sm:mt-20 sm:p-12 lg:p-16">
           <h2 className="font-heading text-3xl font-bold text-white sm:text-4xl">
             Your fence business deserves more than guesswork
           </h2>
@@ -554,11 +565,17 @@ export default function HomePage() {
                 <div className="mt-3 flex flex-col gap-2 text-sm text-slate-600">
                   <Link href="/signup" className="hover:text-slate-900">Sign up</Link>
                   <Link href="/login" className="hover:text-slate-900">Log in</Link>
+                  <a href="/#demo" className="hover:text-slate-900">Demo video</a>
+                  <a href="/#quote-calculator" className="hover:text-slate-900">Quote calculator</a>
+                  <a href="/#roi-calculator" className="hover:text-slate-900">ROI calculator</a>
+                  <a href="/#how-it-works" className="hover:text-slate-900">How it works</a>
+                  <a href="/#pricing" className="hover:text-slate-900">Pricing</a>
                   <Link href="/blog" className="hover:text-slate-900">Blog</Link>
                   <Link href="/press" className="hover:text-slate-900">Press</Link>
                   <Link href="/partners" className="hover:text-slate-900">Partners</Link>
-                  <a href={DEMO_URL} className="hover:text-slate-900">Try demo</a>
+                  <a href={DEMO_URL} className="hover:text-slate-900">Try live demo</a>
                   <a href="/#faq" className="hover:text-slate-900">FAQ</a>
+                  <a href="/#contact" className="hover:text-slate-900">Contact</a>
                 </div>
               </div>
               <div>

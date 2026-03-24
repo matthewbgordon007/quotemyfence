@@ -27,7 +27,10 @@ export function ROICalculator() {
   const money = new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 });
 
   return (
-    <section className="mt-12 rounded-2xl border border-slate-200 bg-white py-10 shadow-sm sm:mt-20 sm:py-16">
+    <section
+      id="roi-calculator"
+      className="mt-12 scroll-mt-24 rounded-2xl border border-slate-200 bg-white py-10 shadow-sm sm:mt-20 sm:py-16"
+    >
       <div className="px-5 sm:px-6 lg:px-8">
         <h2 className="text-center font-heading text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
           ROI calculator: what this could add monthly

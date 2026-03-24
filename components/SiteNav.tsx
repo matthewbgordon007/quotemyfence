@@ -1,9 +1,31 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 const SCHEDULE_CALL_URL = 'https://calendar.app.google/vuWD6xi7CfNptAon9';
+
+/** Homepage section anchors — matches ids in app/page.tsx */
+const SECTION_LINKS = [
+  { id: 'demo', label: 'Demo video' },
+  { id: 'customer-experience', label: 'Customer experience' },
+  { id: 'comparison', label: 'Old vs new' },
+  { id: 'quote-calculator', label: 'Quote calculator' },
+  { id: 'roi-calculator', label: 'ROI calculator' },
+  { id: 'features', label: 'Features' },
+  { id: 'platform', label: 'Platform preview' },
+  { id: 'how-it-works', label: 'How it works' },
+  { id: 'testimonials', label: 'Testimonials' },
+  { id: 'pricing', label: 'Pricing' },
+  { id: 'faq', label: 'FAQ' },
+  { id: 'contact', label: 'Contact' },
+] as const;
+
+function sectionHref(pathname: string | null, id: string) {
+  if (pathname === '/') return `#${id}`;
+  return `/#${id}`;
+}
 
 const navLinks = [
   { href: '/blog', label: 'Blog' },
@@ -13,8 +35,11 @@ const navLinks = [
 ];
 
 export function SiteNav() {
+  const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sectionsOpen, setSectionsOpen] = useState(false);
+  const sectionsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -26,6 +51,22 @@ export function SiteNav() {
     if (mobileOpen) document.body.style.overflow = 'hidden';
     else document.body.style.overflow = '';
   }, [mobileOpen]);
+
+  useEffect(() => {
+    if (!sectionsOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (sectionsRef.current && !sectionsRef.current.contains(e.target as Node)) setSectionsOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSectionsOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [sectionsOpen]);
 
   return (
     <>
@@ -50,6 +91,38 @@ export function SiteNav() {
 
         {/* Desktop nav */}
         <div className="hidden items-center gap-1 lg:flex">
+          <div className="relative" ref={sectionsRef}>
+            <button
+              type="button"
+              onClick={() => setSectionsOpen((o) => !o)}
+              className="flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+              aria-expanded={sectionsOpen}
+              aria-haspopup="menu"
+            >
+              Jump to
+              <svg className={`h-4 w-4 transition-transform ${sectionsOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+              </svg>
+            </button>
+            {sectionsOpen && (
+              <div
+                role="menu"
+                className="absolute left-0 z-50 mt-1 max-h-[min(70vh,24rem)] w-56 overflow-y-auto rounded-xl border border-slate-200 bg-white py-2 shadow-xl"
+              >
+                {SECTION_LINKS.map((s) => (
+                  <a
+                    key={s.id}
+                    role="menuitem"
+                    href={sectionHref(pathname, s.id)}
+                    onClick={() => setSectionsOpen(false)}
+                    className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                  >
+                    {s.label}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
           {navLinks.map((l) => (
             <Link
               key={l.href}
@@ -118,6 +191,19 @@ export function SiteNav() {
         }`}
       >
         <div className="flex flex-col gap-1 p-4">
+          <p className="px-4 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">On this page</p>
+          {SECTION_LINKS.map((s) => (
+            <a
+              key={s.id}
+              href={sectionHref(pathname, s.id)}
+              onClick={() => setMobileOpen(false)}
+              className="rounded-xl px-4 py-2.5 text-base font-medium text-slate-700 hover:bg-slate-50"
+            >
+              {s.label}
+            </a>
+          ))}
+          <div className="my-2 border-t border-slate-200" />
+          <p className="px-4 pb-1 pt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Site</p>
           {navLinks.map((l) => (
             <Link
               key={l.href}
