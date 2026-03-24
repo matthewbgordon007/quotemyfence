@@ -24,7 +24,19 @@ export async function GET() {
     .eq('is_active', true)
     .order('display_order', { ascending: true });
 
-  const typeIds = (types || []).map((t) => t.id);
+  const fenceTypes = types || [];
+  if (fenceTypes.length === 0) {
+    return NextResponse.json({
+      heights: [],
+      fenceTypes: [],
+      fenceStyles: [],
+      colourOptions: [],
+      colourPricingRules: [],
+      stylePricingRules: [],
+    });
+  }
+
+  const typeIds = fenceTypes.map((t) => t.id);
 
   const { data: styles } = await supabase
     .from('fence_styles')
@@ -33,19 +45,32 @@ export async function GET() {
     .eq('is_active', true)
     .order('display_order', { ascending: true });
 
-  const styleIds = (styles || []).map((s) => s.id);
+  const fenceStyles = styles || [];
+  const styleIds = fenceStyles.map((s) => s.id);
 
-  const { data: colours } = await supabase
-    .from('colour_options')
-    .select('*')
-    .in('fence_style_id', styleIds)
-    .eq('is_active', true)
-    .order('display_order', { ascending: true });
+  const [coloursRes, styleRulesRes] = await Promise.all([
+    styleIds.length > 0
+      ? supabase
+          .from('colour_options')
+          .select('*')
+          .in('fence_style_id', styleIds)
+          .eq('is_active', true)
+          .order('display_order', { ascending: true })
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+    styleIds.length > 0
+      ? supabase
+          .from('style_pricing_rules')
+          .select('*')
+          .in('fence_style_id', styleIds)
+          .eq('is_active', true)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+  ]);
 
-  const colourIds = (colours || []).map((c) => c.id);
+  const colourOptions = coloursRes.data || [];
+  const stylePricingRules = styleRulesRes.data || [];
+  const colourIds = colourOptions.map((c: { id: string }) => c.id);
 
   let colourPricingRules: { colour_option_id: string; [k: string]: unknown }[] = [];
-  let stylePricingRules: { fence_style_id: string; [k: string]: unknown }[] = [];
   if (colourIds.length > 0) {
     const { data: rules } = await supabase
       .from('colour_pricing_rules')
@@ -53,20 +78,12 @@ export async function GET() {
       .in('colour_option_id', colourIds);
     colourPricingRules = rules || [];
   }
-  if (styleIds.length > 0) {
-    const { data: styleRules } = await supabase
-      .from('style_pricing_rules')
-      .select('*')
-      .in('fence_style_id', styleIds)
-      .eq('is_active', true);
-    stylePricingRules = styleRules || [];
-  }
 
   return NextResponse.json({
     heights: [],
-    fenceTypes: types || [],
-    fenceStyles: styles || [],
-    colourOptions: colours || [],
+    fenceTypes,
+    fenceStyles,
+    colourOptions,
     colourPricingRules,
     stylePricingRules,
   });
