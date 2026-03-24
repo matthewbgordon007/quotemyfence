@@ -12,6 +12,7 @@ interface CustomerRow {
   lead_status: string;
   started_at: string;
   last_active_at: string;
+  completed_at: string | null;
   contractor_viewed_at: string | null;
   first_name: string;
   last_name: string;
@@ -94,6 +95,70 @@ const STATUS_TABS = [
 
 type LeadFilter = (typeof STATUS_TABS)[number]['value'];
 
+const SORT_OPTIONS = [
+  { value: 'name' as const, label: 'Name' },
+  { value: 'address' as const, label: 'Address' },
+  { value: 'date_submitted' as const, label: 'Date submitted' },
+  { value: 'value' as const, label: 'Quote value' },
+];
+
+type SortKey = (typeof SORT_OPTIONS)[number]['value'];
+type SortDir = 'asc' | 'desc';
+
+function nameSortKey(c: CustomerRow): string {
+  return `${c.last_name} ${c.first_name}`.trim().toLowerCase() || '\uffff';
+}
+
+function submittedAtMs(c: CustomerRow): number {
+  const raw = c.completed_at || c.started_at;
+  const t = new Date(raw).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+
+/** Midpoint of total range, else subtotal; null if no estimate */
+function quoteValueMid(c: CustomerRow): number | null {
+  if (c.total_low != null && c.total_high != null) return (c.total_low + c.total_high) / 2;
+  if (c.total_low != null) return c.total_low;
+  if (c.subtotal_low != null && c.subtotal_high != null) return (c.subtotal_low + c.subtotal_high) / 2;
+  if (c.subtotal_low != null) return c.subtotal_low;
+  return null;
+}
+
+function compareLeads(a: CustomerRow, b: CustomerRow, key: SortKey, dir: SortDir): number {
+  let cmp = 0;
+  switch (key) {
+    case 'name':
+      cmp = nameSortKey(a).localeCompare(nameSortKey(b), undefined, { sensitivity: 'base' });
+      break;
+    case 'address': {
+      const sa = (a.address || '').toLowerCase();
+      const sb = (b.address || '').toLowerCase();
+      if (!sa && !sb) cmp = 0;
+      else if (!sa) cmp = 1;
+      else if (!sb) cmp = -1;
+      else cmp = sa.localeCompare(sb, undefined, { sensitivity: 'base' });
+      break;
+    }
+    case 'date_submitted':
+      cmp = submittedAtMs(a) - submittedAtMs(b);
+      break;
+    case 'value': {
+      const va = quoteValueMid(a);
+      const vb = quoteValueMid(b);
+      if (va == null && vb == null) cmp = 0;
+      else if (va == null) cmp = 1;
+      else if (vb == null) cmp = -1;
+      else cmp = va - vb;
+      break;
+    }
+    default:
+      break;
+  }
+  if (dir === 'desc') cmp = -cmp;
+  if (cmp !== 0) return cmp;
+  return a.id.localeCompare(b.id);
+}
+
 export default function CustomersPage() {
   const router = useRouter();
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
@@ -103,6 +168,8 @@ export default function CustomersPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [leadFilter, setLeadFilter] = useState<LeadFilter>('new');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey>('date_submitted');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [showNewLead, setShowNewLead] = useState(false);
   const [contractor, setContractor] = useState<MeResponse | null>(null);
   const firstLoadDone = useRef(false);
@@ -172,6 +239,12 @@ export default function CustomersPage() {
     });
   }, [customers, searchQuery]);
 
+  const sortedCustomers = useMemo(() => {
+    const copy = [...filteredCustomers];
+    copy.sort((a, b) => compareLeads(a, b, sortKey, sortDir));
+    return copy;
+  }, [filteredCustomers, sortKey, sortDir]);
+
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setSearchQuery(val);
@@ -225,8 +298,8 @@ export default function CustomersPage() {
             )}
           </div>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
-            Quote submissions and leads you add manually. Filter by stage, search by name or contact details, then open a
-            row for the full quote.
+            Quote submissions and leads you add manually. Filter by stage, search, sort, then open a row for the full
+            quote.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -295,9 +368,9 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      {/* Filters + search */}
-      <div className="mt-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="relative min-w-0 flex-1">
+      {/* Filters */}
+      <div className="mt-8 flex flex-col gap-4">
+        <div className="relative min-w-0">
           <div
             className="-mx-1 flex gap-2 overflow-x-auto pb-1 pt-0.5 [scrollbar-width:thin] sm:mx-0"
             role="tablist"
@@ -331,32 +404,68 @@ export default function CustomersPage() {
             ))}
           </div>
         </div>
-        <div className="relative w-full lg:max-w-sm">
-          <label htmlFor="lead-search" className="sr-only">
-            Search leads
-          </label>
-          <svg
-            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            id="lead-search"
-            type="search"
-            placeholder="Search name, email, phone, address…"
-            value={searchQuery}
-            onChange={handleSearchChange}
-            className="w-full rounded-xl border border-slate-200/90 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
-          />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <div className="relative w-full sm:max-w-sm">
+            <label htmlFor="lead-search" className="sr-only">
+              Search leads
+            </label>
+            <svg
+              className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              id="lead-search"
+              type="search"
+              placeholder="Search name, email, phone, address…"
+              value={searchQuery}
+              onChange={handleSearchChange}
+              className="w-full rounded-xl border border-slate-200/90 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+            <label htmlFor="lead-sort" className="text-sm font-medium text-slate-600">
+              Sort by
+            </label>
+            <select
+              id="lead-sort"
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as SortKey)}
+              className="min-w-[10.5rem] rounded-xl border border-slate-200/90 bg-white py-2.5 pl-3 pr-9 text-sm font-medium text-slate-900 shadow-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
+              className="inline-flex h-[42px] min-w-[42px] shrink-0 items-center justify-center gap-0.5 rounded-xl border border-slate-200/90 bg-white px-2 text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+              title={sortDir === 'asc' ? 'A→Z / low→high / oldest first — click to reverse' : 'Z→A / high→low / newest first — click to reverse'}
+              aria-label={sortDir === 'asc' ? 'Ascending order, switch to descending' : 'Descending order, switch to ascending'}
+            >
+              {sortDir === 'asc' ? (
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75 12 8.25l7.5 7.5" />
+                </svg>
+              ) : (
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25 12 15.75 4.5 8.25" />
+                </svg>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
       {/* List */}
       <div className="mt-6 space-y-3">
-        {filteredCustomers.length === 0 ? (
+        {sortedCustomers.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-6 py-16 text-center">
             <p className="text-base font-semibold text-slate-900">
               {searchQuery.trim() ? 'No matches' : 'Nothing in this view yet'}
@@ -379,7 +488,7 @@ export default function CustomersPage() {
             )}
           </div>
         ) : (
-          filteredCustomers.map((c) => {
+          sortedCustomers.map((c) => {
             const initial = `${c.first_name?.[0] ?? ''}${c.last_name?.[0] ?? ''}`.trim() || '?';
             const est = estimateLabel(c);
             const lengthPart =
