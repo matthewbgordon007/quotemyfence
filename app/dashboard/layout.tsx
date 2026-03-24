@@ -39,9 +39,9 @@ export default async function DashboardLayout({
   const c = contractor.data;
 
   return (
-    <div className="flex h-[100dvh] flex-col md:flex-row bg-[var(--bg2)] overflow-hidden w-full fixed inset-0">
+    <div className="flex h-[100dvh] flex-col md:flex-row overflow-hidden w-full fixed inset-0 bg-slate-100">
       {/* Mobile Header - More app-like */}
-      <div className="md:hidden flex items-center justify-center gap-2 bg-white/90 backdrop-blur-md pt-[max(env(safe-area-inset-top),1rem)] pb-3 px-4 shrink-0 shadow-sm z-40 border-b border-[var(--line)]">
+      <div className="md:hidden flex items-center justify-center gap-2 border-b border-slate-200/90 bg-white/95 pt-[max(env(safe-area-inset-top),0.875rem)] pb-3 px-4 shadow-[0_1px_0_rgba(0,0,0,0.04)] backdrop-blur-md z-40 shrink-0">
         {c?.logo_url ? (
           <img
             src={c.logo_url}
@@ -55,8 +55,8 @@ export default async function DashboardLayout({
       </div>
 
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-64 flex-col border-r border-[var(--line)] bg-white shrink-0">
-        <div className="flex items-center gap-3 border-b border-[var(--line)] p-4 shrink-0">
+      <aside className="hidden md:flex w-[17rem] shrink-0 flex-col border-r border-slate-200/90 bg-white shadow-[4px_0_32px_-12px_rgba(15,23,42,0.08)]">
+        <div className="flex shrink-0 items-center gap-3 border-b border-slate-100 p-4">
           {c?.logo_url ? (
             <img
               src={c.logo_url}
@@ -72,10 +72,8 @@ export default async function DashboardLayout({
             />
           )}
           <div className="min-w-0 flex-1">
-            <div className="truncate font-semibold">{c?.company_name}</div>
-            <div className="truncate text-xs text-[var(--muted)]">
-              /estimate/{c?.slug}
-            </div>
+            <div className="truncate font-semibold tracking-tight text-slate-900">{c?.company_name}</div>
+            <div className="truncate font-mono text-[11px] text-slate-500">/{c?.slug}</div>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
@@ -84,12 +82,12 @@ export default async function DashboardLayout({
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto p-4 pb-32 md:p-6 md:pb-6 relative webkit-scrolling bg-[var(--bg2)]">
+      <main className="relative flex-1 overflow-y-auto bg-gradient-to-b from-slate-100/90 to-slate-50 p-4 pb-32 [-webkit-overflow-scrolling:touch] md:p-8 md:pb-8">
         {children}
       </main>
 
       {/* Mobile Bottom Nav */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 border-t border-[var(--line)] bg-white/95 backdrop-blur-xl z-50 shadow-[0_-10px_20px_rgb(0,0,0,0.03)] pb-[env(safe-area-inset-bottom)]">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200/90 bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_32px_-8px_rgba(15,23,42,0.08)] backdrop-blur-xl">
         <DashboardNav slug={c?.slug ?? ''} userRole={userRow?.role ?? null} isMobile={true} />
       </div>
     </div>
