@@ -88,10 +88,34 @@ export async function GET(request: NextRequest) {
     .select('quote_session_id, formatted_address')
     .in('quote_session_id', sessionIds);
 
-  const { data: fences } = await supabase
+  // Some databases may not yet have total_low/total_high. Try full select first,
+  // then gracefully fall back so dashboard pricing still renders.
+  let fences:
+    | {
+        quote_session_id: string;
+        total_length_ft: number | null;
+        has_removal: boolean | null;
+        subtotal_low: number | null;
+        subtotal_high: number | null;
+        total_low?: number | null;
+        total_high?: number | null;
+      }[]
+    | null = null;
+
+  const { data: fencesWithTotals, error: fencesWithTotalsError } = await supabase
     .from('fences')
     .select('quote_session_id, total_length_ft, has_removal, subtotal_low, subtotal_high, total_low, total_high')
     .in('quote_session_id', sessionIds);
+
+  if (!fencesWithTotalsError && fencesWithTotals) {
+    fences = fencesWithTotals;
+  } else {
+    const { data: fencesWithoutTotals } = await supabase
+      .from('fences')
+      .select('quote_session_id, total_length_ft, has_removal, subtotal_low, subtotal_high')
+      .in('quote_session_id', sessionIds);
+    fences = fencesWithoutTotals;
+  }
 
   const customerBySession = new Map((customers || []).map((c) => [c.quote_session_id, c]));
   const propertyBySession = new Map((properties || []).map((p) => [p.quote_session_id, p]));
