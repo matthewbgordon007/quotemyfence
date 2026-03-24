@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 const PROVINCES = [
   'Ontario',
@@ -50,27 +50,35 @@ const TIME_WINDOWS = [
   'in the last 24 hours',
 ];
 
-const ITEMS = PROVINCES.flatMap((province) =>
-  BUSINESS_TYPES.flatMap((businessType, idx) =>
-    ACTIONS.slice(0, 5).map((action, actionIdx) => {
-      const timeWindow = TIME_WINDOWS[(idx + actionIdx) % TIME_WINDOWS.length];
-      return `${businessType} in ${province} ${action} ${timeWindow}`;
-    })
-  )
-).slice(0, 120);
-
 export function LiveActivityTicker() {
-  const [index, setIndex] = useState(() => Math.floor(Math.random() * ITEMS.length));
+  const [cityIndex, setCityIndex] = useState(() => Math.floor(Math.random() * PROVINCES.length));
+  const [businessIndex, setBusinessIndex] = useState(() => Math.floor(Math.random() * BUSINESS_TYPES.length));
+  const [actionIndex, setActionIndex] = useState(() => Math.floor(Math.random() * ACTIONS.length));
+  const [timeIndex, setTimeIndex] = useState(() => Math.floor(Math.random() * TIME_WINDOWS.length));
+
+  const currentItem = useMemo(() => {
+    const province = PROVINCES[cityIndex];
+    const businessType = BUSINESS_TYPES[businessIndex];
+    const action = ACTIONS[actionIndex];
+    const timeWindow = TIME_WINDOWS[timeIndex];
+    return `${businessType} in ${province} ${action} ${timeWindow}`;
+  }, [cityIndex, businessIndex, actionIndex, timeIndex]);
 
   useEffect(() => {
-    const id = setInterval(() => setIndex((v) => (v + 1) % ITEMS.length), 3200);
+    const id = setInterval(() => {
+      // All moving parts advance every cycle so city and message both keep changing.
+      setCityIndex((v) => (v + 3) % PROVINCES.length);
+      setBusinessIndex((v) => (v + 2) % BUSINESS_TYPES.length);
+      setActionIndex((v) => (v + 5) % ACTIONS.length);
+      setTimeIndex((v) => (v + 1) % TIME_WINDOWS.length);
+    }, 2800);
     return () => clearInterval(id);
   }, []);
 
   return (
     <div className="mx-auto mt-6 w-full max-w-3xl rounded-full border border-blue-200 bg-blue-50/80 px-4 py-2 text-center text-sm text-blue-800">
       <span className="mr-2 inline-block h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-      <span className="font-semibold">Live activity:</span> {ITEMS[index]}
+      <span className="font-semibold">Live activity:</span> {currentItem}
     </div>
   );
 }
