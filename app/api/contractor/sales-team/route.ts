@@ -21,7 +21,9 @@ export async function GET() {
     .order('name', { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ members: data || [] });
+  const res = NextResponse.json({ members: data || [] });
+  res.headers.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
+  return res;
 }
 
 export async function POST(request: NextRequest) {

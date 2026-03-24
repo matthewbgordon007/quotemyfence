@@ -33,17 +33,31 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
   }
 
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
+  }
+
   if (updates.receives_leads === true) {
-    await supabase
+    const { error: clearOthersError } = await supabase
       .from('sales_team_members')
       .update({ receives_leads: false })
       .eq('contractor_id', contractorId)
       .neq('id', id);
+    if (clearOthersError) {
+      return NextResponse.json({ error: clearOthersError.message }, { status: 500 });
+    }
   }
 
-  const { data, error } = await supabase.from('sales_team_members').update(updates).eq('id', id).select().single();
+  const { data, error } = await supabase
+    .from('sales_team_members')
+    .update(updates)
+    .eq('id', id)
+    .select('*')
+    .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+  const res = NextResponse.json(data);
+  res.headers.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
+  return res;
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

@@ -48,8 +48,12 @@ CREATE TABLE IF NOT EXISTS sales_team_members (
   photo_url TEXT,
   display_order INT DEFAULT 0,
   is_visible BOOLEAN DEFAULT true,
+  receives_leads BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Existing databases: add column if missing (idempotent)
+ALTER TABLE sales_team_members ADD COLUMN IF NOT EXISTS receives_leads BOOLEAN DEFAULT false;
 
 -- 4. lead_sources
 CREATE TABLE IF NOT EXISTS lead_sources (

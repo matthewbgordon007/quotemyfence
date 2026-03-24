@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { OptimizedProductImage } from '@/components/OptimizedProductImage';
 import { useRouter } from 'next/navigation';
 
@@ -18,8 +18,14 @@ interface SalesTeamMember {
   receives_leads?: boolean;
 }
 
+function receivesLeadsFromRow(row: Record<string, unknown>): boolean {
+  const v = row.receives_leads;
+  return v === true || v === 'true' || v === 1;
+}
+
 export default function SalesTeamPage() {
   const router = useRouter();
+  const listFetchGen = useRef(0);
   const [members, setMembers] = useState<SalesTeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -33,13 +39,25 @@ export default function SalesTeamPage() {
   const [photoUploading, setPhotoUploading] = useState(false);
 
   function refresh() {
+    const gen = ++listFetchGen.current;
     fetch('/api/contractor/sales-team', {
       credentials: 'include',
       cache: 'no-store',
     })
       .then((r) => r.json())
-      .then((data) => setMembers(data.members || []))
-      .finally(() => setLoading(false));
+      .then((data) => {
+        if (gen !== listFetchGen.current) return;
+        const raw = (data.members || []) as SalesTeamMember[];
+        setMembers(
+          raw.map((m) => ({
+            ...m,
+            receives_leads: receivesLeadsFromRow(m as unknown as Record<string, unknown>),
+          }))
+        );
+      })
+      .finally(() => {
+        if (gen === listFetchGen.current) setLoading(false);
+      });
   }
 
   useEffect(() => {
@@ -133,6 +151,9 @@ export default function SalesTeamPage() {
   }
 
   async function handleSetLeadRecipient(id: string, checked: boolean) {
+    // Any in-flight GET from refresh() must not overwrite this toggle when it completes late
+    // (React Strict Mode, slow network, or SW quirks).
+    listFetchGen.current += 1;
     const previous = members;
     setMembers((prev) =>
       prev.map((m) =>
@@ -144,6 +165,7 @@ export default function SalesTeamPage() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
+        cache: 'no-store',
         body: JSON.stringify({ receives_leads: checked }),
       });
       if (!res.ok) {
@@ -151,11 +173,11 @@ export default function SalesTeamPage() {
         return;
       }
       const updated = (await res.json()) as SalesTeamMember;
-      // Trust the PATCH response — a cached GET after this was reverting the checkbox.
+      const rl = receivesLeadsFromRow(updated as unknown as Record<string, unknown>);
       setMembers((prev) =>
         prev.map((m) => {
-          if (m.id === updated.id) return { ...m, ...updated };
-          if (checked && updated.receives_leads === true) return { ...m, receives_leads: false };
+          if (m.id === updated.id) return { ...m, ...updated, receives_leads: rl };
+          if (checked && rl) return { ...m, receives_leads: false };
           return m;
         })
       );
@@ -314,7 +336,7 @@ export default function SalesTeamPage() {
                 <label className="flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-1.5 text-sm hover:bg-[var(--bg2)] mr-auto">
                   <input
                     type="checkbox"
-                    checked={m.receives_leads === true}
+                    checked={receivesLeadsFromRow(m as unknown as Record<string, unknown>)}
                     onChange={(e) => handleSetLeadRecipient(m.id, e.target.checked)}
                     className="h-4 w-4 rounded border-[var(--line)] text-[var(--accent)]"
                   />
