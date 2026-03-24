@@ -34,7 +34,7 @@ export default function CompletePage() {
             <div className="mt-1 text-xl font-bold">
               ${totals.total_low.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} – ${totals.total_high.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} CAD
             </div>
-            <div className="text-sm text-slate-500">Before tax</div>
+            <div className="text-sm text-slate-500">Including estimated tax</div>
           </div>
         )}
 

@@ -6,6 +6,7 @@
  */
 
 const QUOTE_RANGE_PCT = 0.1; // ±10%
+const DEFAULT_ESTIMATE_TAX_RATE = Number(process.env.ESTIMATE_TAX_RATE ?? 13); // %
 
 export interface PricingRuleRow {
   base_price_per_ft_low: number;
@@ -75,14 +76,22 @@ export function calculatePricing(input: PricingInput): PricingResult {
   const range = subtotalActual * QUOTE_RANGE_PCT;
   const subtotal_low = Math.round((subtotalActual - range) * 100) / 100;
   const subtotal_high = Math.round((subtotalActual + range) * 100) / 100;
+  const taxRate = Number.isFinite(DEFAULT_ESTIMATE_TAX_RATE)
+    ? Math.max(0, DEFAULT_ESTIMATE_TAX_RATE)
+    : 13;
+  const applyTax = (rule.tax_mode ?? 'excluded') !== 'included' && taxRate > 0;
+  const tax_low = applyTax ? Math.round(subtotal_low * (taxRate / 100) * 100) / 100 : 0;
+  const tax_high = applyTax ? Math.round(subtotal_high * (taxRate / 100) * 100) / 100 : 0;
+  const total_low = Math.round((subtotal_low + tax_low) * 100) / 100;
+  const total_high = Math.round((subtotal_high + tax_high) * 100) / 100;
 
   return {
     subtotal_low,
     subtotal_high,
-    tax_low: 0,
-    tax_high: 0,
-    total_low: subtotal_low,
-    total_high: subtotal_high,
+    tax_low,
+    tax_high,
+    total_low,
+    total_high,
     breakdown: {
       material_low: Math.round(material * 100) / 100,
       material_high: Math.round(material * 100) / 100,

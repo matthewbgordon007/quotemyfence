@@ -75,7 +75,7 @@ export default function ReviewPage() {
 
           {totals && (
             <div className="rounded-xl border-2 border-[var(--accent)]/40 bg-gradient-to-br from-[var(--accent)]/10 to-[var(--accent-secondary)]/10 p-5">
-              <div className="text-xs font-semibold uppercase tracking-wider text-slate-600">Your quote (before tax)</div>
+              <div className="text-xs font-semibold uppercase tracking-wider text-slate-600">Your quote (incl. estimated tax)</div>
               <div className="mt-1 text-xl font-bold">
                 ${totals.total_low.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} – ${totals.total_high.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} CAD
               </div>
