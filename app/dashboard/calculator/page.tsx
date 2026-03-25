@@ -8,12 +8,18 @@ import { useSearchParams, useRouter } from 'next/navigation';
 const field =
   'rounded-xl border border-slate-200/90 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20';
 
+const cardShell =
+  'overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-md shadow-slate-900/[0.04] ring-1 ring-slate-900/[0.03]';
+
+const cardHeader =
+  'border-b border-slate-100/90 bg-gradient-to-r from-slate-50/95 via-white to-blue-50/40 px-5 py-4 sm:px-6';
+
 const FenceDrawingMap = dynamic(
   () => import('@/components/FenceDrawingMap').then((m) => ({ default: m.FenceDrawingMap })),
   {
     ssr: false,
     loading: () => (
-      <div className="min-h-[220px] animate-pulse rounded-xl border border-slate-200/80 bg-slate-100/80" />
+      <div className="min-h-[220px] animate-pulse rounded-xl border border-slate-200/80 bg-gradient-to-br from-slate-100 to-slate-50" />
     ),
   }
 );
@@ -570,15 +576,15 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
 
   if (loading) {
     return (
-      <div className="mx-auto flex max-w-6xl flex-col gap-6 pb-8">
-        <div className="h-8 w-72 animate-pulse rounded-lg bg-slate-200/80" />
-        <div className="h-4 max-w-xl animate-pulse rounded bg-slate-200/60" />
+      <div className="relative mx-auto flex max-w-6xl flex-col gap-8 pb-10">
+        <div className="h-9 w-80 animate-pulse rounded-xl bg-gradient-to-r from-slate-200/90 to-slate-100/80" />
+        <div className="h-4 max-w-xl animate-pulse rounded-md bg-slate-200/50" />
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(300px,380px)]">
-          <div className="space-y-4">
-            <div className="h-80 animate-pulse rounded-2xl bg-slate-200/70" />
-            <div className="h-96 animate-pulse rounded-2xl bg-slate-200/50" />
+          <div className="space-y-5">
+            <div className="h-80 animate-pulse rounded-2xl bg-gradient-to-br from-slate-200/80 to-slate-100/60" />
+            <div className="h-96 animate-pulse rounded-2xl bg-gradient-to-br from-slate-200/60 to-slate-100/40" />
           </div>
-          <div className="h-72 animate-pulse rounded-2xl bg-slate-200/60" />
+          <div className="h-80 animate-pulse rounded-2xl bg-gradient-to-br from-blue-100/40 to-slate-200/50" />
         </div>
       </div>
     );
@@ -586,66 +592,123 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
 
   if (!hasHierarchyOptions) {
     return (
-      <div className="mx-auto max-w-lg rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-8 py-12 text-center">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Quote calculator</p>
-        <h2 className="mt-2 text-xl font-bold tracking-tight text-slate-900">Set up products first</h2>
-        <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-slate-600">
+      <div className="relative mx-auto max-w-lg overflow-hidden rounded-2xl border border-slate-200/80 bg-white px-8 py-14 text-center shadow-lg shadow-slate-900/[0.06] ring-1 ring-slate-900/[0.03]">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-50/80 via-transparent to-indigo-50/40" aria-hidden />
+        <div className="relative mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-100 text-blue-600">
+          <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"
+            />
+          </svg>
+        </div>
+        <p className="relative mt-5 text-xs font-semibold uppercase tracking-wide text-slate-500">Quote calculator</p>
+        <h2 className="relative mt-2 text-xl font-bold tracking-tight text-slate-900">Set up products first</h2>
+        <p className="relative mx-auto mt-3 max-w-sm text-sm leading-relaxed text-slate-600">
           Add fence types, styles, and colours with pricing in Products, then return here to price jobs.
         </p>
         <Link
           href="/dashboard/products"
-          className="mt-8 inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-500"
+          className="relative mt-8 inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-600/25 transition hover:bg-blue-500 active:scale-[0.98]"
         >
-          Go to Products
+          <span>Go to Products</span>
+          <svg className="h-4 w-4 opacity-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+          </svg>
         </Link>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-8 pb-8">
-      <div className="flex flex-col gap-6 border-b border-slate-200/80 pb-8 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-sm font-medium text-slate-500">Sales tools</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Quote calculator</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
-            Build quotes from your catalog. Enter lengths in meters or feet, map customer drawing lines to sides when
-            available, then copy or save.
-          </p>
-          {fromCustomerId && (
-            <Link
-              href={`/dashboard/customers/${fromCustomerId}`}
-              className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-blue-600 transition hover:text-blue-500"
-            >
-              <span aria-hidden>←</span> Back to this lead
-            </Link>
-          )}
+    <div className="relative mx-auto w-full max-w-6xl space-y-10 pb-10">
+      <div className="pointer-events-none absolute -right-24 -top-20 h-72 w-72 rounded-full bg-blue-500/[0.07] blur-3xl" aria-hidden />
+      <div className="pointer-events-none absolute -left-20 top-40 h-56 w-56 rounded-full bg-indigo-500/[0.06] blur-3xl" aria-hidden />
+
+      <div className="relative flex flex-col gap-8 border-b border-slate-200/70 pb-10 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex gap-5">
+          <div className="hidden shrink-0 sm:flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/25">
+            <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15.75 15.75V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-7.5A2.25 2.25 0 016 8.25h2.25m9 0V6A2.25 2.25 0 0015 3.75h-4.5A2.25 2.25 0 006 6v3.75m9 0H6M9 12h6"
+              />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-slate-500">Sales tools</p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Quote calculator</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
+              Build quotes from your catalog. Enter lengths in meters or feet, map customer drawing lines to sides when
+              available, then copy or save.
+            </p>
+            {fromCustomerId && (
+              <Link
+                href={`/dashboard/customers/${fromCustomerId}`}
+                className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-blue-600 transition hover:text-blue-500"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+                </svg>
+                Back to this lead
+              </Link>
+            )}
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
             href="/dashboard/products"
-            className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200/90 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98]"
           >
+            <svg className="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4"
+              />
+            </svg>
             Products
           </Link>
           <Link
             href="/dashboard/customers"
-            className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200/90 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98]"
           >
+            <svg className="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"
+              />
+            </svg>
             Leads
           </Link>
         </div>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(300px,380px)] lg:items-start">
+      <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(300px,400px)] lg:items-start">
         <div className="space-y-6">
-          <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-            <div className="border-b border-slate-100 bg-slate-50/90 px-5 py-4">
-              <h2 className="text-base font-semibold text-slate-900">Quote setup</h2>
-              <p className="mt-0.5 text-xs text-slate-500">Homeowner • Address • Product • Gates • Tax</p>
+          <div className={cardShell}>
+            <div className={`${cardHeader} flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between`}>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-blue-500 shadow-sm shadow-blue-500/50" aria-hidden />
+                  <h2 className="text-base font-semibold text-slate-900">Quote setup</h2>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">Homeowner • Address • Product • Gates • Tax</p>
+              </div>
+              {optionLabel && (
+                <p
+                  className="max-w-full truncate rounded-lg border border-blue-100 bg-blue-50/90 px-3 py-1.5 text-xs font-medium text-blue-900 shadow-sm"
+                  title={optionLabel}
+                >
+                  {optionLabel}
+                </p>
+              )}
             </div>
             <div className="space-y-6 p-5 sm:p-6">
-              <div className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-slate-700">Homeowner name</label>
                   <input
@@ -747,7 +810,7 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                   </div>
                 </div>
                 {selectedColourId && (
-                  <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-4">
+                  <div className="rounded-xl border border-blue-100/80 bg-gradient-to-br from-blue-50/90 via-white to-slate-50/50 p-4 shadow-sm ring-1 ring-blue-500/5">
                     <label className="mb-2 block text-sm font-medium text-slate-700">
                       Price per ft <span className="font-normal text-slate-500">(catalogue default — editable for this quote only)</span>
                     </label>
@@ -872,13 +935,26 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-            <div className="border-b border-slate-100 bg-slate-50/90 px-5 py-4">
-              <h2 className="text-base font-semibold text-slate-900">Segments</h2>
-              <p className="mt-0.5 text-xs text-slate-500">Meters or feet • Extend • Shared fence (50%)</p>
+          <div className={cardShell}>
+            <div className={`${cardHeader} flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between`}>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-500 shadow-sm shadow-indigo-500/40" aria-hidden />
+                  <h2 className="text-base font-semibold text-slate-900">Segments</h2>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">Meters or feet • Extend • Shared fence (50%)</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <span className="inline-flex items-center rounded-lg border border-slate-200/80 bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Run {fmtFeet(totalLength)}
+                </span>
+                <span className="inline-flex items-center rounded-lg border border-blue-100 bg-blue-50/80 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-800">
+                  Billable {fmtFeet(billableLength)}
+                </span>
+              </div>
             </div>
             {customerSegments.length > 0 && customerMapCenter && (
-              <div className="border-b border-slate-100 p-5">
+              <div className="border-b border-slate-100 bg-slate-50/30 p-5">
                 <p className="mb-3 text-xs font-medium leading-relaxed text-slate-600">
                   Customer drawing — assign each numbered line to the correct side (LHS, back, RHS, etc.).
                 </p>
@@ -886,24 +962,40 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                   segments={customerSegments}
                   gates={customerGates}
                   center={customerMapCenter}
-                  className="min-h-[220px] overflow-hidden rounded-xl border border-slate-200/80"
+                  className="min-h-[220px] overflow-hidden rounded-xl border border-slate-200/80 shadow-inner shadow-slate-900/[0.03]"
                 />
               </div>
             )}
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-200/80 bg-slate-50/90">
-                    <th className="px-3 py-2 text-left font-medium">Segment</th>
+                  <tr className="border-b border-slate-200/80 bg-slate-50/95">
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Segment
+                    </th>
                     {customerSegments.length > 0 && (
-                      <th className="px-3 py-2 text-left font-medium">From line</th>
+                      <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        From line
+                      </th>
                     )}
-                    <th className="px-3 py-2 text-right font-medium">Meters</th>
-                    <th className="px-3 py-2 text-right font-medium">Feet</th>
-                    <th className="px-3 py-2 text-center font-medium">Extend</th>
-                    <th className="px-3 py-2 text-center font-medium">Shared</th>
-                    <th className="px-3 py-2 text-right font-medium">Cost</th>
-                    <th className="px-3 py-2 text-center font-medium"></th>
+                    <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Meters
+                    </th>
+                    <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Feet
+                    </th>
+                    <th className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Extend
+                    </th>
+                    <th className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Shared
+                    </th>
+                    <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Cost
+                    </th>
+                    <th className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <span className="sr-only">Remove</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1108,11 +1200,11 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
                 </div>
               ))}
             </div>
-            <div className="flex flex-wrap gap-3 border-t border-slate-100 bg-slate-50/50 p-5">
+            <div className="flex flex-wrap gap-3 border-t border-slate-100 bg-gradient-to-r from-slate-50/90 to-white p-5">
               <button
                 type="button"
                 onClick={addSegment}
-                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-500"
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-600/25 transition hover:bg-blue-500 active:scale-[0.98]"
               >
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1131,92 +1223,118 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
         </div>
 
         <div className="flex flex-col gap-6 lg:sticky lg:top-4 lg:self-start">
-          <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-            <div className="border-b border-slate-100 bg-slate-50/90 px-5 py-4">
-              <h2 className="text-base font-semibold text-slate-900">Totals</h2>
-              <p className="mt-0.5 text-xs text-slate-500">Private • Shared • Gates • Tax • Deposit</p>
+          <div className={cardShell}>
+            <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-600 to-indigo-700 px-5 py-6 text-white shadow-inner">
+              <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10 blur-2xl" aria-hidden />
+              <p className="relative text-[11px] font-semibold uppercase tracking-[0.12em] text-blue-100">Grand total</p>
+              <p className="relative mt-1 text-3xl font-bold tabular-nums tracking-tight sm:text-4xl">{moneyCAD(grandTotal)}</p>
+              <div className="relative mt-4 flex items-center justify-between gap-3 border-t border-white/20 pt-4 text-sm">
+                <span className="text-blue-100">10% deposit</span>
+                <span className="font-semibold tabular-nums text-white">{moneyCAD(deposit)}</span>
+              </div>
             </div>
-            <div className="space-y-3 p-5 sm:p-6">
-              <div className="flex justify-between text-sm">
+            <div className="space-y-0 divide-y divide-slate-100 p-2">
+              <div className="flex justify-between px-4 py-3 text-sm">
                 <span className="text-slate-600">Private</span>
                 <span className="font-semibold tabular-nums text-slate-900">{moneyCAD(privateTotal)}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between px-4 py-3 text-sm">
                 <span className="text-slate-600">Shared</span>
                 <span className="font-semibold tabular-nums text-slate-900">{moneyCAD(sharedTotal)}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between px-4 py-3 text-sm">
                 <span className="text-slate-600">Gates</span>
                 <span className="font-semibold tabular-nums text-slate-900">{moneyCAD(gateTotal)}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between px-4 py-3 text-sm">
                 <span className="text-slate-600">Removal</span>
                 <span className="font-semibold tabular-nums text-slate-900">{moneyCAD(removalTotal)}</span>
               </div>
-              <div className="flex justify-between border-t border-slate-100 pt-3 text-sm">
-                <span className="font-medium text-slate-800">Subtotal</span>
-                <span className="font-bold tabular-nums text-slate-900">{moneyCAD(subtotal)}</span>
+              <div className="flex justify-between px-4 py-3 text-sm font-medium">
+                <span className="text-slate-800">Subtotal</span>
+                <span className="tabular-nums text-slate-900">{moneyCAD(subtotal)}</span>
               </div>
               {applyTax && (
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between px-4 py-3 text-sm">
                   <span className="text-slate-600">Tax ({taxRate}%)</span>
                   <span className="tabular-nums text-slate-900">{moneyCAD(taxAmount)}</span>
                 </div>
               )}
-              <div className="flex justify-between border-t border-slate-100 pt-4 text-lg">
-                <span className="font-bold text-slate-900">Grand total</span>
-                <span className="font-bold tabular-nums text-blue-600">{moneyCAD(grandTotal)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-600">10% deposit</span>
-                <span className="font-semibold tabular-nums text-slate-900">{moneyCAD(deposit)}</span>
-              </div>
             </div>
-            <div className="space-y-3 border-t border-slate-100 bg-slate-50/40 p-5">
+            <div className="space-y-3 border-t border-slate-100 bg-gradient-to-b from-slate-50/80 to-white p-5">
               {fromCustomerId ? (
                 <button
                   type="button"
                   onClick={saveToCustomer}
                   disabled={savingToCustomer}
-                  className="w-full rounded-xl bg-blue-600 px-4 py-3.5 text-sm font-bold text-white shadow-sm shadow-blue-600/25 transition hover:bg-blue-500 disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-600/30 transition hover:bg-blue-500 active:scale-[0.98] disabled:opacity-50"
                 >
-                  {savingToCustomer ? 'Saving…' : 'Save to customer'}
+                  {savingToCustomer ? (
+                    'Saving…'
+                  ) : (
+                    <>
+                      <svg className="h-4 w-4 opacity-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                      Save to customer
+                    </>
+                  )}
                 </button>
               ) : (
                 <button
                   type="button"
                   onClick={saveAsNewQuote}
                   disabled={savingToCustomer}
-                  className="w-full rounded-xl bg-blue-600 px-4 py-3.5 text-sm font-bold text-white shadow-sm shadow-blue-600/25 transition hover:bg-blue-500 disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-600/30 transition hover:bg-blue-500 active:scale-[0.98] disabled:opacity-50"
                 >
-                  {savingToCustomer ? 'Saving…' : 'Save quote'}
+                  {savingToCustomer ? (
+                    'Saving…'
+                  ) : (
+                    <>
+                      <svg className="h-4 w-4 opacity-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                      </svg>
+                      Save quote
+                    </>
+                  )}
                 </button>
               )}
               <button
                 type="button"
                 onClick={copyQuote}
-                className={`w-full rounded-xl px-4 py-3.5 text-sm font-bold shadow-sm transition ${
+                className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold shadow-sm transition active:scale-[0.98] ${
                   fromCustomerId
                     ? 'border border-slate-200/90 bg-white text-slate-900 hover:border-slate-300 hover:bg-slate-50'
-                    : 'bg-white text-blue-700 ring-1 ring-inset ring-blue-200 hover:bg-blue-50/80'
+                    : 'border border-blue-200 bg-white text-blue-700 hover:bg-blue-50/90'
                 }`}
               >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"
+                  />
+                </svg>
                 Copy quote text
               </button>
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-            <div className="border-b border-slate-100 bg-slate-50/90 px-5 py-4">
-              <h2 className="text-base font-semibold text-slate-900">Generated quote</h2>
-              <p className="mt-0.5 text-xs text-slate-500">Read-only — copy or save from above</p>
+          <div className={cardShell}>
+            <div className={cardHeader}>
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 shrink-0 rounded-full bg-slate-400 shadow-sm" aria-hidden />
+                <h2 className="text-base font-semibold text-slate-900">Generated quote</h2>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">Read-only preview — copy or save using the buttons above</p>
             </div>
             <div className="p-4 sm:p-5">
               <textarea
                 readOnly
                 value={quoteText}
                 rows={14}
-                className="w-full resize-y rounded-xl border border-slate-200/90 bg-slate-50/80 px-4 py-3 text-xs font-mono leading-relaxed text-slate-800 outline-none focus:border-slate-300 focus:ring-1 focus:ring-slate-200"
+                className="w-full resize-y rounded-xl border border-slate-700/80 bg-slate-900 px-4 py-3.5 text-[11px] font-mono leading-relaxed text-slate-100 shadow-inner outline-none ring-1 ring-inset ring-white/5 selection:bg-blue-500/30"
+                spellCheck={false}
               />
             </div>
           </div>
