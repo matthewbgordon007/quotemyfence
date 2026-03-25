@@ -12,7 +12,11 @@ export const metadata: Metadata = {
     title: 'Start Free Trial | Fence Estimate Software | QuoteMyFence',
     description: 'Create your contractor account. Set products, pricing, and your quote link. Capture leads 24/7.',
   },
-  twitter: SEO_DEFAULTS.twitter,
+  twitter: {
+    ...SEO_DEFAULTS.twitter,
+    title: 'Start Free Trial | Fence Estimate Software | QuoteMyFence',
+    description: 'Create your contractor account, set pricing, and capture fence leads 24/7. No credit card required.',
+  },
   alternates: { canonical: canonical('/signup') },
 };
 

@@ -82,7 +82,10 @@ export default async function DashboardLayout({
       </aside>
 
       {/* Main Content Area */}
-      <main className="relative flex-1 overflow-y-auto bg-gradient-to-b from-slate-100/90 to-slate-50 p-4 pb-32 [-webkit-overflow-scrolling:touch] md:p-8 md:pb-8">
+      <main
+        id="main-content"
+        className="relative flex-1 overflow-y-auto bg-gradient-to-b from-slate-100/90 to-slate-50 p-4 pb-32 [-webkit-overflow-scrolling:touch] md:p-8 md:pb-8"
+      >
         {children}
       </main>
 

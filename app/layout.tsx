@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Plus_Jakarta_Sans } from 'next/font/google';
+import { SEO_DEFAULTS } from '@/lib/seo';
 import './globals.css';
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -9,11 +10,9 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const viewport: Viewport = {
-  themeColor: '#ffffff',
+  themeColor: '#f8fafc',
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   viewportFit: 'cover',
 };
 
@@ -27,20 +26,7 @@ export const metadata: Metadata = {
   },
   description:
     'The #1 fence estimate software for contractors. Turn tire-kickers into ready-to-buy leads. Instant quotes, satellite mapping, 24/7 lead capture. Trusted across Canada. Try free.',
-  keywords: [
-    'fence estimate software',
-    'fence quote software',
-    'fence contractor software',
-    'instant fence estimate',
-    'fence quote calculator',
-    'fence lead generation',
-    'fence estimate tool',
-    'satellite fence mapping',
-    'fence contractor leads',
-    'Canada fence software',
-    'fence business software',
-    'quote my fence',
-  ],
+  keywords: SEO_DEFAULTS.keywords,
   openGraph: {
     type: 'website',
     locale: 'en_CA',

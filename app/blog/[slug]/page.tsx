@@ -120,6 +120,7 @@ export default async function BlogPostPage({ params }: Props) {
           </div>
         </nav>
 
+        <main id="main-content">
         {/* Back link */}
         <Link
           href="/blog"
@@ -183,6 +184,8 @@ export default async function BlogPostPage({ params }: Props) {
             Back to home
           </Link>
         </div>
+
+        </main>
 
         <footer className="safe-area-b mt-12 border-t border-slate-200 bg-white/80 py-8 sm:mt-16">
           <div className="flex flex-wrap items-center justify-between gap-4">

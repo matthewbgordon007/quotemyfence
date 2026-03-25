@@ -49,6 +49,15 @@ const blogListJsonLd = {
   })),
 };
 
+const blogIndexBreadcrumbJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
+    { '@type': 'ListItem', position: 2, name: 'Blog', item: canonical('/blog') },
+  ],
+};
+
 function formatDate(dateStr: string) {
   const d = new Date(dateStr);
   return d.toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' });
@@ -60,6 +69,7 @@ export default function BlogPage() {
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-slate-100">
       <JsonLd data={blogListJsonLd} />
+      <JsonLd data={blogIndexBreadcrumbJsonLd} />
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-slate-100 via-slate-50 to-slate-100" />
         <div
@@ -89,6 +99,7 @@ export default function BlogPage() {
           </div>
         </nav>
 
+        <main id="main-content">
         <header className="pt-12 pb-10 text-center sm:pt-24 sm:pb-12">
           <span className="inline-block rounded-full border border-blue-200 bg-blue-50 px-4 py-1.5 text-sm font-semibold text-blue-600">
             Insights & tips
@@ -169,6 +180,8 @@ export default function BlogPage() {
             </Link>
           </div>
         </div>
+
+        </main>
 
         <footer className="safe-area-b mt-12 border-t border-slate-200 bg-white/80 py-8 sm:mt-16">
           <div className="flex flex-wrap items-center justify-between gap-4">

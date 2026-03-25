@@ -7,12 +7,23 @@ const SCHEDULE_CALL_URL = 'https://calendar.app.google/vuWD6xi7CfNptAon9';
 export const metadata: Metadata = {
   title: 'Partners & Link to Us | QuoteMyFence',
   description:
-    'Add a QuoteMyFence badge or link to your site. Free widgets for contractors, suppliers, and industry partners. Get the code and grow your backlinks.',
+    'Add a QuoteMyFence badge or link to your site. Free HTML snippets for fence contractors, suppliers, and industry partners. Grow backlinks and help your audience find fence estimate software.',
+  keywords: [
+    'QuoteMyFence partners',
+    'fence contractor affiliate badge',
+    'fence industry backlinks',
+    ...SEO_DEFAULTS.keywords.slice(0, 8),
+  ],
   openGraph: {
     ...SEO_DEFAULTS.openGraph,
     url: canonical('/partners'),
     title: 'Partners & Link to Us | QuoteMyFence',
-    description: 'Add a badge or link to your site. Free widgets for contractors and partners.',
+    description: 'Free badges and links for contractors, suppliers, and fence industry partners.',
+  },
+  twitter: {
+    ...SEO_DEFAULTS.twitter,
+    title: 'Partners | QuoteMyFence',
+    description: 'Free widgets and links for fence contractors and industry partners.',
   },
   alternates: { canonical: canonical('/partners') },
 };
@@ -52,7 +63,7 @@ export default function PartnersPage() {
           </div>
         </nav>
 
-        <main className="mx-auto max-w-3xl pt-12 pb-16 sm:pt-24">
+        <main id="main-content" className="mx-auto max-w-3xl pt-12 pb-16 sm:pt-24">
           <h1 className="font-heading text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
             Partners & <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">link to us</span>
           </h1>

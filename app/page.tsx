@@ -39,6 +39,8 @@ const HOME_SECTION_KEYWORDS = [
   'fence lead generation pricing',
   'QuoteMyFence how it works',
   'fence estimate software FAQ',
+  'fence company lead capture Canada',
+  'homeowner fence drawing tool',
 ];
 
 export const metadata: Metadata = {
@@ -114,6 +116,14 @@ const faqs = [
     question: 'What if I need help setting up?',
     answer: 'We offer onboarding support and can walk you through product setup, pricing rules, and best practices. Book a call or email us—we want you winning more jobs.',
   },
+  {
+    question: 'Does QuoteMyFence work for Canadian fence companies?',
+    answer: 'Yes. QuoteMyFence is built for fence contractors across Canada. Pricing is in CAD, and your customers get a fast, professional experience whether they are in Ontario, the Maritimes, or anywhere you serve.',
+  },
+  {
+    question: 'What types of fence can I quote with QuoteMyFence?',
+    answer: 'You define your catalog—PVC, composite, wood-look, privacy, picket, and more. Set heights, colours, styles, and per-foot or segment pricing so every estimate matches how you actually build and sell.',
+  },
 ];
 
 const features = [
@@ -138,15 +148,22 @@ const organizationJsonLd = {
 const websiteJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'WebSite',
+  '@id': `${SITE_URL}/#website`,
   name: SEO_DEFAULTS.siteName,
   url: SITE_URL,
   description: SEO_DEFAULTS.description,
   publisher: { '@id': `${SITE_URL}/#organization` },
-  potentialAction: {
-    '@type': 'SearchAction',
-    target: { '@type': 'EntryPoint', urlTemplate: `${SITE_URL}/?s={search_term_string}` },
-    'query-input': 'required name=search_term_string',
-  },
+};
+
+const webPageJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebPage',
+  '@id': `${SITE_URL}/#webpage`,
+  name: SEO_DEFAULTS.title,
+  url: SITE_URL,
+  description: SEO_DEFAULTS.description,
+  isPartOf: { '@id': `${SITE_URL}/#website` },
+  about: { '@id': `${SITE_URL}/#organization` },
 };
 
 const softwareJsonLd = {
@@ -167,6 +184,18 @@ const softwareJsonLd = {
   },
 };
 
+const homeFeaturesItemListJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'ItemList',
+  name: 'QuoteMyFence platform features',
+  itemListElement: features.map((f, i) => ({
+    '@type': 'ListItem',
+    position: i + 1,
+    name: f.title,
+    description: f.desc,
+  })),
+};
+
 export default function HomePage() {
   const faqJsonLd = {
     '@context': 'https://schema.org',
@@ -184,7 +213,9 @@ export default function HomePage() {
       <CinematicCursor />
       <JsonLd data={organizationJsonLd} />
       <JsonLd data={websiteJsonLd} />
+      <JsonLd data={webPageJsonLd} />
       <JsonLd data={softwareJsonLd} />
+      <JsonLd data={homeFeaturesItemListJsonLd} />
       <JsonLd data={faqJsonLd} />
       {/* Background - soft gradient with blue streaks */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
@@ -516,6 +547,36 @@ export default function HomePage() {
           </div>
         </section>
 
+        <ScrollReveal delay={80}>
+          <section
+            id="for-contractors"
+            className="mt-12 scroll-mt-24 rounded-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50/90 py-10 shadow-sm sm:mt-20 sm:py-14"
+            aria-labelledby="for-contractors-heading"
+          >
+            <div className="mx-auto max-w-3xl px-5 sm:px-6 lg:px-8">
+              <h2
+                id="for-contractors-heading"
+                className="text-center font-heading text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl"
+              >
+                Why fence contractors choose QuoteMyFence
+              </h2>
+              <p className="mt-4 text-center text-slate-600 sm:text-lg">
+                Whether you install privacy PVC, wood-look composite, or chain link, your buyers want speed and clarity. QuoteMyFence is{' '}
+                <strong className="font-semibold text-slate-800">fence estimate software</strong> that pairs{' '}
+                <strong className="font-semibold text-slate-800">satellite fence mapping</strong> with your real catalog and pricing—so homeowners self-serve an instant quote and you get{' '}
+                <strong className="font-semibold text-slate-800">pre-qualified fence leads</strong> with drawings and lengths, not vague phone tags.
+              </p>
+              <p className="mt-4 text-center text-slate-600">
+                Canadian fence companies use it to compete on professionalism: a branded link, 24/7 capture, and a dashboard built for sales—not spreadsheets. Explore our{' '}
+                <Link href="/blog" className="font-semibold text-blue-600 underline decoration-blue-200 underline-offset-2 hover:text-blue-700">
+                  contractor blog
+                </Link>{' '}
+                for quoting and lead tips, or start a free trial and publish your first quote page in one sitting.
+              </p>
+            </div>
+          </section>
+        </ScrollReveal>
+
         {/* Big CTA */}
         <section id="contact" className="mt-12 scroll-mt-24 rounded-2xl border border-slate-700/60 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 p-6 text-center sm:mt-20 sm:p-12 lg:p-16">
           <h2 className="font-heading text-3xl font-bold text-white sm:text-4xl">
@@ -575,6 +636,7 @@ export default function HomePage() {
                   <Link href="/partners" className="hover:text-slate-900">Partners</Link>
                   <a href={DEMO_URL} className="hover:text-slate-900">Try live demo</a>
                   <a href="/#faq" className="hover:text-slate-900">FAQ</a>
+                  <a href="/#for-contractors" className="hover:text-slate-900">For contractors</a>
                   <a href="/#contact" className="hover:text-slate-900">Contact</a>
                 </div>
               </div>

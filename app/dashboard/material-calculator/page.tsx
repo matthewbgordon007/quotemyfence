@@ -3,6 +3,15 @@
 import { useState } from 'react';
 import Link from 'next/link';
 
+const field =
+  'w-full rounded-xl border border-slate-200/90 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20';
+
+const cardShell =
+  'overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-md shadow-slate-900/[0.04] ring-1 ring-slate-900/[0.03]';
+
+const cardHeader =
+  'border-b border-slate-100/90 bg-gradient-to-r from-slate-50/95 via-white to-blue-50/40 px-5 py-4 sm:px-6';
+
 // PVC Premium 7' panel length ~8.21 ft
 const PVC_PANEL_LENGTH_FT = 8.21;
 const ITEMS_PER_PANEL = {
@@ -124,172 +133,173 @@ export default function MaterialCalculatorPage() {
   const totalMaterials = aggregateMaterials(computedLines);
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-6 pb-4">
       <div>
-        <h1 className="text-xl font-bold">Material Calculator</h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">
+        <h1 className="font-heading text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Material calculator</h1>
+        <p className="mt-2 text-sm text-slate-600">
           Calculate materials per fence line. Add each line, then set H post and U channel per your layout.
         </p>
       </div>
 
-      <div className="rounded-xl border border-[var(--line)] bg-white p-6 shadow-sm">
-        <h2 className="font-semibold">Job details</h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="block text-sm font-medium text-[var(--muted)]">Material type</label>
-            <select
-              value={materialType}
-              onChange={(e) => setMaterialType(e.target.value as MaterialType)}
-              className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm"
-            >
-              <option value="pvc">PVC (Premium)</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-[var(--muted)]">Address / label</label>
-            <input
-              type="text"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="e.g. 53 Rothesay"
-              className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-[var(--muted)]">Colour / height</label>
-            <input
-              type="text"
-              value={colourHeight}
-              onChange={(e) => setColourHeight(e.target.value)}
-              placeholder="e.g. Mahogany 7'"
-              className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm"
-            />
+      <div className={cardShell}>
+        <div className={cardHeader}>
+          <h2 className="font-semibold text-slate-900">Job details</h2>
+        </div>
+        <div className="p-5 sm:p-6">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Material type</label>
+              <select value={materialType} onChange={(e) => setMaterialType(e.target.value as MaterialType)} className={`mt-1.5 ${field}`}>
+                <option value="pvc">PVC (Premium)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Address / label</label>
+              <input
+                type="text"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="e.g. 53 Rothesay"
+                className={`mt-1.5 ${field}`}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-slate-700">Colour / height</label>
+              <input
+                type="text"
+                value={colourHeight}
+                onChange={(e) => setColourHeight(e.target.value)}
+                placeholder="e.g. Mahogany 7'"
+                className={`mt-1.5 ${field}`}
+              />
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="rounded-xl border border-[var(--line)] bg-white p-6 shadow-sm">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold">Fence lines</h2>
+      <div className={cardShell}>
+        <div className={`${cardHeader} flex flex-wrap items-center justify-between gap-3`}>
+          <h2 className="font-semibold text-slate-900">Fence lines</h2>
           <button
             type="button"
             onClick={addLine}
-            className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500"
           >
             + Add line
           </button>
         </div>
-        <p className="mt-1 text-xs text-[var(--muted)]">
-          H post: end points. U channel: corners. If this line connects to the previous at the start, check &quot;Connects to previous&quot; to avoid double-counting.
-        </p>
+        <div className="p-5 sm:p-6">
+          <p className="text-xs text-slate-500">
+            H post: end points. U channel: corners. If this line connects to the previous at the start, check &quot;Connects to previous&quot; to avoid double-counting.
+          </p>
 
-        {lines.length === 0 ? (
-          <p className="mt-6 text-sm text-[var(--muted)]">Add a line to get started.</p>
-        ) : (
-          <div className="mt-6 space-y-4">
-            {lines.map((line, i) => (
-              <div
-                key={line.id}
-                className="rounded-lg border border-[var(--line)] bg-[var(--bg2)] p-4"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <div>
-                      <label className="block text-xs text-[var(--muted)]">Line label</label>
-                      <input
-                        type="text"
-                        value={line.label}
-                        onChange={(e) => updateLine(line.id, { label: e.target.value })}
-                        placeholder={`Line ${i + 1}`}
-                        className="mt-0.5 w-full rounded border border-[var(--line)] px-2 py-1.5 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-[var(--muted)]">Length (ft)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        step={0.5}
-                        value={line.lengthFt || ''}
-                        onChange={(e) => updateLine(line.id, { lengthFt: parseFloat(e.target.value) || 0 })}
-                        className="mt-0.5 w-full rounded border border-[var(--line)] px-2 py-1.5 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-[var(--muted)]">H post (0, 1, 2)</label>
-                      <select
-                        value={line.hPost}
-                        onChange={(e) => updateLine(line.id, { hPost: Number(e.target.value) as 0 | 1 | 2 })}
-                        className="mt-0.5 w-full rounded border border-[var(--line)] px-2 py-1.5 text-sm"
-                      >
-                        <option value={0}>0</option>
-                        <option value={1}>1</option>
-                        <option value={2}>2</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs text-[var(--muted)]">U channel (0, 1, 2)</label>
-                      <select
-                        value={line.uChannel}
-                        onChange={(e) => updateLine(line.id, { uChannel: Number(e.target.value) as 0 | 1 | 2 })}
-                        className="mt-0.5 w-full rounded border border-[var(--line)] px-2 py-1.5 text-sm"
-                      >
-                        <option value={0}>0</option>
-                        <option value={1}>1</option>
-                        <option value={2}>2</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {i > 0 && (
-                      <label className="flex items-center gap-1.5 text-xs">
+          {lines.length === 0 ? (
+            <p className="mt-6 text-sm text-slate-600">Add a line to get started.</p>
+          ) : (
+            <div className="mt-6 space-y-4">
+              {lines.map((line, i) => (
+                <div key={line.id} className="rounded-xl border border-slate-200/80 bg-slate-50/50 p-4 ring-1 ring-slate-900/[0.02]">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600">Line label</label>
                         <input
-                          type="checkbox"
-                          checked={line.connectsToPrevious}
-                          onChange={(e) => updateLine(line.id, { connectsToPrevious: e.target.checked })}
-                          className="rounded border-[var(--line)]"
+                          type="text"
+                          value={line.label}
+                          onChange={(e) => updateLine(line.id, { label: e.target.value })}
+                          placeholder={`Line ${i + 1}`}
+                          className={`mt-1 ${field}`}
                         />
-                        Connects to previous
-                      </label>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => removeLine(line.id)}
-                      className="rounded p-1.5 text-red-500 hover:bg-red-50"
-                      aria-label="Remove line"
-                    >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600">Length (ft)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.5}
+                          value={line.lengthFt || ''}
+                          onChange={(e) => updateLine(line.id, { lengthFt: parseFloat(e.target.value) || 0 })}
+                          className={`mt-1 ${field}`}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600">H post (0, 1, 2)</label>
+                        <select
+                          value={line.hPost}
+                          onChange={(e) => updateLine(line.id, { hPost: Number(e.target.value) as 0 | 1 | 2 })}
+                          className={`mt-1 ${field}`}
+                        >
+                          <option value={0}>0</option>
+                          <option value={1}>1</option>
+                          <option value={2}>2</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600">U channel (0, 1, 2)</label>
+                        <select
+                          value={line.uChannel}
+                          onChange={(e) => updateLine(line.id, { uChannel: Number(e.target.value) as 0 | 1 | 2 })}
+                          className={`mt-1 ${field}`}
+                        >
+                          <option value={0}>0</option>
+                          <option value={1}>1</option>
+                          <option value={2}>2</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap items-center gap-3 border-t border-slate-200/60 pt-3 lg:border-t-0 lg:pt-0">
+                      {i > 0 && (
+                        <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={line.connectsToPrevious}
+                            onChange={(e) => updateLine(line.id, { connectsToPrevious: e.target.checked })}
+                            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500/30"
+                          />
+                          Connects to previous
+                        </label>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeLine(line.id)}
+                        className="rounded-lg p-2 text-red-600 transition hover:bg-red-50"
+                        aria-label="Remove line"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {totalMaterials.length > 0 && (
-        <div className="rounded-xl border border-[var(--line)] bg-white p-6 shadow-sm">
-          <h2 className="font-semibold">Total material list</h2>
-          <p className="mt-1 text-xs text-[var(--muted)]">
-            {address && `${address} • `}
-            {colourHeight || '—'}
-          </p>
-          <div className="mt-4 overflow-x-auto">
+        <div className={cardShell}>
+          <div className={cardHeader}>
+            <h2 className="font-semibold text-slate-900">Total material list</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              {address && `${address} • `}
+              {colourHeight || '—'}
+            </p>
+          </div>
+          <div className="overflow-x-auto p-5 sm:p-6 sm:pt-0">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-[var(--line)]">
-                  <th className="py-2 text-left font-medium">Item</th>
-                  <th className="py-2 text-right font-medium">Qty</th>
+                <tr className="border-b border-slate-200 text-left">
+                  <th className="py-3 font-semibold text-slate-700">Item</th>
+                  <th className="py-3 text-right font-semibold text-slate-700">Qty</th>
                 </tr>
               </thead>
               <tbody>
                 {totalMaterials.map(({ name, qty }) => (
-                  <tr key={name} className="border-b border-[var(--line)]/50">
-                    <td className="py-2">{name}</td>
-                    <td className="py-2 text-right font-medium">{qty}</td>
+                  <tr key={name} className="border-b border-slate-100 last:border-0">
+                    <td className="py-2.5 text-slate-800">{name}</td>
+                    <td className="py-2.5 text-right font-semibold text-slate-900">{qty}</td>
                   </tr>
                 ))}
               </tbody>
@@ -298,8 +308,8 @@ export default function MaterialCalculatorPage() {
         </div>
       )}
 
-      <p className="text-xs text-[var(--muted)]">
-        <Link href="/dashboard" className="text-[var(--accent)] hover:underline">
+      <p className="text-sm text-slate-600">
+        <Link href="/dashboard" className="font-medium text-blue-600 hover:text-blue-700 hover:underline">
           ← Back to dashboard
         </Link>
       </p>

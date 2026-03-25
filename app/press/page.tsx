@@ -8,12 +8,23 @@ const CONTACT_EMAIL = 'info@quotemyfence.ca';
 export const metadata: Metadata = {
   title: 'Press & Media | QuoteMyFence',
   description:
-    'QuoteMyFence in the press. Media kit, logos, and facts. Contact us for interviews, quotes, or partnership opportunities.',
+    'QuoteMyFence in the press. Media kit, logos, and facts for fence industry and tech journalists. Contact us for interviews, quotes, or partnership opportunities.',
+  keywords: [
+    'QuoteMyFence press',
+    'fence software media kit',
+    'fence estimate software news',
+    ...SEO_DEFAULTS.keywords.slice(0, 8),
+  ],
   openGraph: {
     ...SEO_DEFAULTS.openGraph,
     url: canonical('/press'),
     title: 'Press & Media | QuoteMyFence',
-    description: 'Media kit, logos, and contact for journalists and partners.',
+    description: 'Media kit, logos, and contact for journalists covering fence tech and contractor software.',
+  },
+  twitter: {
+    ...SEO_DEFAULTS.twitter,
+    title: 'Press & Media | QuoteMyFence',
+    description: 'Media kit and contact for journalists and partners.',
   },
   alternates: { canonical: canonical('/press') },
 };
@@ -50,7 +61,7 @@ export default function PressPage() {
           </div>
         </nav>
 
-        <main className="mx-auto max-w-3xl pt-12 pb-16 sm:pt-24">
+        <main id="main-content" className="mx-auto max-w-3xl pt-12 pb-16 sm:pt-24">
           <h1 className="font-heading text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
             Press & <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">media</span>
           </h1>

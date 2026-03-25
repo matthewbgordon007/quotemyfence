@@ -19,6 +19,7 @@ const SECTION_LINKS = [
   { id: 'testimonials', label: 'Testimonials' },
   { id: 'pricing', label: 'Pricing' },
   { id: 'faq', label: 'FAQ' },
+  { id: 'for-contractors', label: 'For contractors' },
   { id: 'contact', label: 'Contact' },
 ] as const;
 
@@ -73,6 +74,12 @@ export function SiteNav() {
 
   return (
     <>
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-xl focus:bg-blue-600 focus:px-4 focus:py-3 focus:text-sm focus:font-bold focus:text-white focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-2"
+      >
+        Skip to main content
+      </a>
       <nav
         className={`safe-area-t fixed left-0 right-0 top-0 z-50 border-b px-4 py-3 transition-all duration-300 sm:px-6 sm:py-3.5 lg:px-8 ${
           scrolled
