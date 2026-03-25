@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { ContractorQuoteLinkShare } from '@/components/ContractorQuoteLinkShare';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -184,6 +185,7 @@ export default function SignupPage() {
                   className="flex-1 border-0 bg-transparent px-2 py-2.5 outline-none focus:ring-0"
                 />
               </div>
+              <ContractorQuoteLinkShare slug={slug || slugify(companyName)} compact className="mt-4 border-[var(--line)] bg-[var(--bg2)] ring-0" />
             </div>
 
             <div>

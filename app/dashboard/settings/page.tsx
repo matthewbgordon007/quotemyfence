@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { ContractorQuoteLinkShare } from '@/components/ContractorQuoteLinkShare';
 
 const ADMIN_ROLES = ['owner', 'admin'];
 
@@ -102,6 +103,7 @@ function CompleteSetupForm({
                 placeholder="your-company"
                 className={field}
               />
+              <ContractorQuoteLinkShare slug={slug || slugify(companyName)} compact className="mt-4" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Accent color</label>
@@ -468,6 +470,7 @@ export default function SettingsPage() {
                   className="min-w-0 flex-1 border-0 bg-transparent px-2 py-3 text-sm font-medium text-slate-900 outline-none focus:ring-0"
                 />
               </div>
+              <ContractorQuoteLinkShare slug={contractor.slug || slugify(contractor.company_name)} className="mt-4" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Email</label>
