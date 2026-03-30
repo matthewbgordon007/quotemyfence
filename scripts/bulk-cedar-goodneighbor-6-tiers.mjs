@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Bulk-insert install-length pricing tiers for "Cedar GoodNeighbor style 6'" (or closest name match).
+ * Bulk-insert install-length pricing tiers for Cedar 6' Good Neighbour
+ * (expected style name: "Cedar 6': Good Neighbour" — see DEFAULT_STYLE_NAMES below).
  *
  * Bands (from your table):
  *   8–24'  $144.99/ft  single gate $549.99
@@ -19,11 +20,17 @@
  * Optional:
  *   --style-name="Exact style name in dashboard"  (required if auto-match fails)
  *
- * Auto-match looks for style names containing: cedar + goodneighbor/good neighbour + 6
+ * Auto-match: tries DEFAULT_STYLE_NAMES first, then cedar + good neighbour + 6.
  */
 
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
+
+/** Rename the style in Products to one of these, or pass --style-name */
+const DEFAULT_STYLE_NAMES = [
+  "Cedar 6': Good Neighbour",
+  "Cedar 6': Good Neighbor",
+];
 
 function loadEnv() {
   try {
@@ -64,12 +71,29 @@ function parseArgs(argv) {
   return out;
 }
 
+function normalizeStyleName(s) {
+  return (s || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[''`´]/g, "'")
+    .replace(/\s+/g, ' ');
+}
+
 function matchesCedarGoodNeighbor6(name) {
-  const n = (name || '').toLowerCase().replace(/\s+/g, ' ');
+  const n = normalizeStyleName(name);
   const hasNeighbour = /good\s*neighbou?r/.test(n);
   const hasCedar = n.includes('cedar');
   const has6 = n.includes("6'") || n.includes('6 ft') || n.includes('6ft') || /\b6\s*'/.test(n) || /\b6\b/.test(n);
   return hasNeighbour && hasCedar && has6;
+}
+
+function findStyleByDefaultNames(styles) {
+  for (const def of DEFAULT_STYLE_NAMES) {
+    const want = normalizeStyleName(def);
+    const hit = (styles || []).find((s) => normalizeStyleName(s.style_name) === want);
+    if (hit) return hit;
+  }
+  return null;
 }
 
 async function main() {
@@ -121,27 +145,34 @@ async function main() {
 
   let style = null;
   if (exactName) {
-    style = (styles || []).find((s) => s.style_name.trim() === exactName);
+    const want = normalizeStyleName(exactName);
+    style = (styles || []).find((s) => normalizeStyleName(s.style_name) === want);
     if (!style) {
       console.error('No style with exact name:', exactName);
       console.error('Available styles:', (styles || []).map((s) => s.style_name).join(' | '));
       process.exit(1);
     }
   } else {
-    const candidates = (styles || []).filter((s) => matchesCedarGoodNeighbor6(s.style_name));
-    if (candidates.length === 1) {
-      style = candidates[0];
-    } else if (candidates.length > 1) {
-      console.error('Multiple Cedar GoodNeighbor 6\' styles — pass --style-name="..."');
-      candidates.forEach((s) => console.error(' -', s.id, s.style_name));
-      process.exit(1);
-    } else {
-      console.error('No style matched (cedar + good neighbour + 6). Available:');
+    style = findStyleByDefaultNames(styles);
+    if (style) {
+      console.log('Matched default style name:', style.style_name);
+    }
+    if (!style) {
+      const candidates = (styles || []).filter((s) => matchesCedarGoodNeighbor6(s.style_name));
+      if (candidates.length === 1) {
+        style = candidates[0];
+      } else if (candidates.length > 1) {
+        console.error('Multiple Cedar 6\' Good Neighbour styles — pass --style-name="..."');
+        candidates.forEach((s) => console.error(' -', s.id, s.style_name));
+        process.exit(1);
+      }
+    }
+    if (!style) {
+      console.error('No style matched. Expected one of:', DEFAULT_STYLE_NAMES.join(' | '));
+      console.error('Or any name with cedar + good neighbour + 6\'. Available:');
       (styles || []).forEach((s) => console.error(' -', s.style_name));
-      console.error('\nRename the style in Products to include "Cedar", "Good Neighbour", and 6\' — or run:');
-      console.error(
-        `  node scripts/bulk-cedar-goodneighbor-6-tiers.mjs --style-name="Your exact style name"`
-      );
+      console.error('\nRename the style in Products to e.g. "Cedar 6\': Good Neighbour" or run:');
+      console.error(`  node scripts/bulk-cedar-goodneighbor-6-tiers.mjs --style-name="Cedar 6': Good Neighbour"`);
       process.exit(1);
     }
   }
