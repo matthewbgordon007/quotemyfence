@@ -75,7 +75,7 @@ export async function PUT(request: NextRequest) {
     const max =
       maxRaw === null || maxRaw === undefined || (typeof maxRaw === 'string' && maxRaw.trim() === '')
         ? null
-        : Number(maxRaw as number);
+        : Number(maxRaw);
     if (!Number.isFinite(min) || min < 0) {
       return NextResponse.json({ error: 'Each tier needs a valid min_ft (feet).' }, { status: 400 });
     }
