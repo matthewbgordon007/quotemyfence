@@ -1364,9 +1364,9 @@ export default function CalculatorPage() {
             <div className={cardHeader}>
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 shrink-0 rounded-full bg-slate-400 shadow-sm" aria-hidden />
-                <h2 className="text-base font-semibold text-slate-900">Generated quote</h2>
+                <h2 className="text-base font-semibold text-slate-900">Generated Quote Text</h2>
               </div>
-              <p className="mt-1 text-xs text-slate-500">Template is managed in Quote template. This preview is read-only.</p>
+              <p className="mt-1 text-xs text-slate-500">Updates live. Template is managed in Quote template.</p>
             </div>
             <div className="space-y-3 p-4 sm:p-5">
               <Link
@@ -1382,7 +1382,7 @@ export default function CalculatorPage() {
                 readOnly
                 value={quoteText}
                 rows={14}
-                className="w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-[11px] font-mono leading-relaxed text-slate-900 shadow-inner outline-none selection:bg-blue-200/70"
+                className="w-full resize-y rounded-xl border border-slate-700/80 bg-slate-900 px-4 py-3.5 text-[11px] font-mono leading-relaxed text-slate-100 shadow-inner outline-none ring-1 ring-inset ring-white/5 selection:bg-blue-500/30"
                 spellCheck={false}
               />
             </div>
