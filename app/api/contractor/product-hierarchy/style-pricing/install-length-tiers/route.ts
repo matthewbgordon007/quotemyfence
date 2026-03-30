@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { doubleGatePriceFromSingle } from '@/lib/gate-pricing';
 
 async function getContractorId(supabase: Awaited<ReturnType<typeof createClient>>) {
   const {
@@ -83,6 +84,8 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Each tier max_ft must be empty (no upper limit) or >= min_ft.' }, { status: 400 });
     }
     const p = Number(t.base_price_per_ft_low) || 0;
+    const singleLow = Number(t.single_gate_low) || 0;
+    const doubleFromSingle = doubleGatePriceFromSingle(singleLow);
     rows.push({
       contractor_id: contractorId,
       fence_style_id,
@@ -91,10 +94,10 @@ export async function PUT(request: NextRequest) {
       display_order: i,
       base_price_per_ft_low: p,
       base_price_per_ft_high: Number(t.base_price_per_ft_high) || p,
-      single_gate_low: Number(t.single_gate_low) || 0,
-      single_gate_high: Number(t.single_gate_high) || Number(t.single_gate_low) || 0,
-      double_gate_low: Number(t.double_gate_low) || 0,
-      double_gate_high: Number(t.double_gate_high) || Number(t.double_gate_low) || 0,
+      single_gate_low: singleLow,
+      single_gate_high: Number(t.single_gate_high) || singleLow,
+      double_gate_low: doubleFromSingle,
+      double_gate_high: doubleFromSingle,
       removal_price_per_ft_low: Number(t.removal_price_per_ft_low) || 0,
       removal_price_per_ft_high: Number(t.removal_price_per_ft_high) || Number(t.removal_price_per_ft_low) || 0,
       minimum_job_low: Number(t.minimum_job_low) || 0,

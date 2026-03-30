@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { doubleGatePriceFromSingle } from '@/lib/gate-pricing';
 
 export interface StylePricingRule {
   fence_style_id: string;
@@ -41,7 +42,7 @@ function tierToDraft(t: StyleInstallLengthTier): TierDraft {
     max_ft: t.max_ft == null ? '' : String(t.max_ft),
     pricePerFt: String(t.base_price_per_ft_low),
     singleGate: String(t.single_gate_low),
-    doubleGate: String(t.double_gate_low),
+    doubleGate: String(doubleGatePriceFromSingle(Number(t.single_gate_low) || 0)),
     removal: String(t.removal_price_per_ft_low),
     minJob: String(t.minimum_job_low),
   };
@@ -53,7 +54,7 @@ function emptyDraft(fromRule: StylePricingRule): TierDraft {
     max_ft: '',
     pricePerFt: String(fromRule.base_price_per_ft_low),
     singleGate: String(fromRule.single_gate_low),
-    doubleGate: String(fromRule.double_gate_low),
+    doubleGate: String(doubleGatePriceFromSingle(Number(fromRule.single_gate_low) || 0)),
     removal: String(fromRule.removal_price_per_ft_low),
     minJob: String(fromRule.minimum_job_low),
   };
@@ -81,7 +82,6 @@ export function StylePricingModal({
   const [tab, setTab] = useState<'single' | 'length'>('single');
   const [pricePerFt, setPricePerFt] = useState(String(rule.base_price_per_ft_low));
   const [singleGate, setSingleGate] = useState(String(rule.single_gate_low));
-  const [doubleGate, setDoubleGate] = useState(String(rule.double_gate_low));
   const [removal, setRemoval] = useState(String(rule.removal_price_per_ft_low));
   const [minJob, setMinJob] = useState(String(rule.minimum_job_low));
   const [tierRows, setTierRows] = useState<TierDraft[]>([]);
@@ -94,7 +94,6 @@ export function StylePricingModal({
       setTab(initialTab);
       setPricePerFt(String(rule.base_price_per_ft_low));
       setSingleGate(String(rule.single_gate_low));
-      setDoubleGate(String(rule.double_gate_low));
       setRemoval(String(rule.removal_price_per_ft_low));
       setMinJob(String(rule.minimum_job_low));
       setTierRows(
@@ -111,7 +110,7 @@ export function StylePricingModal({
     e.preventDefault();
     const p = Number(pricePerFt) || 0;
     const s = Number(singleGate) || 0;
-    const d = Number(doubleGate) || 0;
+    const d = doubleGatePriceFromSingle(s);
     const r = Number(removal) || 0;
     const m = Number(minJob) || 0;
     onSave({
@@ -235,10 +234,12 @@ export function StylePricingModal({
                 <input
                   type="number"
                   step="0.01"
-                  value={doubleGate}
-                  onChange={(e) => setDoubleGate(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  readOnly
+                  title="Single gate × 2 − $100"
+                  value={String(doubleGatePriceFromSingle(Number(singleGate) || 0))}
+                  className="mt-1.5 w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-700 shadow-sm"
                 />
+                <p className="mt-1 text-xs text-slate-500">Single × 2 − $100</p>
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Removal per ft (CAD)</label>
@@ -273,7 +274,8 @@ export function StylePricingModal({
           <form onSubmit={submitLengthBands} className="space-y-4 px-5 py-5 sm:px-6">
             <p className="text-sm text-slate-600">
               Set price per foot (and gates, etc.) based on <strong className="font-semibold text-slate-800">total install length</strong> for this
-              style (sum of fence footage). Example: 10–20 ft at one rate, 21–30 ft at another. Leave max empty for &quot;and up&quot;.
+              style (sum of fence footage). Example: 10–20 ft at one rate, 21–30 ft at another. Leave max empty for &quot;and up&quot;. Two-gate price is
+              always single × 2 − $100.
             </p>
             <div className="overflow-x-auto rounded-xl border border-slate-200">
               <table className="min-w-full divide-y divide-slate-200 text-sm">
@@ -349,9 +351,10 @@ export function StylePricingModal({
                         <input
                           type="number"
                           step="0.01"
-                          value={row.doubleGate}
-                          onChange={(e) => updateTierRow(i, { doubleGate: e.target.value })}
-                          className="w-20 rounded-lg border border-slate-200 px-2 py-1.5 text-slate-900"
+                          readOnly
+                          title="Single × 2 − $100"
+                          value={String(doubleGatePriceFromSingle(Number(row.singleGate) || 0))}
+                          className="w-20 cursor-not-allowed rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-slate-700"
                         />
                       </td>
                       <td className="px-2 py-2">

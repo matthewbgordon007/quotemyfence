@@ -6,6 +6,8 @@
  * Bands (feet):
  *   8–24, 25–47, 48–64, 65–800, 801+ (no max)
  *
+ * Placeholder row defaults: removal $5/ft, min job $500, gates $0 (double = single×2−100 once you set single).
+ *
  * A style is skipped if EITHER:
  *   - It already has any row in style_install_length_tiers, OR
  *   - It has style_pricing_rules with base_price_per_ft_low or _high > 0
@@ -79,10 +81,10 @@ function tierRow(contractorId, fenceStyleId, band, order) {
     single_gate_high: 0,
     double_gate_low: 0,
     double_gate_high: 0,
-    removal_price_per_ft_low: 0,
-    removal_price_per_ft_high: 0,
-    minimum_job_low: 0,
-    minimum_job_high: 0,
+    removal_price_per_ft_low: 5,
+    removal_price_per_ft_high: 5,
+    minimum_job_low: 500,
+    minimum_job_high: 500,
     tax_mode: 'excluded',
     is_active: true,
   };

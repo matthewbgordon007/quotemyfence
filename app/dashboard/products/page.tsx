@@ -8,6 +8,7 @@ import {
   type StylePricingRule,
   type TierDraft,
 } from '@/components/dashboard/StylePricingModal';
+import { doubleGatePriceFromSingle } from '@/lib/gate-pricing';
 
 interface FenceType {
   id: string;
@@ -42,8 +43,8 @@ const defaultRule = (styleId: string): StylePricingRule => ({
   base_price_per_ft_high: 74.99,
   single_gate_low: 450,
   single_gate_high: 450,
-  double_gate_low: 800,
-  double_gate_high: 800,
+  double_gate_low: doubleGatePriceFromSingle(450),
+  double_gate_high: doubleGatePriceFromSingle(450),
   removal_price_per_ft_low: 5,
   removal_price_per_ft_high: 5,
   minimum_job_low: 500,
@@ -359,7 +360,7 @@ export default function ProductsPage() {
       const max = maxTrim === '' ? null : Number(maxTrim);
       const p = Number(d.pricePerFt) || 0;
       const s = Number(d.singleGate) || 0;
-      const dg = Number(d.doubleGate) || 0;
+      const dg = doubleGatePriceFromSingle(s);
       const rem = Number(d.removal) || 0;
       const mj = Number(d.minJob) || 0;
       return {
