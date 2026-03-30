@@ -146,6 +146,23 @@ function fmtFeet(ft: number): string {
   return ft.toFixed(2) + "'";
 }
 
+function defaultSegmentKey(segs: Segment[]): string {
+  return segs.find((s) => s.key === 'back')?.key ?? segs[0]?.key ?? 'back';
+}
+
+function padSingleGateSides(prev: string[], len: number, defaultKey: string): string[] {
+  const next = prev.slice(0, len);
+  const fill = next.length ? next[next.length - 1] : defaultKey;
+  while (next.length < len) next.push(fill);
+  return next;
+}
+
+function padDoubleGateSides(prev: [string, string][], len: number, defaultKey: string): [string, string][] {
+  const next = prev.slice(0, len);
+  const fill: [string, string] = next.length ? [...next[next.length - 1]] : [defaultKey, defaultKey];
+  while (next.length < len) next.push([fill[0], fill[1]]);
+  return next;
+}
 
 export default function CalculatorPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -168,9 +185,14 @@ export default function CalculatorPage() {
   const [singleGateQty, setSingleGateQty] = useState(0);
   const [doubleGateQty, setDoubleGateQty] = useState(0);
   const [hasRemoval, setHasRemoval] = useState(false);
+  const [removalLengthFt, setRemovalLengthFt] = useState(0);
+  const [removalPricePerFtOverride, setRemovalPricePerFtOverride] = useState<number | null>(null);
   const [taxRate, setTaxRate] = useState(13);
   const [applyTax, setApplyTax] = useState(true);
-  const [gateSideKey, setGateSideKey] = useState('back');
+  /** One segment key per single gate (same order as quantity). */
+  const [singleGateSides, setSingleGateSides] = useState<string[]>([]);
+  /** Two segment keys per double gate (panel 1 and panel 2). */
+  const [doubleGateSides, setDoubleGateSides] = useState<[string, string][]>([]);
   const [customerSegments, setCustomerSegments] = useState<{ start_lat: number; start_lng: number; end_lat: number; end_lng: number; length_ft?: number }[]>([]);
   const [customerGates, setCustomerGates] = useState<{ gate_type: string; quantity: number; lat?: number | null; lng?: number | null }[]>([]);
   const [customerMapCenter, setCustomerMapCenter] = useState<[number, number] | undefined>(undefined);
@@ -279,6 +301,16 @@ export default function CalculatorPage() {
   }, []);
 
   useEffect(() => {
+    const dk = defaultSegmentKey(segments);
+    setSingleGateSides((prev) => padSingleGateSides(prev, singleGateQty, dk));
+  }, [singleGateQty, segments]);
+
+  useEffect(() => {
+    const dk = defaultSegmentKey(segments);
+    setDoubleGateSides((prev) => padDoubleGateSides(prev, doubleGateQty, dk));
+  }, [doubleGateQty, segments]);
+
+  useEffect(() => {
     if (loading) return;
 
     if (quoteId) {
@@ -302,9 +334,30 @@ export default function CalculatorPage() {
             if (st.singleGateQty != null) setSingleGateQty(st.singleGateQty);
             if (st.doubleGateQty != null) setDoubleGateQty(st.doubleGateQty);
             if (st.hasRemoval != null) setHasRemoval(st.hasRemoval);
+            if (st.removalLengthFt != null) setRemovalLengthFt(safeNum(st.removalLengthFt));
+            if (st.removalPricePerFtOverride != null) setRemovalPricePerFtOverride(safeNum(st.removalPricePerFtOverride));
             if (st.taxRate != null) setTaxRate(st.taxRate);
             if (st.applyTax != null) setApplyTax(st.applyTax);
-            if (st.gateSideKey) setGateSideKey(st.gateSideKey);
+            if (Array.isArray(st.singleGateSides) && st.singleGateSides.every((x: unknown) => typeof x === 'string')) {
+              setSingleGateSides(st.singleGateSides as string[]);
+            } else if (st.gateSideKey && typeof st.singleGateQty === 'number' && st.singleGateQty > 0) {
+              setSingleGateSides(Array.from({ length: st.singleGateQty }, () => String(st.gateSideKey)));
+            }
+            if (
+              Array.isArray(st.doubleGateSides) &&
+              st.doubleGateSides.every(
+                (row: unknown) =>
+                  Array.isArray(row) &&
+                  row.length === 2 &&
+                  typeof row[0] === 'string' &&
+                  typeof row[1] === 'string'
+              )
+            ) {
+              setDoubleGateSides(st.doubleGateSides as [string, string][]);
+            } else if (st.gateSideKey && typeof st.doubleGateQty === 'number' && st.doubleGateQty > 0) {
+              const k = String(st.gateSideKey);
+              setDoubleGateSides(Array.from({ length: st.doubleGateQty }, () => [k, k] as [string, string]));
+            }
             if (st.segmentAssignments) setSegmentAssignments(st.segmentAssignments);
           }
         })
@@ -471,6 +524,8 @@ export default function CalculatorPage() {
     ? (safeNum(rule.double_gate_low) + safeNum(rule.double_gate_high)) / 2 || 0
     : 0;
   const removalPerFt = rule ? safeNum(rule.removal_price_per_ft_low) : 0;
+  const effectiveRemovalPricePerFt =
+    removalPricePerFtOverride != null ? removalPricePerFtOverride : removalPerFt;
   const minJob = rule ? (safeNum(rule.minimum_job_low) + safeNum(rule.minimum_job_high)) / 2 || 0 : 0;
 
   const selectedStyle = styles.find((s) => s.id === (effectiveStyleId ?? selectedStyleId));
@@ -503,7 +558,8 @@ export default function CalculatorPage() {
   const gateTotal =
     singleGateQty * singleGatePrice + doubleGateQty * doubleGatePrice;
   privateTotal += gateTotal;
-  const removalTotal = hasRemoval && totalLength > 0 ? totalLength * removalPerFt : 0;
+  const removalTotal =
+    hasRemoval && removalLengthFt > 0 ? removalLengthFt * effectiveRemovalPricePerFt : 0;
   const subtotal = Math.max(
     privateTotal + sharedTotal + removalTotal,
     minJob
@@ -563,7 +619,11 @@ export default function CalculatorPage() {
     setSegments(JSON.parse(JSON.stringify(SEGMENTS)));
     setSingleGateQty(0);
     setDoubleGateQty(0);
+    setSingleGateSides([]);
+    setDoubleGateSides([]);
     setHasRemoval(false);
+    setRemovalLengthFt(0);
+    setRemovalPricePerFtOverride(null);
     setApplyTax(true);
     if (types[0]) {
       const tStyles = styles.filter((s) => s.fence_type_id === types[0].id);
@@ -600,8 +660,26 @@ export default function CalculatorPage() {
     }
   }
 
-  const gateInstalledLength = feetFinalByKey[gateSideKey] > 0 ? fmtFeet(feetFinalByKey[gateSideKey]) : '—';
   const totalGateCount = Math.max(0, singleGateQty + doubleGateQty);
+  const gateInstalledParts: string[] = [];
+  singleGateSides.slice(0, singleGateQty).forEach((key, i) => {
+    const ft = feetFinalByKey[key] ?? 0;
+    const sideLabel = segments.find((s) => s.key === key)?.name ?? key;
+    gateInstalledParts.push(
+      `Single ${i + 1}: ${sideLabel}${ft > 0 ? ` (${fmtFeet(ft)} along that side)` : ''}`
+    );
+  });
+  doubleGateSides.slice(0, doubleGateQty).forEach((pair, i) => {
+    const [k1, k2] = pair;
+    const ft1 = feetFinalByKey[k1] ?? 0;
+    const ft2 = feetFinalByKey[k2] ?? 0;
+    const n1 = segments.find((s) => s.key === k1)?.name ?? k1;
+    const n2 = segments.find((s) => s.key === k2)?.name ?? k2;
+    gateInstalledParts.push(
+      `Double ${i + 1}: panel 1 ${n1}${ft1 > 0 ? ` ${fmtFeet(ft1)}` : ''} · panel 2 ${n2}${ft2 > 0 ? ` ${fmtFeet(ft2)}` : ''}`
+    );
+  });
+  const gateInstalledLength = gateInstalledParts.length > 0 ? gateInstalledParts.join(' | ') : '—';
   const lengthExpression = segments
     .map((seg) => feetFinalByKey[seg.key])
     .filter((ft) => ft > 0)
@@ -659,9 +737,12 @@ export default function CalculatorPage() {
       singleGateQty,
       doubleGateQty,
       hasRemoval,
+      removalLengthFt,
+      removalPricePerFtOverride,
       taxRate,
       applyTax,
-      gateSideKey,
+      singleGateSides,
+      doubleGateSides,
       segmentAssignments,
     };
   }
@@ -992,7 +1073,7 @@ export default function CalculatorPage() {
               </div>
 
               <div className="space-y-4 border-t border-slate-100 pt-6">
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="mb-1.5 block text-sm font-medium text-slate-700">Single gates</label>
                     <input
@@ -1013,19 +1094,103 @@ export default function CalculatorPage() {
                       className={field}
                     />
                   </div>
-                  <div className="col-span-2 sm:col-span-1">
-                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Gate side</label>
-                    <select
-                      value={gateSideKey}
-                      onChange={(e) => setGateSideKey(e.target.value)}
-                      className={field}
-                    >
-                      {segments.map((s) => (
-                        <option key={s.key} value={s.key}>{s.name}</option>
-                      ))}
-                    </select>
-                  </div>
                 </div>
+                <p className="text-xs text-slate-500">
+                  Each gate can sit on its own side. Double gates use two picks (one per panel).
+                </p>
+                {singleGateQty > 0 && (
+                  <div className="space-y-2 rounded-xl border border-slate-100 bg-slate-50/80 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Single gate sides</p>
+                    {Array.from({ length: singleGateQty }, (_, i) => {
+                      const dk = defaultSegmentKey(segments);
+                      const val = singleGateSides[i] ?? dk;
+                      return (
+                        <div key={`sg-${i}`} className="flex flex-wrap items-center gap-2 sm:gap-3">
+                          <span className="min-w-[6rem] text-sm font-medium text-slate-700">Gate {i + 1}</span>
+                          <select
+                            value={val}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setSingleGateSides((prev) => {
+                                const padded = padSingleGateSides(prev, singleGateQty, dk);
+                                const next = [...padded];
+                                next[i] = v;
+                                return next;
+                              });
+                            }}
+                            className={`${field} min-w-[10rem] flex-1`}
+                          >
+                            {segments.map((s) => (
+                              <option key={s.key} value={s.key}>
+                                {s.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {doubleGateQty > 0 && (
+                  <div className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/80 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Double gate sides (per panel)</p>
+                    {Array.from({ length: doubleGateQty }, (_, i) => {
+                      const dk = defaultSegmentKey(segments);
+                      const row = doubleGateSides[i] ?? [dk, dk];
+                      return (
+                        <div key={`dg-${i}`} className="space-y-2 rounded-lg border border-slate-200/80 bg-white/90 p-3">
+                          <p className="text-sm font-semibold text-slate-800">Double gate {i + 1}</p>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div>
+                              <label className="mb-1 block text-xs font-medium text-slate-600">Panel 1 side</label>
+                              <select
+                                value={row[0]}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  setDoubleGateSides((prev) => {
+                                    const padded = padDoubleGateSides(prev, doubleGateQty, dk);
+                                    return padded.map((p, j) =>
+                                      j === i ? ([v, p[1]] as [string, string]) : p
+                                    );
+                                  });
+                                }}
+                                className={field}
+                              >
+                                {segments.map((s) => (
+                                  <option key={s.key} value={s.key}>
+                                    {s.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-xs font-medium text-slate-600">Panel 2 side</label>
+                              <select
+                                value={row[1]}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  setDoubleGateSides((prev) => {
+                                    const padded = padDoubleGateSides(prev, doubleGateQty, dk);
+                                    return padded.map((p, j) =>
+                                      j === i ? ([p[0], v] as [string, string]) : p
+                                    );
+                                  });
+                                }}
+                                className={field}
+                              >
+                                {segments.map((s) => (
+                                  <option key={s.key} value={s.key}>
+                                    {s.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-4 border-t border-slate-100 pt-6">
@@ -1034,7 +1199,14 @@ export default function CalculatorPage() {
                     <input
                       type="checkbox"
                       checked={hasRemoval}
-                      onChange={(e) => setHasRemoval(e.target.checked)}
+                      onChange={(e) => {
+                        const on = e.target.checked;
+                        setHasRemoval(on);
+                        if (on) {
+                          setRemovalLengthFt((prev) => (prev > 0 ? prev : totalLength));
+                          setRemovalPricePerFtOverride(null);
+                        }
+                      }}
                       className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500/30"
                     />
                     <span>Removal</span>
@@ -1049,6 +1221,78 @@ export default function CalculatorPage() {
                     <span>Apply tax</span>
                   </label>
                 </div>
+                {hasRemoval && (
+                  <div className="space-y-3 rounded-xl border border-amber-100/90 bg-gradient-to-br from-amber-50/50 via-white to-slate-50/40 p-4 shadow-sm ring-1 ring-amber-500/10">
+                    <p className="text-sm font-semibold text-slate-800">Removal details</p>
+                    <p className="text-xs text-slate-600">
+                      Enter how much existing fence comes out and the removal rate. Defaults to your catalogue removal $/ft when the rate field is cleared.
+                    </p>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Removal length (ft)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min={0}
+                          value={removalLengthFt || ''}
+                          onChange={(e) => setRemovalLengthFt(Math.max(0, safeNum(e.target.value)))}
+                          className={field}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setRemovalLengthFt(totalLength)}
+                          className="mt-2 text-xs font-semibold text-blue-600 hover:text-blue-500 hover:underline"
+                        >
+                          Use total install run ({fmtFeet(totalLength)})
+                        </button>
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Removal price per ft (CAD)
+                        </label>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-slate-600">$</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min={0}
+                            value={removalPricePerFtOverride != null ? removalPricePerFtOverride : removalPerFt}
+                            onChange={(e) => {
+                              const raw = e.target.value;
+                              if (raw === '') {
+                                setRemovalPricePerFtOverride(null);
+                                return;
+                              }
+                              setRemovalPricePerFtOverride(safeNum(raw));
+                            }}
+                            placeholder={removalPerFt > 0 ? String(removalPerFt) : 'Catalogue rate'}
+                            className="min-w-[6rem] flex-1 rounded-xl border border-slate-200/90 bg-white px-3 py-2.5 text-sm font-semibold tabular-nums text-slate-900 shadow-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                          />
+                          <span className="text-xs text-slate-500">/ ft</span>
+                        </div>
+                        {removalPricePerFtOverride != null && (
+                          <button
+                            type="button"
+                            onClick={() => setRemovalPricePerFtOverride(null)}
+                            className="mt-2 text-xs font-semibold text-blue-600 hover:text-blue-500 hover:underline"
+                          >
+                            Reset to catalogue ({moneyCAD(removalPerFt)}/ft)
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {hasRemoval && removalLengthFt > 0 && (
+                      <p className="text-sm text-slate-700">
+                        Removal line:{' '}
+                        <span className="font-semibold tabular-nums">
+                          {fmtFeet(removalLengthFt)} × {moneyCAD(effectiveRemovalPricePerFt)}/ft = {moneyCAD(removalTotal)}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                )}
                 {applyTax && (
                   <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/90 px-4 py-3">
                     <label htmlFor="tax-rate" className="text-sm font-medium text-slate-700">
