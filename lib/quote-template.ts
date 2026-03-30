@@ -1,7 +1,16 @@
 export type QuoteTokenId =
+  | 'brand'
   | 'homeowner'
   | 'location'
   | 'product'
+  | 'style'
+  | 'color'
+  | 'gateInstalledLength'
+  | 'lengthExpression'
+  | 'privateLengths'
+  | 'sharedLengths'
+  | 'pricePerLinearFt'
+  | 'gateKitPrice'
   | 'gates'
   | 'lengths'
   | 'privateTotal'
@@ -18,9 +27,18 @@ export type QuoteBlock =
   | { id: string; type: 'token'; token: QuoteTokenId };
 
 export const QUOTE_TOKEN_DEFS: { token: QuoteTokenId; label: string }[] = [
+  { token: 'brand', label: 'Brand' },
   { token: 'homeowner', label: 'Homeowner name' },
   { token: 'location', label: 'Quote address' },
   { token: 'product', label: 'Product label' },
+  { token: 'style', label: 'Style' },
+  { token: 'color', label: 'Color' },
+  { token: 'gateInstalledLength', label: 'Gate installed length' },
+  { token: 'lengthExpression', label: 'Length expression' },
+  { token: 'privateLengths', label: 'Private lengths breakdown' },
+  { token: 'sharedLengths', label: 'Shared lengths breakdown' },
+  { token: 'pricePerLinearFt', label: 'Price per linear foot' },
+  { token: 'gateKitPrice', label: 'Gate conversion kit price' },
   { token: 'gates', label: 'Gate + removal summary' },
   { token: 'lengths', label: 'Lengths + line totals' },
   { token: 'privateTotal', label: 'Private fence total' },
@@ -70,24 +88,42 @@ export function tokenPlaceholder(token: QuoteTokenId): string {
 
 export const DEFAULT_QUOTE_TEMPLATE_TEXT = `Fence Quote Summary
 
-Prepared for: {{homeowner}}
 Location: {{location}}
-Product: {{product}}
-Gates: {{gates}}
+Brand: {{brand}}
+Height: 7'
+Style: {{style}}
+Install Type: Level & Stepped
+Post spacing: 8'
+Footings: Concrete 48" Depth
+Color: {{color}}
+Cap style: Pyramid
+Gates: x{{gates}} (installed in {{gateInstalledLength}} length)
 
-Lengths & line totals:
-{{lengths}}
+Length: {{lengthExpression}}
 
-Totals:
-- Private fence: {{privateTotal}}
-- Shared fence: {{sharedTotal}}
-- Gates: {{gateTotal}}
-- Removal: {{removalTotal}}
-- Subtotal: {{subtotal}}
-- Tax: {{taxLine}}
-- Total: {{grandTotal}}
+Private lengths
+{{privateLengths}}
 
-Deposit (10% incl. tax): {{deposit}}
+Shared lengths:
+
+{{sharedLengths}}
+
+Additional details:
+- ASA PVC (Premium)
+- 2" Galvanized steel posts (8' length)
+- x3 full square metal stiffener rods per 8' panel
+- 1 1/2" full square metal channel stiffener in each rail (top & bottom)
+
+- Additional rails installed at bottom of fence to close any gaps - $99.99 per rail - Determined upon Installation (Optional - This will always be billed separately from the original project)
+
+{{pricePerLinearFt}} per Linear ft
+{{gateKitPrice}} per Gate Conversion Kit
+
+**LIFETIME Warranty on PVC**
+**All materials and labor included**
+**5 YEAR limited Installation Warranty**
+**Existing material removed and disposed**
+---------------------------------------------------------
 `;
 
 export function composeQuoteText(templateText: string, values: Record<QuoteTokenId, string>): string {

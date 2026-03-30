@@ -143,6 +143,7 @@ export default function CalculatorPage() {
   const [segmentAssignments, setSegmentAssignments] = useState<Record<string, number | null>>({});
   const [quoteTemplate, setQuoteTemplate] = useState(DEFAULT_QUOTE_TEMPLATE_TEXT);
   const [contractorId, setContractorId] = useState<string | null>(null);
+  const [contractorBrand, setContractorBrand] = useState<string>('');
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -153,7 +154,10 @@ export default function CalculatorPage() {
     fetch('/api/contractor/me', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (data?.id) setContractorId(data.id);
+        if (data?.id) {
+          setContractorId(data.id);
+          setContractorBrand(data.website || data.company_name || '');
+        }
       })
       .catch(() => {});
   }, []);
@@ -493,27 +497,46 @@ export default function CalculatorPage() {
   }
 
   const quoteLines: string[] = [];
+  const privateQuoteLines: string[] = [];
+  const sharedQuoteLines: string[] = [];
   for (const seg of segments) {
     const ft = feetFinalByKey[seg.key];
     if (ft <= 0) continue;
     const cost = segmentCosts[seg.key];
     if (seg.shared) {
       const who = (seg.sharedWith || '').trim() || 'neighbour';
-      quoteLines.push(
-        `- ${seg.name}: ${fmtFeet(ft)} shared 50% with ${who} @ ${moneyCAD(pricePerFt)}/ft = ${moneyCAD(cost)}`
-      );
+      const line = `- ${seg.name}: ${fmtFeet(ft)} shared 50% with ${who} @ ${moneyCAD(pricePerFt)}/ft = ${moneyCAD(cost)}`;
+      quoteLines.push(line);
+      sharedQuoteLines.push(`- ${seg.name}: ${fmtFeet(ft)} length shared 50% w ${who} ( ${moneyCAD(cost)} + Tax)`);
     } else {
-      quoteLines.push(
-        `- ${seg.name}: ${fmtFeet(ft)} @ ${moneyCAD(pricePerFt)}/ft = ${moneyCAD(cost)}`
-      );
+      const line = `- ${seg.name}: ${fmtFeet(ft)} @ ${moneyCAD(pricePerFt)}/ft = ${moneyCAD(cost)}`;
+      quoteLines.push(line);
+      privateQuoteLines.push(`- ${seg.name}: ${fmtFeet(ft)} = ( ${moneyCAD(cost)} + Tax )`);
     }
   }
 
+  const gateInstalledLength = feetFinalByKey[gateSideKey] > 0 ? fmtFeet(feetFinalByKey[gateSideKey]) : '—';
+  const totalGateCount = Math.max(0, singleGateQty + doubleGateQty);
+  const lengthExpression = segments
+    .map((seg) => feetFinalByKey[seg.key])
+    .filter((ft) => ft > 0)
+    .map((ft) => fmtFeet(ft))
+    .join(' + ');
+
   const quoteTokenValues: Record<QuoteTokenId, string> = {
+    brand: contractorBrand || '—',
     homeowner: homeownerName || '—',
     location: quoteAddress || '—',
     product: optionLabel || '—',
-    gates: `${singleGateQty} single, ${doubleGateQty} double${hasRemoval ? ' • Removal included' : ''}`,
+    style: selectedStyle?.style_name || '—',
+    color: selectedColourDisplay?.color_name || '—',
+    gateInstalledLength,
+    lengthExpression: lengthExpression || '—',
+    privateLengths: privateQuoteLines.length ? privateQuoteLines.join('\n') : '- (No private lengths entered)',
+    sharedLengths: sharedQuoteLines.length ? sharedQuoteLines.join('\n') : '- (No shared lengths entered)',
+    pricePerLinearFt: moneyCAD(pricePerFt),
+    gateKitPrice: moneyCAD(singleGatePrice || doubleGatePrice || 0),
+    gates: String(totalGateCount),
     lengths: quoteLines.length ? quoteLines.join('\n') : '- (No lengths entered)',
     privateTotal: moneyCAD(privateTotal - gateTotal),
     sharedTotal: moneyCAD(sharedTotal),

@@ -58,10 +58,20 @@ export default function QuoteTemplatePage() {
 
   const tokenValues: Record<QuoteTokenId, string> = useMemo(
     () => ({
+      brand: 'TitanFencing.ca',
       homeowner: 'John Doe',
       location: '123 Main St, Toronto, ON',
       product: 'PVC • Privacy • White • 6 ft',
-      gates: '1 single, 1 double • Removal included',
+      style: 'Rideau',
+      color: 'WESTPORT GREY',
+      gateInstalledLength: "4.10'",
+      lengthExpression: "4.10' + 44.20' + 44.05' + 50.55' + 6.50'",
+      privateLengths:
+        "LHS Adjacent: 4.10' + Gate Conversion Kit = ( $757.46 + Tax )\nBack: 44.05' = ( $3,303.31 + Tax )\nRHS: 50.55' = ( $3,790.74 + Tax )\nRHS Adjacent: 6.50' = ( $487.43 + Tax )",
+      sharedLengths: "LHS: 44.20' length shared 50% w 766 Poetry Circle ( $1,657.28 +Tax)",
+      pricePerLinearFt: '$74.99',
+      gateKitPrice: '$450.00',
+      gates: '1',
       lengths: "- LHS: 42.00' @ $85.00/ft = $3,570.00\n- Back: 50.00' shared 50% with neighbour @ $85.00/ft = $2,125.00",
       privateTotal: '$5,100.00',
       sharedTotal: '$2,125.00',
