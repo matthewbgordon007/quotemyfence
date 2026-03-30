@@ -12,9 +12,11 @@
  *
  * Double gate = single_gate * 2 - 100 (same for all bands here).
  *
+ * Default contractor: FMS (Fence Material Supply / slug ~ fms). Override with
+ *   --contractor-slug=  or  BULK_TIERS_CONTRACTOR_SLUG in .env.local
+ *
  * Usage (from project root, with .env.local containing SUPABASE_SERVICE_ROLE_KEY):
  *   node scripts/bulk-cedar-goodneighbor-6-tiers.mjs
- *   node scripts/bulk-cedar-goodneighbor-6-tiers.mjs --contractor-slug=gordon-landscaping
  *   node scripts/bulk-cedar-goodneighbor-6-tiers.mjs --dry-run
  *
  * Optional:
@@ -27,6 +29,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
+import { getContractorForBulkTiers } from './lib/bulk-tiers-contractor.mjs';
 
 /** Rename the style in Products to one of these, or pass --style-name */
 const DEFAULT_STYLE_NAMES = [
@@ -108,22 +111,12 @@ async function main() {
   }
 
   const { dryRun, contractorSlug: slugArg, styleName: exactName } = parseArgs(process.argv.slice(2));
-  const contractorSlug =
-    slugArg ||
-    process.env.TEMPLATE_CONTRACTOR_SLUG ||
-    process.env.BULK_TIERS_CONTRACTOR_SLUG ||
-    'gordon-landscaping';
 
   const supabase = createClient(url, key);
 
-  const { data: contractor, error: cErr } = await supabase
-    .from('contractors')
-    .select('id, company_name, slug')
-    .eq('slug', contractorSlug)
-    .maybeSingle();
-
-  if (cErr || !contractor) {
-    console.error('Contractor not found for slug:', contractorSlug, cErr?.message || '');
+  const { contractor, error: contractorErr } = await getContractorForBulkTiers(supabase, slugArg);
+  if (contractorErr || !contractor) {
+    console.error(contractorErr || 'Contractor not found');
     process.exit(1);
   }
 

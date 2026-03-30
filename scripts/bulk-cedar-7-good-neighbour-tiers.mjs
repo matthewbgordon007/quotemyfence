@@ -12,6 +12,8 @@
  *
  * Double gate = single_gate * 2 - 100
  *
+ * Default contractor: FMS. Override: --contractor-slug= or BULK_TIERS_CONTRACTOR_SLUG
+ *
  * Usage:
  *   node scripts/bulk-cedar-7-good-neighbour-tiers.mjs
  *   node scripts/bulk-cedar-7-good-neighbour-tiers.mjs --dry-run
@@ -20,6 +22,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
+import { getContractorForBulkTiers } from './lib/bulk-tiers-contractor.mjs';
 
 const DEFAULT_STYLE_NAMES = [
   "Cedar 7' Type: Good Neighbour Style",
@@ -104,22 +107,12 @@ async function main() {
   }
 
   const { dryRun, contractorSlug: slugArg, styleName: exactName } = parseArgs(process.argv.slice(2));
-  const contractorSlug =
-    slugArg ||
-    process.env.TEMPLATE_CONTRACTOR_SLUG ||
-    process.env.BULK_TIERS_CONTRACTOR_SLUG ||
-    'gordon-landscaping';
 
   const supabase = createClient(url, key);
 
-  const { data: contractor, error: cErr } = await supabase
-    .from('contractors')
-    .select('id, company_name, slug')
-    .eq('slug', contractorSlug)
-    .maybeSingle();
-
-  if (cErr || !contractor) {
-    console.error('Contractor not found for slug:', contractorSlug, cErr?.message || '');
+  const { contractor, error: contractorErr } = await getContractorForBulkTiers(supabase, slugArg);
+  if (contractorErr || !contractor) {
+    console.error(contractorErr || 'Contractor not found');
     process.exit(1);
   }
 
