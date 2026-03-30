@@ -1,37 +1,29 @@
 #!/usr/bin/env node
 /**
- * Bulk-insert install-length pricing tiers for Cedar 6' Good Neighbour
- * (expected style name: "Cedar 6': Good Neighbour" — see DEFAULT_STYLE_NAMES below).
+ * Bulk-insert install-length pricing tiers for Cedar 7' Good Neighbour
+ * (expected style name: "Cedar 7' Type: Good Neighbour Style" — see DEFAULT_STYLE_NAMES).
  *
- * Bands (from your table):
- *   8–24'  $144.99/ft  single gate $549.99
- *   25–47' $114.99/ft
- *   48–64' $94.99/ft
- *   65–800' $84.99/ft
- *   801'+  $79.99/ft
+ * Bands:
+ *   8–24'   $147.99/ft  single gate $574.99
+ *   25–47'  $117.99/ft
+ *   48–64'  $97.99/ft
+ *   65–800' $87.99/ft
+ *   801'+   $81.99/ft
  *
- * Double gate = single_gate * 2 - 100 (same for all bands here).
+ * Double gate = single_gate * 2 - 100
  *
- * Usage (from project root, with .env.local containing SUPABASE_SERVICE_ROLE_KEY):
- *   node scripts/bulk-cedar-goodneighbor-6-tiers.mjs
- *   node scripts/bulk-cedar-goodneighbor-6-tiers.mjs --contractor-slug=gordon-landscaping
- *   node scripts/bulk-cedar-goodneighbor-6-tiers.mjs --dry-run
- *
- * Optional:
- *   --style-name="Exact style name in dashboard"  (required if auto-match fails)
- *
- * Auto-match: tries DEFAULT_STYLE_NAMES first, then cedar + good neighbour + 6.
- *
- * Cedar 7' Good Neighbour table: see scripts/bulk-cedar-7-good-neighbour-tiers.mjs
+ * Usage:
+ *   node scripts/bulk-cedar-7-good-neighbour-tiers.mjs
+ *   node scripts/bulk-cedar-7-good-neighbour-tiers.mjs --dry-run
+ *   node scripts/bulk-cedar-7-good-neighbour-tiers.mjs --style-name="Exact name"
  */
 
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 
-/** Rename the style in Products to one of these, or pass --style-name */
 const DEFAULT_STYLE_NAMES = [
-  "Cedar 6': Good Neighbour",
-  "Cedar 6': Good Neighbor",
+  "Cedar 7' Type: Good Neighbour Style",
+  "Cedar 7' Type: Good Neighbor Style",
 ];
 
 function loadEnv() {
@@ -49,16 +41,15 @@ function loadEnv() {
   }
 }
 
-const SINGLE_GATE = 549.99;
+const SINGLE_GATE = 574.99;
 const DOUBLE_GATE = SINGLE_GATE * 2 - 100;
 
-/** @type {Array<{ min: number; max: number | null; pricePerFt: number }>} */
 const BANDS = [
-  { min: 8, max: 24, pricePerFt: 144.99 },
-  { min: 25, max: 47, pricePerFt: 114.99 },
-  { min: 48, max: 64, pricePerFt: 94.99 },
-  { min: 65, max: 800, pricePerFt: 84.99 },
-  { min: 801, max: null, pricePerFt: 79.99 },
+  { min: 8, max: 24, pricePerFt: 147.99 },
+  { min: 25, max: 47, pricePerFt: 117.99 },
+  { min: 48, max: 64, pricePerFt: 97.99 },
+  { min: 65, max: 800, pricePerFt: 87.99 },
+  { min: 801, max: null, pricePerFt: 81.99 },
 ];
 
 function parseArgs(argv) {
@@ -81,12 +72,17 @@ function normalizeStyleName(s) {
     .replace(/\s+/g, ' ');
 }
 
-function matchesCedarGoodNeighbor6(name) {
+function matchesCedar7GoodNeighbour(name) {
   const n = normalizeStyleName(name);
   const hasNeighbour = /good\s*neighbou?r/.test(n);
   const hasCedar = n.includes('cedar');
-  const has6 = n.includes("6'") || n.includes('6 ft') || n.includes('6ft') || /\b6\s*'/.test(n) || /\b6\b/.test(n);
-  return hasNeighbour && hasCedar && has6;
+  const has7 =
+    n.includes("7'") ||
+    n.includes('7 ft') ||
+    n.includes('7ft') ||
+    /\b7\s*'/.test(n) ||
+    (/\b7\b/.test(n) && (n.includes('cedar') || n.includes('type')));
+  return hasNeighbour && hasCedar && has7;
 }
 
 function findStyleByDefaultNames(styles) {
@@ -160,21 +156,21 @@ async function main() {
       console.log('Matched default style name:', style.style_name);
     }
     if (!style) {
-      const candidates = (styles || []).filter((s) => matchesCedarGoodNeighbor6(s.style_name));
+      const candidates = (styles || []).filter((s) => matchesCedar7GoodNeighbour(s.style_name));
       if (candidates.length === 1) {
         style = candidates[0];
       } else if (candidates.length > 1) {
-        console.error('Multiple Cedar 6\' Good Neighbour styles — pass --style-name="..."');
+        console.error('Multiple Cedar 7\' Good Neighbour styles — pass --style-name="..."');
         candidates.forEach((s) => console.error(' -', s.id, s.style_name));
         process.exit(1);
       }
     }
     if (!style) {
       console.error('No style matched. Expected one of:', DEFAULT_STYLE_NAMES.join(' | '));
-      console.error('Or any name with cedar + good neighbour + 6\'. Available:');
+      console.error('Or cedar + good neighbour + 7\'. Available:');
       (styles || []).forEach((s) => console.error(' -', s.style_name));
-      console.error('\nRename the style in Products to e.g. "Cedar 6\': Good Neighbour" or run:');
-      console.error(`  node scripts/bulk-cedar-goodneighbor-6-tiers.mjs --style-name="Cedar 6': Good Neighbour"`);
+      console.error('\nAdd/rename the style in Products, or run:');
+      console.error(`  node scripts/bulk-cedar-7-good-neighbour-tiers.mjs --style-name="Cedar 7' Type: Good Neighbour Style"`);
       process.exit(1);
     }
   }
