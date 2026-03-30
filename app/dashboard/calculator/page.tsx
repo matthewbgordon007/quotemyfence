@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { pickBestTierByLength } from '@/lib/length-tier';
 import {
   DEFAULT_QUOTE_TEMPLATE_TEXT,
   QuoteTokenId,
@@ -357,9 +358,37 @@ export default function CalculatorPage() {
     styleHasPricing(c.fence_style_id) || colourPricingRules.some((r) => r.colour_option_id === c.id);
   const coloursWithPricing = coloursForStyle.filter(colourHasPricing);
 
+  const feetFinalByKey: Record<string, number> = {};
+  let billableLength = 0;
+  let totalLength = 0;
+  for (const seg of segments) {
+    const ft = calcFeetFinal(seg, extendAdd);
+    feetFinalByKey[seg.key] = ft;
+    totalLength += ft;
+    billableLength += seg.shared ? ft * 0.5 : ft;
+  }
+
+  const selectedType = types.find((t) => t.id === selectedTypeId);
   const selectedColour = colours.find((c) => c.id === selectedColourId);
-  const styleRule = selectedColour
-    ? stylePricingRules.find((r) => r.fence_style_id === selectedColour.fence_style_id)
+  const selectedColourDisplay = selectedColour;
+  const autoTierStyleId = (() => {
+    if (!selectedTypeId || !selectedColourDisplay?.color_name) return null;
+    const styleRows = styles
+      .filter((s) => s.fence_type_id === selectedTypeId)
+      .map((s) => ({
+        styleId: s.id,
+        styleName: s.style_name ?? '',
+        hasRule: stylePricingRules.some((r) => r.fence_style_id === s.id),
+        hasColour: colours.some((c) => c.fence_style_id === s.id && c.color_name === selectedColourDisplay.color_name),
+      }))
+      .filter((s) => s.hasRule && s.hasColour);
+    const pick = pickBestTierByLength(styleRows, totalLength);
+    return pick?.styleId ?? null;
+  })();
+
+  const effectiveStyleId = autoTierStyleId ?? selectedColour?.fence_style_id ?? selectedStyleId ?? null;
+  const styleRule = effectiveStyleId
+    ? stylePricingRules.find((r) => r.fence_style_id === effectiveStyleId)
     : null;
   const colourRule = selectedColourId
     ? colourPricingRules.find((r) => r.colour_option_id === selectedColourId)
@@ -379,9 +408,7 @@ export default function CalculatorPage() {
   const removalPerFt = rule ? safeNum(rule.removal_price_per_ft_low) : 0;
   const minJob = rule ? (safeNum(rule.minimum_job_low) + safeNum(rule.minimum_job_high)) / 2 || 0 : 0;
 
-  const selectedType = types.find((t) => t.id === selectedTypeId);
-  const selectedStyle = styles.find((s) => s.id === selectedStyleId);
-  const selectedColourDisplay = colours.find((c) => c.id === selectedColourId);
+  const selectedStyle = styles.find((s) => s.id === (effectiveStyleId ?? selectedStyleId));
   const optionLabel = selectedType
     ? [selectedType.name, selectedStyle?.style_name, selectedColourDisplay?.color_name].filter(Boolean).join(' • ')
     : null;
@@ -394,16 +421,6 @@ export default function CalculatorPage() {
         styleColours.some((c) => colourPricingRules.some((r) => r.colour_option_id === c.id));
     });
   });
-
-  const feetFinalByKey: Record<string, number> = {};
-  let billableLength = 0;
-  let totalLength = 0;
-  for (const seg of segments) {
-    const ft = calcFeetFinal(seg, extendAdd);
-    feetFinalByKey[seg.key] = ft;
-    totalLength += ft;
-    billableLength += seg.shared ? ft * 0.5 : ft;
-  }
 
   let privateTotal = 0;
   let sharedTotal = 0;
