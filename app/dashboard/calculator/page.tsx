@@ -104,6 +104,72 @@ function fmtFeet(ft: number): string {
   return ft.toFixed(2) + "'";
 }
 
+type QuoteTokenId =
+  | 'homeowner'
+  | 'location'
+  | 'product'
+  | 'gates'
+  | 'lengths'
+  | 'privateTotal'
+  | 'sharedTotal'
+  | 'gateTotal'
+  | 'removalTotal'
+  | 'subtotal'
+  | 'taxLine'
+  | 'grandTotal'
+  | 'deposit';
+
+type QuoteBlock =
+  | { id: string; type: 'text'; text: string }
+  | { id: string; type: 'token'; token: QuoteTokenId };
+
+const QUOTE_TOKEN_DEFS: { token: QuoteTokenId; label: string }[] = [
+  { token: 'homeowner', label: 'Homeowner name' },
+  { token: 'location', label: 'Quote address' },
+  { token: 'product', label: 'Product label' },
+  { token: 'gates', label: 'Gate + removal summary' },
+  { token: 'lengths', label: 'Lengths + line totals' },
+  { token: 'privateTotal', label: 'Private fence total' },
+  { token: 'sharedTotal', label: 'Shared fence total' },
+  { token: 'gateTotal', label: 'Gates total' },
+  { token: 'removalTotal', label: 'Removal total' },
+  { token: 'subtotal', label: 'Subtotal' },
+  { token: 'taxLine', label: 'Tax line' },
+  { token: 'grandTotal', label: 'Grand total' },
+  { token: 'deposit', label: 'Deposit' },
+];
+
+const DEFAULT_QUOTE_BLOCKS: QuoteBlock[] = [
+  { id: 'b1', type: 'text', text: 'Fence Quote Summary\n' },
+  { id: 'b2', type: 'text', text: 'Prepared for:' },
+  { id: 'b3', type: 'token', token: 'homeowner' },
+  { id: 'b4', type: 'text', text: 'Location:' },
+  { id: 'b5', type: 'token', token: 'location' },
+  { id: 'b6', type: 'text', text: 'Product:' },
+  { id: 'b7', type: 'token', token: 'product' },
+  { id: 'b8', type: 'text', text: 'Gates:' },
+  { id: 'b9', type: 'token', token: 'gates' },
+  { id: 'b10', type: 'text', text: '\nLengths & line totals:' },
+  { id: 'b11', type: 'token', token: 'lengths' },
+  { id: 'b12', type: 'text', text: '\nTotals:' },
+  { id: 'b13', type: 'text', text: '- Private fence:' },
+  { id: 'b14', type: 'token', token: 'privateTotal' },
+  { id: 'b15', type: 'text', text: '- Shared fence:' },
+  { id: 'b16', type: 'token', token: 'sharedTotal' },
+  { id: 'b17', type: 'text', text: '- Gates:' },
+  { id: 'b18', type: 'token', token: 'gateTotal' },
+  { id: 'b19', type: 'text', text: '- Removal:' },
+  { id: 'b20', type: 'token', token: 'removalTotal' },
+  { id: 'b21', type: 'text', text: '- Subtotal:' },
+  { id: 'b22', type: 'token', token: 'subtotal' },
+  { id: 'b23', type: 'text', text: '- Tax:' },
+  { id: 'b24', type: 'token', token: 'taxLine' },
+  { id: 'b25', type: 'text', text: '- Total:' },
+  { id: 'b26', type: 'token', token: 'grandTotal' },
+  { id: 'b27', type: 'text', text: '\nDeposit (10% incl. tax):' },
+  { id: 'b28', type: 'token', token: 'deposit' },
+];
+
 export default function CalculatorPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [pricingRules, setPricingRules] = useState<PricingRule[]>([]);
@@ -131,6 +197,7 @@ export default function CalculatorPage() {
   const [customerGates, setCustomerGates] = useState<{ gate_type: string; quantity: number; lat?: number | null; lng?: number | null }[]>([]);
   const [customerMapCenter, setCustomerMapCenter] = useState<[number, number] | undefined>(undefined);
   const [segmentAssignments, setSegmentAssignments] = useState<Record<string, number | null>>({});
+  const [quoteBlocks, setQuoteBlocks] = useState<QuoteBlock[]>(DEFAULT_QUOTE_BLOCKS);
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -466,26 +533,60 @@ export default function CalculatorPage() {
     }
   }
 
-  const quoteText = `Fence Quote Summary
+  const quoteTokenValues: Record<QuoteTokenId, string> = {
+    homeowner: homeownerName || '—',
+    location: quoteAddress || '—',
+    product: optionLabel || '—',
+    gates: `${singleGateQty} single, ${doubleGateQty} double${hasRemoval ? ' • Removal included' : ''}`,
+    lengths: quoteLines.length ? quoteLines.join('\n') : '- (No lengths entered)',
+    privateTotal: moneyCAD(privateTotal - gateTotal),
+    sharedTotal: moneyCAD(sharedTotal),
+    gateTotal: moneyCAD(gateTotal),
+    removalTotal: moneyCAD(removalTotal),
+    subtotal: `${moneyCAD(subtotal)}${applyTax ? '' : ' (before tax)'}`,
+    taxLine: applyTax ? `${taxRate}%: ${moneyCAD(taxAmount)}` : 'Not applied',
+    grandTotal: moneyCAD(grandTotal),
+    deposit: moneyCAD(deposit),
+  };
 
-Prepared for: ${homeownerName || '—'}
-Location: ${quoteAddress || '—'}
-Product: ${optionLabel || '—'}
-Gates: ${singleGateQty} single, ${doubleGateQty} double${hasRemoval ? ' • Removal included' : ''}
+  const quoteText = `${quoteBlocks
+    .map((block) => (block.type === 'text' ? block.text : quoteTokenValues[block.token]))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()}\n`;
 
-Lengths & line totals:
-${quoteLines.length ? quoteLines.join('\n') : '- (No lengths entered)'}
+  function updateTextBlock(blockId: string, nextText: string) {
+    setQuoteBlocks((prev) =>
+      prev.map((block) => (block.id === blockId && block.type === 'text' ? { ...block, text: nextText } : block))
+    );
+  }
 
-Totals:
-- Private fence: ${moneyCAD(privateTotal - gateTotal)}
-- Shared fence: ${moneyCAD(sharedTotal)}
-- Gates: ${moneyCAD(gateTotal)}
-- Removal: ${moneyCAD(removalTotal)}
-- Subtotal: ${moneyCAD(subtotal)}${applyTax ? '' : ' (before tax)'}
-${applyTax ? `- Tax (${taxRate}%): ${moneyCAD(taxAmount)}\n- Total: ${moneyCAD(grandTotal)}` : ''}
+  function moveBlock(blockId: string, dir: -1 | 1) {
+    setQuoteBlocks((prev) => {
+      const idx = prev.findIndex((b) => b.id === blockId);
+      if (idx < 0) return prev;
+      const next = idx + dir;
+      if (next < 0 || next >= prev.length) return prev;
+      const copy = [...prev];
+      const [item] = copy.splice(idx, 1);
+      copy.splice(next, 0, item);
+      return copy;
+    });
+  }
 
-Deposit (10% incl. tax): ${moneyCAD(deposit)}
-`;
+  function addTextBlock() {
+    setQuoteBlocks((prev) => [
+      ...prev,
+      { id: (globalThis.crypto?.randomUUID?.() ?? `text-${Date.now()}`), type: 'text', text: 'New text line' },
+    ]);
+  }
+
+  function addTokenBlock(token: QuoteTokenId) {
+    setQuoteBlocks((prev) => [
+      ...prev,
+      { id: (globalThis.crypto?.randomUUID?.() ?? `token-${Date.now()}`), type: 'token', token },
+    ]);
+  }
 
   async function copyQuote() {
     try {
@@ -1324,18 +1425,89 @@ Deposit (10% incl. tax): ${moneyCAD(deposit)}
             <div className={cardHeader}>
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 shrink-0 rounded-full bg-slate-400 shadow-sm" aria-hidden />
-                <h2 className="text-base font-semibold text-slate-900">Generated quote</h2>
+                <h2 className="text-base font-semibold text-slate-900">Quote text builder</h2>
               </div>
-              <p className="mt-1 text-xs text-slate-500">Read-only preview — copy or save using the buttons above</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Edit text blocks freely. Dynamic inserts are locked but can be moved anywhere.
+              </p>
             </div>
-            <div className="p-4 sm:p-5">
-              <textarea
-                readOnly
-                value={quoteText}
-                rows={14}
-                className="w-full resize-y rounded-xl border border-slate-700/80 bg-slate-900 px-4 py-3.5 text-[11px] font-mono leading-relaxed text-slate-100 shadow-inner outline-none ring-1 ring-inset ring-white/5 selection:bg-blue-500/30"
-                spellCheck={false}
-              />
+            <div className="space-y-4 p-4 sm:p-5">
+              <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3">
+                <p className="text-xs font-medium text-slate-600">Add locked insert</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {QUOTE_TOKEN_DEFS.map((def) => (
+                    <button
+                      key={def.token}
+                      type="button"
+                      onClick={() => addTokenBlock(def.token)}
+                      className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                    >
+                      + {def.label}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={addTextBlock}
+                    className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
+                  >
+                    + Text block
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {quoteBlocks.map((block, i) => (
+                  <div key={block.id} className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm">
+                    <div className="flex items-start gap-3">
+                      <div className="flex flex-col gap-1">
+                        <button
+                          type="button"
+                          onClick={() => moveBlock(block.id, -1)}
+                          disabled={i === 0}
+                          className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700 disabled:opacity-40"
+                          aria-label="Move block up"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveBlock(block.id, 1)}
+                          disabled={i === quoteBlocks.length - 1}
+                          className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700 disabled:opacity-40"
+                          aria-label="Move block down"
+                        >
+                          ↓
+                        </button>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        {block.type === 'text' ? (
+                          <textarea
+                            value={block.text}
+                            onChange={(e) => updateTextBlock(block.id, e.target.value)}
+                            rows={Math.max(1, block.text.split('\n').length)}
+                            className="w-full resize-y rounded-lg border border-slate-200/90 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                          />
+                        ) : (
+                          <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700">
+                            {QUOTE_TOKEN_DEFS.find((d) => d.token === block.token)?.label}: {quoteTokenValues[block.token]}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div>
+                <p className="mb-2 text-xs font-medium text-slate-600">Generated output preview</p>
+                <textarea
+                  readOnly
+                  value={quoteText}
+                  rows={14}
+                  className="w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-[11px] font-mono leading-relaxed text-slate-900 shadow-inner outline-none selection:bg-blue-200/70"
+                  spellCheck={false}
+                />
+              </div>
             </div>
           </div>
         </div>
