@@ -1,5 +1,6 @@
--- Run in Supabase SQL editor to create storage bucket for contractor logos & product images
--- Bucket: contractor-assets (public read for logos/images). Images: JPG, PNG, WebP, GIF, HEIC — no PDF.
+-- Run in Supabase: SQL Editor → New query → paste → Run
+-- Creates the public bucket used for logos, product/style/colour photos, sales team photos.
+-- Safe to re-run (policies are dropped first if present).
 
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
@@ -9,24 +10,27 @@ VALUES (
   5242880,
   ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif']
 )
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET
+  public = EXCLUDED.public,
+  file_size_limit = EXCLUDED.file_size_limit,
+  allowed_mime_types = EXCLUDED.allowed_mime_types;
 
--- If bucket already exists, add HEIC/HEIF support (run this if you get "invalid file type" for HEIC):
--- UPDATE storage.buckets SET allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif'] WHERE id = 'contractor-assets';
+-- Storage RLS: replace policies so re-runs don’t error on "already exists"
+DROP POLICY IF EXISTS "Contractors can upload their assets" ON storage.objects;
+DROP POLICY IF EXISTS "Public read contractor assets" ON storage.objects;
+DROP POLICY IF EXISTS "Contractors can update their assets" ON storage.objects;
+DROP POLICY IF EXISTS "Contractors can delete their assets" ON storage.objects;
 
--- Allow authenticated users to upload (uploads go via API with service role, but this allows client uploads if needed)
 CREATE POLICY "Contractors can upload their assets"
   ON storage.objects FOR INSERT
   TO authenticated
   WITH CHECK (bucket_id = 'contractor-assets');
 
--- Allow public read (bucket is public)
 CREATE POLICY "Public read contractor assets"
   ON storage.objects FOR SELECT
   TO public
   USING (bucket_id = 'contractor-assets');
 
--- Allow authenticated users to update/delete their uploads (path contains contractor_id - we use API for safety)
 CREATE POLICY "Contractors can update their assets"
   ON storage.objects FOR UPDATE
   TO authenticated
