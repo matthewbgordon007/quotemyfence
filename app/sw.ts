@@ -24,6 +24,13 @@ const serwist = new Serwist({
       method: "GET",
       handler: new NetworkOnly({ networkTimeoutSeconds: 15 }),
     },
+    // Supabase Storage public URLs must not be served stale/broken from SW cache (product photos would blank).
+    {
+      matcher: ({ url }) =>
+        url.hostname.endsWith("supabase.co") && url.pathname.includes("/storage/"),
+      method: "GET",
+      handler: new NetworkOnly({ networkTimeoutSeconds: 30 }),
+    },
     ...defaultCache,
   ],
 });

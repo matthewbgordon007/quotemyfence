@@ -78,12 +78,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const mimeByExt: Record<string, string> = {
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      webp: 'image/webp',
+      gif: 'image/gif',
+      heic: 'image/heic',
+      heif: 'image/heif',
+    };
+    const inferredMime = mimeByExt[ext] || 'image/png';
+    // Buckets often restrict allowed_mime_types; browsers sometimes send empty type or application/octet-stream for PNGs.
+    const allowedBucketMimes = new Set([
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/gif',
+      'image/heic',
+      'image/heif',
+    ]);
+    const contentType =
+      file.type && allowedBucketMimes.has(file.type) && file.type !== 'application/octet-stream'
+        ? file.type
+        : inferredMime;
+
     const path = `${userRow.contractor_id}/${type}-${Date.now()}.${ext}`;
 
     const { data: upload, error: uploadError } = await supabaseAdmin.storage
       .from('contractor-assets')
       .upload(path, file, {
-        contentType: file.type,
+        contentType,
         upsert: true,
       });
 
