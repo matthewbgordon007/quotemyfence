@@ -283,6 +283,7 @@ export default function ProductsPage() {
       }
       const savedUrl = typeof patchData?.photo_url === 'string' ? patchData.photo_url : data.url;
       setStyles((prev) => prev.map((st) => (st.id === styleId ? { ...st, photo_url: savedUrl } : st)));
+      await refresh({ silent: true });
     } finally {
       setUploadingPhoto(null);
     }
@@ -312,6 +313,7 @@ export default function ProductsPage() {
       }
       const savedUrl = typeof patchData?.photo_url === 'string' ? patchData.photo_url : data.url;
       setColours((prev) => prev.map((c) => (c.id === colourId ? { ...c, photo_url: savedUrl } : c)));
+      await refresh({ silent: true });
     } finally {
       setUploadingPhoto(null);
     }
@@ -716,11 +718,11 @@ export default function ProductsPage() {
                       className="overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-sm"
                     >
                       <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center">
-                        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white">
-                          {s.photo_url ? (
+                        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                          {s.photo_url?.trim() ? (
                             <OptimizedProductImage
                               key={s.photo_url}
-                              src={s.photo_url}
+                              src={s.photo_url.trim()}
                               alt={s.style_name}
                               fill
                               sizes="56px"
@@ -857,10 +859,10 @@ export default function ProductsPage() {
                                     className="flex flex-col gap-3 rounded-xl border border-slate-100 bg-white p-3 sm:flex-row sm:items-center"
                                   >
                                     <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
-                                      {c.photo_url ? (
+                                      {c.photo_url?.trim() ? (
                                         <OptimizedProductImage
                                           key={c.photo_url}
-                                          src={c.photo_url}
+                                          src={c.photo_url.trim()}
                                           alt={c.color_name}
                                           fill
                                           sizes="56px"

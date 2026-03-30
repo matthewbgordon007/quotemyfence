@@ -1,29 +1,16 @@
 'use client';
 
-import Image from 'next/image';
 import { useState } from 'react';
 
 /**
- * Supabase Storage and other remote URLs: use native <img> so we do not depend on
- * next/image remotePatterns (wildcard hostnames are unreliable) or the optimizer.
+ * Product/style/colour photos — always native <img>.
+ * next/image + remotePatterns caused blank thumbnails for many Supabase URLs.
  */
-function isStorageOrRemoteBlobUrl(src: string): boolean {
-  if (src.startsWith('blob:') || src.startsWith('data:')) return true;
-  try {
-    const u = new URL(src);
-    return u.pathname.includes('/storage/v1/object/');
-  } catch {
-    return false;
-  }
-}
-
-/** Renders product/style/colour photos with high quality for screenshots. */
 export function OptimizedProductImage({
   src,
   alt,
   fill,
   className = '',
-  sizes = '256px',
   priority = false,
 }: {
   src: string;
@@ -34,18 +21,16 @@ export function OptimizedProductImage({
   priority?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
+  const clean = typeof src === 'string' ? src.trim() : '';
 
-  if (!src) {
-    return null;
-  }
-
-  if (failed) {
+  if (!clean || failed) {
+    if (!clean) return null;
     return (
       <div
         className={
           fill
-            ? `absolute inset-0 flex items-center justify-center bg-slate-100 text-[10px] text-slate-400 ${className}`
-            : `flex h-[300px] w-[400px] max-w-full items-center justify-center bg-slate-100 text-xs text-slate-400 ${className}`
+            ? `absolute inset-0 flex items-center justify-center bg-slate-100 text-[10px] text-slate-500 ${className}`
+            : `flex h-[300px] w-[400px] max-w-full items-center justify-center bg-slate-100 text-xs text-slate-500 ${className}`
         }
       >
         Image unavailable
@@ -53,63 +38,33 @@ export function OptimizedProductImage({
     );
   }
 
-  if (isStorageOrRemoteBlobUrl(src)) {
-    if (fill) {
-      return (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={src}
-          alt={alt}
-          className={`absolute inset-0 h-full w-full ${className}`}
-          loading={priority ? 'eager' : 'lazy'}
-          decoding="async"
-          referrerPolicy="no-referrer"
-          onError={() => setFailed(true)}
-        />
-      );
-    }
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={src}
-        alt={alt}
-        className={className}
-        width={400}
-        height={300}
-        loading={priority ? 'eager' : 'lazy'}
-        decoding="async"
-        referrerPolicy="no-referrer"
-        onError={() => setFailed(true)}
-      />
-    );
-  }
-
   if (fill) {
     return (
-      <Image
-        src={src}
-        alt={alt}
-        fill
-        className={className}
-        sizes={sizes}
-        quality={95}
-        onError={() => setFailed(true)}
-        priority={priority}
-      />
+      <div className="absolute inset-0 flex min-h-0 min-w-0 items-center justify-center overflow-hidden p-0.5">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={clean}
+          alt={alt}
+          className={`max-h-full max-w-full min-h-0 min-w-0 ${className}`}
+          loading={priority ? 'eager' : 'lazy'}
+          decoding="async"
+          onError={() => setFailed(true)}
+        />
+      </div>
     );
   }
 
   return (
-    <Image
-      src={src}
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={clean}
       alt={alt}
       width={400}
       height={300}
       className={className}
-      sizes={sizes}
-      quality={95}
+      loading={priority ? 'eager' : 'lazy'}
+      decoding="async"
       onError={() => setFailed(true)}
-      priority={priority}
     />
   );
 }
