@@ -157,10 +157,10 @@ function padSingleGateSides(prev: string[], len: number, defaultKey: string): st
   return next;
 }
 
-function padDoubleGateSides(prev: [string, string][], len: number, defaultKey: string): [string, string][] {
+function padDoubleGateSides(prev: string[], len: number, defaultKey: string): string[] {
   const next = prev.slice(0, len);
-  const fill: [string, string] = next.length ? [...next[next.length - 1]] : [defaultKey, defaultKey];
-  while (next.length < len) next.push([fill[0], fill[1]]);
+  const fill = next.length ? next[next.length - 1] : defaultKey;
+  while (next.length < len) next.push(fill);
   return next;
 }
 
@@ -191,8 +191,8 @@ export default function CalculatorPage() {
   const [applyTax, setApplyTax] = useState(true);
   /** One segment key per single gate (same order as quantity). */
   const [singleGateSides, setSingleGateSides] = useState<string[]>([]);
-  /** Two segment keys per double gate (panel 1 and panel 2). */
-  const [doubleGateSides, setDoubleGateSides] = useState<[string, string][]>([]);
+  /** One segment key per double gate (both panels on the same line). */
+  const [doubleGateSides, setDoubleGateSides] = useState<string[]>([]);
   const [customerSegments, setCustomerSegments] = useState<{ start_lat: number; start_lng: number; end_lat: number; end_lng: number; length_ft?: number }[]>([]);
   const [customerGates, setCustomerGates] = useState<{ gate_type: string; quantity: number; lat?: number | null; lng?: number | null }[]>([]);
   const [customerMapCenter, setCustomerMapCenter] = useState<[number, number] | undefined>(undefined);
@@ -343,7 +343,9 @@ export default function CalculatorPage() {
             } else if (st.gateSideKey && typeof st.singleGateQty === 'number' && st.singleGateQty > 0) {
               setSingleGateSides(Array.from({ length: st.singleGateQty }, () => String(st.gateSideKey)));
             }
-            if (
+            if (Array.isArray(st.doubleGateSides) && st.doubleGateSides.every((x: unknown) => typeof x === 'string')) {
+              setDoubleGateSides(st.doubleGateSides as string[]);
+            } else if (
               Array.isArray(st.doubleGateSides) &&
               st.doubleGateSides.every(
                 (row: unknown) =>
@@ -353,10 +355,11 @@ export default function CalculatorPage() {
                   typeof row[1] === 'string'
               )
             ) {
-              setDoubleGateSides(st.doubleGateSides as [string, string][]);
+              // Back-compat: old shape was [panel1, panel2]; keep panel1 side as the line.
+              setDoubleGateSides((st.doubleGateSides as [string, string][]).map((row) => row[0]));
             } else if (st.gateSideKey && typeof st.doubleGateQty === 'number' && st.doubleGateQty > 0) {
               const k = String(st.gateSideKey);
-              setDoubleGateSides(Array.from({ length: st.doubleGateQty }, () => [k, k] as [string, string]));
+              setDoubleGateSides(Array.from({ length: st.doubleGateQty }, () => k));
             }
             if (st.segmentAssignments) setSegmentAssignments(st.segmentAssignments);
           }
@@ -669,14 +672,11 @@ export default function CalculatorPage() {
       `Single ${i + 1}: ${sideLabel}${ft > 0 ? ` (${fmtFeet(ft)} along that side)` : ''}`
     );
   });
-  doubleGateSides.slice(0, doubleGateQty).forEach((pair, i) => {
-    const [k1, k2] = pair;
-    const ft1 = feetFinalByKey[k1] ?? 0;
-    const ft2 = feetFinalByKey[k2] ?? 0;
-    const n1 = segments.find((s) => s.key === k1)?.name ?? k1;
-    const n2 = segments.find((s) => s.key === k2)?.name ?? k2;
+  doubleGateSides.slice(0, doubleGateQty).forEach((key, i) => {
+    const ft = feetFinalByKey[key] ?? 0;
+    const sideLabel = segments.find((s) => s.key === key)?.name ?? key;
     gateInstalledParts.push(
-      `Double ${i + 1}: panel 1 ${n1}${ft1 > 0 ? ` ${fmtFeet(ft1)}` : ''} · panel 2 ${n2}${ft2 > 0 ? ` ${fmtFeet(ft2)}` : ''}`
+      `Double ${i + 1}: ${sideLabel}${ft > 0 ? ` (${fmtFeet(ft)} along that side)` : ''}`
     );
   });
   const gateInstalledLength = gateInstalledParts.length > 0 ? gateInstalledParts.join(' | ') : '—';
@@ -1096,7 +1096,7 @@ export default function CalculatorPage() {
                   </div>
                 </div>
                 <p className="text-xs text-slate-500">
-                  Each gate can sit on its own side. Double gates use two picks (one per panel).
+                  Each gate can sit on its own side. A double gate is one unit on a single side (same line).
                 </p>
                 {singleGateQty > 0 && (
                   <div className="space-y-2 rounded-xl border border-slate-100 bg-slate-50/80 p-4">
@@ -1106,7 +1106,7 @@ export default function CalculatorPage() {
                       const val = singleGateSides[i] ?? dk;
                       return (
                         <div key={`sg-${i}`} className="flex flex-wrap items-center gap-2 sm:gap-3">
-                          <span className="min-w-[6rem] text-sm font-medium text-slate-700">Gate {i + 1}</span>
+                          <span className="min-w-[6rem] text-sm font-medium text-slate-700">Single {i + 1}</span>
                           <select
                             value={val}
                             onChange={(e) => {
@@ -1132,60 +1132,33 @@ export default function CalculatorPage() {
                   </div>
                 )}
                 {doubleGateQty > 0 && (
-                  <div className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/80 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Double gate sides (per panel)</p>
+                  <div className="space-y-2 rounded-xl border border-slate-100 bg-slate-50/80 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Double gate sides</p>
                     {Array.from({ length: doubleGateQty }, (_, i) => {
                       const dk = defaultSegmentKey(segments);
-                      const row = doubleGateSides[i] ?? [dk, dk];
+                      const val = doubleGateSides[i] ?? dk;
                       return (
-                        <div key={`dg-${i}`} className="space-y-2 rounded-lg border border-slate-200/80 bg-white/90 p-3">
-                          <p className="text-sm font-semibold text-slate-800">Double gate {i + 1}</p>
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <div>
-                              <label className="mb-1 block text-xs font-medium text-slate-600">Panel 1 side</label>
-                              <select
-                                value={row[0]}
-                                onChange={(e) => {
-                                  const v = e.target.value;
-                                  setDoubleGateSides((prev) => {
-                                    const padded = padDoubleGateSides(prev, doubleGateQty, dk);
-                                    return padded.map((p, j) =>
-                                      j === i ? ([v, p[1]] as [string, string]) : p
-                                    );
-                                  });
-                                }}
-                                className={field}
-                              >
-                                {segments.map((s) => (
-                                  <option key={s.key} value={s.key}>
-                                    {s.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                            <div>
-                              <label className="mb-1 block text-xs font-medium text-slate-600">Panel 2 side</label>
-                              <select
-                                value={row[1]}
-                                onChange={(e) => {
-                                  const v = e.target.value;
-                                  setDoubleGateSides((prev) => {
-                                    const padded = padDoubleGateSides(prev, doubleGateQty, dk);
-                                    return padded.map((p, j) =>
-                                      j === i ? ([p[0], v] as [string, string]) : p
-                                    );
-                                  });
-                                }}
-                                className={field}
-                              >
-                                {segments.map((s) => (
-                                  <option key={s.key} value={s.key}>
-                                    {s.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          </div>
+                        <div key={`dg-${i}`} className="flex flex-wrap items-center gap-2 sm:gap-3">
+                          <span className="min-w-[6rem] text-sm font-medium text-slate-700">Double {i + 1}</span>
+                          <select
+                            value={val}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setDoubleGateSides((prev) => {
+                                const padded = padDoubleGateSides(prev, doubleGateQty, dk);
+                                const next = [...padded];
+                                next[i] = v;
+                                return next;
+                              });
+                            }}
+                            className={`${field} min-w-[10rem] flex-1`}
+                          >
+                            {segments.map((s) => (
+                              <option key={s.key} value={s.key}>
+                                {s.name}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                       );
                     })}
