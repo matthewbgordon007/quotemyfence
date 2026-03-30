@@ -2,7 +2,12 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { OptimizedProductImage } from '@/components/OptimizedProductImage';
-import { StylePricingModal, type StylePricingRule } from '@/components/dashboard/StylePricingModal';
+import {
+  StylePricingModal,
+  type StyleInstallLengthTier,
+  type StylePricingRule,
+  type TierDraft,
+} from '@/components/dashboard/StylePricingModal';
 
 interface FenceType {
   id: string;
@@ -65,6 +70,7 @@ export default function ProductsPage() {
   const [styles, setStyles] = useState<FenceStyle[]>([]);
   const [colours, setColours] = useState<ColourOption[]>([]);
   const [stylePricingRules, setStylePricingRules] = useState<StylePricingRule[]>([]);
+  const [styleInstallLengthTiers, setStyleInstallLengthTiers] = useState<StyleInstallLengthTier[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -97,6 +103,7 @@ export default function ProductsPage() {
     setStyles(nextStyles);
     setColours(nextColours);
     setStylePricingRules((data.stylePricingRules as StylePricingRule[]) || []);
+    setStyleInstallLengthTiers((data.styleInstallLengthTiers as StyleInstallLengthTier[]) || []);
   }, []);
 
   const refresh = useCallback(
@@ -146,6 +153,11 @@ export default function ProductsPage() {
   const getStyleRule = useCallback(
     (styleId: string) => stylePricingRules.find((r) => r.fence_style_id === styleId),
     [stylePricingRules]
+  );
+
+  const tiersForStyle = useCallback(
+    (styleId: string) => styleInstallLengthTiers.filter((t) => t.fence_style_id === styleId),
+    [styleInstallLengthTiers]
   );
 
   const stylesForType = useCallback((tId: string) => styles.filter((s) => s.fence_type_id === tId), [styles]);
@@ -336,6 +348,50 @@ export default function ProductsPage() {
     }
   }
 
+  async function saveInstallLengthTiers(styleId: string, drafts: TierDraft[]) {
+    const tiers = drafts.map((d) => {
+      const min = Number(d.min_ft);
+      const maxTrim = d.max_ft.trim();
+      const max = maxTrim === '' ? null : Number(maxTrim);
+      const p = Number(d.pricePerFt) || 0;
+      const s = Number(d.singleGate) || 0;
+      const dg = Number(d.doubleGate) || 0;
+      const rem = Number(d.removal) || 0;
+      const mj = Number(d.minJob) || 0;
+      return {
+        min_ft: min,
+        max_ft: max,
+        base_price_per_ft_low: p,
+        base_price_per_ft_high: p,
+        single_gate_low: s,
+        single_gate_high: s,
+        double_gate_low: dg,
+        double_gate_high: dg,
+        removal_price_per_ft_low: rem,
+        removal_price_per_ft_high: rem,
+        minimum_job_low: mj,
+        minimum_job_high: mj,
+      };
+    });
+    const res = await fetch('/api/contractor/product-hierarchy/style-pricing/install-length-tiers', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fence_style_id: styleId, tiers }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const saved = (data.tiers as StyleInstallLengthTier[]) || [];
+      setStyleInstallLengthTiers((prev) => {
+        const without = prev.filter((t) => t.fence_style_id !== styleId);
+        return [...without, ...saved];
+      });
+      setPricingModal(null);
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert(err?.error || 'Could not save length bands.');
+    }
+  }
+
   if (loading) {
     return (
       <div className="mx-auto flex max-w-6xl flex-col gap-6">
@@ -367,7 +423,7 @@ export default function ProductsPage() {
           </div>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
             {isAdmin
-              ? "Types → styles → colours. Customers pick in that order when designing. For distance-tier pricing, create style names as ranges like 8'-24', 25'-47', 48'-64', 65'-800', 801'+ and set price per tier."
+              ? "Types → styles → colours. Use Pricing → By install length on a style to set rates by total footage (e.g. 10'–20', 21'–30'). You can still use multiple style rows with range names for legacy tiering."
               : 'Your product catalog and pricing. Ask an admin to edit structure or prices.'}
           </p>
         </div>
@@ -504,8 +560,10 @@ export default function ProductsPage() {
           open
           styleName={pricingModal.styleName}
           rule={pricingModal.rule}
+          installTiers={tiersForStyle(pricingModal.styleId)}
           onClose={() => setPricingModal(null)}
           onSave={(u) => updateStylePricing(pricingModal.styleId, u)}
+          onSaveInstallTiers={(drafts) => saveInstallLengthTiers(pricingModal.styleId, drafts)}
         />
       )}
 
@@ -649,6 +707,7 @@ export default function ProductsPage() {
 
                 {stylesForType(t.id).map((s) => {
                   const styleRule = getStyleRule(s.id);
+                  const lengthTiers = tiersForStyle(s.id);
                   return (
                     <div
                       key={s.id}
@@ -684,10 +743,16 @@ export default function ProductsPage() {
                             >
                               <Chevron open={expandedStyles.has(s.id)} />
                               <span className="font-semibold text-slate-900">{s.style_name}</span>
-                              {styleRule && (
-                                <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                                  ${Number(styleRule.base_price_per_ft_low).toFixed(2)}/ft
+                              {lengthTiers.length > 0 ? (
+                                <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                                  {lengthTiers.length} length band{lengthTiers.length === 1 ? '' : 's'}
                                 </span>
+                              ) : (
+                                styleRule && (
+                                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                                    ${Number(styleRule.base_price_per_ft_low).toFixed(2)}/ft
+                                  </span>
+                                )
                               )}
                             </button>
                             {isAdmin && (

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { calculatePricing } from '@/lib/pricing';
-import { pickBestTierByLength } from '@/lib/length-tier';
+import { pickBestTierByInstallLength, pickBestTierByLength } from '@/lib/length-tier';
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,7 +35,34 @@ export async function POST(request: NextRequest) {
           .single();
 
         const totalLengthFt = Number(total_length_ft) || 0;
-        if (selectedStyle?.fence_type_id && totalLengthFt > 0) {
+
+        const { data: installTiers } = await supabase
+          .from('style_install_length_tiers')
+          .select('*')
+          .eq('fence_style_id', colour.fence_style_id)
+          .eq('is_active', true)
+          .order('display_order', { ascending: true });
+
+        if (installTiers?.length && totalLengthFt > 0) {
+          const picked = pickBestTierByInstallLength(installTiers, totalLengthFt);
+          if (picked) {
+            ruleRow = {
+              base_price_per_ft_low: Number(picked.base_price_per_ft_low),
+              base_price_per_ft_high: Number(picked.base_price_per_ft_high),
+              single_gate_low: Number(picked.single_gate_low),
+              single_gate_high: Number(picked.single_gate_high),
+              double_gate_low: Number(picked.double_gate_low),
+              double_gate_high: Number(picked.double_gate_high),
+              removal_price_per_ft_low: Number(picked.removal_price_per_ft_low),
+              removal_price_per_ft_high: Number(picked.removal_price_per_ft_high),
+              minimum_job_low: Number(picked.minimum_job_low),
+              minimum_job_high: Number(picked.minimum_job_high),
+              tax_mode: picked.tax_mode ?? 'excluded',
+            };
+          }
+        }
+
+        if (!ruleRow && selectedStyle?.fence_type_id && totalLengthFt > 0) {
           const { data: siblingStyles } = await supabase
             .from('fence_styles')
             .select('id, style_name')

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { pickBestTierByLength } from '@/lib/length-tier';
+import { pickBestTierByInstallLength, pickBestTierByLength } from '@/lib/length-tier';
 import {
   DEFAULT_QUOTE_TEMPLATE_TEXT,
   QuoteTokenId,
@@ -67,6 +67,38 @@ type ColourOption = { id: string; fence_style_id: string; color_name: string };
 type FenceStyle = { id: string; fence_type_id: string; style_name: string };
 type FenceType = { id: string; name: string };
 
+type StyleInstallLengthTierRow = {
+  fence_style_id: string;
+  min_ft: number;
+  max_ft: number | null;
+  base_price_per_ft_low: number;
+  base_price_per_ft_high: number;
+  single_gate_low: number;
+  single_gate_high: number;
+  double_gate_low: number;
+  double_gate_high: number;
+  removal_price_per_ft_low: number;
+  removal_price_per_ft_high: number;
+  minimum_job_low: number;
+  minimum_job_high: number;
+};
+
+function tierRowToPricingRule(t: StyleInstallLengthTierRow): PricingRule {
+  return {
+    fence_style_id: t.fence_style_id,
+    base_price_per_ft_low: t.base_price_per_ft_low,
+    base_price_per_ft_high: t.base_price_per_ft_high,
+    single_gate_low: t.single_gate_low,
+    single_gate_high: t.single_gate_high,
+    double_gate_low: t.double_gate_low,
+    double_gate_high: t.double_gate_high,
+    removal_price_per_ft_low: t.removal_price_per_ft_low,
+    removal_price_per_ft_high: t.removal_price_per_ft_high,
+    minimum_job_low: t.minimum_job_low,
+    minimum_job_high: t.minimum_job_high,
+  };
+}
+
 type Segment = {
   key: string;
   name: string;
@@ -123,6 +155,7 @@ export default function CalculatorPage() {
   const [colours, setColours] = useState<ColourOption[]>([]);
   const [colourPricingRules, setColourPricingRules] = useState<PricingRule[]>([]);
   const [stylePricingRules, setStylePricingRules] = useState<PricingRule[]>([]);
+  const [styleInstallLengthTiers, setStyleInstallLengthTiers] = useState<StyleInstallLengthTierRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [quoteAddress, setQuoteAddress] = useState('');
   const [homeownerName, setHomeownerName] = useState('');
@@ -202,6 +235,9 @@ export default function CalculatorPage() {
         const hierarchyColours = Array.isArray(hierarchyData?.colourOptions) ? hierarchyData.colourOptions : [];
         const colourRules = Array.isArray(hierarchyData?.colourPricingRules) ? hierarchyData.colourPricingRules : [];
         const styleRules = Array.isArray(hierarchyData?.stylePricingRules) ? hierarchyData.stylePricingRules : [];
+        const installTiers = Array.isArray(hierarchyData?.styleInstallLengthTiers)
+          ? (hierarchyData.styleInstallLengthTiers as StyleInstallLengthTierRow[])
+          : [];
 
         setProducts(prods);
         setTypes(hierarchyTypes);
@@ -210,6 +246,7 @@ export default function CalculatorPage() {
         setPricingRules(rules);
         setColourPricingRules(colourRules);
         setStylePricingRules(styleRules);
+        setStyleInstallLengthTiers(installTiers);
 
         const firstType = hierarchyTypes[0];
         if (firstType) {
@@ -217,9 +254,12 @@ export default function CalculatorPage() {
           const firstStyle = typeStyles[0];
           if (firstStyle) {
             const styleColours = hierarchyColours.filter((c: ColourOption) => c.fence_style_id === firstStyle.id);
-            const styleHasRule = styleRules.some((r: { fence_style_id?: string }) => r?.fence_style_id === firstStyle.id);
+            const styleHasRule =
+              styleRules.some((r: { fence_style_id?: string }) => r?.fence_style_id === firstStyle.id) ||
+              installTiers.some((t) => t.fence_style_id === firstStyle.id);
             const colourHasRule = (c: ColourOption) =>
               styleRules.some((r: { fence_style_id?: string }) => r?.fence_style_id === c.fence_style_id) ||
+              installTiers.some((t) => t.fence_style_id === c.fence_style_id) ||
               colourRules.some((r: { colour_option_id?: string }) => r?.colour_option_id === c.id);
             const firstColourWithRule = styleHasRule
               ? styleColours[0]
@@ -353,7 +393,8 @@ export default function CalculatorPage() {
   const stylesForType = selectedTypeId ? styles.filter((s) => s.fence_type_id === selectedTypeId) : [];
   const coloursForStyle = selectedStyleId ? colours.filter((c) => c.fence_style_id === selectedStyleId) : [];
   const styleHasPricing = (styleId: string) =>
-    stylePricingRules.some((r) => r.fence_style_id === styleId);
+    stylePricingRules.some((r) => r.fence_style_id === styleId) ||
+    styleInstallLengthTiers.some((t) => t.fence_style_id === styleId);
   const colourHasPricing = (c: ColourOption) =>
     styleHasPricing(c.fence_style_id) || colourPricingRules.some((r) => r.colour_option_id === c.id);
   const coloursWithPricing = coloursForStyle.filter(colourHasPricing);
@@ -371,7 +412,21 @@ export default function CalculatorPage() {
   const selectedType = types.find((t) => t.id === selectedTypeId);
   const selectedColour = colours.find((c) => c.id === selectedColourId);
   const selectedColourDisplay = selectedColour;
+  const selectedStyleIdForInstallTiers = selectedColour?.fence_style_id ?? selectedStyleId ?? null;
+  const explicitInstallTiersForStyle = selectedStyleIdForInstallTiers
+    ? styleInstallLengthTiers.filter((t) => t.fence_style_id === selectedStyleIdForInstallTiers)
+    : [];
+
+  const lengthTierPricingRule =
+    explicitInstallTiersForStyle.length > 0 && totalLength > 0
+      ? (() => {
+          const picked = pickBestTierByInstallLength(explicitInstallTiersForStyle, totalLength);
+          return picked ? tierRowToPricingRule(picked) : null;
+        })()
+      : null;
+
   const autoTierStyleId = (() => {
+    if (explicitInstallTiersForStyle.length > 0) return null;
     if (!selectedTypeId || totalLength <= 0) return null;
     const allTierRows = styles
       .filter((s) => s.fence_type_id === selectedTypeId)
@@ -403,7 +458,7 @@ export default function CalculatorPage() {
   const colourRule = selectedColourId
     ? colourPricingRules.find((r) => r.colour_option_id === selectedColourId)
     : null;
-  const rule = styleRule ?? colourRule ?? null;
+  const rule = lengthTierPricingRule ?? styleRule ?? colourRule ?? null;
 
   const cataloguePricePerFt = rule
     ? (safeNum(rule.base_price_per_ft_low) + safeNum(rule.base_price_per_ft_high)) / 2 || 0
@@ -427,8 +482,11 @@ export default function CalculatorPage() {
     const typeStyles = styles.filter((s) => s.fence_type_id === t.id);
     return typeStyles.some((s) => {
       const styleColours = colours.filter((c) => c.fence_style_id === s.id);
-      return stylePricingRules.some((r) => r.fence_style_id === s.id) ||
-        styleColours.some((c) => colourPricingRules.some((r) => r.colour_option_id === c.id));
+      return (
+        stylePricingRules.some((r) => r.fence_style_id === s.id) ||
+        styleInstallLengthTiers.some((tier) => tier.fence_style_id === s.id) ||
+        styleColours.some((c) => colourPricingRules.some((r) => r.colour_option_id === c.id))
+      );
     });
   });
 

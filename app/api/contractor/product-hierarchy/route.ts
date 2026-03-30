@@ -52,7 +52,7 @@ export async function GET() {
   const fenceStyles = styles || [];
   const styleIds = fenceStyles.map((s) => s.id);
 
-  const [coloursRes, styleRulesRes] = await Promise.all([
+  const [coloursRes, styleRulesRes, installTiersRes] = await Promise.all([
     styleIds.length > 0
       ? supabase
           .from('colour_options')
@@ -68,10 +68,19 @@ export async function GET() {
           .in('fence_style_id', styleIds)
           .eq('is_active', true)
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+    styleIds.length > 0
+      ? supabase
+          .from('style_install_length_tiers')
+          .select('*')
+          .in('fence_style_id', styleIds)
+          .eq('is_active', true)
+          .order('display_order', { ascending: true })
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
   ]);
 
   const colourOptions = coloursRes.data || [];
   const stylePricingRules = styleRulesRes.data || [];
+  const styleInstallLengthTiers = installTiersRes.data || [];
   const colourIds = colourOptions.map((c: { id: string }) => c.id);
 
   let colourPricingRules: { colour_option_id: string; [k: string]: unknown }[] = [];
@@ -94,5 +103,6 @@ export async function GET() {
     colourOptions: sortedColourOptions,
     colourPricingRules,
     stylePricingRules,
+    styleInstallLengthTiers,
   });
 }
