@@ -372,17 +372,27 @@ export default function CalculatorPage() {
   const selectedColour = colours.find((c) => c.id === selectedColourId);
   const selectedColourDisplay = selectedColour;
   const autoTierStyleId = (() => {
-    if (!selectedTypeId || !selectedColourDisplay?.color_name) return null;
-    const styleRows = styles
+    if (!selectedTypeId || totalLength <= 0) return null;
+    const allTierRows = styles
       .filter((s) => s.fence_type_id === selectedTypeId)
       .map((s) => ({
         styleId: s.id,
         styleName: s.style_name ?? '',
         hasRule: stylePricingRules.some((r) => r.fence_style_id === s.id),
-        hasColour: colours.some((c) => c.fence_style_id === s.id && c.color_name === selectedColourDisplay.color_name),
       }))
-      .filter((s) => s.hasRule && s.hasColour);
-    const pick = pickBestTierByLength(styleRows, totalLength);
+      .filter((s) => s.hasRule);
+    if (!allTierRows.length) return null;
+
+    // Prefer tiers that also have the selected colour configured. Fallback to any matching tier.
+    if (selectedColourDisplay?.color_name) {
+      const colorTierRows = allTierRows.filter((s) =>
+        colours.some((c) => c.fence_style_id === s.styleId && c.color_name === selectedColourDisplay.color_name)
+      );
+      const colorPick = pickBestTierByLength(colorTierRows, totalLength);
+      if (colorPick) return colorPick.styleId;
+    }
+
+    const pick = pickBestTierByLength(allTierRows, totalLength);
     return pick?.styleId ?? null;
   })();
 

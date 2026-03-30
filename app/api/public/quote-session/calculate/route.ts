@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
           .single();
 
         const totalLengthFt = Number(total_length_ft) || 0;
-        if (selectedStyle?.fence_type_id && colour.color_name && totalLengthFt > 0) {
+        if (selectedStyle?.fence_type_id && totalLengthFt > 0) {
           const { data: siblingStyles } = await supabase
             .from('fence_styles')
             .select('id, style_name')
@@ -44,31 +44,40 @@ export async function POST(request: NextRequest) {
 
           if (siblingStyles?.length) {
             const styleIds = siblingStyles.map((s) => s.id);
-            const { data: siblingColours } = await supabase
-              .from('colour_options')
-              .select('id, fence_style_id, color_name')
-              .in('fence_style_id', styleIds)
-              .eq('color_name', colour.color_name)
-              .eq('is_active', true);
             const { data: styleRules } = await supabase
               .from('style_pricing_rules')
               .select('*')
               .in('fence_style_id', styleIds)
               .eq('is_active', true);
 
-            if (siblingColours?.length && styleRules?.length) {
+            if (styleRules?.length) {
               const rulesByStyle = new Map(styleRules.map((r) => [r.fence_style_id, r]));
-              const styleById = new Map(siblingStyles.map((s) => [s.id, s]));
-              const tierCandidates = siblingColours
-                .map((co) => {
-                  const st = styleById.get(co.fence_style_id);
-                  const sr = rulesByStyle.get(co.fence_style_id);
-                  if (!st || !sr) return null;
-                  return { styleName: st.style_name || '', rule: sr };
+              const allTierCandidates = siblingStyles
+                .map((st) => {
+                  const sr = rulesByStyle.get(st.id);
+                  if (!sr) return null;
+                  return { styleId: st.id, styleName: st.style_name || '', rule: sr };
                 })
-                .filter((x): x is { styleName: string; rule: typeof styleRules[number] } => !!x);
-              const picked = pickBestTierByLength(tierCandidates, totalLengthFt);
-              if (picked) ruleRow = picked.rule;
+                .filter((x): x is { styleId: string; styleName: string; rule: typeof styleRules[number] } => !!x);
+
+              if (allTierCandidates.length) {
+                if (colour.color_name) {
+                  const { data: siblingColours } = await supabase
+                    .from('colour_options')
+                    .select('fence_style_id, color_name')
+                    .in('fence_style_id', styleIds)
+                    .eq('color_name', colour.color_name)
+                    .eq('is_active', true);
+                  const colorStyleIds = new Set((siblingColours || []).map((c) => c.fence_style_id));
+                  const colorCandidates = allTierCandidates.filter((c) => colorStyleIds.has(c.styleId));
+                  const colorPick = pickBestTierByLength(colorCandidates, totalLengthFt);
+                  if (colorPick) ruleRow = colorPick.rule;
+                }
+                if (!ruleRow) {
+                  const picked = pickBestTierByLength(allTierCandidates, totalLengthFt);
+                  if (picked) ruleRow = picked.rule;
+                }
+              }
             }
           }
         }

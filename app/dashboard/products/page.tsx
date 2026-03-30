@@ -360,7 +360,7 @@ export default function ProductsPage() {
           </div>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
             {isAdmin
-              ? 'Types → styles → colours. Customers pick in that order when designing. Set pricing per style; colours inherit.'
+              ? "Types → styles → colours. Customers pick in that order when designing. For distance-tier pricing, create style names as ranges like 8'-24', 25'-47', 48'-64', 65'-800', 801'+ and set price per tier."
               : 'Your product catalog and pricing. Ask an admin to edit structure or prices.'}
           </p>
         </div>
