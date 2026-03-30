@@ -5,11 +5,12 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
-  DEFAULT_QUOTE_BLOCKS,
-  QuoteBlock,
+  DEFAULT_QUOTE_TEMPLATE_TEXT,
   QuoteTokenId,
   composeQuoteText,
   isQuoteBlocks,
+  legacyQuoteBlocksStorageKey,
+  quoteBlocksToTemplateText,
   quoteTemplateStorageKey,
 } from '@/lib/quote-template';
 
@@ -140,7 +141,7 @@ export default function CalculatorPage() {
   const [customerGates, setCustomerGates] = useState<{ gate_type: string; quantity: number; lat?: number | null; lng?: number | null }[]>([]);
   const [customerMapCenter, setCustomerMapCenter] = useState<[number, number] | undefined>(undefined);
   const [segmentAssignments, setSegmentAssignments] = useState<Record<string, number | null>>({});
-  const [quoteBlocks, setQuoteBlocks] = useState<QuoteBlock[]>(DEFAULT_QUOTE_BLOCKS);
+  const [quoteTemplate, setQuoteTemplate] = useState(DEFAULT_QUOTE_TEMPLATE_TEXT);
   const [contractorId, setContractorId] = useState<string | null>(null);
 
   const searchParams = useSearchParams();
@@ -161,9 +162,19 @@ export default function CalculatorPage() {
     if (!contractorId) return;
     try {
       const raw = localStorage.getItem(quoteTemplateStorageKey(contractorId));
-      if (!raw) return;
-      const parsed: unknown = JSON.parse(raw);
-      if (isQuoteBlocks(parsed)) setQuoteBlocks(parsed);
+      if (raw) {
+        setQuoteTemplate(raw);
+        return;
+      }
+      // Backward compatibility for templates saved in the old block format.
+      const legacyRaw = localStorage.getItem(legacyQuoteBlocksStorageKey(contractorId));
+      if (!legacyRaw) return;
+      const parsed: unknown = JSON.parse(legacyRaw);
+      if (isQuoteBlocks(parsed)) {
+        const migrated = quoteBlocksToTemplateText(parsed);
+        setQuoteTemplate(migrated);
+        localStorage.setItem(quoteTemplateStorageKey(contractorId), migrated);
+      }
     } catch {
       // ignore bad local template payloads
     }
@@ -514,7 +525,7 @@ export default function CalculatorPage() {
     deposit: moneyCAD(deposit),
   };
 
-  const quoteText = composeQuoteText(quoteBlocks, quoteTokenValues);
+  const quoteText = composeQuoteText(quoteTemplate, quoteTokenValues);
 
   async function copyQuote() {
     try {

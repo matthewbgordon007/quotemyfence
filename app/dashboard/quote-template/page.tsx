@@ -1,15 +1,17 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  DEFAULT_QUOTE_BLOCKS,
+  DEFAULT_QUOTE_TEMPLATE_TEXT,
+  legacyQuoteBlocksStorageKey,
   QUOTE_TOKEN_DEFS,
-  QuoteBlock,
   QuoteTokenId,
   composeQuoteText,
   isQuoteBlocks,
+  quoteBlocksToTemplateText,
   quoteTemplateStorageKey,
+  tokenPlaceholder,
 } from '@/lib/quote-template';
 
 const cardShell =
@@ -19,8 +21,9 @@ const cardHeader =
 
 export default function QuoteTemplatePage() {
   const [contractorId, setContractorId] = useState<string | null>(null);
-  const [quoteBlocks, setQuoteBlocks] = useState<QuoteBlock[]>(DEFAULT_QUOTE_BLOCKS);
+  const [templateText, setTemplateText] = useState(DEFAULT_QUOTE_TEMPLATE_TEXT);
   const [saved, setSaved] = useState(false);
+  const templateRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     fetch('/api/contractor/me', { cache: 'no-store' })
@@ -35,9 +38,19 @@ export default function QuoteTemplatePage() {
     if (!contractorId) return;
     try {
       const raw = localStorage.getItem(quoteTemplateStorageKey(contractorId));
-      if (!raw) return;
-      const parsed: unknown = JSON.parse(raw);
-      if (isQuoteBlocks(parsed)) setQuoteBlocks(parsed);
+      if (raw) {
+        setTemplateText(raw);
+        return;
+      }
+      // One-time migration from old block-based template storage.
+      const legacyRaw = localStorage.getItem(legacyQuoteBlocksStorageKey(contractorId));
+      if (!legacyRaw) return;
+      const parsed: unknown = JSON.parse(legacyRaw);
+      if (isQuoteBlocks(parsed)) {
+        const migrated = quoteBlocksToTemplateText(parsed);
+        setTemplateText(migrated);
+        localStorage.setItem(quoteTemplateStorageKey(contractorId), migrated);
+      }
     } catch {
       // ignore malformed local payloads
     }
@@ -62,50 +75,35 @@ export default function QuoteTemplatePage() {
     []
   );
 
-  const previewText = composeQuoteText(quoteBlocks, tokenValues);
+  const previewText = composeQuoteText(templateText, tokenValues);
 
-  function updateTextBlock(blockId: string, nextText: string) {
-    setQuoteBlocks((prev) =>
-      prev.map((block) => (block.id === blockId && block.type === 'text' ? { ...block, text: nextText } : block))
-    );
-  }
-
-  function moveBlock(blockId: string, dir: -1 | 1) {
-    setQuoteBlocks((prev) => {
-      const idx = prev.findIndex((b) => b.id === blockId);
-      if (idx < 0) return prev;
-      const next = idx + dir;
-      if (next < 0 || next >= prev.length) return prev;
-      const copy = [...prev];
-      const [item] = copy.splice(idx, 1);
-      copy.splice(next, 0, item);
-      return copy;
+  function insertToken(token: QuoteTokenId) {
+    const el = templateRef.current;
+    const placeholder = tokenPlaceholder(token);
+    if (!el) {
+      setTemplateText((prev) => `${prev}${prev.endsWith('\n') ? '' : '\n'}${placeholder}`);
+      return;
+    }
+    const start = el.selectionStart ?? templateText.length;
+    const end = el.selectionEnd ?? templateText.length;
+    const next = `${templateText.slice(0, start)}${placeholder}${templateText.slice(end)}`;
+    setTemplateText(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      const pos = start + placeholder.length;
+      el.setSelectionRange(pos, pos);
     });
-  }
-
-  function addTextBlock() {
-    setQuoteBlocks((prev) => [
-      ...prev,
-      { id: globalThis.crypto?.randomUUID?.() ?? `text-${Date.now()}`, type: 'text', text: 'New text line' },
-    ]);
-  }
-
-  function addTokenBlock(token: QuoteTokenId) {
-    setQuoteBlocks((prev) => [
-      ...prev,
-      { id: globalThis.crypto?.randomUUID?.() ?? `token-${Date.now()}`, type: 'token', token },
-    ]);
   }
 
   function saveTemplate() {
     if (!contractorId) return;
-    localStorage.setItem(quoteTemplateStorageKey(contractorId), JSON.stringify(quoteBlocks));
+    localStorage.setItem(quoteTemplateStorageKey(contractorId), templateText);
     setSaved(true);
     window.setTimeout(() => setSaved(false), 1800);
   }
 
   function resetTemplate() {
-    setQuoteBlocks(DEFAULT_QUOTE_BLOCKS);
+    setTemplateText(DEFAULT_QUOTE_TEMPLATE_TEXT);
   }
 
   return (
@@ -146,75 +144,33 @@ export default function QuoteTemplatePage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
         <div className={cardShell}>
           <div className={cardHeader}>
-            <h2 className="text-base font-semibold text-slate-900">Template builder</h2>
-            <p className="mt-1 text-xs text-slate-500">Text blocks are editable. Value inserts are locked and moveable.</p>
+            <h2 className="text-base font-semibold text-slate-900">Template editor</h2>
+            <p className="mt-1 text-xs text-slate-500">Paste your full quote text, then insert dynamic placeholders where needed.</p>
           </div>
           <div className="space-y-4 p-4 sm:p-5">
             <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3">
-              <p className="text-xs font-medium text-slate-600">Add block</p>
+              <p className="text-xs font-medium text-slate-600">Insert placeholder at cursor</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {QUOTE_TOKEN_DEFS.map((def) => (
                   <button
                     key={def.token}
                     type="button"
-                    onClick={() => addTokenBlock(def.token)}
+                    onClick={() => insertToken(def.token)}
                     className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
                   >
-                    + {def.label}
+                    {def.label}
                   </button>
                 ))}
-                <button
-                  type="button"
-                  onClick={addTextBlock}
-                  className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
-                >
-                  + Text block
-                </button>
               </div>
             </div>
-
-            <div className="space-y-2">
-              {quoteBlocks.map((block, i) => (
-                <div key={block.id} className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm">
-                  <div className="flex items-start gap-3">
-                    <div className="flex flex-col gap-1">
-                      <button
-                        type="button"
-                        onClick={() => moveBlock(block.id, -1)}
-                        disabled={i === 0}
-                        className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700 disabled:opacity-40"
-                        aria-label="Move block up"
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveBlock(block.id, 1)}
-                        disabled={i === quoteBlocks.length - 1}
-                        className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700 disabled:opacity-40"
-                        aria-label="Move block down"
-                      >
-                        ↓
-                      </button>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      {block.type === 'text' ? (
-                        <textarea
-                          value={block.text}
-                          onChange={(e) => updateTextBlock(block.id, e.target.value)}
-                          rows={Math.max(1, block.text.split('\n').length)}
-                          className="w-full resize-y rounded-lg border border-slate-200/90 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
-                        />
-                      ) : (
-                        <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700">
-                          {QUOTE_TOKEN_DEFS.find((d) => d.token === block.token)?.label}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <textarea
+              ref={templateRef}
+              value={templateText}
+              onChange={(e) => setTemplateText(e.target.value)}
+              rows={20}
+              className="w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm leading-relaxed text-slate-900 shadow-inner outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+              spellCheck={false}
+            />
           </div>
         </div>
 

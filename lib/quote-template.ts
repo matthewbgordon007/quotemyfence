@@ -64,12 +64,39 @@ export const DEFAULT_QUOTE_BLOCKS: QuoteBlock[] = [
   { id: 'b28', type: 'token', token: 'deposit' },
 ];
 
-export function composeQuoteText(blocks: QuoteBlock[], values: Record<QuoteTokenId, string>): string {
-  return `${blocks
-    .map((block) => (block.type === 'text' ? block.text : values[block.token]))
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()}\n`;
+export function tokenPlaceholder(token: QuoteTokenId): string {
+  return `{{${token}}}`;
+}
+
+export const DEFAULT_QUOTE_TEMPLATE_TEXT = `Fence Quote Summary
+
+Prepared for: {{homeowner}}
+Location: {{location}}
+Product: {{product}}
+Gates: {{gates}}
+
+Lengths & line totals:
+{{lengths}}
+
+Totals:
+- Private fence: {{privateTotal}}
+- Shared fence: {{sharedTotal}}
+- Gates: {{gateTotal}}
+- Removal: {{removalTotal}}
+- Subtotal: {{subtotal}}
+- Tax: {{taxLine}}
+- Total: {{grandTotal}}
+
+Deposit (10% incl. tax): {{deposit}}
+`;
+
+export function composeQuoteText(templateText: string, values: Record<QuoteTokenId, string>): string {
+  const rendered = templateText.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (full, tokenRaw) => {
+    const token = tokenRaw as QuoteTokenId;
+    if (Object.prototype.hasOwnProperty.call(values, token)) return values[token];
+    return full;
+  });
+  return `${rendered.replace(/\n{3,}/g, '\n\n').trim()}\n`;
 }
 
 export function isQuoteBlocks(input: unknown): input is QuoteBlock[] {
@@ -90,5 +117,18 @@ export function isQuoteBlocks(input: unknown): input is QuoteBlock[] {
 }
 
 export function quoteTemplateStorageKey(contractorId: string): string {
+  return `qmf_quote_template_text_${contractorId}`;
+}
+
+// Legacy key from block-based builder; used for migration.
+export function legacyQuoteBlocksStorageKey(contractorId: string): string {
   return `qmf_quote_template_blocks_${contractorId}`;
+}
+
+export function quoteBlocksToTemplateText(blocks: QuoteBlock[]): string {
+  return `${blocks
+    .map((block) => (block.type === 'text' ? block.text : tokenPlaceholder(block.token)))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()}\n`;
 }
