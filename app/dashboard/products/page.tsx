@@ -25,6 +25,10 @@ interface ColourOption {
   photo_url: string | null;
 }
 
+function byName<T>(get: (item: T) => string) {
+  return (a: T, b: T) => get(a).localeCompare(get(b), undefined, { sensitivity: 'base', numeric: true });
+}
+
 const ADMIN_ROLES = ['owner', 'admin'];
 
 const defaultRule = (styleId: string): StylePricingRule => ({
@@ -86,9 +90,12 @@ export default function ProductsPage() {
   const [uploadingPhoto, setUploadingPhoto] = useState<string | null>(null);
 
   const applyHierarchyData = useCallback((data: Record<string, unknown>) => {
-    setTypes((data.fenceTypes as FenceType[]) || []);
-    setStyles((data.fenceStyles as FenceStyle[]) || []);
-    setColours((data.colourOptions as ColourOption[]) || []);
+    const nextTypes = ((data.fenceTypes as FenceType[]) || []).slice().sort(byName((t) => t.name || ''));
+    const nextStyles = ((data.fenceStyles as FenceStyle[]) || []).slice().sort(byName((s) => s.style_name || ''));
+    const nextColours = ((data.colourOptions as ColourOption[]) || []).slice().sort(byName((c) => c.color_name || ''));
+    setTypes(nextTypes);
+    setStyles(nextStyles);
+    setColours(nextColours);
     setStylePricingRules((data.stylePricingRules as StylePricingRule[]) || []);
   }, []);
 

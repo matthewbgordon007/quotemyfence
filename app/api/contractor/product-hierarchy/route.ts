@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
+function byName<T>(get: (item: T) => string) {
+  return (a: T, b: T) => get(a).localeCompare(get(b), undefined, { sensitivity: 'base', numeric: true });
+}
+
 export async function GET() {
   const supabase = await createClient();
   const {
@@ -79,11 +83,15 @@ export async function GET() {
     colourPricingRules = rules || [];
   }
 
+  const sortedFenceTypes = [...fenceTypes].sort(byName((t) => (t as { name?: string }).name || ''));
+  const sortedFenceStyles = [...fenceStyles].sort(byName((s) => (s as { style_name?: string }).style_name || ''));
+  const sortedColourOptions = [...colourOptions].sort(byName((c) => (c as { color_name?: string }).color_name || ''));
+
   return NextResponse.json({
     heights: [],
-    fenceTypes,
-    fenceStyles,
-    colourOptions,
+    fenceTypes: sortedFenceTypes,
+    fenceStyles: sortedFenceStyles,
+    colourOptions: sortedColourOptions,
     colourPricingRules,
     stylePricingRules,
   });
