@@ -120,11 +120,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: msg }, { status: 500 });
     }
 
-    const { data: urlData } = supabaseAdmin.storage
-      .from('contractor-assets')
-      .getPublicUrl(upload.path);
+    // Use our path for the public URL (SDK upload payload shape can vary by version).
+    const { data: urlData } = supabaseAdmin.storage.from('contractor-assets').getPublicUrl(path);
 
-    return NextResponse.json({ url: urlData.publicUrl });
+    return NextResponse.json({ url: urlData.publicUrl, path });
   } catch (e) {
     console.error('upload error:', e);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

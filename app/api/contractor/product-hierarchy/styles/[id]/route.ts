@@ -13,7 +13,7 @@ async function canEditStyle(supabase: Awaited<ReturnType<typeof createClient>>, 
   if (!fs) return false;
   const { data: ft } = await supabase.from('fence_types').select('height_id, contractor_id').eq('id', fs.fence_type_id).single();
   if (!ft) return false;
-  if (ft.contractor_id && ft.contractor_id === contractorId) return true;
+  if (ft.contractor_id === contractorId) return true;
   if (ft.height_id) {
     const { data: h } = await supabase.from('fence_heights').select('contractor_id').eq('id', ft.height_id).single();
     return h?.contractor_id === contractorId;

@@ -281,7 +281,8 @@ export default function ProductsPage() {
         alert(patchData?.error || 'Photo uploaded but could not save. Try again.');
         return;
       }
-      setStyles((prev) => prev.map((st) => (st.id === styleId ? { ...st, photo_url: data.url } : st)));
+      const savedUrl = typeof patchData?.photo_url === 'string' ? patchData.photo_url : data.url;
+      setStyles((prev) => prev.map((st) => (st.id === styleId ? { ...st, photo_url: savedUrl } : st)));
     } finally {
       setUploadingPhoto(null);
     }
@@ -309,7 +310,8 @@ export default function ProductsPage() {
         alert(patchData?.error || 'Photo uploaded but could not save. Try again.');
         return;
       }
-      setColours((prev) => prev.map((c) => (c.id === colourId ? { ...c, photo_url: data.url } : c)));
+      const savedUrl = typeof patchData?.photo_url === 'string' ? patchData.photo_url : data.url;
+      setColours((prev) => prev.map((c) => (c.id === colourId ? { ...c, photo_url: savedUrl } : c)));
     } finally {
       setUploadingPhoto(null);
     }
