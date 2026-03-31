@@ -56,11 +56,12 @@ export async function middleware(request: NextRequest) {
 
     const { data: contractor } = await supabase
       .from('contractors')
-      .select('stripe_subscription_status')
+      .select('stripe_subscription_status, billing_access_override')
       .eq('id', userRow.contractor_id)
       .single();
 
-    if (!isBillingActive(contractor?.stripe_subscription_status)) {
+    const hasOverride = contractor?.billing_access_override === true;
+    if (!hasOverride && !isBillingActive(contractor?.stripe_subscription_status)) {
       if (isContractorApi) {
         return NextResponse.json({ error: 'Billing required' }, { status: 402 });
       }

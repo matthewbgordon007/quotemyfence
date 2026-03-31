@@ -70,7 +70,7 @@ export async function GET(
 
   const { data: contractor } = await supabase
     .from('contractors')
-    .select('id, company_name')
+    .select('id, company_name, billing_access_override, billing_access_override_note')
     .eq('id', req.contractor_id)
     .single();
 

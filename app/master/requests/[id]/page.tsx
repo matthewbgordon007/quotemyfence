@@ -24,7 +24,12 @@ interface MasterRequestDetail {
   fence: { total_length_ft: number; has_removal: boolean } | null;
   segments: { start_lat: number; start_lng: number; end_lat: number; end_lng: number; length_ft?: number }[];
   gates: { gate_type: string; quantity: number }[];
-  contractor: { company_name: string } | null;
+  contractor: {
+    id: string;
+    company_name: string;
+    billing_access_override?: boolean | null;
+    billing_access_override_note?: string | null;
+  } | null;
 }
 
 export default function MasterRequestDetailPage() {
@@ -34,6 +39,9 @@ export default function MasterRequestDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [responseText, setResponseText] = useState('');
+  const [overrideBusy, setOverrideBusy] = useState(false);
+  const [overrideEnabled, setOverrideEnabled] = useState(false);
+  const [overrideNote, setOverrideNote] = useState('');
 
   useEffect(() => {
     fetch(`/api/master/requests/${id}`, { credentials: 'include' })
@@ -44,6 +52,8 @@ export default function MasterRequestDetailPage() {
       .then((d) => {
         setData(d);
         setResponseText(d.request?.master_response ?? '');
+        setOverrideEnabled(!!d.contractor?.billing_access_override);
+        setOverrideNote(d.contractor?.billing_access_override_note ?? '');
       })
       .catch(() => setData(null))
       .finally(() => setLoading(false));
@@ -65,6 +75,36 @@ export default function MasterRequestDetailPage() {
       alert('Failed to save quote');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function saveBillingOverride(enabled: boolean) {
+    if (!data?.contractor?.id) return;
+    setOverrideBusy(true);
+    try {
+      const res = await fetch(`/api/master/contractors/${data.contractor.id}/billing-override`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled, note: overrideNote }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      setOverrideEnabled(enabled);
+      setData((prev) =>
+        prev && prev.contractor
+          ? {
+              ...prev,
+              contractor: {
+                ...prev.contractor,
+                billing_access_override: enabled,
+                billing_access_override_note: overrideNote,
+              },
+            }
+          : prev
+      );
+    } catch {
+      alert('Failed to update free access');
+    } finally {
+      setOverrideBusy(false);
     }
   }
 
@@ -96,6 +136,41 @@ export default function MasterRequestDetailPage() {
           <h2 className="text-lg font-semibold">Contractor&apos;s description</h2>
           <p className="mt-2 text-[var(--text)] whitespace-pre-wrap">{request.description}</p>
         </section>
+
+        {contractor && (
+          <section className="rounded-2xl border border-[var(--line)] bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold">Billing access override</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Grant this contractor free app access without requiring Stripe billing.
+            </p>
+            <label className="mt-4 inline-flex items-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--bg2)] px-3 py-2 text-sm font-medium">
+              <input
+                type="checkbox"
+                checked={overrideEnabled}
+                onChange={(e) => setOverrideEnabled(e.target.checked)}
+                disabled={overrideBusy}
+              />
+              Free access enabled
+            </label>
+            <textarea
+              value={overrideNote}
+              onChange={(e) => setOverrideNote(e.target.value)}
+              placeholder="Optional internal note (why override was granted)"
+              rows={3}
+              className="mt-3 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+            />
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={() => saveBillingOverride(overrideEnabled)}
+                disabled={overrideBusy}
+                className="rounded-xl border border-[var(--line)] bg-white px-4 py-2 text-sm font-semibold hover:bg-[var(--bg2)] disabled:opacity-60"
+              >
+                {overrideBusy ? 'Saving…' : 'Save free access setting'}
+              </button>
+            </div>
+          </section>
+        )}
 
         {customer && (
           <section className="rounded-2xl border border-[var(--line)] bg-white p-6 shadow-sm">
