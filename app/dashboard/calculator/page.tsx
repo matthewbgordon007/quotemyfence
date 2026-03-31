@@ -739,12 +739,13 @@ export default function CalculatorPage() {
   const scopedTypeTemplate =
     selectedType?.name ? scopedTemplates[buildTypeScopeKey(selectedType.name)] : undefined;
   const materialTemplate = getMaterialQuoteTemplate(selectedType?.name);
-  const activeTemplate = (
+  const baseTemplate =
     scopedTypeStyleTemplate ||
     scopedTypeTemplate ||
+    quoteTemplate ||
     materialTemplate ||
-    quoteTemplate
-  ).replaceAll('[[HEIGHT]]', inferredHeight);
+    DEFAULT_QUOTE_TEMPLATE_TEXT;
+  const activeTemplate = baseTemplate.replaceAll('[[HEIGHT]]', inferredHeight);
   const quoteText = composeQuoteText(activeTemplate, quoteTokenValues);
 
   async function copyQuote() {
