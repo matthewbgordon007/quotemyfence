@@ -15,6 +15,13 @@ const MIME_TO_EXT: Record<string, string> = {
   'image/heic': 'heic',
   'image/heif': 'heif',
   'image/heif-sequence': 'heif',
+  // iOS / Safari sometimes report UTTypes as "public.*" (especially from Photos)
+  'public.jpeg': 'jpg',
+  'public.png': 'png',
+  'public.heic': 'heic',
+  'public.heif': 'heif',
+  'public.gif': 'gif',
+  'public.webp': 'webp',
 };
 
 const EXT_NORMALIZE: Record<string, string> = {
@@ -37,12 +44,68 @@ function inferExtensionAndMime(file: File): { ext: string; contentType: string }
     };
     return { ext, contentType: mimeByExt[ext] || 'image/jpeg' };
   }
-  const t = (file.type || '').toLowerCase();
+  const t = (file.type || '').toLowerCase().trim();
   if (t && MIME_TO_EXT[t]) {
     ext = MIME_TO_EXT[t];
-    return { ext, contentType: t === 'image/jpg' ? 'image/jpeg' : t };
+    const mimeByExt: Record<string, string> = {
+      jpg: 'image/jpeg',
+      png: 'image/png',
+      webp: 'image/webp',
+      gif: 'image/gif',
+      heic: 'image/heic',
+      heif: 'image/heif',
+    };
+    return { ext, contentType: mimeByExt[ext] || 'image/jpeg' };
   }
   return null;
+}
+
+/** First 32 bytes — JPEG (FF D8), PNG, GIF, WebP (RIFF…WEBP), HEIC/ISO BMFF (ftyp at offset 4). */
+async function sniffMagicBytes(file: File): Promise<{ ext: string; contentType: string } | null> {
+  try {
+    const slice = file.slice(0, 32);
+    const buf = await slice.arrayBuffer();
+    const u8 = new Uint8Array(buf);
+    if (u8.length < 3) return null;
+    if (u8[0] === 0xff && u8[1] === 0xd8 && u8[2] === 0xff) {
+      return { ext: 'jpg', contentType: 'image/jpeg' };
+    }
+    if (u8.length >= 4 && u8[0] === 0x89 && u8[1] === 0x50 && u8[2] === 0x4e && u8[3] === 0x47) {
+      return { ext: 'png', contentType: 'image/png' };
+    }
+    if (u8.length >= 4 && u8[0] === 0x47 && u8[1] === 0x49 && u8[2] === 0x46 && u8[3] === 0x38) {
+      return { ext: 'gif', contentType: 'image/gif' };
+    }
+    if (
+      u8.length >= 12 &&
+      u8[0] === 0x52 &&
+      u8[1] === 0x49 &&
+      u8[2] === 0x46 &&
+      u8[3] === 0x46 &&
+      u8[8] === 0x57 &&
+      u8[9] === 0x45 &&
+      u8[10] === 0x42 &&
+      u8[11] === 0x50
+    ) {
+      return { ext: 'webp', contentType: 'image/webp' };
+    }
+    if (u8.length >= 12 && u8[4] === 0x66 && u8[5] === 0x74 && u8[6] === 0x79 && u8[7] === 0x70) {
+      return { ext: 'heic', contentType: 'image/heic' };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveImageType(file: File): Promise<{ ext: string; contentType: string }> {
+  const fromMeta = inferExtensionAndMime(file);
+  if (fromMeta) return fromMeta;
+
+  const sniffed = await sniffMagicBytes(file);
+  if (sniffed) return sniffed;
+
+  return { ext: 'jpg', contentType: 'image/jpeg' };
 }
 
 export const runtime = 'nodejs';
@@ -121,17 +184,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const inferred = inferExtensionAndMime(file);
-    if (!inferred) {
-      return NextResponse.json(
-        {
-          error:
-            'Could not detect image type. Use a clear filename (.jpg, .png, …) or pick a file your browser sends as an image.',
-        },
-        { status: 400 }
-      );
-    }
-    const { ext, contentType } = inferred;
+    const { ext, contentType } = await resolveImageType(file);
 
     if (file.size > MAX_BYTES) {
       return NextResponse.json(

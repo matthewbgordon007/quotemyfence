@@ -35,6 +35,26 @@ function byName<T>(get: (item: T) => string) {
   return (a: T, b: T) => get(a).localeCompare(get(b), undefined, { sensitivity: 'base', numeric: true });
 }
 
+async function parseUploadResponse(res: Response): Promise<{
+  ok: boolean;
+  url?: string;
+  message: string;
+}> {
+  const text = await res.text();
+  let data: Record<string, unknown> = {};
+  try {
+    data = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+  } catch {
+    /* ignore */
+  }
+  const url = typeof data.url === 'string' ? data.url : undefined;
+  const ok = res.ok && !!url;
+  const message =
+    (typeof data.error === 'string' && data.error) ||
+    (res.ok ? 'No URL returned' : `Upload failed (${res.status}). ${text.slice(0, 200)}`);
+  return { ok, url, message };
+}
+
 const ADMIN_ROLES = ['owner', 'admin'];
 
 const defaultRule = (styleId: string): StylePricingRule => ({
@@ -267,24 +287,26 @@ export default function ProductsPage() {
       fd.append('file', file);
       fd.append('type', 'style');
       const res = await fetch('/api/contractor/upload', { method: 'POST', credentials: 'include', body: fd });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.url) {
-        alert(data.error || 'Upload failed. Use JPG, PNG, WebP, GIF or HEIC (max 4MB).');
+      const { ok, url, message } = await parseUploadResponse(res);
+      if (!ok || !url) {
+        alert(message);
         return;
       }
       const patchRes = await fetch(`/api/contractor/product-hierarchy/styles/${styleId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photo_url: data.url }),
+        body: JSON.stringify({ photo_url: url }),
       });
       const patchData = await patchRes.json().catch(() => ({}));
       if (!patchRes.ok) {
         alert(patchData?.error || 'Photo uploaded but could not save. Try again.');
         return;
       }
-      const savedUrl = typeof patchData?.photo_url === 'string' ? patchData.photo_url : data.url;
+      const savedUrl = typeof patchData?.photo_url === 'string' ? patchData.photo_url : url;
       setStyles((prev) => prev.map((st) => (st.id === styleId ? { ...st, photo_url: savedUrl } : st)));
       await refresh({ silent: true });
+    } catch {
+      alert('Network error — check your connection and try again.');
     } finally {
       setUploadingPhoto(null);
     }
@@ -297,24 +319,26 @@ export default function ProductsPage() {
       fd.append('file', file);
       fd.append('type', 'colour');
       const res = await fetch('/api/contractor/upload', { method: 'POST', credentials: 'include', body: fd });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.url) {
-        alert(data.error || 'Upload failed. Use JPG, PNG, WebP, GIF or HEIC (max 4MB).');
+      const { ok, url, message } = await parseUploadResponse(res);
+      if (!ok || !url) {
+        alert(message);
         return;
       }
       const patchRes = await fetch(`/api/contractor/product-hierarchy/colours/${colourId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photo_url: data.url }),
+        body: JSON.stringify({ photo_url: url }),
       });
       const patchData = await patchRes.json().catch(() => ({}));
       if (!patchRes.ok) {
         alert(patchData?.error || 'Photo uploaded but could not save. Try again.');
         return;
       }
-      const savedUrl = typeof patchData?.photo_url === 'string' ? patchData.photo_url : data.url;
+      const savedUrl = typeof patchData?.photo_url === 'string' ? patchData.photo_url : url;
       setColours((prev) => prev.map((c) => (c.id === colourId ? { ...c, photo_url: savedUrl } : c)));
       await refresh({ silent: true });
+    } catch {
+      alert('Network error — check your connection and try again.');
     } finally {
       setUploadingPhoto(null);
     }
