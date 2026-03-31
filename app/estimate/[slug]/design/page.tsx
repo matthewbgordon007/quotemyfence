@@ -290,6 +290,8 @@ export default function DesignPage() {
                             className="object-contain object-top"
                             priority={selectedStyleId === s.id}
                             fetchPriority={selectedStyleId === s.id ? 'high' : 'auto'}
+                            preferredWidth={520}
+                            preferredQuality={70}
                           />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center text-sm text-[var(--muted)]">{s.style_name}</div>
@@ -323,6 +325,8 @@ export default function DesignPage() {
                             className="object-contain object-center"
                             priority={selectedColourId === c.id}
                             fetchPriority={selectedColourId === c.id ? 'high' : 'auto'}
+                            preferredWidth={760}
+                            preferredQuality={72}
                           />
                         ) : (
                           <div className="flex h-full items-center justify-center text-sm text-[var(--muted)]">{c.color_name}</div>

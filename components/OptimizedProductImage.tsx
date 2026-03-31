@@ -1,6 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+
+function buildSupabaseRenderUrl(src: string, width?: number, quality?: number): string | null {
+  if (!width) return null;
+  try {
+    const u = new URL(src);
+    const marker = '/storage/v1/object/public/';
+    const idx = u.pathname.indexOf(marker);
+    if (idx === -1) return null;
+    const tail = u.pathname.slice(idx + marker.length);
+    if (!tail) return null;
+    const render = new URL(u.origin + '/storage/v1/render/image/public/' + tail);
+    render.searchParams.set('width', String(width));
+    if (quality) render.searchParams.set('quality', String(quality));
+    return render.toString();
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Product/style/colour photos — always native <img>.
@@ -13,6 +31,8 @@ export function OptimizedProductImage({
   className = '',
   priority = false,
   fetchPriority,
+  preferredWidth,
+  preferredQuality = 72,
 }: {
   src: string;
   alt: string;
@@ -21,10 +41,23 @@ export function OptimizedProductImage({
   sizes?: string;
   priority?: boolean;
   fetchPriority?: 'high' | 'low' | 'auto';
+  preferredWidth?: number;
+  preferredQuality?: number;
 }) {
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const clean = typeof src === 'string' ? src.trim() : '';
+  const transformed = useMemo(
+    () => (clean ? buildSupabaseRenderUrl(clean, preferredWidth, preferredQuality) : null),
+    [clean, preferredWidth, preferredQuality]
+  );
+  const [activeSrc, setActiveSrc] = useState<string>(transformed || clean);
+
+  useEffect(() => {
+    setFailed(false);
+    setLoaded(false);
+    setActiveSrc(transformed || clean);
+  }, [clean, transformed]);
 
   if (!clean || failed) {
     if (!clean) return null;
@@ -50,14 +83,21 @@ export function OptimizedProductImage({
         <div className="absolute inset-0 flex min-h-0 min-w-0 items-center justify-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={clean}
+          src={activeSrc}
           alt={alt}
           className={`max-h-full max-w-full min-h-0 min-w-0 transition-opacity duration-200 ${loaded ? 'opacity-100' : 'opacity-0'} ${className}`}
           loading={priority ? 'eager' : 'lazy'}
           decoding="async"
           fetchPriority={fetchPriority ?? (priority ? 'high' : 'auto')}
           onLoad={() => setLoaded(true)}
-          onError={() => setFailed(true)}
+          onError={() => {
+            if (activeSrc !== clean && clean) {
+              setLoaded(false);
+              setActiveSrc(clean);
+              return;
+            }
+            setFailed(true);
+          }}
         />
         </div>
       </div>
@@ -71,7 +111,7 @@ export function OptimizedProductImage({
       )}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={clean}
+        src={activeSrc}
         alt={alt}
         width={400}
         height={300}
@@ -80,7 +120,14 @@ export function OptimizedProductImage({
         decoding="async"
         fetchPriority={fetchPriority ?? (priority ? 'high' : 'auto')}
         onLoad={() => setLoaded(true)}
-        onError={() => setFailed(true)}
+        onError={() => {
+          if (activeSrc !== clean && clean) {
+            setLoaded(false);
+            setActiveSrc(clean);
+            return;
+          }
+          setFailed(true);
+        }}
       />
     </div>
   );
