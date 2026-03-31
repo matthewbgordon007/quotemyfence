@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 
 async function getMasterAdminId(supabase: Awaited<ReturnType<typeof createClient>>) {
   const {
@@ -27,7 +28,12 @@ export async function PATCH(
   const enabled = !!body?.enabled;
   const note = typeof body?.note === 'string' ? body.note.trim() : '';
 
-  const { error } = await supabase
+  const supabaseAdmin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const { error } = await supabaseAdmin
     .from('contractors')
     .update({
       billing_access_override: enabled,
