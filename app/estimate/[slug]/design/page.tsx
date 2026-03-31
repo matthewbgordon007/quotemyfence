@@ -29,6 +29,7 @@ export default function DesignPage() {
   const [selectedStyleId, setSelectedStyleId] = useState<string | null>(null);
   const [selectedColourId, setSelectedColourId] = useState<string | null>(state.selectedColourOptionId ?? state.selectedProductOptionId);
   const [loading, setLoading] = useState(false);
+  const [isCalculating, setIsCalculating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<{
     low: number;
@@ -76,6 +77,14 @@ export default function DesignPage() {
   );
 
   const optionId = hasHierarchy ? selectedColourId : state.selectedProductOptionId ?? selectedColourId;
+  const displayTotals = state.totals ?? (range
+    ? {
+        subtotal_low: range.low,
+        subtotal_high: range.high,
+        total_low: range.low,
+        total_high: range.high,
+      }
+    : null);
 
   const options: ProductOption[] = [];
   for (const p of products || []) {
@@ -107,6 +116,7 @@ export default function DesignPage() {
 
   useEffect(() => {
     if (!optionId || !state.sessionId) return;
+    setIsCalculating(true);
     const payload = hasHierarchy
       ? { colour_option_id: optionId }
       : { product_option_id: optionId };
@@ -133,7 +143,8 @@ export default function DesignPage() {
           });
         }
       })
-      .catch(() => setRange(null));
+      .catch(() => {})
+      .finally(() => setIsCalculating(false));
   }, [optionId, totalFeet, singleGates, doubleGates, hasRemoval, state.sessionId, hasHierarchy]);
 
   useEffect(() => {
@@ -343,6 +354,21 @@ export default function DesignPage() {
           {error && (
             <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
           )}
+
+          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Estimated price</p>
+            {displayTotals ? (
+              <p className="mt-1 text-lg font-semibold text-slate-900">
+                ${displayTotals.total_low.toLocaleString('en-CA', { maximumFractionDigits: 0 })} - $
+                {displayTotals.total_high.toLocaleString('en-CA', { maximumFractionDigits: 0 })}
+              </p>
+            ) : (
+              <p className="mt-1 text-sm text-slate-600">Select a fence option to see pricing.</p>
+            )}
+            {isCalculating && (
+              <p className="mt-1 text-xs text-slate-500">Updating price...</p>
+            )}
+          </div>
 
           <button
             type="button"
