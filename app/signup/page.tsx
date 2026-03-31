@@ -102,7 +102,7 @@ export default function SignupPage() {
         <div className="rounded-2xl border border-[var(--line)] bg-white p-8 shadow-xl">
           <h1 className="text-2xl font-bold tracking-tight">Create your account</h1>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Set up your company profile and start receiving fence quotes.
+            Set up your company profile, then start your 7-day free trial to unlock dashboard access.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-5">
@@ -273,7 +273,7 @@ export default function SignupPage() {
               disabled={loading}
               className="w-full rounded-xl bg-[var(--accent)] py-3 font-bold text-white hover:opacity-90 disabled:opacity-60"
             >
-              {loading ? 'Creating account...' : 'Create account'}
+              {loading ? 'Creating account...' : 'Create account and continue to billing'}
             </button>
           </form>
 
