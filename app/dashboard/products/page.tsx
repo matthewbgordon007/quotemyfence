@@ -47,8 +47,8 @@ const defaultRule = (styleId: string): StylePricingRule => ({
   double_gate_high: doubleGatePriceFromSingle(450),
   removal_price_per_ft_low: 5,
   removal_price_per_ft_high: 5,
-  minimum_job_low: 500,
-  minimum_job_high: 500,
+  minimum_job_low: 0,
+  minimum_job_high: 0,
 });
 
 function Chevron({ open }: { open: boolean }) {
