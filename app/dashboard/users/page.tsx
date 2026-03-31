@@ -110,6 +110,20 @@ export default function CompanyUsersPage() {
     }
   }
 
+  async function deleteUser(user: CompanyUser) {
+    if (user.role === 'owner') return;
+    if (!confirm(`Delete ${user.email}? They will lose login access.`)) return;
+    const res = await fetch(`/api/contractor/users/${user.id}`, {
+      method: 'DELETE',
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(data.error || 'Failed to delete user');
+      return;
+    }
+    setUsers((prev) => prev.filter((u) => u.id !== user.id));
+  }
+
   if (loading) return <div className="py-10 text-sm text-slate-600">Loading users...</div>;
 
   return (
@@ -219,6 +233,15 @@ export default function CompanyUsersPage() {
                   >
                     {resendingId === u.id ? 'Sending...' : 'Invite again'}
                   </button>
+                  {u.role !== 'owner' && (
+                    <button
+                      type="button"
+                      onClick={() => deleteUser(u)}
+                      className="ml-2 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                    >
+                      Delete
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

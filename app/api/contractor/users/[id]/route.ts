@@ -67,3 +67,49 @@ export async function PATCH(
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);
 }
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: targetUserId } = await params;
+  const supabase = await createServerClient();
+  const { user, contractorId, role } = await getAuthUserAndRole(supabase);
+  if (!user || !contractorId)
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!ADMIN_ROLES.includes(role || ''))
+    return NextResponse.json({ error: 'Admin or owner only' }, { status: 403 });
+
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const { data: target } = await supabaseAdmin
+    .from('users')
+    .select('id, contractor_id, role, auth_id')
+    .eq('id', targetUserId)
+    .single();
+
+  if (!target || target.contractor_id !== contractorId)
+    return NextResponse.json({ error: 'User not found' }, { status: 404 });
+  if (target.role === 'owner')
+    return NextResponse.json({ error: 'Cannot delete the owner' }, { status: 400 });
+
+  const { error: dbDeleteError } = await supabaseAdmin
+    .from('users')
+    .delete()
+    .eq('id', targetUserId);
+  if (dbDeleteError) {
+    return NextResponse.json({ error: dbDeleteError.message }, { status: 500 });
+  }
+
+  if (target.auth_id) {
+    const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(target.auth_id);
+    if (authDeleteError) {
+      return NextResponse.json({ error: authDeleteError.message }, { status: 500 });
+    }
+  }
+
+  return NextResponse.json({ ok: true });
+}
