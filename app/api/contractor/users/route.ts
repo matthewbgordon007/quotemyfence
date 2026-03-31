@@ -49,10 +49,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Admin or owner only' }, { status: 403 });
 
   const body = await request.json();
-  const { email, password, first_name, last_name, role: newRole } = body;
+  const { email, password, first_name, last_name, role: newRole, invite } = body;
   if (!email?.trim())
     return NextResponse.json({ error: 'Email required' }, { status: 400 });
-  if (!password || String(password).length < 6)
+  const inviteMode = invite === true;
+  if (!inviteMode && (!password || String(password).length < 6))
     return NextResponse.json({ error: 'Password required (min 6 characters)' }, { status: 400 });
 
   const validRoles = ['admin', 'sales', 'estimator'];
@@ -75,19 +76,23 @@ export async function POST(request: NextRequest) {
   if (existingUser)
     return NextResponse.json({ error: 'A user with this email already exists for your company.' }, { status: 400 });
 
-  const { data: created, error: createError } = await supabaseAdmin.auth.admin.createUser({
-    email: emailTrim,
-    password: String(password),
-    email_confirm: true,
-  });
+  const created = inviteMode
+    ? await supabaseAdmin.auth.admin.inviteUserByEmail(emailTrim, {
+        redirectTo: `${request.nextUrl.origin}/login`,
+      })
+    : await supabaseAdmin.auth.admin.createUser({
+        email: emailTrim,
+        password: String(password),
+        email_confirm: true,
+      });
 
-  if (createError) {
-    if (createError.message?.toLowerCase().includes('already registered') || createError.message?.toLowerCase().includes('already been registered'))
+  if (created.error) {
+    if (created.error.message?.toLowerCase().includes('already registered') || created.error.message?.toLowerCase().includes('already been registered'))
       return NextResponse.json({ error: 'This email is already in use. Choose a different email.' }, { status: 400 });
-    return NextResponse.json({ error: createError.message || 'Failed to create user' }, { status: 500 });
+    return NextResponse.json({ error: created.error.message || 'Failed to create user' }, { status: 500 });
   }
 
-  const authId = created?.user?.id;
+  const authId = created.data?.user?.id;
   if (!authId)
     return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
 
@@ -105,5 +110,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: insertError.message || 'Failed to add user' }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, message: 'User created. Share the email and password with them so they can log in.' });
+  return NextResponse.json({
+    ok: true,
+    message: inviteMode
+      ? 'Invite sent. The user can set their password from the email and log in to your company account.'
+      : 'User created. Share the email and password with them so they can log in.',
+  });
 }
