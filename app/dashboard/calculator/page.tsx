@@ -1110,100 +1110,6 @@ export default function CalculatorPage() {
               </div>
 
               <div className="space-y-4 border-t border-slate-100 pt-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Single gates</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={singleGateQty}
-                      onChange={(e) => setSingleGateQty(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                      className={field}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Double gates</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={doubleGateQty}
-                      onChange={(e) => setDoubleGateQty(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                      className={field}
-                    />
-                  </div>
-                </div>
-                <p className="text-xs text-slate-500">
-                  Each gate can sit on its own side. A double gate is one unit on a single side (same line).
-                </p>
-                {singleGateQty > 0 && (
-                  <div className="space-y-2 rounded-xl border border-slate-100 bg-slate-50/80 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Single gate sides</p>
-                    {Array.from({ length: singleGateQty }, (_, i) => {
-                      const dk = defaultSegmentKey(segments);
-                      const val = singleGateSides[i] ?? dk;
-                      return (
-                        <div key={`sg-${i}`} className="flex flex-wrap items-center gap-2 sm:gap-3">
-                          <span className="min-w-[6rem] text-sm font-medium text-slate-700">Single {i + 1}</span>
-                          <select
-                            value={val}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              setSingleGateSides((prev) => {
-                                const padded = padSingleGateSides(prev, singleGateQty, dk);
-                                const next = [...padded];
-                                next[i] = v;
-                                return next;
-                              });
-                            }}
-                            className={`${field} min-w-[10rem] flex-1`}
-                          >
-                            {segments.map((s) => (
-                              <option key={s.key} value={s.key}>
-                                {s.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {doubleGateQty > 0 && (
-                  <div className="space-y-2 rounded-xl border border-slate-100 bg-slate-50/80 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Double gate sides</p>
-                    {Array.from({ length: doubleGateQty }, (_, i) => {
-                      const dk = defaultSegmentKey(segments);
-                      const val = doubleGateSides[i] ?? dk;
-                      return (
-                        <div key={`dg-${i}`} className="flex flex-wrap items-center gap-2 sm:gap-3">
-                          <span className="min-w-[6rem] text-sm font-medium text-slate-700">Double {i + 1}</span>
-                          <select
-                            value={val}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              setDoubleGateSides((prev) => {
-                                const padded = padDoubleGateSides(prev, doubleGateQty, dk);
-                                const next = [...padded];
-                                next[i] = v;
-                                return next;
-                              });
-                            }}
-                            className={`${field} min-w-[10rem] flex-1`}
-                          >
-                            {segments.map((s) => (
-                              <option key={s.key} value={s.key}>
-                                {s.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-4 border-t border-slate-100 pt-6">
                 <div className="flex flex-wrap gap-3">
                   <label className="flex min-w-[140px] flex-1 cursor-pointer items-center gap-3 rounded-xl border border-slate-200/90 bg-white px-4 py-3 text-sm font-medium text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50">
                     <input
@@ -1333,6 +1239,113 @@ export default function CalculatorPage() {
                     className="w-24 shrink-0 rounded-lg border border-slate-200/90 bg-white px-3 py-2 text-center text-sm font-medium tabular-nums text-slate-900 shadow-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={cardShell}>
+            <div className={cardHeader}>
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 shrink-0 rounded-full bg-slate-500 shadow-sm shadow-slate-500/30" aria-hidden />
+                <h2 className="text-base font-semibold text-slate-900">Gates</h2>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                Add gate quantities and assign each gate to a segment.
+              </p>
+            </div>
+            <div className="space-y-3 p-4 sm:p-5">
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Single gates</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={singleGateQty}
+                      onChange={(e) => setSingleGateQty(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      className={field}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Double gates</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={doubleGateQty}
+                      onChange={(e) => setDoubleGateQty(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      className={field}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Each gate can sit on its own side. A double gate is one unit on a single side (same line).
+                </p>
+                {singleGateQty > 0 && (
+                  <div className="space-y-2 rounded-xl border border-slate-100 bg-slate-50/80 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Single gate sides</p>
+                    {Array.from({ length: singleGateQty }, (_, i) => {
+                      const dk = defaultSegmentKey(segments);
+                      const val = singleGateSides[i] ?? dk;
+                      return (
+                        <div key={`sg-${i}`} className="flex flex-wrap items-center gap-2 sm:gap-3">
+                          <span className="min-w-[6rem] text-sm font-medium text-slate-700">Single {i + 1}</span>
+                          <select
+                            value={val}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setSingleGateSides((prev) => {
+                                const padded = padSingleGateSides(prev, singleGateQty, dk);
+                                const next = [...padded];
+                                next[i] = v;
+                                return next;
+                              });
+                            }}
+                            className={`${field} min-w-[10rem] flex-1`}
+                          >
+                            {segments.map((s) => (
+                              <option key={s.key} value={s.key}>
+                                {s.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {doubleGateQty > 0 && (
+                  <div className="space-y-2 rounded-xl border border-slate-100 bg-slate-50/80 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Double gate sides</p>
+                    {Array.from({ length: doubleGateQty }, (_, i) => {
+                      const dk = defaultSegmentKey(segments);
+                      const val = doubleGateSides[i] ?? dk;
+                      return (
+                        <div key={`dg-${i}`} className="flex flex-wrap items-center gap-2 sm:gap-3">
+                          <span className="min-w-[6rem] text-sm font-medium text-slate-700">Double {i + 1}</span>
+                          <select
+                            value={val}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setDoubleGateSides((prev) => {
+                                const padded = padDoubleGateSides(prev, doubleGateQty, dk);
+                                const next = [...padded];
+                                next[i] = v;
+                                return next;
+                              });
+                            }}
+                            className={`${field} min-w-[10rem] flex-1`}
+                          >
+                            {segments.map((s) => (
+                              <option key={s.key} value={s.key}>
+                                {s.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           </div>
