@@ -1,4 +1,4 @@
--- Add missing colour options for WPC 6' styles: Standard + Triple Top
+-- Add missing colour options for WPC 6' and WPC 7' styles: Standard + Triple Top
 -- Safe to re-run (uses NOT EXISTS checks).
 
 WITH target_styles AS (
@@ -6,7 +6,7 @@ WITH target_styles AS (
     fs.id AS fence_style_id
   FROM fence_styles fs
   JOIN fence_types ft ON ft.id = fs.fence_type_id
-  WHERE ft.name = 'WPC 6'''
+  WHERE ft.name IN ('WPC 6''', 'WPC 7''')
     AND fs.style_name IN ('Standard', 'Triple Top')
     AND fs.is_active = true
 ),
