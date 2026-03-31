@@ -17,6 +17,7 @@ export default function MasterContractorsPage() {
   const [rows, setRows] = useState<Contractor[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
 
   async function load() {
@@ -61,6 +62,24 @@ export default function MasterContractorsPage() {
     }
   }
 
+  async function deleteContractor(row: Contractor) {
+    setSavingId(row.id);
+    try {
+      const res = await fetch(`/api/master/contractors/${row.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to delete account');
+      setRows((prev) => prev.filter((r) => r.id !== row.id));
+      setConfirmDeleteId(null);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete account');
+    } finally {
+      setSavingId(null);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -93,6 +112,7 @@ export default function MasterContractorsPage() {
               <th className="px-4 py-3 text-left font-semibold">Email</th>
               <th className="px-4 py-3 text-left font-semibold">Stripe status</th>
               <th className="px-4 py-3 text-left font-semibold">Free access</th>
+              <th className="px-4 py-3 text-left font-semibold">Account</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--line)]">
@@ -115,11 +135,42 @@ export default function MasterContractorsPage() {
                     <span>{savingId === row.id ? 'Saving...' : 'Enabled'}</span>
                   </label>
                 </td>
+                <td className="px-4 py-3">
+                  {confirmDeleteId === row.id ? (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => deleteContractor(row)}
+                        disabled={savingId === row.id}
+                        className="rounded-lg border border-red-300 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-60"
+                      >
+                        {savingId === row.id ? 'Deleting...' : 'Are you sure?'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteId(null)}
+                        disabled={savingId === row.id}
+                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteId(row.id)}
+                      disabled={savingId === row.id}
+                      className="rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60"
+                    >
+                      Delete account
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-[var(--muted)]">
+                <td colSpan={5} className="px-4 py-10 text-center text-[var(--muted)]">
                   No contractors match your search.
                 </td>
               </tr>
