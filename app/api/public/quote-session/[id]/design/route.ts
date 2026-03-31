@@ -34,12 +34,11 @@ export async function POST(
       }
       const { data: selectedStyle } = await supabase
         .from('fence_styles')
-        .select('id, is_active, is_hidden')
+        .select('*')
         .eq('id', selectedColour.fence_style_id)
         .eq('is_active', true)
-        .eq('is_hidden', false)
         .single();
-      if (!selectedStyle) {
+      if (!selectedStyle || (selectedStyle as { is_hidden?: boolean | null }).is_hidden === true) {
         return NextResponse.json({ error: 'Selected style is hidden' }, { status: 400 });
       }
     }

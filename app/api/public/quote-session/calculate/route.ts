@@ -30,12 +30,11 @@ export async function POST(request: NextRequest) {
       if (colour?.fence_style_id) {
         const { data: selectedStyle } = await supabase
           .from('fence_styles')
-          .select('fence_type_id')
+          .select('*')
           .eq('id', colour.fence_style_id)
           .eq('is_active', true)
-          .eq('is_hidden', false)
           .single();
-        if (!selectedStyle) {
+        if (!selectedStyle || (selectedStyle as { is_hidden?: boolean | null }).is_hidden === true) {
           return NextResponse.json({ error: 'Pricing not found for this option' }, { status: 400 });
         }
 
@@ -70,13 +69,16 @@ export async function POST(request: NextRequest) {
         if (!ruleRow && selectedStyle?.fence_type_id && totalLengthFt > 0) {
           const { data: siblingStyles } = await supabase
             .from('fence_styles')
-            .select('id, style_name')
+            .select('*')
             .eq('fence_type_id', selectedStyle.fence_type_id)
-            .eq('is_active', true)
-            .eq('is_hidden', false);
+            .eq('is_active', true);
 
-          if (siblingStyles?.length) {
-            const styleIds = siblingStyles.map((s) => s.id);
+          const visibleSiblingStyles = (siblingStyles || []).filter(
+            (s) => (s as { is_hidden?: boolean | null }).is_hidden !== true
+          );
+
+          if (visibleSiblingStyles.length) {
+            const styleIds = visibleSiblingStyles.map((s) => s.id);
             const { data: styleRules } = await supabase
               .from('style_pricing_rules')
               .select('*')
@@ -85,7 +87,7 @@ export async function POST(request: NextRequest) {
 
             if (styleRules?.length) {
               const rulesByStyle = new Map(styleRules.map((r) => [r.fence_style_id, r]));
-              const allTierCandidates = siblingStyles
+              const allTierCandidates = visibleSiblingStyles
                 .map((st) => {
                   const sr = rulesByStyle.get(st.id);
                   if (!sr) return null;
