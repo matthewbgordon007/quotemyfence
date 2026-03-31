@@ -9,6 +9,7 @@ import {
   DEFAULT_QUOTE_TEMPLATE_TEXT,
   QuoteTokenId,
   composeQuoteText,
+  getMaterialQuoteTemplate,
   isQuoteBlocks,
   legacyQuoteBlocksStorageKey,
   quoteBlocksToTemplateText,
@@ -532,6 +533,11 @@ export default function CalculatorPage() {
   const minJob = rule ? (safeNum(rule.minimum_job_low) + safeNum(rule.minimum_job_high)) / 2 || 0 : 0;
 
   const selectedStyle = styles.find((s) => s.id === (effectiveStyleId ?? selectedStyleId));
+  const inferredHeight = (() => {
+    const name = selectedType?.name || '';
+    const m = name.match(/(\d+(?:\.\d+)?)\s*'?/);
+    return m ? `${m[1]}'` : '';
+  })();
   const optionLabel = selectedType
     ? [selectedType.name, selectedStyle?.style_name, selectedColourDisplay?.color_name].filter(Boolean).join(' • ')
     : null;
@@ -711,7 +717,9 @@ export default function CalculatorPage() {
     deposit: moneyCAD(deposit),
   };
 
-  const quoteText = composeQuoteText(quoteTemplate, quoteTokenValues);
+  const materialTemplate = getMaterialQuoteTemplate(selectedType?.name);
+  const activeTemplate = (materialTemplate || quoteTemplate).replaceAll('[[HEIGHT]]', inferredHeight);
+  const quoteText = composeQuoteText(activeTemplate, quoteTokenValues);
 
   async function copyQuote() {
     try {

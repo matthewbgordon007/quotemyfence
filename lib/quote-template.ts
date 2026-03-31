@@ -126,6 +126,168 @@ Additional details:
 ---------------------------------------------------------
 `;
 
+const WPC_MATERIAL_TEMPLATE = `Location: {{location}}
+
+Brand: {{brand}}
+Height: [[HEIGHT]]
+Style: WPC Hybrid
+Install Type: Level & Stepped
+Post spacing: 6'
+Footings: Concrete 48" Depth
+Color: {{color}}
+Cap style: Pyramid
+Gates: {{gates}} (installed in {{gateInstalledLength}} length)
+
+Length: {{lengthExpression}}
+
+Shared lengths:
+
+{{sharedLengths}}
+
+Additional details:
+- 3"x3" Aluminum posts (black)
+- Thickened top & Bottom rail
+- Hidden brackets & fasteners
+
+{{pricePerLinearFt}} per Linear ft
+{{gateKitPrice}} per Gate Conversion Kit
+
+**LIFETIME Warranty on PVC**
+**All materials and labor included**
+**5 YEAR limited Installation Warranty**
+**Existing material removed and disposed**
+---------------------------------------------------------
+`;
+
+const HYBRID_MATERIAL_TEMPLATE = `Location: {{location}}
+
+Brand: {{brand}}
+Height: [[HEIGHT]]
+Style: Hybrid
+Install Type: Level & Stepped
+Board Installation:
+Post spacing: 6'
+Footings: Concrete 48" Depth
+Color: {{color}}
+Cap style: Pyramid
+Gates: {{gates}} (installed in {{gateInstalledLength}} length)
+
+Length: {{lengthExpression}}
+
+Shared lengths:
+
+{{sharedLengths}}
+
+Additional details:
+- 3"x3" Aluminum posts (black)
+- 3" Top & Bottom rail
+
+{{pricePerLinearFt}} per Linear ft
+{{gateKitPrice}} per Gate Conversion Kit
+
+**LIFETIME Warranty on PVC**
+**All materials and labor included**
+**5 YEAR limited Installation Warranty**
+**Existing material removed and disposed**
+---------------------------------------------------------
+`;
+
+const CEDAR_MATERIAL_TEMPLATE = `Location: {{location}}
+
+Cedar Lumber
+Style: {{style}}
+Height: [[HEIGHT]]
+Post spacing:
+Gates: {{gates}}
+Footings:
+
+Length: {{lengthExpression}}
+Shared fence lines:
+
+{{sharedLengths}}
+
+Total Length:
+
+Additional Details:
+
+{{pricePerLinearFt}} per linear ft
+{{gateKitPrice}} per gate + Assembly & Installation
+
+**Remove/Dispose of existing included**
+**5 YEAR limited Installation Warranty**
+-------------------------------------------------------
+`;
+
+const PRESSURE_TREATED_TEMPLATE = `Location: {{location}}
+
+Pressure Treated Lumber
+Height: [[HEIGHT]]
+Style: Good Neighbour Style
+Install Type: Level & Stepped
+Post spacing: 8'
+Footings: Concrete 48" Depth
+Cap style: Pyramid
+Gates: {{gates}} (installed in {{gateInstalledLength}} length)
+
+Length: {{lengthExpression}}
+
+Shared fence lines:
+
+{{sharedLengths}}
+
+Additional Details:
+
+{{pricePerLinearFt}} per linear ft
+{{gateKitPrice}} per Gate Conversion Kit
+
+**All materials and labor included**
+**5 YEAR limited Installation Warranty**
+**Existing material removed and disposed**
+-------------------------------------------------------
+`;
+
+const CHAINLINK_TEMPLATE = `Location: {{location}}
+
+Height: [[HEIGHT]]
+Post spacing:
+Color: {{color}}
+Gates: {{gates}}
+
+Length: {{lengthExpression}}
+Shared Length:
+{{sharedLengths}}
+Total length:
+
+Material size:
+- End posts:
+- Corner posts:
+- Infill posts:
+- Top rail:
+- Mesh:
+
+Footings:
+
+Additional details:
+
+{{pricePerLinearFt}} per linear ft
+{{gateKitPrice}} per gate
+
+**All materials and labor included**
+**All organic matter removed and disposed**
+**5 YEAR limited installation warranty**
+`;
+
+export function getMaterialQuoteTemplate(typeName?: string | null): string | null {
+  const n = (typeName || '').toLowerCase();
+  if (!n) return null;
+  if (n.includes('chain link')) return CHAINLINK_TEMPLATE;
+  if (n.includes('pressure treated')) return PRESSURE_TREATED_TEMPLATE;
+  if (n.includes('cedar')) return CEDAR_MATERIAL_TEMPLATE;
+  if (n.includes('wpc')) return WPC_MATERIAL_TEMPLATE;
+  if (n.includes('hybrid')) return HYBRID_MATERIAL_TEMPLATE;
+  return null;
+}
+
 export function composeQuoteText(templateText: string, values: Record<QuoteTokenId, string>): string {
   const rendered = templateText.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (full, tokenRaw) => {
     const token = tokenRaw as QuoteTokenId;
