@@ -464,24 +464,6 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
           >
             Undo
           </button>
-          <button
-            type="button"
-            onClick={() => setMode('place_single_gate')}
-            className={`rounded-lg border px-3 py-1.5 text-sm font-medium ${
-              mode === 'place_single_gate' ? 'border-green-500 bg-green-100' : 'border-[var(--line)] bg-white hover:bg-slate-50'
-            }`}
-          >
-            + Single gate
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode('place_double_gate')}
-            className={`rounded-lg border px-3 py-1.5 text-sm font-medium ${
-              mode === 'place_double_gate' ? 'border-blue-500 bg-blue-100' : 'border-[var(--line)] bg-white hover:bg-slate-50'
-            }`}
-          >
-            + Double gate
-          </button>
           <span className="rounded-lg border border-[var(--line)] bg-white px-3 py-1.5 text-sm font-bold">
             Total: {totalFeet.toFixed(1)} ft
           </span>
@@ -502,6 +484,27 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
             </button>
             <span className="text-xs text-[var(--muted)]">Zoom</span>
           </div>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-[var(--muted)]">Gates:</span>
+          <button
+            type="button"
+            onClick={() => setMode('place_single_gate')}
+            className={`rounded-lg border px-3 py-1.5 text-sm font-medium ${
+              mode === 'place_single_gate' ? 'border-green-500 bg-green-100' : 'border-[var(--line)] bg-white hover:bg-slate-50'
+            }`}
+          >
+            + Single gate
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('place_double_gate')}
+            className={`rounded-lg border px-3 py-1.5 text-sm font-medium ${
+              mode === 'place_double_gate' ? 'border-blue-500 bg-blue-100' : 'border-[var(--line)] bg-white hover:bg-slate-50'
+            }`}
+          >
+            + Double gate
+          </button>
         </div>
         {segments.length > 0 && (
           <div className="mt-3 space-y-3">
