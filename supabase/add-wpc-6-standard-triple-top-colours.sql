@@ -48,6 +48,7 @@ WITH hybrid_standard_styles AS (
   WHERE ft.name IN (
     'Hybrid Horizontal 6''',
     'Hybrid Horizontal 7''',
+    'Hybrid Vertical',
     'Hybrid Vertical 6''',
     'Hybrid Vertical 7'''
   )
@@ -86,6 +87,7 @@ WITH hybrid_premium_styles AS (
   WHERE ft.name IN (
     'Hybrid Horizontal 6''',
     'Hybrid Horizontal 7''',
+    'Hybrid Vertical',
     'Hybrid Vertical 6''',
     'Hybrid Vertical 7'''
   )
