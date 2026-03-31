@@ -80,11 +80,16 @@ ALTER TABLE colour_options ENABLE ROW LEVEL SECURITY;
 ALTER TABLE colour_pricing_rules ENABLE ROW LEVEL SECURITY;
 
 -- Public read (for customer design flow)
+DROP POLICY IF EXISTS "Public read fence_heights" ON fence_heights;
+DROP POLICY IF EXISTS "Public read fence_types" ON fence_types;
+DROP POLICY IF EXISTS "Public read fence_styles" ON fence_styles;
+DROP POLICY IF EXISTS "Public read colour_options" ON colour_options;
+DROP POLICY IF EXISTS "Public read colour_pricing_rules" ON colour_pricing_rules;
+
 CREATE POLICY "Public read fence_heights"
   ON fence_heights FOR SELECT USING (is_active = true);
 CREATE POLICY "Public read fence_types"
   ON fence_types FOR SELECT USING (is_active = true);
-DROP POLICY IF EXISTS "Public read fence_styles" ON fence_styles;
 CREATE POLICY "Public read fence_styles"
   ON fence_styles FOR SELECT USING (is_active = true AND COALESCE(is_hidden, false) = false);
 CREATE POLICY "Public read colour_options"
