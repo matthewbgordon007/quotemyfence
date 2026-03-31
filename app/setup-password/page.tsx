@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { Session } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
+import { parseAuthParamsFromUrl } from '@/lib/supabase/parse-auth-url';
 
 function authLooksPendingInUrl(): boolean {
   if (typeof window === 'undefined') return false;
@@ -22,6 +23,7 @@ export default function SetupPasswordPage() {
   const [confirm, setConfirm] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -46,6 +48,33 @@ export default function SetupPasswordPage() {
     });
 
     void (async () => {
+      await supabase.auth.getSession();
+
+      const params = parseAuthParamsFromUrl(window.location.href);
+      if (params.error || params.error_description) {
+        setInviteError(
+          params.error_description?.replace(/\+/g, ' ') ||
+            params.error ||
+            'This link is no longer valid.',
+        );
+        window.history.replaceState({}, document.title, window.location.pathname);
+        markReady(null, true);
+        return;
+      }
+
+      if (params.access_token && params.refresh_token) {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: params.access_token,
+          refresh_token: params.refresh_token,
+        });
+        if (!sessionError) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+          const { data } = await supabase.auth.getSession();
+          markReady(data.session, true);
+          return;
+        }
+      }
+
       const code = new URLSearchParams(window.location.search).get('code');
       if (code) {
         const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
@@ -104,7 +133,14 @@ export default function SetupPasswordPage() {
         <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-xl">
           <h1 className="text-2xl font-bold tracking-tight">Set your password</h1>
           <p className="mt-2 text-sm text-slate-600">
-            Your invite link may have expired. Ask your admin to click <strong>Invite again</strong> and open the newest email.
+            {inviteError ? (
+              inviteError
+            ) : (
+              <>
+                Your invite link may have expired. Ask your admin to click <strong>Invite again</strong> and open the
+                newest email.
+              </>
+            )}
           </p>
           <p className="mt-4 text-sm">
             <Link href="/login" className="font-semibold text-blue-600 hover:underline">
