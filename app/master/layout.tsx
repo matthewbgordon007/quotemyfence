@@ -27,6 +27,7 @@ export default async function MasterLayout({
         <div className="font-semibold">Master Admin</div>
         <div className="flex gap-2">
           <Link href="/master" className="text-sm text-[var(--accent)] font-medium">Requests</Link>
+          <Link href="/master/contractors" className="text-sm text-[var(--muted)]">Contractors</Link>
           <Link href="/master/products" className="text-sm text-[var(--muted)]">Products</Link>
         </div>
       </div>
@@ -47,6 +48,15 @@ export default async function MasterLayout({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
             Material quote requests
+          </Link>
+          <Link
+            href="/master/contractors"
+            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-[var(--muted)] hover:bg-[var(--bg2)] hover:text-[var(--text)]"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5V4H2v16h5m10 0v-2a3 3 0 00-3-3H10a3 3 0 00-3 3v2m10 0H7m10-9a3 3 0 11-6 0 3 3 0 016 0zm-8 0a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Contractors
           </Link>
           <Link
             href="/master/products"
