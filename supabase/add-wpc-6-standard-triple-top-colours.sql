@@ -1,6 +1,7 @@
 -- Add missing colour options for:
 -- 1) WPC 6' + WPC 7' styles: Standard + Triple Top
 -- 2) Hybrid Horizontal 6' + 7' styles:
+-- 3) Hybrid Vertical 6' + 7' styles:
 --    - Standard + Triple Top Standard: White, Adobe, Light Grey, Westport Grey, Dark Grey
 --    - Premium + Triple Top Premium: Moonlit, Teak
 -- Safe to re-run (uses NOT EXISTS checks).
@@ -44,7 +45,12 @@ WITH hybrid_standard_styles AS (
   SELECT fs.id AS fence_style_id
   FROM fence_styles fs
   JOIN fence_types ft ON ft.id = fs.fence_type_id
-  WHERE ft.name IN ('Hybrid Horizontal 6''', 'Hybrid Horizontal 7''')
+  WHERE ft.name IN (
+    'Hybrid Horizontal 6''',
+    'Hybrid Horizontal 7''',
+    'Hybrid Vertical 6''',
+    'Hybrid Vertical 7'''
+  )
     AND fs.style_name IN ('Standard', 'Triple Top Standard')
     AND fs.is_active = true
 ),
@@ -77,7 +83,12 @@ WITH hybrid_premium_styles AS (
   SELECT fs.id AS fence_style_id
   FROM fence_styles fs
   JOIN fence_types ft ON ft.id = fs.fence_type_id
-  WHERE ft.name IN ('Hybrid Horizontal 6''', 'Hybrid Horizontal 7''')
+  WHERE ft.name IN (
+    'Hybrid Horizontal 6''',
+    'Hybrid Horizontal 7''',
+    'Hybrid Vertical 6''',
+    'Hybrid Vertical 7'''
+  )
     AND fs.style_name IN ('Premium', 'Triple Top Premium')
     AND fs.is_active = true
 ),
