@@ -1707,7 +1707,7 @@ export default function CalculatorPage() {
                 readOnly
                 value={quoteText}
                 rows={14}
-                className="w-full resize-y rounded-xl border border-slate-700/80 bg-slate-900 px-4 py-3.5 text-[11px] font-mono leading-relaxed text-slate-100 shadow-inner outline-none ring-1 ring-inset ring-white/5 selection:bg-blue-500/30"
+                className="w-full resize-y rounded-xl border border-slate-200/90 bg-white px-4 py-3.5 text-[11px] font-mono leading-relaxed text-slate-800 shadow-inner shadow-slate-900/5 outline-none ring-1 ring-inset ring-slate-900/[0.04] selection:bg-blue-100"
                 spellCheck={false}
               />
             </div>
