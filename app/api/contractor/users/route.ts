@@ -4,6 +4,15 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 
 const ADMIN_ROLES = ['owner', 'admin'];
 
+function getAppBaseUrl(request: NextRequest): string {
+  const raw =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.APP_URL ||
+    request.nextUrl.origin;
+  return raw.replace(/\/+$/, '');
+}
+
 async function getAuthUserAndRole(supabase: Awaited<ReturnType<typeof createServerClient>>) {
   const {
     data: { user },
@@ -78,7 +87,7 @@ export async function POST(request: NextRequest) {
 
   const created = inviteMode
     ? await supabaseAdmin.auth.admin.inviteUserByEmail(emailTrim, {
-        redirectTo: `${request.nextUrl.origin}/login`,
+        redirectTo: `${getAppBaseUrl(request)}/login`,
       })
     : await supabaseAdmin.auth.admin.createUser({
         email: emailTrim,
