@@ -84,6 +84,7 @@ export async function getContractorPublicConfig(slug: string) {
       .select('*')
       .in('fence_type_id', typeIds)
       .eq('is_active', true)
+      .eq('is_hidden', false)
       .order('display_order');
     fenceStyles = styles || [];
 

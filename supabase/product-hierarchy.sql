@@ -28,12 +28,14 @@ CREATE TABLE IF NOT EXISTS fence_styles (
   style_name TEXT NOT NULL,
   photo_url TEXT,
   display_order INT DEFAULT 0,
+  is_hidden BOOLEAN DEFAULT false,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- If table already existed without photo_url, add the column
 ALTER TABLE fence_styles ADD COLUMN IF NOT EXISTS photo_url TEXT;
+ALTER TABLE fence_styles ADD COLUMN IF NOT EXISTS is_hidden BOOLEAN DEFAULT false;
 
 -- 4. Colour options (with photo) - under each style; this is the leaf the customer picks
 CREATE TABLE IF NOT EXISTS colour_options (
@@ -82,8 +84,9 @@ CREATE POLICY "Public read fence_heights"
   ON fence_heights FOR SELECT USING (is_active = true);
 CREATE POLICY "Public read fence_types"
   ON fence_types FOR SELECT USING (is_active = true);
+DROP POLICY IF EXISTS "Public read fence_styles" ON fence_styles;
 CREATE POLICY "Public read fence_styles"
-  ON fence_styles FOR SELECT USING (is_active = true);
+  ON fence_styles FOR SELECT USING (is_active = true AND COALESCE(is_hidden, false) = false);
 CREATE POLICY "Public read colour_options"
   ON colour_options FOR SELECT USING (is_active = true);
 CREATE POLICY "Public read colour_pricing_rules"

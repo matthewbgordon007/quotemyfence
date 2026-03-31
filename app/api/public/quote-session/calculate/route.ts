@@ -32,7 +32,12 @@ export async function POST(request: NextRequest) {
           .from('fence_styles')
           .select('fence_type_id')
           .eq('id', colour.fence_style_id)
+          .eq('is_active', true)
+          .eq('is_hidden', false)
           .single();
+        if (!selectedStyle) {
+          return NextResponse.json({ error: 'Pricing not found for this option' }, { status: 400 });
+        }
 
         const totalLengthFt = Number(total_length_ft) || 0;
 
@@ -67,7 +72,8 @@ export async function POST(request: NextRequest) {
             .from('fence_styles')
             .select('id, style_name')
             .eq('fence_type_id', selectedStyle.fence_type_id)
-            .eq('is_active', true);
+            .eq('is_active', true)
+            .eq('is_hidden', false);
 
           if (siblingStyles?.length) {
             const styleIds = siblingStyles.map((s) => s.id);

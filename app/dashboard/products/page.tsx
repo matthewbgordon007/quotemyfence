@@ -23,6 +23,7 @@ interface FenceStyle {
   fence_type_id: string;
   style_name: string;
   photo_url: string | null;
+  is_hidden?: boolean;
 }
 
 interface ColourOption {
@@ -287,6 +288,24 @@ export default function ProductsPage() {
       alert('Network error — check your connection and try again.');
     } finally {
       setUploadingPhoto(null);
+    }
+  }
+
+  async function updateStyleHidden(styleId: string, hidden: boolean) {
+    try {
+      const patchRes = await fetch(`/api/contractor/product-hierarchy/styles/${styleId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_hidden: hidden }),
+      });
+      const patchData = await patchRes.json().catch(() => ({}));
+      if (!patchRes.ok) {
+        alert(patchData?.error || 'Could not update visibility. Try again.');
+        return;
+      }
+      setStyles((prev) => prev.map((st) => (st.id === styleId ? { ...st, is_hidden: hidden } : st)));
+    } catch {
+      alert('Network error — check your connection and try again.');
     }
   }
 
@@ -747,6 +766,11 @@ export default function ProductsPage() {
                             >
                               <Chevron open={expandedStyles.has(s.id)} />
                               <span className="font-semibold text-slate-900">{s.style_name}</span>
+                              {s.is_hidden ? (
+                                <span className="rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">
+                                  Hidden from customers
+                                </span>
+                              ) : null}
                               {lengthTiers.length > 0 ? (
                                 <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">
                                   {lengthTiers.length} length band{lengthTiers.length === 1 ? '' : 's'}
@@ -761,6 +785,15 @@ export default function ProductsPage() {
                             </button>
                             {isAdmin && (
                               <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                                <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                                  <input
+                                    type="checkbox"
+                                    checked={!!s.is_hidden}
+                                    onChange={(e) => updateStyleHidden(s.id, e.target.checked)}
+                                    className="h-3.5 w-3.5 rounded border-slate-300"
+                                  />
+                                  Hidden
+                                </label>
                                 <label
                                   className={
                                     uploadingPhoto === `style-${s.id}`

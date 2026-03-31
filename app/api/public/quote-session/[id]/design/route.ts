@@ -22,6 +22,28 @@ export async function POST(
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    if (colour_option_id) {
+      const { data: selectedColour } = await supabase
+        .from('colour_options')
+        .select('id, fence_style_id, is_active')
+        .eq('id', colour_option_id)
+        .eq('is_active', true)
+        .single();
+      if (!selectedColour) {
+        return NextResponse.json({ error: 'Selected colour is unavailable' }, { status: 400 });
+      }
+      const { data: selectedStyle } = await supabase
+        .from('fence_styles')
+        .select('id, is_active, is_hidden')
+        .eq('id', selectedColour.fence_style_id)
+        .eq('is_active', true)
+        .eq('is_hidden', false)
+        .single();
+      if (!selectedStyle) {
+        return NextResponse.json({ error: 'Selected style is hidden' }, { status: 400 });
+      }
+    }
+
     const { data: fence } = await supabase
       .from('fences')
       .select('id')

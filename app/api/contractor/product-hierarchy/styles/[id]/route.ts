@@ -34,6 +34,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const updates: Record<string, unknown> = {};
   if (body.style_name !== undefined) updates.style_name = body.style_name;
   if (body.photo_url !== undefined) updates.photo_url = body.photo_url;
+  if (body.is_hidden !== undefined) updates.is_hidden = !!body.is_hidden;
   if (Object.keys(updates).length === 0) return NextResponse.json({ error: 'No updates' }, { status: 400 });
 
   const { data, error } = await supabase.from('fence_styles').update(updates).eq('id', id).select().single();
