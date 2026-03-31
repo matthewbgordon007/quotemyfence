@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, useParams } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useEstimate } from '../EstimateContext';
 import { DesignSimpleOptions } from '../DesignSimpleOptions';
 import { OptimizedProductImage } from '@/components/OptimizedProductImage';
@@ -25,6 +25,7 @@ export default function DesignPage() {
   const hasHierarchy = hierarchy && hierarchy.fenceTypes?.length > 0;
 
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
+  const [selectedHeightFt, setSelectedHeightFt] = useState<number | null>(null);
   const [selectedStyleId, setSelectedStyleId] = useState<string | null>(null);
   const [selectedColourId, setSelectedColourId] = useState<string | null>(state.selectedColourOptionId ?? state.selectedProductOptionId);
   const [loading, setLoading] = useState(false);
@@ -49,6 +50,16 @@ export default function DesignPage() {
   const hasRemoval = state.hasRemoval;
 
   const allTypes = hierarchy?.fenceTypes ?? [];
+  const availableHeights = useMemo(() => {
+    const vals = allTypes
+      .map((t) => Number(t.standard_height_ft))
+      .filter((n) => Number.isFinite(n));
+    return Array.from(new Set(vals)).sort((a, b) => a - b);
+  }, [allTypes]);
+  const typesForSelectedHeight = useMemo(() => {
+    if (selectedHeightFt == null) return [];
+    return allTypes.filter((t) => Number(t.standard_height_ft) === selectedHeightFt);
+  }, [allTypes, selectedHeightFt]);
   const stylesForType = hierarchy
     ? hierarchy.fenceStyles.filter((s) => s.fence_type_id === selectedTypeId)
     : [];
@@ -117,6 +128,16 @@ export default function DesignPage() {
       .catch(() => setRange(null));
   }, [optionId, totalFeet, singleGates, doubleGates, hasRemoval, state.sessionId, hasHierarchy]);
 
+  useEffect(() => {
+    if (!hasHierarchy || availableHeights.length === 0) return;
+    if (selectedHeightFt == null || !availableHeights.includes(selectedHeightFt)) {
+      setSelectedHeightFt(availableHeights[0]);
+      setSelectedTypeId(null);
+      setSelectedStyleId(null);
+      setSelectedColourId(null);
+    }
+  }, [hasHierarchy, availableHeights, selectedHeightFt]);
+
   async function handleContinue() {
     if (!optionId) {
       setError(hasHierarchy ? 'Please select a colour to continue.' : 'Please select a fence option.');
@@ -168,37 +189,57 @@ export default function DesignPage() {
           <div className="p-8">
           <h1 className="text-2xl font-bold tracking-tight text-slate-800">Choose your fence</h1>
           <p className="mt-2 text-sm text-slate-500">
-            Select type, style, then colour. Based on {totalFeet.toFixed(1)} ft
+            Select height, type, style, then colour. Based on {totalFeet.toFixed(1)} ft
             {hasRemoval ? ' including removal.' : '.'}
           </p>
 
           <div className="mt-8 space-y-8">
             <div>
-              <h2 className={sectionLabel}>1. Type of fence</h2>
+              <h2 className={sectionLabel}>1. Height</h2>
               <div className="mt-3 flex flex-wrap gap-2">
-                {allTypes.map((t) => (
+                {availableHeights.map((heightFt) => (
                   <button
-                    key={t.id}
+                    key={heightFt}
                     type="button"
                     onClick={() => {
-                      setSelectedTypeId(t.id);
+                      setSelectedHeightFt(heightFt);
+                      setSelectedTypeId(null);
                       setSelectedStyleId(null);
                       setSelectedColourId(null);
                     }}
-                    className={selectedTypeId === t.id ? 'rounded-xl px-4 py-2.5 font-medium bg-[var(--accent)] text-white shadow-md' : 'rounded-xl px-4 py-2.5 font-medium border border-[var(--line)] hover:border-[var(--accent)]/50'}
+                    className={selectedHeightFt === heightFt ? 'rounded-xl px-4 py-2.5 font-medium bg-[var(--accent)] text-white shadow-md' : 'rounded-xl px-4 py-2.5 font-medium border border-[var(--line)] hover:border-[var(--accent)]/50'}
                   >
-                    {t.name}
-                    {t.standard_height_ft != null && (
-                      <span className="ml-1 opacity-90">({t.standard_height_ft} ft)</span>
-                    )}
+                    {heightFt} ft
                   </button>
                 ))}
               </div>
             </div>
 
+            {selectedHeightFt != null && (
+              <div>
+                <h2 className={sectionLabel}>2. Type of fence</h2>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {typesForSelectedHeight.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedTypeId(t.id);
+                        setSelectedStyleId(null);
+                        setSelectedColourId(null);
+                      }}
+                      className={selectedTypeId === t.id ? 'rounded-xl px-4 py-2.5 font-medium bg-[var(--accent)] text-white shadow-md' : 'rounded-xl px-4 py-2.5 font-medium border border-[var(--line)] hover:border-[var(--accent)]/50'}
+                    >
+                      {t.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {selectedTypeId && (
               <div>
-                <h2 className={sectionLabel}>2. Style</h2>
+                <h2 className={sectionLabel}>3. Style</h2>
                 <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3">
                   {stylesForType.map((s) => (
                     <button
@@ -226,7 +267,7 @@ export default function DesignPage() {
 
             {selectedStyleId && (
               <div>
-                <h2 className={sectionLabel}>3. Colour</h2>
+                <h2 className={sectionLabel}>4. Colour</h2>
                 <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3">
                   {coloursForStyle.map((c) => (
                     <button
