@@ -266,10 +266,10 @@ export default function ProductsPage() {
       const fd = new FormData();
       fd.append('file', file);
       fd.append('type', 'style');
-      const res = await fetch('/api/contractor/upload', { method: 'POST', body: fd });
-      const data = await res.json();
+      const res = await fetch('/api/contractor/upload', { method: 'POST', credentials: 'include', body: fd });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.url) {
-        alert(data.error || 'Upload failed. Use JPG, PNG, WebP, GIF or HEIC (max 5MB).');
+        alert(data.error || 'Upload failed. Use JPG, PNG, WebP, GIF or HEIC (max 4MB).');
         return;
       }
       const patchRes = await fetch(`/api/contractor/product-hierarchy/styles/${styleId}`, {
@@ -296,10 +296,10 @@ export default function ProductsPage() {
       const fd = new FormData();
       fd.append('file', file);
       fd.append('type', 'colour');
-      const res = await fetch('/api/contractor/upload', { method: 'POST', body: fd });
-      const data = await res.json();
+      const res = await fetch('/api/contractor/upload', { method: 'POST', credentials: 'include', body: fd });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.url) {
-        alert(data.error || 'Upload failed. Use JPG, PNG, WebP, GIF or HEIC (max 5MB).');
+        alert(data.error || 'Upload failed. Use JPG, PNG, WebP, GIF or HEIC (max 4MB).');
         return;
       }
       const patchRes = await fetch(`/api/contractor/product-hierarchy/colours/${colourId}`, {
