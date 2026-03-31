@@ -3,13 +3,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
+  buildTypeScopeKey,
+  buildTypeStyleScopeKey,
   DEFAULT_QUOTE_TEMPLATE_TEXT,
+  getMaterialQuoteTemplate,
   legacyQuoteBlocksStorageKey,
+  normalizeTemplateScope,
   QUOTE_TOKEN_DEFS,
   QuoteTokenId,
   composeQuoteText,
   isQuoteBlocks,
   quoteBlocksToTemplateText,
+  quoteTemplateScopedStorageKey,
   quoteTemplateStorageKey,
   tokenPlaceholder,
 } from '@/lib/quote-template';
@@ -21,7 +26,31 @@ const cardHeader =
 
 export default function QuoteTemplatePage() {
   const [contractorId, setContractorId] = useState<string | null>(null);
-  const [templateText, setTemplateText] = useState(DEFAULT_QUOTE_TEMPLATE_TEXT);
+  const [globalTemplateText, setGlobalTemplateText] = useState(DEFAULT_QUOTE_TEMPLATE_TEXT);
+  const [scopedTemplates, setScopedTemplates] = useState<Record<string, string>>({});
+  const [targetMode, setTargetMode] = useState<'global' | 'type' | 'type_style'>('global');
+  const [types, setTypes] = useState<{ id: string; name: string }[]>([]);
+  const [styles, setStyles] = useState<{ id: string; fence_type_id: string; style_name: string }[]>([]);
+  const [selectedTypeId, setSelectedTypeId] = useState<string>('');
+  const [selectedStyleId, setSelectedStyleId] = useState<string>('');
+  const selectedType = types.find((t) => t.id === selectedTypeId) || null;
+  const selectedStyle = styles.find((s) => s.id === selectedStyleId) || null;
+
+  const activeScopeKey = useMemo(() => {
+    if (targetMode === 'global') return null;
+    if (!selectedType?.name) return null;
+    if (targetMode === 'type') return buildTypeScopeKey(selectedType.name);
+    if (!selectedStyle?.style_name) return null;
+    return buildTypeStyleScopeKey(selectedType.name, selectedStyle.style_name);
+  }, [targetMode, selectedType?.name, selectedStyle?.style_name]);
+
+  const templateText = useMemo(() => {
+    if (!activeScopeKey) return globalTemplateText;
+    const fromScoped = scopedTemplates[activeScopeKey];
+    if (fromScoped) return fromScoped;
+    const material = getMaterialQuoteTemplate(selectedType?.name || '');
+    return material || globalTemplateText;
+  }, [activeScopeKey, scopedTemplates, selectedType?.name, globalTemplateText]);
   const [saved, setSaved] = useState(false);
   const templateRef = useRef<HTMLTextAreaElement>(null);
 
@@ -31,6 +60,13 @@ export default function QuoteTemplatePage() {
       .then((data) => {
         if (data?.id) setContractorId(data.id);
       })
+      .then(async () => {
+        const h = await fetch('/api/contractor/product-hierarchy', { cache: 'no-store' }).then((r) =>
+          r.ok ? r.json() : null
+        );
+        setTypes(Array.isArray(h?.fenceTypes) ? h.fenceTypes : []);
+        setStyles(Array.isArray(h?.fenceStyles) ? h.fenceStyles : []);
+      })
       .catch(() => {});
   }, []);
 
@@ -39,22 +75,46 @@ export default function QuoteTemplatePage() {
     try {
       const raw = localStorage.getItem(quoteTemplateStorageKey(contractorId));
       if (raw) {
-        setTemplateText(raw);
-        return;
+        setGlobalTemplateText(raw);
+      } else {
+        // One-time migration from old block-based template storage.
+        const legacyRaw = localStorage.getItem(legacyQuoteBlocksStorageKey(contractorId));
+        if (legacyRaw) {
+          const parsed: unknown = JSON.parse(legacyRaw);
+          if (isQuoteBlocks(parsed)) {
+            const migrated = quoteBlocksToTemplateText(parsed);
+            setGlobalTemplateText(migrated);
+            localStorage.setItem(quoteTemplateStorageKey(contractorId), migrated);
+          }
+        }
       }
-      // One-time migration from old block-based template storage.
-      const legacyRaw = localStorage.getItem(legacyQuoteBlocksStorageKey(contractorId));
-      if (!legacyRaw) return;
-      const parsed: unknown = JSON.parse(legacyRaw);
-      if (isQuoteBlocks(parsed)) {
-        const migrated = quoteBlocksToTemplateText(parsed);
-        setTemplateText(migrated);
-        localStorage.setItem(quoteTemplateStorageKey(contractorId), migrated);
+      const scopedRaw = localStorage.getItem(quoteTemplateScopedStorageKey(contractorId));
+      if (scopedRaw) {
+        const parsedScoped = JSON.parse(scopedRaw) as unknown;
+        if (parsedScoped && typeof parsedScoped === 'object') {
+          setScopedTemplates(parsedScoped as Record<string, string>);
+        }
       }
     } catch {
       // ignore malformed local payloads
     }
   }, [contractorId]);
+
+  useEffect(() => {
+    if (!selectedTypeId && types.length > 0) setSelectedTypeId(types[0].id);
+  }, [types, selectedTypeId]);
+
+  useEffect(() => {
+    if (!selectedTypeId) return;
+    const forType = styles.filter((s) => s.fence_type_id === selectedTypeId);
+    if (!forType.length) {
+      setSelectedStyleId('');
+      return;
+    }
+    if (!forType.some((s) => s.id === selectedStyleId)) {
+      setSelectedStyleId(forType[0].id);
+    }
+  }, [styles, selectedTypeId, selectedStyleId]);
 
   const tokenValues: Record<QuoteTokenId, string> = useMemo(
     () => ({
@@ -91,13 +151,22 @@ export default function QuoteTemplatePage() {
     const el = templateRef.current;
     const placeholder = tokenPlaceholder(token);
     if (!el) {
-      setTemplateText((prev) => `${prev}${prev.endsWith('\n') ? '' : '\n'}${placeholder}`);
+      const updater = (prev: string) => `${prev}${prev.endsWith('\n') ? '' : '\n'}${placeholder}`;
+      if (activeScopeKey) {
+        setScopedTemplates((prev) => ({ ...prev, [activeScopeKey]: updater(templateText) }));
+      } else {
+        setGlobalTemplateText(updater);
+      }
       return;
     }
     const start = el.selectionStart ?? templateText.length;
     const end = el.selectionEnd ?? templateText.length;
     const next = `${templateText.slice(0, start)}${placeholder}${templateText.slice(end)}`;
-    setTemplateText(next);
+    if (activeScopeKey) {
+      setScopedTemplates((prev) => ({ ...prev, [activeScopeKey]: next }));
+    } else {
+      setGlobalTemplateText(next);
+    }
     requestAnimationFrame(() => {
       el.focus();
       const pos = start + placeholder.length;
@@ -107,13 +176,28 @@ export default function QuoteTemplatePage() {
 
   function saveTemplate() {
     if (!contractorId) return;
-    localStorage.setItem(quoteTemplateStorageKey(contractorId), templateText);
+    if (activeScopeKey) {
+      localStorage.setItem(
+        quoteTemplateScopedStorageKey(contractorId),
+        JSON.stringify({ ...scopedTemplates, [activeScopeKey]: templateText })
+      );
+    } else {
+      localStorage.setItem(quoteTemplateStorageKey(contractorId), templateText);
+    }
     setSaved(true);
     window.setTimeout(() => setSaved(false), 1800);
   }
 
   function resetTemplate() {
-    setTemplateText(DEFAULT_QUOTE_TEMPLATE_TEXT);
+    if (activeScopeKey) {
+      setScopedTemplates((prev) => {
+        const next = { ...prev };
+        delete next[activeScopeKey];
+        return next;
+      });
+      return;
+    }
+    setGlobalTemplateText(DEFAULT_QUOTE_TEMPLATE_TEXT);
   }
 
   return (
@@ -159,6 +243,77 @@ export default function QuoteTemplatePage() {
           </div>
           <div className="space-y-4 p-4 sm:p-5">
             <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3">
+              <p className="text-xs font-medium text-slate-600">Template target</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTargetMode('global')}
+                  className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium ${
+                    targetMode === 'global' ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-700'
+                  }`}
+                >
+                  Global default
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTargetMode('type')}
+                  className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium ${
+                    targetMode === 'type' ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-700'
+                  }`}
+                >
+                  Per type
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTargetMode('type_style')}
+                  className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium ${
+                    targetMode === 'type_style' ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-700'
+                  }`}
+                >
+                  Per type + style
+                </button>
+              </div>
+              {targetMode !== 'global' && (
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <select
+                    value={selectedTypeId}
+                    onChange={(e) => setSelectedTypeId(e.target.value)}
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+                  >
+                    {types.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                  {targetMode === 'type_style' ? (
+                    <select
+                      value={selectedStyleId}
+                      onChange={(e) => setSelectedStyleId(e.target.value)}
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+                    >
+                      {styles
+                        .filter((s) => s.fence_type_id === selectedTypeId)
+                        .map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.style_name}
+                          </option>
+                        ))}
+                    </select>
+                  ) : (
+                    <div className="rounded-lg border border-dashed border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+                      Applies to all styles under this type
+                    </div>
+                  )}
+                </div>
+              )}
+              {activeScopeKey && (
+                <p className="mt-2 text-xs text-slate-500">
+                  Scope key: <code>{normalizeTemplateScope(activeScopeKey)}</code>
+                </p>
+              )}
+            </div>
+            <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3">
               <p className="text-xs font-medium text-slate-600">Insert placeholder at cursor</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {QUOTE_TOKEN_DEFS.map((def) => (
@@ -176,7 +331,13 @@ export default function QuoteTemplatePage() {
             <textarea
               ref={templateRef}
               value={templateText}
-              onChange={(e) => setTemplateText(e.target.value)}
+              onChange={(e) => {
+                if (activeScopeKey) {
+                  setScopedTemplates((prev) => ({ ...prev, [activeScopeKey]: e.target.value }));
+                } else {
+                  setGlobalTemplateText(e.target.value);
+                }
+              }}
               rows={20}
               className="w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm leading-relaxed text-slate-900 shadow-inner outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
               spellCheck={false}

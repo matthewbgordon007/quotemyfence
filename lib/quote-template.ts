@@ -318,6 +318,25 @@ export function quoteTemplateStorageKey(contractorId: string): string {
   return `qmf_quote_template_text_${contractorId}`;
 }
 
+export function quoteTemplateScopedStorageKey(contractorId: string): string {
+  return `qmf_quote_template_scoped_${contractorId}`;
+}
+
+export function normalizeTemplateScope(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+export function buildTypeScopeKey(typeName: string): string {
+  return `type:${normalizeTemplateScope(typeName)}`;
+}
+
+export function buildTypeStyleScopeKey(typeName: string, styleName: string): string {
+  return `type:${normalizeTemplateScope(typeName)}|style:${normalizeTemplateScope(styleName)}`;
+}
+
 // Legacy key from block-based builder; used for migration.
 export function legacyQuoteBlocksStorageKey(contractorId: string): string {
   return `qmf_quote_template_blocks_${contractorId}`;

@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { pickBestTierByInstallLength, pickBestTierByLength } from '@/lib/length-tier';
 import {
+  buildTypeScopeKey,
+  buildTypeStyleScopeKey,
   DEFAULT_QUOTE_TEMPLATE_TEXT,
   QuoteTokenId,
   composeQuoteText,
@@ -13,6 +15,7 @@ import {
   isQuoteBlocks,
   legacyQuoteBlocksStorageKey,
   quoteBlocksToTemplateText,
+  quoteTemplateScopedStorageKey,
   quoteTemplateStorageKey,
 } from '@/lib/quote-template';
 
@@ -199,6 +202,7 @@ export default function CalculatorPage() {
   const [customerMapCenter, setCustomerMapCenter] = useState<[number, number] | undefined>(undefined);
   const [segmentAssignments, setSegmentAssignments] = useState<Record<string, number | null>>({});
   const [quoteTemplate, setQuoteTemplate] = useState(DEFAULT_QUOTE_TEMPLATE_TEXT);
+  const [scopedTemplates, setScopedTemplates] = useState<Record<string, string>>({});
   const [contractorId, setContractorId] = useState<string | null>(null);
   const [contractorBrand, setContractorBrand] = useState<string>('');
 
@@ -238,6 +242,17 @@ export default function CalculatorPage() {
       }
     } catch {
       // ignore bad local template payloads
+    }
+    try {
+      const scopedRaw = localStorage.getItem(quoteTemplateScopedStorageKey(contractorId));
+      if (scopedRaw) {
+        const parsed = JSON.parse(scopedRaw) as unknown;
+        if (parsed && typeof parsed === 'object') {
+          setScopedTemplates(parsed as Record<string, string>);
+        }
+      }
+    } catch {
+      // ignore malformed scoped templates
     }
   }, [contractorId]);
 
@@ -717,8 +732,19 @@ export default function CalculatorPage() {
     deposit: moneyCAD(deposit),
   };
 
+  const scopedTypeStyleTemplate =
+    selectedType?.name && selectedStyle?.style_name
+      ? scopedTemplates[buildTypeStyleScopeKey(selectedType.name, selectedStyle.style_name)]
+      : undefined;
+  const scopedTypeTemplate =
+    selectedType?.name ? scopedTemplates[buildTypeScopeKey(selectedType.name)] : undefined;
   const materialTemplate = getMaterialQuoteTemplate(selectedType?.name);
-  const activeTemplate = (materialTemplate || quoteTemplate).replaceAll('[[HEIGHT]]', inferredHeight);
+  const activeTemplate = (
+    scopedTypeStyleTemplate ||
+    scopedTypeTemplate ||
+    materialTemplate ||
+    quoteTemplate
+  ).replaceAll('[[HEIGHT]]', inferredHeight);
   const quoteText = composeQuoteText(activeTemplate, quoteTokenValues);
 
   async function copyQuote() {
