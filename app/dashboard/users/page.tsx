@@ -20,6 +20,7 @@ export default function CompanyUsersPage() {
   const [users, setUsers] = useState<CompanyUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [resendingId, setResendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -93,6 +94,22 @@ export default function CompanyUsersPage() {
     setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, ...updated } : u)));
   }
 
+  async function resendInvite(user: CompanyUser) {
+    setResendingId(user.id);
+    try {
+      const res = await fetch(`/api/contractor/users/${user.id}/invite`, {
+        method: 'POST',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to resend invite');
+      alert(data.message || 'Invite email sent');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to resend invite');
+    } finally {
+      setResendingId(null);
+    }
+  }
+
   if (loading) return <div className="py-10 text-sm text-slate-600">Loading users...</div>;
 
   return (
@@ -154,6 +171,7 @@ export default function CompanyUsersPage() {
               <th className="px-4 py-3 text-left font-semibold text-slate-600">User</th>
               <th className="px-4 py-3 text-left font-semibold text-slate-600">Role</th>
               <th className="px-4 py-3 text-left font-semibold text-slate-600">Status</th>
+              <th className="px-4 py-3 text-left font-semibold text-slate-600">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -192,11 +210,21 @@ export default function CompanyUsersPage() {
                     </label>
                   )}
                 </td>
+                <td className="px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => resendInvite(u)}
+                    disabled={resendingId === u.id}
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                  >
+                    {resendingId === u.id ? 'Sending...' : 'Invite again'}
+                  </button>
+                </td>
               </tr>
             ))}
             {users.length === 0 ? (
               <tr>
-                <td colSpan={3} className="px-4 py-10 text-center text-slate-500">
+                <td colSpan={4} className="px-4 py-10 text-center text-slate-500">
                   No users yet.
                 </td>
               </tr>
