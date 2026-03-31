@@ -3,7 +3,16 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import type { Session } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
+
+function authLooksPendingInUrl(): boolean {
+  if (typeof window === 'undefined') return false;
+  const hash = window.location.hash;
+  if (/access_token|refresh_token/.test(hash)) return true;
+  if (new URLSearchParams(window.location.search).has('code')) return true;
+  return false;
+}
 
 export default function SetupPasswordPage() {
   const router = useRouter();
@@ -16,10 +25,50 @@ export default function SetupPasswordPage() {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data }) => {
-      setHasSession(!!data.session);
+    const pendingAuth = authLooksPendingInUrl();
+    let resolved = false;
+
+    const markReady = (session: Session | null, force: boolean) => {
+      if (resolved) return;
+      if (!session && pendingAuth && !force) return;
+      resolved = true;
+      setHasSession(!!session);
       setReady(true);
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'INITIAL_SESSION') {
+        markReady(session, false);
+      }
+      if (event === 'SIGNED_IN' && session) {
+        markReady(session, true);
+      }
     });
+
+    void (async () => {
+      const code = new URLSearchParams(window.location.search).get('code');
+      if (code) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        if (!exchangeError) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+          const { data } = await supabase.auth.getSession();
+          markReady(data.session, true);
+          return;
+        }
+      }
+    })();
+
+    const fallbackMs = pendingAuth ? 4000 : 800;
+    const t = setTimeout(() => {
+      void supabase.auth.getSession().then(({ data }) => {
+        markReady(data.session, true);
+      });
+    }, fallbackMs);
+
+    return () => {
+      clearTimeout(t);
+      subscription.unsubscribe();
+    };
   }, []);
 
   async function submit(e: React.FormEvent) {
