@@ -66,6 +66,14 @@ export default function DesignPage() {
   const coloursForStyle = hierarchy
     ? hierarchy.colourOptions.filter((c) => c.fence_style_id === selectedStyleId)
     : [];
+  const stylePreviewUrls = useMemo(
+    () => stylesForType.map((s) => s.photo_url).filter((u): u is string => !!u && u.trim().length > 0),
+    [stylesForType]
+  );
+  const colourPreviewUrls = useMemo(
+    () => coloursForStyle.map((c) => c.photo_url).filter((u): u is string => !!u && u.trim().length > 0),
+    [coloursForStyle]
+  );
 
   const optionId = hasHierarchy ? selectedColourId : state.selectedProductOptionId ?? selectedColourId;
 
@@ -137,6 +145,27 @@ export default function DesignPage() {
       setSelectedColourId(null);
     }
   }, [hasHierarchy, availableHeights, selectedHeightFt]);
+
+  useEffect(() => {
+    const warm = (urls: string[]) => {
+      const unique = Array.from(new Set(urls)).slice(0, 8);
+      for (const url of unique) {
+        const img = new Image();
+        img.decoding = 'async';
+        img.src = url;
+      }
+    };
+    warm(stylePreviewUrls);
+  }, [stylePreviewUrls]);
+
+  useEffect(() => {
+    const unique = Array.from(new Set(colourPreviewUrls)).slice(0, 8);
+    for (const url of unique) {
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = url;
+    }
+  }, [colourPreviewUrls]);
 
   async function handleContinue() {
     if (!optionId) {
@@ -253,7 +282,15 @@ export default function DesignPage() {
                     >
                       <div className="relative h-[200px] w-full overflow-hidden rounded-lg bg-[var(--bg2)]">
                         {s.photo_url ? (
-                          <OptimizedProductImage src={s.photo_url} alt={s.style_name} fill sizes="(max-width: 768px) 50vw, 220px" className="object-contain object-top" />
+                          <OptimizedProductImage
+                            src={s.photo_url}
+                            alt={s.style_name}
+                            fill
+                            sizes="(max-width: 768px) 50vw, 220px"
+                            className="object-contain object-top"
+                            priority={selectedStyleId === s.id}
+                            fetchPriority={selectedStyleId === s.id ? 'high' : 'auto'}
+                          />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center text-sm text-[var(--muted)]">{s.style_name}</div>
                         )}
@@ -284,6 +321,8 @@ export default function DesignPage() {
                             fill
                             sizes="(max-width: 768px) 95vw, 420px"
                             className="object-contain object-center"
+                            priority={selectedColourId === c.id}
+                            fetchPriority={selectedColourId === c.id ? 'high' : 'auto'}
                           />
                         ) : (
                           <div className="flex h-full items-center justify-center text-sm text-[var(--muted)]">{c.color_name}</div>

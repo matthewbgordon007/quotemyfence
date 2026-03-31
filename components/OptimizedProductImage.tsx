@@ -12,6 +12,7 @@ export function OptimizedProductImage({
   fill,
   className = '',
   priority = false,
+  fetchPriority,
 }: {
   src: string;
   alt: string;
@@ -19,6 +20,7 @@ export function OptimizedProductImage({
   className?: string;
   sizes?: string;
   priority?: boolean;
+  fetchPriority?: 'high' | 'low' | 'auto';
 }) {
   const [failed, setFailed] = useState(false);
   const clean = typeof src === 'string' ? src.trim() : '';
@@ -48,6 +50,7 @@ export function OptimizedProductImage({
           className={`max-h-full max-w-full min-h-0 min-w-0 ${className}`}
           loading={priority ? 'eager' : 'lazy'}
           decoding="async"
+          fetchPriority={fetchPriority ?? (priority ? 'high' : 'auto')}
           onError={() => setFailed(true)}
         />
       </div>
@@ -64,6 +67,7 @@ export function OptimizedProductImage({
       className={className}
       loading={priority ? 'eager' : 'lazy'}
       decoding="async"
+      fetchPriority={fetchPriority ?? (priority ? 'high' : 'auto')}
       onError={() => setFailed(true)}
     />
   );
