@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { MAX_CONTRACTOR_IMAGE_BYTES_SERVER } from '@/lib/upload-limits';
 
-/** Stay under typical serverless request body limits (e.g. Vercel ~4.5MB). */
-const MAX_BYTES = 4 * 1024 * 1024;
+const MAX_BYTES = MAX_CONTRACTOR_IMAGE_BYTES_SERVER;
 
 const MIME_TO_EXT: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -159,8 +159,8 @@ export async function POST(request: NextRequest) {
         {
           error:
             errMsg.includes('body') || errMsg.includes('size')
-              ? 'File too large. Try an image under 4MB.'
-              : 'Could not parse upload. Try a smaller image (under 4MB).',
+              ? 'File too large. Try an image under 4.5MB (this upload path goes through the server).'
+              : 'Could not parse upload. Try a smaller image (under 4.5MB).',
         },
         { status: 400 }
       );
@@ -188,7 +188,7 @@ export async function POST(request: NextRequest) {
 
     if (file.size > MAX_BYTES) {
       return NextResponse.json(
-        { error: 'File too large. Max 4MB (server limit).' },
+        { error: 'File too large. Max 4.5MB on this upload path (server limit).' },
         { status: 400 }
       );
     }

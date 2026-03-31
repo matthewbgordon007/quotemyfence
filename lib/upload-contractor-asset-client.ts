@@ -1,8 +1,7 @@
 'use client';
 
 import { createClient } from '@/lib/supabase/client';
-
-const MAX_BYTES = 4 * 1024 * 1024;
+import { MAX_CONTRACTOR_IMAGE_BYTES } from '@/lib/upload-limits';
 
 function pickExtAndMime(file: File): { ext: string; contentType: string } {
   const raw = (file.name.split('.').pop() || '').toLowerCase();
@@ -63,8 +62,8 @@ export async function uploadContractorAssetClient(
     return { error: 'No file selected.' };
   }
 
-  if (file.size > MAX_BYTES) {
-    return { error: 'File too large. Max 4MB.' };
+  if (file.size > MAX_CONTRACTOR_IMAGE_BYTES) {
+    return { error: 'File too large. Max 15MB.' };
   }
 
   const { ext, contentType } = pickExtAndMime(file);
