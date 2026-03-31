@@ -268,7 +268,7 @@ export default function DesignPage() {
             {selectedStyleId && (
               <div>
                 <h2 className={sectionLabel}>4. Colour</h2>
-                <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3">
+                <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {coloursForStyle.map((c) => (
                     <button
                       key={c.id}
@@ -276,9 +276,15 @@ export default function DesignPage() {
                       onClick={() => setSelectedColourId(c.id)}
                       className={selectCard(selectedColourId === c.id)}
                     >
-                      <div className="relative aspect-video overflow-hidden rounded-lg bg-[var(--bg2)]">
+                      <div className="relative h-[200px] w-full overflow-hidden rounded-lg bg-[var(--bg2)]">
                         {c.photo_url ? (
-                          <OptimizedProductImage src={c.photo_url} alt={c.color_name} fill sizes="(max-width: 768px) 50vw, 200px" className="object-cover" />
+                          <OptimizedProductImage
+                            src={c.photo_url}
+                            alt={c.color_name}
+                            fill
+                            sizes="(max-width: 768px) 95vw, 420px"
+                            className="object-contain object-center"
+                          />
                         ) : (
                           <div className="flex h-full items-center justify-center text-sm text-[var(--muted)]">{c.color_name}</div>
                         )}
