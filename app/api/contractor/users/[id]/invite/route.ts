@@ -58,7 +58,7 @@ export async function POST(
 
   // Resend onboarding by sending a password setup/reset email.
   const { error } = await supabaseAdmin.auth.resetPasswordForEmail(target.email, {
-    redirectTo: `${getAppBaseUrl(request.url)}/login`,
+    redirectTo: `${getAppBaseUrl(request.url)}/setup-password`,
   });
 
   if (error) {

@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
 
   const created = inviteMode
     ? await supabaseAdmin.auth.admin.inviteUserByEmail(emailTrim, {
-        redirectTo: `${getAppBaseUrl(request)}/login`,
+        redirectTo: `${getAppBaseUrl(request)}/setup-password`,
       })
     : await supabaseAdmin.auth.admin.createUser({
         email: emailTrim,
