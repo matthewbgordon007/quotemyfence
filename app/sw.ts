@@ -37,6 +37,19 @@ const serwist = new Serwist({
       method: "GET",
       handler: new NetworkOnly({ networkTimeoutSeconds: 30 }),
     },
+    // Dashboard (and related auth flows) must always load fresh JS; otherwise stale
+    // precached HTML/RSC can keep an old 4MB upload limit in memory after deploy.
+    {
+      matcher: ({ url, sameOrigin }) =>
+        sameOrigin &&
+        (url.pathname.startsWith("/dashboard") ||
+          url.pathname.startsWith("/login") ||
+          url.pathname.startsWith("/signup") ||
+          url.pathname.startsWith("/logout") ||
+          url.pathname.startsWith("/master")),
+      method: "GET",
+      handler: new NetworkOnly(),
+    },
     ...defaultCache,
   ],
 });

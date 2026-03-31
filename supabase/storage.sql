@@ -7,7 +7,7 @@ VALUES (
   'contractor-assets',
   'contractor-assets',
   true,
-  5242880,
+  20971520,
   ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif']
 )
 ON CONFLICT (id) DO UPDATE SET

@@ -63,7 +63,8 @@ export async function uploadContractorAssetClient(
   }
 
   if (file.size > MAX_CONTRACTOR_IMAGE_BYTES) {
-    return { error: 'File too large. Max 15MB.' };
+    const mb = Math.round(MAX_CONTRACTOR_IMAGE_BYTES / (1024 * 1024));
+    return { error: `File too large. Max ${mb}MB.` };
   }
 
   const { ext, contentType } = pickExtAndMime(file);

@@ -1,5 +1,5 @@
-/** Browser → Supabase Storage (no app server body limit). */
-export const MAX_CONTRACTOR_IMAGE_BYTES = 15 * 1024 * 1024;
+/** Browser → Supabase Storage (no app server body limit). Keep in sync with `supabase/storage.sql` bucket `file_size_limit`. */
+export const MAX_CONTRACTOR_IMAGE_BYTES = 20 * 1024 * 1024;
 
 /**
  * Multipart POST through `/api/contractor/upload`. Keep at or below Vercel
