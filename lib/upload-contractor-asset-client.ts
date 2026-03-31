@@ -3,6 +3,10 @@
 import { createClient } from '@/lib/supabase/client';
 import { MAX_CONTRACTOR_IMAGE_BYTES } from '@/lib/upload-limits';
 
+const OPTIMIZE_IMAGE_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
+const OPTIMIZE_MAX_DIMENSION = 2000;
+const OPTIMIZE_QUALITY = 0.82;
+
 function pickExtAndMime(file: File): { ext: string; contentType: string } {
   const raw = (file.name.split('.').pop() || '').toLowerCase();
   const norm = raw === 'jpeg' ? 'jpg' : raw;
@@ -28,6 +32,50 @@ function pickExtAndMime(file: File): { ext: string; contentType: string } {
   if (t === 'public.png') return { ext: 'png', contentType: 'image/png' };
   if (t === 'public.heic' || t === 'public.heif') return { ext: 'heic', contentType: 'image/heic' };
   return { ext: 'jpg', contentType: 'image/jpeg' };
+}
+
+function renameWithExt(name: string, ext: string): string {
+  const base = name.replace(/\.[^.]+$/, '');
+  return `${base || 'upload'}.${ext}`;
+}
+
+async function optimizeImageForUpload(file: File): Promise<File> {
+  const type = (file.type || '').toLowerCase().trim();
+  if (!OPTIMIZE_IMAGE_TYPES.has(type)) return file;
+  if (file.size < 300 * 1024) return file;
+
+  try {
+    const bitmap = await createImageBitmap(file);
+    const maxSide = Math.max(bitmap.width, bitmap.height);
+    const scale = maxSide > OPTIMIZE_MAX_DIMENSION ? OPTIMIZE_MAX_DIMENSION / maxSide : 1;
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      bitmap.close();
+      return file;
+    }
+
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close();
+
+    const blob: Blob | null = await new Promise((resolve) =>
+      canvas.toBlob(resolve, 'image/webp', OPTIMIZE_QUALITY)
+    );
+    if (!blob) return file;
+    if (blob.size >= file.size * 0.95) return file;
+
+    return new File([blob], renameWithExt(file.name, 'webp'), {
+      type: 'image/webp',
+      lastModified: Date.now(),
+    });
+  } catch {
+    return file;
+  }
 }
 
 /**
@@ -62,15 +110,17 @@ export async function uploadContractorAssetClient(
     return { error: 'No file selected.' };
   }
 
-  if (file.size > MAX_CONTRACTOR_IMAGE_BYTES) {
+  const preparedFile = await optimizeImageForUpload(file);
+
+  if (preparedFile.size > MAX_CONTRACTOR_IMAGE_BYTES) {
     const mb = Math.round(MAX_CONTRACTOR_IMAGE_BYTES / (1024 * 1024));
     return { error: `File too large. Max ${mb}MB.` };
   }
 
-  const { ext, contentType } = pickExtAndMime(file);
+  const { ext, contentType } = pickExtAndMime(preparedFile);
   const path = `${userRow.contractor_id}/${typePrefix}-${Date.now()}.${ext}`;
 
-  const { error: uploadError } = await supabase.storage.from('contractor-assets').upload(path, file, {
+  const { error: uploadError } = await supabase.storage.from('contractor-assets').upload(path, preparedFile, {
     contentType,
     upsert: true,
   });
