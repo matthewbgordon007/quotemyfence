@@ -1038,38 +1038,40 @@ export default function CalculatorPage() {
                     </select>
                   </div>
                 </div>
-                {selectedColourId && (
-                  <div className="rounded-xl border border-blue-100/80 bg-gradient-to-br from-blue-50/90 via-white to-slate-50/50 p-4 shadow-sm ring-1 ring-blue-500/5">
-                    <label className="mb-2 block text-sm font-medium text-slate-700">
-                      Price per ft <span className="font-normal text-slate-500">(catalogue default — editable for this quote only)</span>
-                    </label>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-slate-600">$</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min={0}
-                        value={pricePerFt > 0 ? pricePerFt : ''}
-                        onChange={(e) => {
-                          const v = safeNum(e.target.value);
-                          setPricePerFtOverride(v > 0 ? v : null);
-                        }}
-                        placeholder={cataloguePricePerFt > 0 ? String(cataloguePricePerFt) : '—'}
-                        className="w-32 rounded-xl border border-slate-200/90 bg-white px-3 py-2.5 text-sm font-semibold tabular-nums text-slate-900 shadow-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
-                      />
-                      <span className="text-xs text-slate-500">/ ft</span>
-                      {pricePerFtOverride != null && (
-                        <button
-                          type="button"
-                          onClick={() => setPricePerFtOverride(null)}
-                          className="text-xs font-semibold text-blue-600 hover:text-blue-500 hover:underline"
-                        >
-                          Reset to catalogue
-                        </button>
-                      )}
-                    </div>
+                <div className="rounded-xl border border-blue-100/80 bg-gradient-to-br from-blue-50/90 via-white to-slate-50/50 p-4 shadow-sm ring-1 ring-blue-500/5">
+                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                    Price per ft <span className="font-normal text-slate-500">(catalogue default — editable for this quote only)</span>
+                  </label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-slate-600">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      value={pricePerFt > 0 ? pricePerFt : ''}
+                      onChange={(e) => {
+                        const v = safeNum(e.target.value);
+                        setPricePerFtOverride(v > 0 ? v : null);
+                      }}
+                      placeholder={cataloguePricePerFt > 0 ? String(cataloguePricePerFt) : '—'}
+                      className="w-32 rounded-xl border border-slate-200/90 bg-white px-3 py-2.5 text-sm font-semibold tabular-nums text-slate-900 shadow-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={!selectedTypeId || !selectedStyleId}
+                    />
+                    <span className="text-xs text-slate-500">/ ft</span>
+                    {pricePerFtOverride != null && (
+                      <button
+                        type="button"
+                        onClick={() => setPricePerFtOverride(null)}
+                        className="text-xs font-semibold text-blue-600 hover:text-blue-500 hover:underline"
+                      >
+                        Reset to catalogue
+                      </button>
+                    )}
                   </div>
-                )}
+                  {(!selectedTypeId || !selectedStyleId) && (
+                    <p className="mt-2 text-xs text-slate-500">Select a fence type and style to edit this price.</p>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-4 border-t border-slate-100 pt-6">
