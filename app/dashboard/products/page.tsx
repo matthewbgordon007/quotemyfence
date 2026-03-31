@@ -9,6 +9,7 @@ import {
   type TierDraft,
 } from '@/components/dashboard/StylePricingModal';
 import { doubleGatePriceFromSingle } from '@/lib/gate-pricing';
+import { uploadContractorAssetClient } from '@/lib/upload-contractor-asset-client';
 
 interface FenceType {
   id: string;
@@ -33,26 +34,6 @@ interface ColourOption {
 
 function byName<T>(get: (item: T) => string) {
   return (a: T, b: T) => get(a).localeCompare(get(b), undefined, { sensitivity: 'base', numeric: true });
-}
-
-async function parseUploadResponse(res: Response): Promise<{
-  ok: boolean;
-  url?: string;
-  message: string;
-}> {
-  const text = await res.text();
-  let data: Record<string, unknown> = {};
-  try {
-    data = text ? (JSON.parse(text) as Record<string, unknown>) : {};
-  } catch {
-    /* ignore */
-  }
-  const url = typeof data.url === 'string' ? data.url : undefined;
-  const ok = res.ok && !!url;
-  const message =
-    (typeof data.error === 'string' && data.error) ||
-    (res.ok ? 'No URL returned' : `Upload failed (${res.status}). ${text.slice(0, 200)}`);
-  return { ok, url, message };
 }
 
 const ADMIN_ROLES = ['owner', 'admin'];
@@ -283,15 +264,12 @@ export default function ProductsPage() {
   async function updateStylePhoto(styleId: string, file: File) {
     setUploadingPhoto(`style-${styleId}`);
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('type', 'style');
-      const res = await fetch('/api/contractor/upload', { method: 'POST', credentials: 'include', body: fd });
-      const { ok, url, message } = await parseUploadResponse(res);
-      if (!ok || !url) {
-        alert(message);
+      const uploaded = await uploadContractorAssetClient(file, 'style');
+      if ('error' in uploaded) {
+        alert(uploaded.error);
         return;
       }
+      const { url } = uploaded;
       const patchRes = await fetch(`/api/contractor/product-hierarchy/styles/${styleId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -315,15 +293,12 @@ export default function ProductsPage() {
   async function updateColourPhoto(colourId: string, file: File) {
     setUploadingPhoto(`colour-${colourId}`);
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('type', 'colour');
-      const res = await fetch('/api/contractor/upload', { method: 'POST', credentials: 'include', body: fd });
-      const { ok, url, message } = await parseUploadResponse(res);
-      if (!ok || !url) {
-        alert(message);
+      const uploaded = await uploadContractorAssetClient(file, 'colour');
+      if ('error' in uploaded) {
+        alert(uploaded.error);
         return;
       }
+      const { url } = uploaded;
       const patchRes = await fetch(`/api/contractor/product-hierarchy/colours/${colourId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
