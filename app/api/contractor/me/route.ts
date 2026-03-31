@@ -14,7 +14,7 @@ export async function GET() {
 
   const { data: userRow } = await supabase
     .from('users')
-    .select('contractor_id, role')
+    .select('id, contractor_id, role')
     .eq('auth_id', user.id)
     .eq('is_active', true)
     .single();
@@ -41,6 +41,7 @@ export async function GET() {
 
   return NextResponse.json({
     ...contractor,
+    user_id: userRow.id,
     user_role: userRow.role,
   });
 }
@@ -58,7 +59,7 @@ export async function PATCH(request: NextRequest) {
 
   const { data: userRow } = await supabase
     .from('users')
-    .select('contractor_id, role')
+    .select('id, contractor_id, role')
     .eq('auth_id', user.id)
     .eq('is_active', true)
     .single();

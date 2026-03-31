@@ -21,6 +21,8 @@ export default function CompanyUsersPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [resendingId, setResendingId] = useState<string | null>(null);
+  const [transferringId, setTransferringId] = useState<string | null>(null);
+  const [imOwner, setImOwner] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -43,6 +45,7 @@ export default function CompanyUsersPage() {
       .then((r) => r.json())
       .then((me) => {
         if (!ADMIN_ROLES.includes(me?.user_role || '')) router.replace('/dashboard');
+        setImOwner(me?.user_role === 'owner');
       })
       .catch(() => {});
     load();
@@ -110,6 +113,35 @@ export default function CompanyUsersPage() {
     }
   }
 
+  async function transferOwnership(user: CompanyUser) {
+    if (user.role === 'owner' || !imOwner) return;
+    if (
+      !confirm(
+        `Make ${user.first_name || 'User'} ${user.last_name || ''} (${user.email}) the account owner?\n\nYou will become an admin and they will have full ownership (billing, users, and settings).`,
+      )
+    )
+      return;
+    setTransferringId(user.id);
+    try {
+      const res = await fetch(`/api/contractor/users/${user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transferOwnership: true }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to transfer ownership');
+      const meRes = await fetch('/api/contractor/me', { cache: 'no-store' });
+      const me = await meRes.json().catch(() => ({}));
+      setImOwner(me?.user_role === 'owner');
+      await load();
+      alert(data.message || 'Ownership transferred.');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to transfer ownership');
+    } finally {
+      setTransferringId(null);
+    }
+  }
+
   async function deleteUser(user: CompanyUser) {
     if (user.role === 'owner') return;
     if (!confirm(`Delete ${user.email}? They will lose login access.`)) return;
@@ -132,6 +164,13 @@ export default function CompanyUsersPage() {
         <h1 className="text-2xl font-bold text-slate-900">Company users</h1>
         <p className="mt-1 text-sm text-slate-600">
           Invite teammates with their own login. They will access this company account and profile based on role.
+          {imOwner ? (
+            <>
+              {' '}
+              You can transfer ownership to another active user with <strong>Make owner</strong>; you will become an
+              admin.
+            </>
+          ) : null}
         </p>
       </div>
 
@@ -225,23 +264,35 @@ export default function CompanyUsersPage() {
                   )}
                 </td>
                 <td className="px-4 py-3">
-                  <button
-                    type="button"
-                    onClick={() => resendInvite(u)}
-                    disabled={resendingId === u.id}
-                    className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                  >
-                    {resendingId === u.id ? 'Sending...' : 'Invite again'}
-                  </button>
-                  {u.role !== 'owner' && (
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => deleteUser(u)}
-                      className="ml-2 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                      onClick={() => resendInvite(u)}
+                      disabled={resendingId === u.id}
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
                     >
-                      Delete
+                      {resendingId === u.id ? 'Sending...' : 'Invite again'}
                     </button>
-                  )}
+                    {imOwner && u.role !== 'owner' && (
+                      <button
+                        type="button"
+                        onClick={() => transferOwnership(u)}
+                        disabled={transferringId === u.id}
+                        className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100 disabled:opacity-60"
+                      >
+                        {transferringId === u.id ? 'Transferring...' : 'Make owner'}
+                      </button>
+                    )}
+                    {u.role !== 'owner' && (
+                      <button
+                        type="button"
+                        onClick={() => deleteUser(u)}
+                        className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
