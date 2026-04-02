@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient as createSupabaseAdmin } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
+import {
+  contractorConflictsErrorMessage,
+  getContractorFieldConflicts,
+  normalizeWebsite,
+} from '@/lib/contractor-uniqueness';
 
 export async function GET() {
   const supabase = await createClient();
@@ -98,6 +104,73 @@ export async function PATCH(request: NextRequest) {
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
   for (const k of allowed) {
     if (body[k] !== undefined) updates[k] = body[k];
+  }
+
+  const admin = createSupabaseAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  if (updates.slug !== undefined && typeof updates.slug === 'string') {
+    const newSlug = updates.slug.trim().toLowerCase();
+    if (newSlug) {
+      const { data: slugTaken } = await admin
+        .from('contractors')
+        .select('id')
+        .eq('slug', newSlug)
+        .neq('id', userRow.contractor_id)
+        .maybeSingle();
+      if (slugTaken) {
+        return NextResponse.json(
+          { error: 'That URL slug is already taken by another company. Choose a different one.' },
+          { status: 400 }
+        );
+      }
+      updates.slug = newSlug;
+    }
+  }
+
+  const { data: currentContractor } = await admin
+    .from('contractors')
+    .select('company_name, phone, website, email')
+    .eq('id', userRow.contractor_id)
+    .single();
+
+  if (!currentContractor) {
+    return NextResponse.json({ error: 'Contractor not found' }, { status: 404 });
+  }
+
+  const nextCompany =
+    updates.company_name !== undefined ? String(updates.company_name).trim() : currentContractor.company_name;
+
+  const nextPhone =
+    updates.phone !== undefined
+      ? typeof updates.phone === 'string' && updates.phone.trim()
+        ? updates.phone.trim()
+        : null
+      : currentContractor.phone;
+
+  let websiteForConflict = normalizeWebsite(currentContractor.website);
+  if (updates.website !== undefined) {
+    const canonical =
+      typeof updates.website === 'string' && updates.website.trim()
+        ? normalizeWebsite(updates.website)
+        : null;
+    websiteForConflict = canonical;
+    updates.website = canonical;
+  }
+
+  if (updates.company_name !== undefined || updates.phone !== undefined || body.website !== undefined) {
+    const conflicts = await getContractorFieldConflicts(admin, {
+      email: '',
+      companyName: nextCompany,
+      phone: nextPhone,
+      website: websiteForConflict,
+      excludeContractorId: userRow.contractor_id,
+    });
+    if (conflicts.length > 0) {
+      return NextResponse.json({ error: contractorConflictsErrorMessage(conflicts) }, { status: 400 });
+    }
   }
 
   const { data: contractor, error } = await supabase

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import {
+  contractorConflictsErrorMessage,
+  getContractorFieldConflicts,
+  normalizeWebsite,
+} from '@/lib/contractor-uniqueness';
 
 function slugify(s: string): string {
   return s
@@ -55,6 +60,19 @@ export async function POST(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
+    const { data: existingAuthUser } = await supabaseAdmin
+      .from('users')
+      .select('id')
+      .eq('auth_id', user.id)
+      .maybeSingle();
+
+    if (existingAuthUser) {
+      return NextResponse.json(
+        { error: 'This login already has a contractor account. Sign in to the dashboard instead of registering again.' },
+        { status: 400 }
+      );
+    }
+
     const { data: existing } = await supabaseAdmin
       .from('contractors')
       .select('id')
@@ -68,6 +86,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const canonicalWebsite = normalizeWebsite(website);
+    const conflicts = await getContractorFieldConflicts(supabaseAdmin, {
+      email: user.email || '',
+      companyName: company_name.trim(),
+      phone: phone?.trim() || null,
+      website: canonicalWebsite,
+    });
+    if (conflicts.length > 0) {
+      return NextResponse.json({ error: contractorConflictsErrorMessage(conflicts) }, { status: 400 });
+    }
+
     const { data: contractor, error: contractorError } = await supabaseAdmin
       .from('contractors')
       .insert({
@@ -75,7 +104,7 @@ export async function POST(request: NextRequest) {
         slug,
         email: user.email!,
         phone: phone?.trim() || null,
-        website: website?.trim() || null,
+        website: canonicalWebsite,
         address_line_1: address_line_1?.trim() || null,
         city: city?.trim() || null,
         province_state: province_state?.trim() || null,

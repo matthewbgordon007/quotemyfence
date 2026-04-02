@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { seedCatalogFromStandard } from '@/lib/seed-catalog-from-standard';
+import {
+  contractorConflictsErrorMessage,
+  getContractorFieldConflicts,
+  normalizeWebsite,
+} from '@/lib/contractor-uniqueness';
 
 function slugify(s: string): string {
   return s
@@ -77,6 +82,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const canonicalWebsite = normalizeWebsite(body.website);
+    const conflicts = await getContractorFieldConflicts(supabaseAdmin, {
+      email: user.email || '',
+      companyName: company_name,
+      phone: body.phone?.trim() || null,
+      website: canonicalWebsite,
+    });
+    if (conflicts.length > 0) {
+      return NextResponse.json({ error: contractorConflictsErrorMessage(conflicts) }, { status: 400 });
+    }
+
     const { data: contractor, error: contractorError } = await supabaseAdmin
       .from('contractors')
       .insert({
@@ -84,7 +100,7 @@ export async function POST(request: NextRequest) {
         slug,
         email: user.email!,
         phone: body.phone?.trim() || null,
-        website: body.website?.trim() || null,
+        website: canonicalWebsite,
         address_line_1: body.address_line_1?.trim() || null,
         city: body.city?.trim() || null,
         province_state: body.province_state?.trim() || null,
