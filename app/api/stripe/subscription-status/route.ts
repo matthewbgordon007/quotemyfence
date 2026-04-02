@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
-import { getActiveContractorUser, isContractorAdminRole } from '@/lib/contractor-auth-helpers';
+import { getActiveContractorUser } from '@/lib/contractor-auth-helpers';
 import { isBillingActive } from '@/lib/billing';
 
+/** Any active team member may read status (e.g. billing page when subscription lapsed). Mutations stay admin-only. */
 export async function GET() {
   const supabase = await createServerClient();
   const cu = await getActiveContractorUser(supabase);
   if (!cu) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (!isContractorAdminRole(cu.role))
-    return NextResponse.json({ error: 'Admin or owner only' }, { status: 403 });
 
   const { data: contractor } = await supabase
     .from('contractors')
