@@ -65,9 +65,22 @@ interface Props {
   styleName: string;
   rule: StylePricingRule;
   installTiers: StyleInstallLengthTier[];
+  /** Sales / view-only: show pricing and bands, no edits or save. */
+  readOnly?: boolean;
+  /** When read-only and true, single-price tab shows “not set” instead of placeholder numbers. */
+  singlePricingUnset?: boolean;
   onSave: (u: Partial<StylePricingRule>) => void;
   onSaveInstallTiers: (tiers: TierDraft[]) => Promise<void>;
   onClose: () => void;
+}
+
+function ReadOnlyField({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-1.5 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900">{value}</p>
+    </div>
+  );
 }
 
 export function StylePricingModal({
@@ -75,6 +88,8 @@ export function StylePricingModal({
   styleName,
   rule,
   installTiers,
+  readOnly = false,
+  singlePricingUnset = false,
   onSave,
   onSaveInstallTiers,
   onClose,
@@ -108,6 +123,7 @@ export function StylePricingModal({
 
   function submitSingle(e: React.FormEvent) {
     e.preventDefault();
+    if (readOnly) return;
     const p = Number(pricePerFt) || 0;
     const s = Number(singleGate) || 0;
     const d = doubleGatePriceFromSingle(s);
@@ -129,6 +145,7 @@ export function StylePricingModal({
 
   async function submitLengthBands(e: React.FormEvent) {
     e.preventDefault();
+    if (readOnly) return;
     setSavingTiers(true);
     try {
       await onSaveInstallTiers(tierRows);
@@ -155,8 +172,11 @@ export function StylePricingModal({
       <div className="relative max-h-[90dvh] w-full max-w-3xl overflow-y-auto rounded-t-2xl border border-slate-200 bg-white shadow-2xl sm:rounded-2xl">
         <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-slate-100 bg-white px-5 py-4 sm:px-6">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Pricing</h2>
+            <h2 className="text-lg font-bold text-slate-900">{readOnly ? 'Pricing (view only)' : 'Pricing'}</h2>
             <p className="mt-0.5 text-sm text-slate-600">{styleName}</p>
+            {readOnly ? (
+              <p className="mt-1 text-xs font-medium text-amber-800">You can view rates and length bands; only admins can change them.</p>
+            ) : null}
           </div>
           <button
             type="button"
@@ -193,7 +213,51 @@ export function StylePricingModal({
           </div>
         </div>
 
-        {tab === 'single' && (
+        {tab === 'single' && readOnly && (
+          <div className="space-y-4 px-5 py-5 sm:px-6">
+            <p className="text-sm text-slate-600">
+              One price for this style. Colours use these numbers unless the catalog uses per-colour pricing.
+            </p>
+            {singlePricingUnset ? (
+              <p className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                No single-price row saved for this style yet.
+                {installTiers.length > 0 ? (
+                  <>
+                    {' '}
+                    This style uses <strong className="font-medium text-slate-800">By install length</strong> bands — switch
+                    tabs to see them.
+                  </>
+                ) : (
+                  <> Ask an admin to set pricing.</>
+                )}
+              </p>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <ReadOnlyField label="Price per ft (CAD)" value={`$${Number(pricePerFt).toFixed(2)}`} />
+                <ReadOnlyField label="Min job (CAD)" value={`$${Number(minJob).toFixed(2)}`} />
+                <ReadOnlyField label="Single gate (CAD)" value={`$${Number(singleGate).toFixed(2)}`} />
+                <ReadOnlyField
+                  label="Double gate (CAD)"
+                  value={`$${Number(doubleGatePriceFromSingle(Number(singleGate) || 0)).toFixed(2)}`}
+                />
+                <div className="sm:col-span-2">
+                  <ReadOnlyField label="Removal per ft (CAD)" value={`$${Number(removal).toFixed(2)}`} />
+                </div>
+              </div>
+            )}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+
+        {tab === 'single' && !readOnly && (
           <form onSubmit={submitSingle} className="space-y-4 px-5 py-5 sm:px-6">
             <p className="text-sm text-slate-600">
               One price for this style. Colours inherit these numbers unless you use per-colour pricing elsewhere.
@@ -270,7 +334,82 @@ export function StylePricingModal({
           </form>
         )}
 
-        {tab === 'length' && (
+        {tab === 'length' && readOnly && (
+          <div className="space-y-4 px-5 py-5 sm:px-6">
+            <p className="text-sm text-slate-600">
+              Rates by <strong className="font-semibold text-slate-800">total install length</strong> (sum of fence footage). Empty max means &quot;and
+              up&quot;. Two-gate = single × 2 − $100.
+            </p>
+            {installTiers.length === 0 ? (
+              <p className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                No install-length bands on file. Use the <strong className="font-medium text-slate-800">Single price</strong> tab for this style&apos;s
+                flat rates.
+              </p>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="whitespace-nowrap px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Min (ft)
+                      </th>
+                      <th className="whitespace-nowrap px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Max (ft)
+                      </th>
+                      <th className="whitespace-nowrap px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        $/ft
+                      </th>
+                      <th className="whitespace-nowrap px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        1-gate
+                      </th>
+                      <th className="whitespace-nowrap px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        2-gate
+                      </th>
+                      <th className="whitespace-nowrap px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Rem/ft
+                      </th>
+                      <th className="whitespace-nowrap px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Min job
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {[...installTiers]
+                      .sort((a, b) => a.display_order - b.display_order)
+                      .map((t) => {
+                        const row = tierToDraft(t);
+                        return (
+                          <tr key={t.id}>
+                            <td className="whitespace-nowrap px-3 py-2 font-medium text-slate-900">{row.min_ft}</td>
+                            <td className="whitespace-nowrap px-3 py-2 text-slate-700">{row.max_ft === '' ? '—' : row.max_ft}</td>
+                            <td className="whitespace-nowrap px-3 py-2 text-slate-900">${Number(row.pricePerFt).toFixed(2)}</td>
+                            <td className="whitespace-nowrap px-3 py-2 text-slate-700">${Number(row.singleGate).toFixed(2)}</td>
+                            <td className="whitespace-nowrap px-3 py-2 text-slate-700">
+                              ${Number(doubleGatePriceFromSingle(Number(row.singleGate) || 0)).toFixed(2)}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 text-slate-700">${Number(row.removal).toFixed(2)}</td>
+                            <td className="whitespace-nowrap px-3 py-2 text-slate-700">${Number(row.minJob).toFixed(2)}</td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <p className="text-xs text-slate-500">Bands apply to total quoted footage for this style.</p>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+
+        {tab === 'length' && !readOnly && (
           <form onSubmit={submitLengthBands} className="space-y-4 px-5 py-5 sm:px-6">
             <p className="text-sm text-slate-600">
               Set price per foot (and gates, etc.) based on <strong className="font-semibold text-slate-800">total install length</strong> for this

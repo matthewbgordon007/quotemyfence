@@ -93,6 +93,9 @@ export default function ProductsPage() {
     styleId: string;
     styleName: string;
     rule: StylePricingRule;
+    readOnly?: boolean;
+    /** Read-only: true when there is no saved style_pricing row (avoid showing placeholder dollars). */
+    singlePricingUnset?: boolean;
   } | null>(null);
   const [editingHeightTypeId, setEditingHeightTypeId] = useState<string | null>(null);
   const [editHeightValue, setEditHeightValue] = useState('');
@@ -437,8 +440,9 @@ export default function ProductsPage() {
           className="mb-6 rounded-xl border border-amber-200/90 bg-amber-50 px-4 py-3 text-sm text-amber-950"
           role="status"
         >
-          <span className="font-semibold">View only.</span> You can browse the catalog; ask a company admin to edit
-          products or pricing.
+          <span className="font-semibold">Limited editing.</span> You can browse the catalog and open{' '}
+          <strong className="font-semibold">View pricing</strong> on each style to see rates and install-length bands. Ask a
+          company admin to change products or prices.
         </div>
       )}
       <div className="flex flex-col gap-4 border-b border-slate-200/90 pb-8 sm:flex-row sm:items-end sm:justify-between">
@@ -456,7 +460,7 @@ export default function ProductsPage() {
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
             {isAdmin
               ? "Types → styles → colours. Use Pricing → By install length on a style to set rates by total footage (e.g. 10'–20', 21'–30'). You can still use multiple style rows with range names for legacy tiering."
-              : 'Your product catalog and pricing. Ask an admin to edit structure or prices.'}
+              : 'Your product catalog. Use View pricing on a style to see flat rates and length bands; ask an admin to edit structure or prices.'}
           </p>
         </div>
         {isAdmin && (
@@ -593,9 +597,19 @@ export default function ProductsPage() {
           styleName={pricingModal.styleName}
           rule={pricingModal.rule}
           installTiers={tiersForStyle(pricingModal.styleId)}
+          readOnly={pricingModal.readOnly ?? false}
+          singlePricingUnset={pricingModal.singlePricingUnset ?? false}
           onClose={() => setPricingModal(null)}
-          onSave={(u) => updateStylePricing(pricingModal.styleId, u)}
-          onSaveInstallTiers={(drafts) => saveInstallLengthTiers(pricingModal.styleId, drafts)}
+          onSave={
+            pricingModal.readOnly
+              ? () => {}
+              : (u) => updateStylePricing(pricingModal.styleId, u)
+          }
+          onSaveInstallTiers={
+            pricingModal.readOnly
+              ? async () => {}
+              : (drafts) => saveInstallLengthTiers(pricingModal.styleId, drafts)
+          }
         />
       )}
 
@@ -792,39 +806,8 @@ export default function ProductsPage() {
                                 )
                               )}
                             </button>
-                            {isAdmin && (
-                              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                                <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                                  <input
-                                    type="checkbox"
-                                    checked={!!s.is_hidden}
-                                    onChange={(e) => updateStyleHidden(s.id, e.target.checked)}
-                                    className="h-3.5 w-3.5 rounded border-slate-300"
-                                  />
-                                  Hidden
-                                </label>
-                                <label
-                                  className={
-                                    uploadingPhoto === `style-${s.id}`
-                                      ? 'cursor-wait text-xs text-slate-400'
-                                      : 'cursor-pointer rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50'
-                                  }
-                                >
-                                  {uploadingPhoto === `style-${s.id}` ? 'Uploading…' : 'Photo'}
-                                  <input
-                                    type="file"
-                                    accept="image/jpeg,image/jpg,image/png,image/webp,image/gif,image/heic,image/heif"
-                                    className="hidden"
-                                    disabled={!!uploadingPhoto}
-                                    onChange={(e) => {
-                                      const f = e.target.files?.[0];
-                                      if (f) {
-                                        updateStylePhoto(s.id, f);
-                                        e.target.value = '';
-                                      }
-                                    }}
-                                  />
-                                </label>
+                            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                              {!isAdmin && (
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -832,31 +815,81 @@ export default function ProductsPage() {
                                       styleId: s.id,
                                       styleName: s.style_name,
                                       rule: styleRule ?? defaultRule(s.id),
+                                      readOnly: true,
+                                      singlePricingUnset: !styleRule,
                                     })
                                   }
                                   className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50"
                                 >
-                                  {styleRule ? 'Pricing' : 'Set pricing'}
+                                  View pricing
                                 </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setAddColourStyleId(s.id);
-                                    setNewColourName('');
-                                  }}
-                                  className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-200"
-                                >
-                                  + Colour
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => deleteStyle(s.id)}
-                                  className="rounded-lg px-2 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            )}
+                              )}
+                              {isAdmin && (
+                                <>
+                                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                                    <input
+                                      type="checkbox"
+                                      checked={!!s.is_hidden}
+                                      onChange={(e) => updateStyleHidden(s.id, e.target.checked)}
+                                      className="h-3.5 w-3.5 rounded border-slate-300"
+                                    />
+                                    Hidden
+                                  </label>
+                                  <label
+                                    className={
+                                      uploadingPhoto === `style-${s.id}`
+                                        ? 'cursor-wait text-xs text-slate-400'
+                                        : 'cursor-pointer rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50'
+                                    }
+                                  >
+                                    {uploadingPhoto === `style-${s.id}` ? 'Uploading…' : 'Photo'}
+                                    <input
+                                      type="file"
+                                      accept="image/jpeg,image/jpg,image/png,image/webp,image/gif,image/heic,image/heif"
+                                      className="hidden"
+                                      disabled={!!uploadingPhoto}
+                                      onChange={(e) => {
+                                        const f = e.target.files?.[0];
+                                        if (f) {
+                                          updateStylePhoto(s.id, f);
+                                          e.target.value = '';
+                                        }
+                                      }}
+                                    />
+                                  </label>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPricingModal({
+                                        styleId: s.id,
+                                        styleName: s.style_name,
+                                        rule: styleRule ?? defaultRule(s.id),
+                                      })
+                                    }
+                                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50"
+                                  >
+                                    {styleRule ? 'Pricing' : 'Set pricing'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setAddColourStyleId(s.id);
+                                      setNewColourName('');
+                                    }}
+                                    className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-200"
+                                  >
+                                    + Colour
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteStyle(s.id)}
+                                    className="rounded-lg px-2 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                                  >
+                                    Delete
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
