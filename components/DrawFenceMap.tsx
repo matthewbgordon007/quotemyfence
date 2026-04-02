@@ -23,6 +23,8 @@ function distanceMeters(
 
 const METERS_TO_FEET = 3.28084;
 const LINE_COLOR = '#FFD700'; // yellow
+/** Max gap between two clicks to count as "double-click" and end the current line (ms) */
+const DOUBLE_CLICK_MS = 650;
 
 const SATELLITE_TILES = 'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}';
 const LIGHT_TILES = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
@@ -97,6 +99,18 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
   const rafRef = useRef<number | null>(null);
   const modeRef = useRef(mode);
   modeRef.current = mode;
+
+  const endLineRef = useRef<() => void>(() => {});
+  endLineRef.current = () => {
+    if (modeRef.current !== 'draw') return;
+    lastClickTime.current = 0;
+    setSegments((prev) => {
+      const last = prev[prev.length - 1];
+      if (!last || last.length < 2) return prev;
+      return [...prev, []];
+    });
+  };
+
   const initialZoom = center ? 20 : 17;
   const maxZoom = 21;
 
@@ -152,11 +166,25 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
         maxZoom,
       }).setView(center, initialZoom);
 
+      if (map.doubleClickZoom && typeof map.doubleClickZoom.disable === 'function') {
+        map.doubleClickZoom.disable();
+      }
+
       const tileUrl = tileVariant === 'light' ? LIGHT_TILES : SATELLITE_TILES;
       const tileOpts = tileVariant === 'light'
         ? { attribution: '© CARTO', maxZoom }
         : { attribution: '© Google', maxZoom, subdomains: '0123' };
       L.tileLayer(tileUrl, tileOpts).addTo(map);
+
+      map.on('dblclick', (e: L.LeafletMouseEvent) => {
+        if (modeRef.current !== 'draw') return;
+        const ev = e.originalEvent;
+        if (ev) {
+          L.DomEvent.preventDefault(ev);
+          L.DomEvent.stopPropagation(ev);
+        }
+        endLineRef.current();
+      });
 
       map.on('click', (e: L.LeafletMouseEvent) => {
         const { lat, lng } = e.latlng;
@@ -172,13 +200,8 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
           return;
         }
         const now = Date.now();
-        if (now - lastClickTime.current < 350) {
-          lastClickTime.current = 0;
-          setSegments((prev) => {
-            const last = prev[prev.length - 1];
-            if (!last || last.length < 2) return prev;
-            return [...prev, []];
-          });
+        if (now - lastClickTime.current < DOUBLE_CLICK_MS) {
+          endLineRef.current();
           return;
         }
         lastClickTime.current = now;
@@ -420,6 +443,21 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
     setMode(type === 'single' ? 'place_single_gate' : 'place_double_gate');
   }
 
+  const lastSeg = segments.length > 0 ? segments[segments.length - 1] : null;
+  const canFinishLine = mode === 'draw' && (lastSeg?.length ?? 0) >= 2;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      const el = e.target as HTMLElement;
+      if (el.closest('input') || el.closest('textarea') || el.closest('select')) return;
+      e.preventDefault();
+      endLineRef.current();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   return (
     <div className="relative h-full w-full">
       <MapSearchOverlay />
@@ -444,6 +482,15 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
             Reset all
           </button>
         )}
+        <button
+          type="button"
+          onClick={() => endLineRef.current()}
+          disabled={!canFinishLine}
+          title="Use when you’re done with this fence run (same as double-click or Esc)"
+          className="rounded-xl border-2 border-amber-400 bg-amber-50 px-4 py-2 text-sm font-bold text-amber-950 shadow hover:bg-amber-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+        >
+          Finish line
+        </button>
         <button
           type="button"
           onClick={undo}
@@ -540,7 +587,11 @@ function MapSearchOverlay() {
           autoComplete="off"
         />
       </div>
-      <span className="text-xs text-white drop-shadow-md">Double-click to end line • Yellow = fence</span>
+      <span className="max-w-[min(100vw-2rem,22rem)] text-xs leading-snug text-white drop-shadow-md">
+        <strong>Finish a section:</strong> tap <strong>Finish line</strong> (easiest), double‑click the map, or press{' '}
+        <kbd className="rounded bg-black/30 px-1">Esc</kbd>. You have a bit longer between double‑clicks than before. Yellow =
+        fence.
+      </span>
     </div>
   );
 }

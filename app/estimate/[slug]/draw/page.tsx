@@ -127,7 +127,10 @@ export default function DrawPage() {
               </li>
               <li className="flex gap-3">
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]/15 text-sm font-bold text-[var(--accent)]">2</span>
-                <span><strong>Double-click</strong> when you finish one section of fence. Then click again to start a new section.</span>
+                <span>
+                  When you finish one straight run, tap <strong>Finish line</strong> (bottom left), <strong>double‑click</strong>{' '}
+                  the map, or press <strong>Esc</strong>. Then keep clicking to start the next section.
+                </span>
               </li>
               <li className="flex gap-3">
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]/15 text-sm font-bold text-[var(--accent)]">3</span>
