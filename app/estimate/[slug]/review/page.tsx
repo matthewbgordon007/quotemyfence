@@ -3,6 +3,7 @@
 import { useRouter, useParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { OptimizedProductImage } from '@/components/OptimizedProductImage';
+import { estimateStepPath } from '@/lib/estimate-session-url';
 import { useEstimate, type EstimateConfig } from '../EstimateContext';
 
 type ReviewSelection =
@@ -94,7 +95,7 @@ export default function ReviewPage() {
         const msg = await res.text();
         throw new Error(msg || 'Submit failed');
       }
-      router.push(`/estimate/${slug}/complete`);
+      router.push(estimateStepPath(slug, 'complete', state.sessionId));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong');
     } finally {

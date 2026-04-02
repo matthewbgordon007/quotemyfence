@@ -1,7 +1,8 @@
 'use client';
 
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { estimateStepPath, ESTIMATE_SESSION_QUERY } from '@/lib/estimate-session-url';
 import { useEstimate } from '../EstimateContext';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -33,6 +34,7 @@ export default function ContactPage() {
   const { config, state, setContact, setSessionId, resetState } = useEstimate();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const contactPrefillKeyRef = useRef<string>('');
 
   const {
     register,
@@ -54,8 +56,37 @@ export default function ContactPage() {
     if (searchParams.get('new') === '1') {
       resetState();
       reset(defaultContactValues);
+      contactPrefillKeyRef.current = '';
+      const sp = new URLSearchParams(searchParams.toString());
+      sp.delete(ESTIMATE_SESSION_QUERY);
+      const rest = sp.toString();
+      router.replace(`/estimate/${encodeURIComponent(slug)}/contact${rest ? `?${rest}` : ''}`);
     }
-  }, [searchParams, resetState, reset]);
+  }, [searchParams, resetState, reset, router, slug]);
+
+  useEffect(() => {
+    if (searchParams.get('new') === '1') return;
+    const sid = searchParams.get(ESTIMATE_SESSION_QUERY);
+    if (!state.contact.email || !sid) return;
+    const key = `${sid}:${state.contact.email}`;
+    if (contactPrefillKeyRef.current === key) return;
+    contactPrefillKeyRef.current = key;
+    reset({
+      firstName: state.contact.firstName,
+      lastName: state.contact.lastName,
+      email: state.contact.email,
+      phone: state.contact.phone || '',
+      leadSource: state.contact.leadSource || '',
+    });
+  }, [
+    searchParams,
+    state.contact.email,
+    state.contact.firstName,
+    state.contact.lastName,
+    state.contact.phone,
+    state.contact.leadSource,
+    reset,
+  ]);
 
   async function onSubmit(data: ContactFormData) {
     setError(null);
@@ -88,7 +119,7 @@ export default function ContactPage() {
         phone: data.phone,
         leadSource: data.leadSource || '',
       });
-      router.push(`/estimate/${slug}/location`);
+      router.push(estimateStepPath(slug, 'location', json.sessionId));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong');
     } finally {

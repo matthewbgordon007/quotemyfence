@@ -1,7 +1,8 @@
 'use client';
 
 import { useRouter, useParams } from 'next/navigation';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { estimateStepPath } from '@/lib/estimate-session-url';
 import { useEstimate } from '../EstimateContext';
 import { DrawFenceMap } from '@/components/DrawFenceMap';
 
@@ -26,6 +27,17 @@ export default function DrawPage() {
   }
   const [saving, setSaving] = useState(false);
   const [removalModal, setRemovalModal] = useState(false);
+
+  useEffect(() => {
+    if (state.drawing && state.drawing.points.length >= 2) {
+      setDrawingData(state.drawing);
+    }
+  }, [state.drawing]);
+
+  const mapRemountKey =
+    state.drawing && state.drawing.points.length >= 2
+      ? `${state.sessionId ?? 'local'}-${state.drawing.points.length}-${state.drawing.total_length_ft}`
+      : `new-${resetKey}`;
 
   const handleDrawingComplete = useCallback(
     (data: {
@@ -52,7 +64,7 @@ export default function DrawPage() {
   async function handleRemovalChoice(hasRemoval: boolean) {
     setHasRemoval(hasRemoval);
     if (!state.sessionId) {
-      router.push(`/estimate/${slug}/design`);
+      router.push(estimateStepPath(slug, 'design', null));
       return;
     }
     setSaving(true);
@@ -69,7 +81,7 @@ export default function DrawPage() {
         }),
       });
       if (!res.ok) throw new Error(await res.text());
-      router.push(`/estimate/${slug}/design`);
+      router.push(estimateStepPath(slug, 'design', state.sessionId));
     } catch (e) {
       console.error(e);
     } finally {
@@ -141,7 +153,7 @@ export default function DrawPage() {
 
       <div className="relative flex-1">
         <DrawFenceMap
-          key={resetKey}
+          key={mapRemountKey}
           center={
             state.property?.lat != null && state.property?.lng != null
               ? [state.property.lat, state.property.lng]
@@ -149,7 +161,7 @@ export default function DrawPage() {
           }
           onDrawingComplete={handleDrawingComplete}
           onReset={handleReset}
-          initialDrawing={resetKey === 0 ? state.drawing : null}
+          initialDrawing={state.drawing}
         />
       </div>
 

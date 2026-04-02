@@ -2,6 +2,7 @@
 
 import { useRouter, useParams } from 'next/navigation';
 import { useState, useEffect, useMemo } from 'react';
+import { estimateStepPath } from '@/lib/estimate-session-url';
 import { useEstimate } from '../EstimateContext';
 import { DesignSimpleOptions } from '../DesignSimpleOptions';
 import { OptimizedProductImage } from '@/components/OptimizedProductImage';
@@ -149,13 +150,33 @@ export default function DesignPage() {
 
   useEffect(() => {
     if (!hasHierarchy || availableHeights.length === 0) return;
+    if (state.selectedColourOptionId) return;
     if (selectedHeightFt == null || !availableHeights.includes(selectedHeightFt)) {
       setSelectedHeightFt(availableHeights[0]);
       setSelectedTypeId(null);
       setSelectedStyleId(null);
       setSelectedColourId(null);
     }
-  }, [hasHierarchy, availableHeights, selectedHeightFt]);
+  }, [hasHierarchy, availableHeights, selectedHeightFt, state.selectedColourOptionId]);
+
+  useEffect(() => {
+    if (!hasHierarchy || !hierarchy || !state.selectedColourOptionId) return;
+    const colour = hierarchy.colourOptions.find((c) => c.id === state.selectedColourOptionId);
+    if (!colour) return;
+    const style = hierarchy.fenceStyles.find((s) => s.id === colour.fence_style_id);
+    if (!style) return;
+    const type = hierarchy.fenceTypes.find((t) => t.id === style.fence_type_id);
+    if (!type) return;
+    setSelectedStyleId(style.id);
+    setSelectedTypeId(type.id);
+    setSelectedHeightFt(Number(type.standard_height_ft));
+    setSelectedColourId(state.selectedColourOptionId);
+  }, [hasHierarchy, hierarchy, state.selectedColourOptionId]);
+
+  useEffect(() => {
+    if (hasHierarchy) return;
+    if (state.selectedProductOptionId) setSelectedColourId(state.selectedProductOptionId);
+  }, [hasHierarchy, state.selectedProductOptionId]);
 
   useEffect(() => {
     const warm = (urls: string[]) => {
@@ -192,7 +213,7 @@ export default function DesignPage() {
     }
 
     if (!state.sessionId) {
-      router.push(`/estimate/${slug}/review`);
+      router.push(estimateStepPath(slug, 'review', null));
       return;
     }
 
@@ -214,7 +235,7 @@ export default function DesignPage() {
         }),
       });
       if (!res.ok) throw new Error(await res.text());
-      router.push(`/estimate/${slug}/review`);
+      router.push(estimateStepPath(slug, 'review', state.sessionId));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save design');
     } finally {

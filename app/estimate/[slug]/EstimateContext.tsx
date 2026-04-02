@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import type { Contractor, LeadSource, SalesTeamMember } from '@/lib/types';
 
 export interface ProductWithOptions {
@@ -40,11 +40,16 @@ export interface EstimateConfig {
   leadSources: LeadSource[];
 }
 
-interface EstimateState {
+export interface EstimateState {
   sessionId: string | null;
   contact: { firstName: string; lastName: string; email: string; phone: string; leadSource: string };
   property: { formattedAddress: string; lat: number | null; lng: number | null; placeId: string | null } | null;
-  drawing: { points: { lat: number; lng: number }[]; segments: { length_ft: number }[]; gates: { type: 'single' | 'double'; quantity: number }[]; total_length_ft: number } | null;
+  drawing: {
+    points: { lat: number; lng: number }[];
+    segments: { length_ft: number }[];
+    gates: { type: 'single' | 'double'; quantity: number; lat?: number; lng?: number }[];
+    total_length_ft: number;
+  } | null;
   hasRemoval: boolean;
   selectedProductOptionId: string | null;
   selectedColourOptionId: string | null;
@@ -70,6 +75,17 @@ const defaultState: EstimateState = {
   totals: null,
 };
 
+export type EstimateHydrationPayload = {
+  sessionId: string;
+  contact: EstimateState['contact'];
+  property: EstimateState['property'];
+  drawing: EstimateState['drawing'];
+  hasRemoval: boolean;
+  selectedProductOptionId: string | null;
+  selectedColourOptionId: string | null;
+  totals: EstimateState['totals'];
+};
+
 const EstimateContext = createContext<{
   config: EstimateConfig;
   state: EstimateState;
@@ -81,6 +97,7 @@ const EstimateContext = createContext<{
   setSelectedProductOptionId: (id: string | null) => void;
   setSelectedColourOptionId: (id: string | null) => void;
   setTotals: (t: EstimateState['totals']) => void;
+  hydrateFromServer: (data: EstimateHydrationPayload) => void;
   resetState: () => void;
 } | null>(null);
 
@@ -93,6 +110,20 @@ export function EstimateProvider({
 }) {
   const [state, setState] = useState<EstimateState>(defaultState);
 
+  const hydrateFromServer = useCallback((data: EstimateHydrationPayload) => {
+    setState((s) => ({
+      ...s,
+      sessionId: data.sessionId,
+      contact: { ...defaultContact, ...data.contact },
+      property: data.property,
+      drawing: data.drawing,
+      hasRemoval: data.hasRemoval,
+      selectedProductOptionId: data.selectedProductOptionId,
+      selectedColourOptionId: data.selectedColourOptionId,
+      totals: data.totals,
+    }));
+  }, []);
+
   const value = useMemo(() => {
     if (!config) return null;
     return {
@@ -103,12 +134,15 @@ export function EstimateProvider({
       setProperty: (property: EstimateState['property']) => setState((s) => ({ ...s, property })),
       setDrawing: (drawing: EstimateState['drawing']) => setState((s) => ({ ...s, drawing })),
       setHasRemoval: (hasRemoval: boolean) => setState((s) => ({ ...s, hasRemoval })),
-      setSelectedProductOptionId: (selectedProductOptionId: string | null) => setState((s) => ({ ...s, selectedProductOptionId })),
-      setSelectedColourOptionId: (selectedColourOptionId: string | null) => setState((s) => ({ ...s, selectedColourOptionId })),
+      setSelectedProductOptionId: (selectedProductOptionId: string | null) =>
+        setState((s) => ({ ...s, selectedProductOptionId })),
+      setSelectedColourOptionId: (selectedColourOptionId: string | null) =>
+        setState((s) => ({ ...s, selectedColourOptionId })),
       setTotals: (totals: EstimateState['totals']) => setState((s) => ({ ...s, totals })),
+      hydrateFromServer,
       resetState: () => setState(defaultState),
     };
-  }, [config, state]);
+  }, [config, state, hydrateFromServer]);
 
   if (!value) return null;
   return (

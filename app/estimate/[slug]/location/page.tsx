@@ -2,6 +2,7 @@
 
 import { useRouter, useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import { estimateStepPath } from '@/lib/estimate-session-url';
 import { useEstimate } from '../EstimateContext';
 import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 
@@ -73,7 +74,7 @@ export default function LocationPage() {
         lng: selectedPlace?.lng ?? state.property?.lng ?? null,
         placeId: selectedPlace?.placeId ?? state.property?.placeId ?? null,
       });
-      router.push(`/estimate/${slug}/draw`);
+      router.push(estimateStepPath(slug, 'draw', state.sessionId));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong');
     } finally {

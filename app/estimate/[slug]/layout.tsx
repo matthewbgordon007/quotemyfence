@@ -1,6 +1,8 @@
+import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import { getContractorPublicConfig } from '@/lib/contractor';
 import { EstimateProvider } from './EstimateContext';
+import { EstimateSessionHydration } from './EstimateSessionHydration';
 import { EstimateStepIndicator } from './EstimateStepIndicator';
 
 export default async function EstimateLayout({
@@ -20,6 +22,9 @@ export default async function EstimateLayout({
 
   return (
     <EstimateProvider config={config}>
+      <Suspense fallback={null}>
+        <EstimateSessionHydration slug={slug} />
+      </Suspense>
       <div
         className="min-h-screen bg-gradient-to-b from-slate-50/80 via-white to-slate-50/60"
         style={
