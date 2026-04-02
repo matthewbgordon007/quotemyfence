@@ -47,6 +47,7 @@ const businessLinks = [
     href: '/dashboard/billing',
     label: 'Billing',
     icon: <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5m-18 0h16.5A1.5 1.5 0 0 1 21.75 9.75v8.25a1.5 1.5 0 0 1-1.5 1.5H3.75a1.5 1.5 0 0 1-1.5-1.5V9.75a1.5 1.5 0 0 1 1.5-1.5Zm3 6h3.75" />,
+    adminOnly: true,
   },
   {
     href: '/dashboard/users',

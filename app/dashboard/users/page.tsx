@@ -27,7 +27,7 @@ export default function CompanyUsersPage() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'admin' | 'sales' | 'estimator'>('sales');
+  const [role, setRole] = useState<'admin' | 'sales'>('sales');
 
   async function load() {
     const res = await fetch('/api/contractor/users', { credentials: 'include', cache: 'no-store' });
@@ -199,11 +199,10 @@ export default function CompanyUsersPage() {
           />
           <select
             value={role}
-            onChange={(e) => setRole(e.target.value as 'admin' | 'sales' | 'estimator')}
+            onChange={(e) => setRole(e.target.value as 'admin' | 'sales')}
             className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
           >
             <option value="sales">Sales</option>
-            <option value="estimator">Estimator</option>
             <option value="admin">Admin</option>
           </select>
         </div>
@@ -239,13 +238,15 @@ export default function CompanyUsersPage() {
                     <span className="text-slate-700">Owner</span>
                   ) : (
                     <select
-                      value={u.role}
+                      value={u.role === 'estimator' ? 'estimator' : u.role}
                       onChange={(e) => updateUser(u, { role: e.target.value })}
                       className="rounded-lg border border-slate-200 px-2.5 py-1.5"
                     >
                       <option value="admin">Admin</option>
                       <option value="sales">Sales</option>
-                      <option value="estimator">Estimator</option>
+                      {u.role === 'estimator' ? (
+                        <option value="estimator">Estimator (legacy — switch to Sales)</option>
+                      ) : null}
                     </select>
                   )}
                 </td>

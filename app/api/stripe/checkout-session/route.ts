@@ -1,28 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { getActiveContractorUser, isContractorAdminRole } from '@/lib/contractor-auth-helpers';
 import { getStripe, getStripePriceId } from '@/lib/stripe';
 
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-    const { data: userRow } = await supabase
-      .from('users')
-      .select('contractor_id')
-      .eq('auth_id', user.id)
-      .eq('is_active', true)
-      .single();
-    if (!userRow?.contractor_id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    const cu = await getActiveContractorUser(supabase);
+    if (!cu) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!isContractorAdminRole(cu.role))
+      return NextResponse.json({ error: 'Admin or owner only' }, { status: 403 });
+    const userRow = { contractor_id: cu.contractorId };
 
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     const { data: contractor } = await supabaseAdmin
       .from('contractors')
@@ -35,7 +33,7 @@ export async function POST(request: NextRequest) {
     let customerId = contractor.stripe_customer_id as string | null;
     if (!customerId) {
       const customer = await stripe.customers.create({
-        email: contractor.email || user.email || undefined,
+        email: contractor.email || user?.email || undefined,
         name: contractor.company_name || undefined,
         metadata: { contractor_id: contractor.id },
       });

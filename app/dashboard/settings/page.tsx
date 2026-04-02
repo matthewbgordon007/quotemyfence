@@ -569,7 +569,8 @@ export default function SettingsPage() {
                 <h2 className="text-base font-semibold text-slate-900">Team users</h2>
               </div>
               <p className="mt-1 text-xs text-slate-500">
-                Dashboard logins — admins manage catalog and prices; sales and estimators use leads and the calculator.
+                Admins can manage billing, team, settings, and the product catalog. Sales logins use leads, quotes, and
+                templates — they cannot change pricing or billing.
               </p>
             </div>
             <div className="space-y-6 p-5 sm:p-6">
@@ -625,7 +626,6 @@ export default function SettingsPage() {
                     >
                       <option value="admin">Admin</option>
                       <option value="sales">Sales</option>
-                      <option value="estimator">Estimator</option>
                     </select>
                   </div>
                 </div>
@@ -698,7 +698,7 @@ export default function SettingsPage() {
                       {u.role !== 'owner' && (
                         <div className="flex items-center gap-2">
                           <select
-                            value={u.role}
+                            value={u.role === 'estimator' ? 'estimator' : u.role}
                             onChange={async (e) => {
                               const r = e.target.value;
                               const res = await fetch(`/api/contractor/users/${u.id}`, {
@@ -716,7 +716,9 @@ export default function SettingsPage() {
                           >
                             <option value="admin">Admin</option>
                             <option value="sales">Sales</option>
-                            <option value="estimator">Estimator</option>
+                            {u.role === 'estimator' ? (
+                              <option value="estimator">Estimator (legacy)</option>
+                            ) : null}
                           </select>
                           <button
                             type="button"

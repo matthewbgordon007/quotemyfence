@@ -112,7 +112,7 @@ export async function PATCH(
 
   const updates: Record<string, unknown> = {};
   if (typeof is_active === 'boolean') updates.is_active = is_active;
-  if (newRole && ['admin', 'sales', 'estimator'].includes(newRole)) updates.role = newRole;
+  if (newRole && ['admin', 'sales'].includes(newRole)) updates.role = newRole;
 
   if (Object.keys(updates).length === 0)
     return NextResponse.json({ error: 'No valid updates' }, { status: 400 });

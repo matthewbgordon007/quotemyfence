@@ -1,20 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { getActiveContractorUser, isContractorAdminRole } from '@/lib/contractor-auth-helpers';
 import { doubleGatePriceFromSingle } from '@/lib/gate-pricing';
-
-async function getContractorId(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-  const { data: ur } = await supabase
-    .from('users')
-    .select('contractor_id')
-    .eq('auth_id', user.id)
-    .eq('is_active', true)
-    .single();
-  return ur?.contractor_id ?? null;
-}
 
 type TierPayload = {
   min_ft: number;
@@ -38,8 +25,11 @@ type Body = {
 
 export async function PUT(request: NextRequest) {
   const supabase = await createClient();
-  const contractorId = await getContractorId(supabase);
-  if (!contractorId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const cu = await getActiveContractorUser(supabase);
+  if (!cu) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!isContractorAdminRole(cu.role))
+    return NextResponse.json({ error: 'Admin or owner only' }, { status: 403 });
+  const contractorId = cu.contractorId;
 
   const body = (await request.json()) as Body;
   const fence_style_id = body.fence_style_id;

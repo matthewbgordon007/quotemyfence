@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-
-async function getContractorId(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-  const { data: ur } = await supabase.from('users').select('contractor_id').eq('auth_id', user.id).eq('is_active', true).single();
-  return ur?.contractor_id ?? null;
-}
+import { getActiveContractorUser, isContractorAdminRole } from '@/lib/contractor-auth-helpers';
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
-  const contractorId = await getContractorId(supabase);
-  if (!contractorId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const cu = await getActiveContractorUser(supabase);
+  if (!cu) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!isContractorAdminRole(cu.role))
+    return NextResponse.json({ error: 'Admin or owner only' }, { status: 403 });
+  const contractorId = cu.contractorId;
 
   const { data: row } = await supabase.from('fence_heights').select('contractor_id').eq('id', id).single();
   if (!row || row.contractor_id !== contractorId) return NextResponse.json({ error: 'Not found' }, { status: 404 });

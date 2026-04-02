@@ -1,6 +1,8 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { isContractorAdminRole } from '@/lib/contractor-auth-helpers';
 
 type BillingState = {
   status: string | null;
@@ -12,10 +14,29 @@ type BillingState = {
 };
 
 export default function BillingPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [state, setState] = useState<BillingState | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/contractor/me', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((data: { user_role?: string }) => {
+        if (cancelled) return;
+        if (!isContractorAdminRole(data?.user_role)) {
+          router.replace('/dashboard');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) router.replace('/dashboard');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   async function loadStatus() {
     setLoading(true);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { isContractorAdminRole } from '@/lib/contractor-auth-helpers';
 import { MAX_CONTRACTOR_IMAGE_BYTES_SERVER } from '@/lib/upload-limits';
 
 const MAX_BYTES = MAX_CONTRACTOR_IMAGE_BYTES_SERVER;
@@ -137,7 +138,7 @@ export async function POST(request: NextRequest) {
 
     const { data: userRow } = await supabaseAdmin
       .from('users')
-      .select('contractor_id')
+      .select('contractor_id, role')
       .eq('auth_id', user.id)
       .eq('is_active', true)
       .single();
@@ -147,6 +148,9 @@ export async function POST(request: NextRequest) {
         { error: 'Contractor account not found' },
         { status: 403 }
       );
+    }
+    if (!isContractorAdminRole(userRow.role)) {
+      return NextResponse.json({ error: 'Admin or owner only' }, { status: 403 });
     }
 
     let formData: FormData;

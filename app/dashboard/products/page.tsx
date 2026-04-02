@@ -432,6 +432,15 @@ export default function ProductsPage() {
 
   return (
     <div className="mx-auto max-w-6xl pb-8">
+      {!isAdmin && (
+        <div
+          className="mb-6 rounded-xl border border-amber-200/90 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+          role="status"
+        >
+          <span className="font-semibold">View only.</span> You can browse the catalog; ask a company admin to edit
+          products or pricing.
+        </div>
+      )}
       <div className="flex flex-col gap-4 border-b border-slate-200/90 pb-8 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-medium text-slate-500">Catalog</p>

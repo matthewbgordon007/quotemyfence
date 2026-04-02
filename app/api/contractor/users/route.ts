@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
   if (!inviteMode && (!password || String(password).length < 6))
     return NextResponse.json({ error: 'Password required (min 6 characters)' }, { status: 400 });
 
-  const validRoles = ['admin', 'sales', 'estimator'];
+  const validRoles = ['admin', 'sales'];
   const roleToSet = validRoles.includes(newRole) ? newRole : 'sales';
 
   const supabaseAdmin = createClient(
