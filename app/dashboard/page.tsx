@@ -187,12 +187,20 @@ export default function DashboardPage() {
 
       {/* KPI strip */}
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
-        <div
-          className={`rounded-2xl border p-5 shadow-sm transition-shadow ${
+        <Link
+          href="/dashboard/customers"
+          className={`block rounded-2xl border p-5 shadow-sm outline-none transition hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
             unviewedCount > 0
-              ? 'border-blue-200/80 bg-gradient-to-br from-blue-50/90 to-white ring-1 ring-blue-100'
-              : 'border-slate-200/80 bg-white'
+              ? 'border-blue-200/80 bg-gradient-to-br from-blue-50/90 to-white ring-1 ring-blue-100 hover:border-blue-300 hover:shadow-md'
+              : 'border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50/90 hover:shadow-sm'
           }`}
+          aria-label={
+            loading
+              ? 'Open leads'
+              : unviewedCount > 0
+                ? `Open leads — ${unviewedCount} new or unviewed quotes`
+                : 'Open leads — no unviewed quotes'
+          }
         >
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Needs attention</p>
           {loading ? (
@@ -201,7 +209,7 @@ export default function DashboardPage() {
             <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{unviewedCount}</p>
           )}
           <p className="mt-1 text-sm text-slate-600">New or unviewed leads</p>
-        </div>
+        </Link>
         <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Leads ({analyticsPeriod})</p>
           {analyticsLoading ? (
