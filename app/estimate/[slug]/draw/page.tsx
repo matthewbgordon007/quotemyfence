@@ -64,7 +64,7 @@ export default function DrawPage() {
   async function handleRemovalChoice(hasRemoval: boolean) {
     setHasRemoval(hasRemoval);
     if (!state.sessionId) {
-      router.push(estimateStepPath(slug, 'design', null));
+      router.push(estimateStepPath(slug, 'design-preload', null));
       return;
     }
     setSaving(true);
@@ -81,7 +81,7 @@ export default function DrawPage() {
         }),
       });
       if (!res.ok) throw new Error(await res.text());
-      router.push(estimateStepPath(slug, 'design', state.sessionId));
+      router.push(estimateStepPath(slug, 'design-preload', state.sessionId));
     } catch (e) {
       console.error(e);
     } finally {

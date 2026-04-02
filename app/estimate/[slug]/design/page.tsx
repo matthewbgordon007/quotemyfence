@@ -68,14 +68,6 @@ export default function DesignPage() {
   const coloursForStyle = hierarchy
     ? hierarchy.colourOptions.filter((c) => c.fence_style_id === selectedStyleId)
     : [];
-  const stylePreviewUrls = useMemo(
-    () => stylesForType.map((s) => s.photo_url).filter((u): u is string => !!u && u.trim().length > 0),
-    [stylesForType]
-  );
-  const colourPreviewUrls = useMemo(
-    () => coloursForStyle.map((c) => c.photo_url).filter((u): u is string => !!u && u.trim().length > 0),
-    [coloursForStyle]
-  );
 
   const optionId = hasHierarchy ? selectedColourId : state.selectedProductOptionId ?? selectedColourId;
   const displayTotals = state.totals ?? (range
@@ -177,27 +169,6 @@ export default function DesignPage() {
     if (hasHierarchy) return;
     if (state.selectedProductOptionId) setSelectedColourId(state.selectedProductOptionId);
   }, [hasHierarchy, state.selectedProductOptionId]);
-
-  useEffect(() => {
-    const warm = (urls: string[]) => {
-      const unique = Array.from(new Set(urls)).slice(0, 8);
-      for (const url of unique) {
-        const img = new Image();
-        img.decoding = 'async';
-        img.src = url;
-      }
-    };
-    warm(stylePreviewUrls);
-  }, [stylePreviewUrls]);
-
-  useEffect(() => {
-    const unique = Array.from(new Set(colourPreviewUrls)).slice(0, 8);
-    for (const url of unique) {
-      const img = new Image();
-      img.decoding = 'async';
-      img.src = url;
-    }
-  }, [colourPreviewUrls]);
 
   async function handleContinue() {
     if (!optionId) {

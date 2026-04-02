@@ -10,13 +10,14 @@ const STEPS = [
 ];
 
 export function EstimateStepProgress({ currentStep }: { currentStep: string }) {
-  const currentIdx = STEPS.findIndex((s) => s.id === currentStep);
+  const stepForUi = currentStep === 'design-preload' ? 'design' : currentStep;
+  const currentIdx = STEPS.findIndex((s) => s.id === stepForUi);
   const isComplete = currentStep === 'complete';
 
   return (
     <div className="flex items-center justify-center gap-1 sm:gap-2">
       {STEPS.map((step, i) => {
-        const isActive = step.id === currentStep;
+        const isActive = step.id === stepForUi;
         const isPast = currentIdx > i || isComplete;
         const isLast = i === STEPS.length - 1;
         return (
