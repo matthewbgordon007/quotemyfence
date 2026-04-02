@@ -108,6 +108,8 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
   const [dragFeet, setDragFeet] = useState<number | null>(null);
   const lastClickTime = useRef(0);
   const previewLayersRef = useRef<{ remove: () => void }[]>([]);
+  /** Cached after first load — avoids repeated dynamic import on every redraw (Esc / finish line). */
+  const leafletLibRef = useRef<typeof import('leaflet') | null>(null);
   const mousePosRef = useRef<{ lat: number; lng: number } | null>(null);
   const rafRef = useRef<number | null>(null);
   const modeRef = useRef(mode);
@@ -117,6 +119,13 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
   endLineRef.current = () => {
     if (modeRef.current !== 'draw') return;
     lastClickTime.current = 0;
+    // Remove dashed preview immediately (don’t wait for React re-render + dynamic import).
+    const map = mapRef.current;
+    if (map) {
+      previewLayersRef.current.forEach((l) => l.remove());
+      previewLayersRef.current = [];
+    }
+    setDragFeet(null);
     setSegments((prev) => {
       const last = prev[prev.length - 1];
       if (!last || last.length < 2) return prev;
@@ -160,7 +169,6 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
     });
   }
 
-  const notifyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const propertyMarkerRef = useRef<import('leaflet').Marker | null>(null);
 
   // Property / “your home” pin (separate from fence layers)
@@ -177,7 +185,7 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
     }
 
     let cancelled = false;
-    import('leaflet').then((L) => {
+    const place = (L: typeof import('leaflet')) => {
       if (cancelled || !mapRef.current) return;
       propertyMarkerRef.current?.remove();
       const title = (propertyLabel || 'Your address').trim() || 'Your address';
@@ -197,7 +205,17 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
       }).addTo(mapRef.current);
       m.bindTooltip(escapeHtml(title), { direction: 'top', offset: [0, -6] });
       propertyMarkerRef.current = m;
-    });
+    };
+    const L0 = leafletLibRef.current;
+    if (L0) {
+      place(L0);
+    } else {
+      import('leaflet').then((L) => {
+        if (cancelled || !mapRef.current) return;
+        leafletLibRef.current = L;
+        place(L);
+      });
+    }
 
     return () => {
       cancelled = true;
@@ -211,6 +229,7 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
     let cancelled = false;
     import('leaflet').then((L) => {
       if (cancelled || !containerRef.current) return;
+      leafletLibRef.current = L;
       // Avoid "Map container is already initialized" (e.g. React Strict Mode or re-mount)
       if (mapRef.current) {
         mapRef.current.remove();
@@ -340,13 +359,13 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
 
     const segs = segments;
     const gates = placedGates;
+    let cancelled = false;
 
-    const doUpdate = () => {
-      import('leaflet').then((L) => {
-        const map = mapRef.current!;
-        if (!map) return;
-        layersRef.current.forEach((l) => l.remove());
-        layersRef.current = [];
+    const runRedraw = (L: typeof import('leaflet')) => {
+      const map = mapRef.current;
+      if (!map || cancelled) return;
+      layersRef.current.forEach((l) => l.remove());
+      layersRef.current = [];
 
       for (const seg of segs) {
         if (seg.length >= 2) {
@@ -355,7 +374,6 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
             { color: LINE_COLOR, weight: 5 }
           ).addTo(map);
           layersRef.current.push(line);
-          // Add length labels on top of each segment edge
           for (let i = 0; i < seg.length - 1; i++) {
             const a = seg[i];
             const b = seg[i + 1];
@@ -402,22 +420,25 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
         layersRef.current.push(m);
       }
 
-      // Defer parent update to next tick so we don't block the click handler
-      if (notifyTimeoutRef.current) clearTimeout(notifyTimeoutRef.current);
-      notifyTimeoutRef.current = setTimeout(() => {
-        notifyTimeoutRef.current = null;
+      queueMicrotask(() => {
+        if (cancelled) return;
         buildAndNotify(segs, gates);
-      }, 0);
-    });
+      });
     };
 
-    const rafId = requestAnimationFrame(doUpdate);
+    const L0 = leafletLibRef.current;
+    if (L0) {
+      runRedraw(L0);
+    } else {
+      import('leaflet').then((L) => {
+        if (cancelled || !mapRef.current) return;
+        leafletLibRef.current = L;
+        runRedraw(L);
+      });
+    }
+
     return () => {
-      cancelAnimationFrame(rafId);
-      if (notifyTimeoutRef.current) {
-        clearTimeout(notifyTimeoutRef.current);
-        notifyTimeoutRef.current = null;
-      }
+      cancelled = true;
     };
   }, [segments, placedGates, ready]);
 
@@ -432,8 +453,10 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
     const last = segments[segments.length - 1];
     if (!last || last.length === 0) return;
 
-    import('leaflet').then((L) => {
-      const map = mapRef.current!;
+    let cancelled = false;
+    const runPreview = (L: typeof import('leaflet')) => {
+      const map = mapRef.current;
+      if (!map || cancelled) return;
       previewLayersRef.current.forEach((l) => l.remove());
       previewLayersRef.current = [];
 
@@ -457,7 +480,22 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
         }).addTo(map);
         previewLayersRef.current.push(label);
       }
-    });
+    };
+
+    const L0 = leafletLibRef.current;
+    if (L0) {
+      runPreview(L0);
+    } else {
+      import('leaflet').then((L) => {
+        if (cancelled || !mapRef.current) return;
+        leafletLibRef.current = L;
+        runPreview(L);
+      });
+    }
+
+    return () => {
+      cancelled = true;
+    };
   }, [ready, mode, mousePos, dragFeet, segments]);
 
   // Expose appendSegmentByLength for layout tool
@@ -511,8 +549,8 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
       e.preventDefault();
       endLineRef.current();
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
   }, []);
 
   return (
