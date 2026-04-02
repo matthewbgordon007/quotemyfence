@@ -181,23 +181,21 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
       if (cancelled || !mapRef.current) return;
       propertyMarkerRef.current?.remove();
       const title = (propertyLabel || 'Your address').trim() || 'Your address';
-      const chip =
-        title.length > 40 ? `${escapeHtml(title.slice(0, 37))}…` : escapeHtml(title);
       const html = `<div style="display:flex;flex-direction:column;align-items:center;pointer-events:none;">
-        <div style="background:#b91c1c;color:#fff;padding:5px 12px;border-radius:10px;font-size:11px;font-weight:800;line-height:1.2;text-align:center;max-width:220px;box-shadow:0 2px 10px rgba(0,0,0,.4);border:2px solid #fff;">🏠 ${chip}</div>
-        <div style="width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-top:11px solid #b91c1c;margin-top:-2px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.25));"></div>
+        <div style="width:26px;height:26px;border-radius:50%;background:#b91c1c;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;font-size:13px;line-height:1;">🏠</div>
+        <div style="width:0;height:0;margin-top:-3px;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid #b91c1c;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));"></div>
       </div>`;
       const m = L.marker([propertyPin.lat, propertyPin.lng], {
         icon: L.divIcon({
           className: 'property-home-pin',
           html,
-          iconSize: [240, 56],
-          iconAnchor: [120, 56],
+          iconSize: [28, 34],
+          iconAnchor: [14, 34],
         }),
         zIndexOffset: 800,
         interactive: true,
       }).addTo(mapRef.current);
-      m.bindTooltip(escapeHtml(title), { direction: 'top', offset: [0, -8] });
+      m.bindTooltip(escapeHtml(title), { direction: 'top', offset: [0, -6] });
       propertyMarkerRef.current = m;
     });
 
