@@ -29,6 +29,14 @@ const DOUBLE_CLICK_MS = 650;
 const SATELLITE_TILES = 'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}';
 const LIGHT_TILES = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 export interface DrawFenceMapRef {
   appendSegmentByLength: (lengthFt: number) => void;
 }
@@ -48,6 +56,9 @@ export interface DrawFenceMapProps {
     gates: { type: 'single' | 'double'; quantity: number; lat?: number; lng?: number }[];
     total_length_ft: number;
   } | null;
+  /** Geocoded address from the previous step — shows a clear “your home” pin on the lot */
+  propertyPin?: { lat: number; lng: number } | null;
+  propertyLabel?: string | null;
   tileVariant?: 'satellite' | 'light';
 }
 
@@ -59,6 +70,8 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
   onReset,
   onDrawingComplete,
   initialDrawing,
+  propertyPin = null,
+  propertyLabel = null,
   tileVariant = 'satellite',
 }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -148,6 +161,50 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
   }
 
   const notifyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const propertyMarkerRef = useRef<import('leaflet').Marker | null>(null);
+
+  // Property / “your home” pin (separate from fence layers)
+  useEffect(() => {
+    if (!ready || !mapRef.current) {
+      propertyMarkerRef.current?.remove();
+      propertyMarkerRef.current = null;
+      return;
+    }
+    if (!propertyPin || !Number.isFinite(propertyPin.lat) || !Number.isFinite(propertyPin.lng)) {
+      propertyMarkerRef.current?.remove();
+      propertyMarkerRef.current = null;
+      return;
+    }
+
+    let cancelled = false;
+    import('leaflet').then((L) => {
+      if (cancelled || !mapRef.current) return;
+      propertyMarkerRef.current?.remove();
+      const title = (propertyLabel || 'Your address').trim() || 'Your address';
+      const chip =
+        title.length > 40 ? `${escapeHtml(title.slice(0, 37))}…` : escapeHtml(title);
+      const html = `<div style="display:flex;flex-direction:column;align-items:center;pointer-events:none;">
+        <div style="background:#b91c1c;color:#fff;padding:5px 12px;border-radius:10px;font-size:11px;font-weight:800;line-height:1.2;text-align:center;max-width:220px;box-shadow:0 2px 10px rgba(0,0,0,.4);border:2px solid #fff;">🏠 ${chip}</div>
+        <div style="width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-top:11px solid #b91c1c;margin-top:-2px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.25));"></div>
+      </div>`;
+      const m = L.marker([propertyPin.lat, propertyPin.lng], {
+        icon: L.divIcon({
+          className: 'property-home-pin',
+          html,
+          iconSize: [240, 56],
+          iconAnchor: [120, 56],
+        }),
+        zIndexOffset: 800,
+        interactive: true,
+      }).addTo(mapRef.current);
+      m.bindTooltip(escapeHtml(title), { direction: 'top', offset: [0, -8] });
+      propertyMarkerRef.current = m;
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, propertyPin?.lat, propertyPin?.lng, propertyLabel]);
 
   // Init map
   useEffect(() => {
@@ -235,6 +292,8 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
     return () => {
       cancelled = true;
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+      propertyMarkerRef.current?.remove();
+      propertyMarkerRef.current = null;
       layersRef.current.forEach((l) => l.remove());
       layersRef.current = [];
       previewLayersRef.current.forEach((l) => l.remove());
@@ -588,9 +647,8 @@ function MapSearchOverlay() {
         />
       </div>
       <span className="max-w-[min(100vw-2rem,22rem)] text-xs leading-snug text-white drop-shadow-md">
-        <strong>Finish a section:</strong> tap <strong>Finish line</strong> (easiest), double‑click the map, or press{' '}
-        <kbd className="rounded bg-black/30 px-1">Esc</kbd>. You have a bit longer between double‑clicks than before. Yellow =
-        fence.
+        <strong className="text-red-200">Red pin</strong> = your address • <strong>Finish a section:</strong> <strong>Finish line</strong>, double‑click, or{' '}
+        <kbd className="rounded bg-black/30 px-1">Esc</kbd> • Yellow = fence
       </span>
     </div>
   );

@@ -123,7 +123,10 @@ export default function DrawPage() {
             <ul className="mt-4 space-y-3 text-sm text-slate-700">
               <li className="flex gap-3">
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]/15 text-sm font-bold text-[var(--accent)]">1</span>
-                <span><strong>Click</strong> on the map to add points along your fence line. A yellow line will connect your points.</span>
+                <span>
+                  The <strong className="text-red-700">red “your home” pin</strong> marks the address you entered so you can match the satellite view to your property.{' '}
+                  <strong>Click</strong> elsewhere on the map to trace your fence — yellow lines connect your points.
+                </span>
               </li>
               <li className="flex gap-3">
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]/15 text-sm font-bold text-[var(--accent)]">2</span>
@@ -162,6 +165,12 @@ export default function DrawPage() {
               ? [state.property.lat, state.property.lng]
               : undefined
           }
+          propertyPin={
+            state.property?.lat != null && state.property?.lng != null
+              ? { lat: state.property.lat, lng: state.property.lng }
+              : null
+          }
+          propertyLabel={state.property?.formattedAddress ?? null}
           onDrawingComplete={handleDrawingComplete}
           onReset={handleReset}
           initialDrawing={state.drawing}
