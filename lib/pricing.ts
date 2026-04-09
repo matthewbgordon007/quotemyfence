@@ -1,11 +1,11 @@
 /**
  * Server-side pricing engine.
- * Contractor sets single prices. Customer sees ±10% range on their quote.
+ * Contractor sets single prices. Customer sees ±5% range on their quote.
  * Input: total_length_ft, product_option_id, gate counts, has_removal, pricing_rules.
- * Output: { subtotal_low, subtotal_high, total_low, total_high } (±10% of actual).
+ * Output: { subtotal_low, subtotal_high, total_low, total_high } (±5% of actual).
  */
 
-const QUOTE_RANGE_PCT = 0.1; // ±10%
+const QUOTE_RANGE_PCT = 0.05; // ±5%
 const DEFAULT_ESTIMATE_TAX_RATE = Number(process.env.ESTIMATE_TAX_RATE ?? 13); // %
 
 export interface PricingRuleRow {

@@ -162,6 +162,8 @@ export async function POST(
       (leadRecipient?.email?.trim()) ||
       (contractor as { quote_notification_email?: string | null }).quote_notification_email?.trim() ||
       contractor.email;
+    const customerReplyTo =
+      typeof contractorTo === 'string' && contractorTo.includes('@') ? contractorTo : undefined;
 
     const resendKey = process.env.RESEND_API_KEY;
     if (resendKey) {
@@ -228,10 +230,11 @@ export async function POST(
           `
         : '';
 
-      // Email to customer: confirmation + sales team contact
+      // Email to customer: confirmation + sales team contact (reply goes to contractor)
       await resend.emails.send({
         from,
         to: customer.email,
+        ...(customerReplyTo ? { replyTo: customerReplyTo } : {}),
         subject: `Your quote request was received — ${contractor.company_name}`,
         html: `
           <div style="${tableStyle} margin: 0 auto; padding: 32px 24px;">

@@ -19,6 +19,40 @@ const cardShell =
 const cardHeader =
   'border-b border-slate-100/90 bg-gradient-to-r from-slate-50/95 via-white to-blue-50/35 px-5 py-4 sm:px-6';
 
+function slugifySlug(s: string) {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+function buildContractorProfileBody(c: {
+  company_name: string;
+  slug: string;
+  phone: string | null;
+  website: string | null;
+  address_line_1: string | null;
+  city: string | null;
+  province_state: string | null;
+  postal_zip: string | null;
+  quote_notification_email: string | null;
+  logo_url: string | null;
+  primary_color: string | null;
+}) {
+  return {
+    company_name: c.company_name,
+    slug: c.slug || slugifySlug(c.company_name),
+    phone: c.phone || null,
+    website: c.website || null,
+    address_line_1: c.address_line_1 || null,
+    city: c.city || null,
+    province_state: c.province_state || null,
+    postal_zip: c.postal_zip || null,
+    quote_notification_email: c.quote_notification_email || null,
+    logo_url: c.logo_url || null,
+    primary_color: c.primary_color || '#2563eb',
+    secondary_color: c.primary_color,
+    accent_color: c.primary_color,
+  };
+}
+
 function Skeleton({ className }: { className?: string }) {
   return <div className={`animate-pulse rounded-xl bg-slate-200/70 ${className ?? ''}`} />;
 }
@@ -142,7 +176,7 @@ function CompleteSetupForm({
 export default function SettingsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [contractor, setContractor] = useState<{
     id: string;
@@ -161,6 +195,11 @@ export default function SettingsPage() {
     user_role?: string;
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const contractorRef = useRef(contractor);
+  contractorRef.current = contractor;
+  const lastSavedProfileJson = useRef<string | null>(null);
+  const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const savedIndicatorTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [teamUsers, setTeamUsers] = useState<{ id: string; first_name: string; last_name: string; email: string; role: string; is_active: boolean }[]>([]);
   const [inviteEmail, setInviteEmail] = useState('');
   const [invitePassword, setInvitePassword] = useState('');
@@ -203,21 +242,61 @@ export default function SettingsPage() {
       .catch(() => {});
   }, [isAdmin]);
 
-  function slugify(s: string) {
-    return s
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
-  }
+  useEffect(() => {
+    if (!contractor || loading || !isAdmin) return;
+
+    const json = JSON.stringify(buildContractorProfileBody(contractor));
+    if (lastSavedProfileJson.current === null) {
+      lastSavedProfileJson.current = json;
+      return;
+    }
+    if (lastSavedProfileJson.current === json) return;
+    if (!contractor.company_name?.trim()) return;
+
+    clearTimeout(saveDebounceRef.current);
+    saveDebounceRef.current = setTimeout(async () => {
+      const current = contractorRef.current;
+      if (!current?.company_name?.trim()) return;
+      const body = buildContractorProfileBody(current);
+      setAutoSaveStatus('saving');
+      setError(null);
+      try {
+        const res = await fetch('/api/contractor/me', {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          lastSavedProfileJson.current = JSON.stringify(body);
+          clearTimeout(savedIndicatorTimerRef.current);
+          setAutoSaveStatus('saved');
+          savedIndicatorTimerRef.current = setTimeout(() => {
+            setAutoSaveStatus((s) => (s === 'saved' ? 'idle' : s));
+          }, 2000);
+        } else {
+          setError(data.error || 'Update failed');
+          setAutoSaveStatus('idle');
+        }
+      } catch {
+        setError('Network error. Please try again.');
+        setAutoSaveStatus('idle');
+      }
+    }, 850);
+
+    return () => clearTimeout(saveDebounceRef.current);
+  }, [contractor, loading, isAdmin]);
 
   function handleCompanyChange(v: string) {
     if (!contractor) return;
     const shouldSyncSlug =
-      !contractor.slug || slugify(contractor.slug) === slugify(contractor.company_name);
+      !contractor.slug ||
+      slugifySlug(contractor.slug) === slugifySlug(contractor.company_name);
     setContractor({
       ...contractor,
       company_name: v,
-      slug: shouldSyncSlug ? slugify(v) : contractor.slug,
+      slug: shouldSyncSlug ? slugifySlug(v) : contractor.slug,
     });
   }
 
@@ -242,49 +321,17 @@ export default function SettingsPage() {
         body: JSON.stringify({ logo_url: data.url }),
       });
       if (patchRes.ok) {
-        setContractor({ ...contractor, logo_url: data.url });
+        const next = { ...contractor, logo_url: data.url };
+        setContractor(next);
+        lastSavedProfileJson.current = JSON.stringify(buildContractorProfileBody(next));
         router.refresh();
       } else {
-        setError('Logo saved locally but failed to update. Try Save changes.');
+        setError('Logo uploaded but could not be saved to your profile. Try again.');
       }
     } else {
       setError(data.error || 'Upload failed');
     }
     e.target.value = '';
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!contractor) return;
-    setError(null);
-    setSaving(true);
-    try {
-      const res = await fetch('/api/contractor/me', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          company_name: contractor.company_name,
-          slug: contractor.slug || slugify(contractor.company_name),
-          phone: contractor.phone || null,
-          website: contractor.website || null,
-          address_line_1: contractor.address_line_1 || null,
-          city: contractor.city || null,
-          province_state: contractor.province_state || null,
-          postal_zip: contractor.postal_zip || null,
-          quote_notification_email: contractor.quote_notification_email || null,
-          logo_url: contractor.logo_url || null,
-          primary_color: contractor.primary_color || '#2563eb',
-          secondary_color: contractor.primary_color,
-          accent_color: contractor.primary_color,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(data.error || 'Update failed');
-      }
-    } finally {
-      setSaving(false);
-    }
   }
 
   if (loading) {
@@ -361,7 +408,13 @@ export default function SettingsPage() {
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {autoSaveStatus === 'saving' && (
+            <span className="text-sm font-medium text-slate-500">Saving…</span>
+          )}
+          {autoSaveStatus === 'saved' && (
+            <span className="text-sm font-medium text-emerald-600">All changes saved</span>
+          )}
           <Link
             href="/dashboard"
             className="inline-flex items-center justify-center rounded-xl border border-slate-200/90 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98]"
@@ -377,7 +430,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="space-y-6">
         <div className={cardShell}>
           <div className={cardHeader}>
             <div className="flex items-center gap-2">
@@ -470,7 +523,7 @@ export default function SettingsPage() {
                   className="min-w-0 flex-1 border-0 bg-transparent px-2 py-3 text-sm font-medium text-slate-900 outline-none focus:ring-0"
                 />
               </div>
-              <ContractorQuoteLinkShare slug={contractor.slug || slugify(contractor.company_name)} className="mt-4" />
+              <ContractorQuoteLinkShare slug={contractor.slug || slugifySlug(contractor.company_name)} className="mt-4" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Email</label>
@@ -513,10 +566,12 @@ export default function SettingsPage() {
             <div>
               <label className="block text-sm font-medium text-slate-700">Website</label>
               <input
-                type="url"
+                type="text"
+                inputMode="url"
+                autoComplete="url"
                 value={contractor.website || ''}
                 onChange={(e) => setContractor({ ...contractor, website: e.target.value || null })}
-                placeholder="https://"
+                placeholder="yoursite.ca or https://yoursite.ca"
                 className={field}
               />
             </div>
@@ -754,15 +809,7 @@ export default function SettingsPage() {
             {error}
           </div>
         )}
-
-        <button
-          type="submit"
-          disabled={saving}
-          className="rounded-xl bg-blue-600 px-8 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition hover:bg-blue-500 disabled:opacity-60 active:scale-[0.98]"
-        >
-          {saving ? 'Saving…' : 'Save changes'}
-        </button>
-      </form>
+      </div>
     </div>
   );
 }

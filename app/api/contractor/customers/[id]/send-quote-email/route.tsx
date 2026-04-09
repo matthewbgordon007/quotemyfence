@@ -135,6 +135,7 @@ export async function POST(
       from,
       to: customer.email,
       cc: cc ? [cc] : undefined,
+      ...(cc ? { replyTo: cc } : {}),
       subject: `Your fence quote — ${companyName}`,
       html: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px;">
