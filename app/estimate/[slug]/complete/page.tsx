@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { ESTIMATE_NEW_QUOTE_QUERY } from '@/lib/estimate-session-url';
 import { OptimizedProductImage } from '@/components/OptimizedProductImage';
 import { useEstimate } from '../EstimateContext';
 
@@ -101,7 +102,7 @@ export default function CompletePage() {
 
       <p className="mt-8 text-center">
         <Link
-          href={slug ? `/estimate/${slug}/contact?new=1` : '/'}
+          href={slug ? `/estimate/${slug}/contact?${ESTIMATE_NEW_QUOTE_QUERY}=1` : '/'}
           className="font-semibold text-[var(--accent)] hover:underline"
         >
           Submit another quote

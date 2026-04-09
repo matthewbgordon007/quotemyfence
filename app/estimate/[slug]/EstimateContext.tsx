@@ -124,6 +124,8 @@ export function EstimateProvider({
     }));
   }, []);
 
+  const resetState = useCallback(() => setState(defaultState), []);
+
   const value = useMemo(() => {
     if (!config) return null;
     return {
@@ -140,9 +142,9 @@ export function EstimateProvider({
         setState((s) => ({ ...s, selectedColourOptionId })),
       setTotals: (totals: EstimateState['totals']) => setState((s) => ({ ...s, totals })),
       hydrateFromServer,
-      resetState: () => setState(defaultState),
+      resetState,
     };
-  }, [config, state, hydrateFromServer]);
+  }, [config, state, hydrateFromServer, resetState]);
 
   if (!value) return null;
   return (

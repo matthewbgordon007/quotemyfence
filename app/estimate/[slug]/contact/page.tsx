@@ -2,7 +2,11 @@
 
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
-import { estimateStepPath, ESTIMATE_SESSION_QUERY } from '@/lib/estimate-session-url';
+import {
+  estimateStepPath,
+  ESTIMATE_SESSION_QUERY,
+  ESTIMATE_NEW_QUOTE_QUERY,
+} from '@/lib/estimate-session-url';
 import { useEstimate } from '../EstimateContext';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -53,19 +57,19 @@ export default function ContactPage() {
   });
 
   useEffect(() => {
-    if (searchParams.get('new') === '1') {
-      resetState();
-      reset(defaultContactValues);
-      contactPrefillKeyRef.current = '';
-      const sp = new URLSearchParams(searchParams.toString());
-      sp.delete(ESTIMATE_SESSION_QUERY);
-      const rest = sp.toString();
-      router.replace(`/estimate/${encodeURIComponent(slug)}/contact${rest ? `?${rest}` : ''}`);
-    }
+    if (searchParams.get(ESTIMATE_NEW_QUOTE_QUERY) !== '1') return;
+    resetState();
+    reset(defaultContactValues);
+    contactPrefillKeyRef.current = '';
+    const sp = new URLSearchParams(searchParams.toString());
+    sp.delete(ESTIMATE_SESSION_QUERY);
+    sp.delete(ESTIMATE_NEW_QUOTE_QUERY);
+    const rest = sp.toString();
+    router.replace(`/estimate/${encodeURIComponent(slug)}/contact${rest ? `?${rest}` : ''}`);
   }, [searchParams, resetState, reset, router, slug]);
 
   useEffect(() => {
-    if (searchParams.get('new') === '1') return;
+    if (searchParams.get(ESTIMATE_NEW_QUOTE_QUERY) === '1') return;
     const sid = searchParams.get(ESTIMATE_SESSION_QUERY);
     if (!state.contact.email || !sid) return;
     const key = `${sid}:${state.contact.email}`;
