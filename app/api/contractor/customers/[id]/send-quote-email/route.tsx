@@ -4,26 +4,18 @@ import { createClient } from '@/lib/supabase/server';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { Resend } from 'resend';
 import { QuotePdfDocument } from '@/lib/quote-pdf-document';
+import {
+  buildFenceStaticMapUrl,
+  canBuildFenceStaticMap,
+  normalizeFenceMapSegments,
+  type FenceMapSegment,
+} from '@/lib/static-map-url';
 
 async function getContractorId(supabase: Awaited<ReturnType<typeof createClient>>) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
   const { data: ur } = await supabase.from('users').select('contractor_id').eq('auth_id', user.id).eq('is_active', true).single();
   return ur?.contractor_id ?? null;
-}
-
-function buildStaticMapUrl(
-  segments: { start_lat: number; start_lng: number; end_lat: number; end_lng: number }[],
-  apiKey: string
-): string {
-  if (segments.length === 0) return '';
-  const points: string[] = [];
-  segments.forEach((seg, i) => {
-    if (i === 0) points.push(`${seg.start_lat},${seg.start_lng}`);
-    points.push(`${seg.end_lat},${seg.end_lng}`);
-  });
-  const path = `color:0xeab308|weight:6|${points.join('|')}`;
-  return `https://maps.googleapis.com/maps/api/staticmap?size=600x350&scale=2&maptype=satellite&path=${encodeURIComponent(path)}&key=${apiKey}`;
 }
 
 export async function POST(
@@ -66,7 +58,7 @@ export async function POST(
   if (!customer?.email) return NextResponse.json({ error: 'Customer has no email' }, { status: 400 });
 
   const fence = fences?.[0] ?? null;
-  let segments: { start_lat: number; start_lng: number; end_lat: number; end_lng: number; length_ft?: number }[] = [];
+  let segments: FenceMapSegment[] = [];
   let gates: { gate_type: string; quantity: number }[] = [];
   let designSummary: string | null = null;
 
@@ -76,7 +68,7 @@ export async function POST(
       .select('start_lat, start_lng, end_lat, end_lng, length_ft')
       .eq('fence_id', fence.id)
       .order('sort_order');
-    segments = segs || [];
+    segments = normalizeFenceMapSegments(segs || []);
     const { data: gateRows } = await supabase.from('gates').select('gate_type, quantity').eq('fence_id', fence.id);
     gates = gateRows || [];
 
@@ -106,7 +98,8 @@ export async function POST(
   }
 
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  const mapImageUrl = apiKey && segments.length >= 2 ? buildStaticMapUrl(segments, apiKey) : null;
+  const mapImageUrl =
+    apiKey && canBuildFenceStaticMap(segments) ? buildFenceStaticMapUrl(segments, apiKey) : null;
 
   const pdfData = {
     contractor: contractor ?? { company_name: 'Your Contractor', phone: null, website: null },

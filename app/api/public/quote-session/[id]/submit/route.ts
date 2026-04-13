@@ -1,6 +1,68 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
+import {
+  buildFenceStaticMapUrl,
+  canBuildFenceStaticMap,
+  normalizeFenceMapSegments,
+  type FenceMapSegment,
+} from '@/lib/static-map-url';
+
+function escapeHtmlAttr(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+/** Satellite map + per-line lengths for quote submission emails */
+function fenceLayoutEmailSection(
+  mapImageUrl: string | null,
+  segments: FenceMapSegment[],
+  sectionStyle: string,
+  headingStyle: string,
+  tdStyle: string,
+  linkStyle: string
+): string {
+  if (!mapImageUrl && segments.length === 0) return '';
+
+  const mapPart = mapImageUrl
+    ? `
+            <p style="margin: 0 0 12px 0; color: #6b7280; font-size: 13px;">Satellite view with the fence path in yellow.</p>
+            <img src="${escapeHtmlAttr(mapImageUrl)}" alt="Fence layout on map" width="560" style="max-width: 100%; height: auto; border-radius: 8px; border: 1px solid #e5e7eb; display: block;" />
+            <p style="margin: 12px 0 0 0; font-size: 13px;"><a href="${escapeHtmlAttr(mapImageUrl)}" style="${linkStyle}">Open layout map in browser</a> if the image doesn&apos;t load.</p>
+          `
+    : segments.length > 0
+      ? `<p style="margin: 0; color: #6b7280; font-size: 14px;">Map preview isn&apos;t available; line lengths are listed below.</p>`
+      : '';
+
+  const linesRows =
+    segments.length > 0
+      ? segments
+          .map((seg, i) => {
+            const len =
+              seg.length_ft != null && Number.isFinite(Number(seg.length_ft))
+                ? `${Number(seg.length_ft).toFixed(1)} ft`
+                : '—';
+            return `<tr><td style="${tdStyle}"><strong>Line ${i + 1}</strong></td><td style="${tdStyle}">${len}</td></tr>`;
+          })
+          .join('')
+      : '';
+
+  const tablePart =
+    linesRows.length > 0
+      ? `<table style="border-collapse: collapse; width: 100%; margin-top: 16px;" cellpadding="0" cellspacing="0"><tbody>${linesRows}</tbody></table>`
+      : '';
+
+  return `
+            <div style="${sectionStyle}">
+              <h2 style="${headingStyle}">Fence layout</h2>
+              ${mapPart}
+              ${tablePart}
+            </div>
+          `;
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function getDesignSummary(
@@ -110,12 +172,18 @@ export async function POST(
 
     const fence = fences?.[0] ?? null;
     let gates: { gate_type: string; quantity: number }[] = [];
+    let segments: FenceMapSegment[] = [];
     if (fence) {
-      const { data: gateRows } = await supabase
-        .from('gates')
-        .select('gate_type, quantity')
-        .eq('fence_id', fence.id);
+      const [{ data: gateRows }, { data: segRows }] = await Promise.all([
+        supabase.from('gates').select('gate_type, quantity').eq('fence_id', fence.id),
+        supabase
+          .from('fence_segments')
+          .select('start_lat, start_lng, end_lat, end_lng, length_ft')
+          .eq('fence_id', fence.id)
+          .order('sort_order'),
+      ]);
       gates = gateRows ?? [];
+      segments = normalizeFenceMapSegments(segRows ?? []);
     }
 
     const [
@@ -165,6 +233,18 @@ export async function POST(
     const customerReplyTo =
       typeof contractorTo === 'string' && contractorTo.includes('@') ? contractorTo : undefined;
 
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    const mapImageUrl =
+      apiKey && canBuildFenceStaticMap(segments) ? buildFenceStaticMapUrl(segments, apiKey) : null;
+    const layoutSectionHtml = fenceLayoutEmailSection(
+      mapImageUrl,
+      segments,
+      'padding: 24px 0; border-top: 1px solid #e5e7eb;',
+      'font-size: 18px; font-weight: 600; margin: 0 0 12px 0; color: #111;',
+      'padding: 12px 16px; border-bottom: 1px solid #e5e7eb;',
+      'color: #2563eb; text-decoration: none;'
+    );
+
     const resendKey = process.env.RESEND_API_KEY;
     if (resendKey) {
       const resend = new Resend(resendKey);
@@ -209,6 +289,8 @@ export async function POST(
               </tbody></table>
             </div>
 
+            ${layoutSectionHtml}
+
             <div style="${sectionStyle}">
               <h2 style="${headingStyle}">Pricing</h2>
               <p style="margin: 0; font-size: 18px; font-weight: 600; color: #111;">${rangeText}</p>
@@ -251,6 +333,7 @@ export async function POST(
                 <tr><td style="${tdStyle}"><strong>Estimated range</strong></td><td style="${tdStyle}">${rangeText}</td></tr>
               </tbody></table>
             </div>
+            ${layoutSectionHtml}
             <p style="margin: 24px 0 0 0; color: #6b7280;">If you have any questions in the meantime, feel free to reply to this email.</p>
             <p style="margin: 32px 0 0 0; color: #6b7280; font-size: 14px;">— ${contractor.company_name}</p>
           </div>
