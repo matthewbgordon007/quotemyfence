@@ -151,8 +151,8 @@ function padBounds(
 }
 
 /**
- * Google Static Maps URL with satellite imagery and a high-contrast fence path.
- * Uses explicit center + zoom (tighter than path-only auto framing) and a dark outline under a bright line.
+ * Google Static Maps URL with satellite imagery and a thin solid yellow fence path.
+ * Uses explicit center + zoom (tighter than path-only auto framing).
  */
 export function buildFenceStaticMapUrl(
   segments: FenceMapSegment[],
@@ -163,10 +163,7 @@ export function buildFenceStaticMapUrl(
   const w = options?.width ?? 640;
   const h = options?.height ?? 400;
   const points = pathPointString(segments);
-
-  // Thick dark “stroke” then bright yellow on top (drawn in declaration order)
-  const outlinePath = `color:0x0f172a|weight:18|${points}`;
-  const linePath = `color:0xffea00|weight:10|${points}`;
+  const pathSpec = `color:0xffea00|weight:3|${points}`;
 
   const raw = boundsFromSegments(segments);
   const sized = expandBoundsWithMinSize(raw.minLat, raw.maxLat, raw.minLng, raw.maxLng);
@@ -189,9 +186,8 @@ export function buildFenceStaticMapUrl(
     key: apiKey,
   });
 
-  // Multiple path= entries (outline under, highlight on top)
   const base = `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`;
-  return `${base}&path=${encodeURIComponent(outlinePath)}&path=${encodeURIComponent(linePath)}`;
+  return `${base}&path=${encodeURIComponent(pathSpec)}`;
 }
 
 export function canBuildFenceStaticMap(segments: FenceMapSegment[]): boolean {
