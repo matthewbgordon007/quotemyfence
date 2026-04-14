@@ -96,7 +96,7 @@ export default function DrawPage() {
         <div className="flex items-center gap-3">
           {drawingData && drawingData.total_length_ft > 0 && (
             <span className="rounded-full border border-[var(--line)] bg-slate-50/90 px-3 py-1.5 text-sm font-bold text-slate-700">
-              Total: {drawingData.total_length_ft.toFixed(1)} ft
+              Total: {drawingData.total_length_ft.toFixed(0)} ft
             </span>
           )}
           <button

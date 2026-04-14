@@ -29,6 +29,11 @@ const DOUBLE_CLICK_MS = 650;
 const SATELLITE_TILES = 'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}';
 const LIGHT_TILES = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
 
+function roundUpFeet(feet: number): number {
+  if (!Number.isFinite(feet) || feet <= 0) return 0;
+  return Math.ceil(feet);
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -149,8 +154,8 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
         const a = seg[i];
         const b = seg[i + 1];
         const m = distanceMeters(a.lat, a.lng, b.lat, b.lng);
-        const ft = m * METERS_TO_FEET;
-        segLengths.push({ length_ft: Math.round(ft * 100) / 100 });
+        const ft = roundUpFeet(m * METERS_TO_FEET);
+        segLengths.push({ length_ft: ft });
         total += ft;
       }
       flatPts.push(...seg);
@@ -165,7 +170,7 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
         lat: g.lat,
         lng: g.lng,
       })),
-      total_length_ft: Math.round(total * 100) / 100,
+      total_length_ft: total,
     });
   }
 
@@ -333,7 +338,7 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
     }
     const lastPt = last[last.length - 1];
     const m = distanceMeters(lastPt.lat, lastPt.lng, mousePos.lat, mousePos.lng);
-    setDragFeet(Math.round(m * METERS_TO_FEET * 100) / 100);
+    setDragFeet(roundUpFeet(m * METERS_TO_FEET));
   }, [mousePos, segments]);
 
   // Pan to center when it changes
@@ -378,13 +383,13 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
             const a = seg[i];
             const b = seg[i + 1];
             const m = distanceMeters(a.lat, a.lng, b.lat, b.lng);
-            const ft = Math.round(m * METERS_TO_FEET * 100) / 100;
+            const ft = roundUpFeet(m * METERS_TO_FEET);
             const midLat = (a.lat + b.lat) / 2;
             const midLng = (a.lng + b.lng) / 2;
             const label = L.marker([midLat, midLng], {
               icon: L.divIcon({
                 className: 'segment-length-label',
-                html: `<div style="background:rgba(0,0,0,0.85);color:#FFD700;padding:3px 8px;border-radius:6px;font-size:12px;font-weight:800;white-space:nowrap;pointer-events:none;">${ft.toFixed(1)} ft</div>`,
+                html: `<div style="background:rgba(0,0,0,0.85);color:#FFD700;padding:3px 8px;border-radius:6px;font-size:12px;font-weight:800;white-space:nowrap;pointer-events:none;">${ft} ft</div>`,
                 iconSize: [60, 24],
                 iconAnchor: [30, 12],
               }),
@@ -473,7 +478,7 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
         const label = L.marker([midLat, midLng], {
           icon: L.divIcon({
             className: 'distance-label',
-            html: `<div style="background:rgba(0,0,0,0.85);color:#FFD700;padding:4px 8px;border-radius:6px;font-size:13px;font-weight:800;white-space:nowrap;">${dragFeet.toFixed(1)} ft</div>`,
+            html: `<div style="background:rgba(0,0,0,0.85);color:#FFD700;padding:4px 8px;border-radius:6px;font-size:13px;font-weight:800;white-space:nowrap;">${dragFeet} ft</div>`,
             iconSize: [80, 30],
             iconAnchor: [40, 15],
           }),
@@ -608,7 +613,7 @@ export const DrawFenceMap = forwardRef<DrawFenceMapRef, DrawFenceMapProps>(funct
           + Double gate
         </button>
         <span className="flex items-center rounded-xl border border-[var(--line)] bg-white px-4 py-2 text-sm font-bold shadow">
-          Total: {totalFeet.toFixed(1)} ft
+          Total: {totalFeet.toFixed(0)} ft
         </span>
       </div>
     </div>

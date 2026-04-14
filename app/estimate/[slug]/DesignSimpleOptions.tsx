@@ -43,7 +43,7 @@ export function DesignSimpleOptions({
         <div className="p-8">
           <h1 className="text-2xl font-bold tracking-tight text-slate-800">Choose your fence</h1>
           <p className="mt-2 text-sm text-slate-500">
-            Select one option. Based on {totalFeet.toFixed(1)} ft
+            Select one option. Based on {totalFeet.toFixed(0)} ft
             {hasRemoval ? ' including removal.' : '.'}
           </p>
 

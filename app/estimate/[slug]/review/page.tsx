@@ -133,7 +133,7 @@ export default function ReviewPage() {
           <div className="rounded-xl border border-[var(--line)] bg-slate-50/80 p-5">
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">Fence</div>
             <div className="mt-1">
-              Total length: {state.drawing?.total_length_ft?.toFixed(1) ?? 0} ft
+              Total length: {state.drawing?.total_length_ft?.toFixed(0) ?? 0} ft
             </div>
             {state.hasRemoval && (
               <div className="text-sm text-slate-500">Removal included</div>

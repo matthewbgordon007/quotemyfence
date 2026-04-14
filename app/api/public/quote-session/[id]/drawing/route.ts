@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+function roundUpFeet(feet: number): number {
+  if (!Number.isFinite(feet) || feet <= 0) return 0;
+  return Math.ceil(feet);
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -21,12 +26,20 @@ export async function POST(
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    const segs = Array.isArray(segments) ? segments : [];
+    const normalizedSegmentLengths = segs.map((seg: { length_ft?: number }) =>
+      roundUpFeet(Number(seg?.length_ft))
+    );
+    const normalizedTotalLength = normalizedSegmentLengths.reduce((sum, ft) => sum + ft, 0);
+    const fallbackTotalLength = roundUpFeet(Number(total_length_ft));
+    const fenceTotalLength = normalizedTotalLength > 0 ? normalizedTotalLength : fallbackTotalLength;
+
     const { data: fence, error: fenceError } = await supabase
       .from('fences')
       .insert({
         quote_session_id: sessionId,
         label: 'Main',
-        total_length_ft: Number(total_length_ft) || 0,
+        total_length_ft: fenceTotalLength,
         has_removal: !!has_removal,
       })
       .select('id')
@@ -37,7 +50,6 @@ export async function POST(
       return NextResponse.json({ error: 'Failed to save fence' }, { status: 500 });
     }
 
-    const segs = Array.isArray(segments) ? segments : [];
     for (let i = 0; i < segs.length; i++) {
       const seg = segs[i];
       const start = points[i];
@@ -50,7 +62,7 @@ export async function POST(
         start_lng: start.lng,
         end_lat: end.lat,
         end_lng: end.lng,
-        length_ft: Number(seg.length_ft) || 0,
+        length_ft: normalizedSegmentLengths[i] ?? roundUpFeet(Number(seg.length_ft)),
       });
     }
 
