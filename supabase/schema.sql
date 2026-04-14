@@ -5,6 +5,7 @@
 CREATE TABLE IF NOT EXISTS contractors (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_name TEXT NOT NULL,
+  account_type TEXT NOT NULL DEFAULT 'contractor' CHECK (account_type IN ('contractor', 'supplier')),
   slug TEXT NOT NULL UNIQUE,
   email TEXT NOT NULL,
   phone TEXT,
@@ -23,6 +24,10 @@ CREATE TABLE IF NOT EXISTS contractors (
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Existing databases: add account_type if missing (idempotent)
+ALTER TABLE contractors
+  ADD COLUMN IF NOT EXISTS account_type TEXT NOT NULL DEFAULT 'contractor';
 
 -- 2. users (contractor staff – link to Supabase Auth via email or custom)
 CREATE TABLE IF NOT EXISTS users (

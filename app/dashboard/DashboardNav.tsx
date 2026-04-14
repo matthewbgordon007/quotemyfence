@@ -69,6 +69,24 @@ const businessLinks = [
   },
 ];
 
+const supplierLinks = [
+  {
+    href: '/dashboard/supplier/contractor-quotes',
+    label: 'Contractor Quotes',
+    icon: <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 3.75h-9A2.25 2.25 0 0 0 5.25 6v12A2.25 2.25 0 0 0 7.5 20.25h9A2.25 2.25 0 0 0 18.75 18V6A2.25 2.25 0 0 0 16.5 3.75ZM8.25 8.25h7.5m-7.5 3h7.5m-7.5 3h4.5" />,
+  },
+  {
+    href: '/dashboard/supplier/contractor-management',
+    label: 'Contractor Management',
+    icon: <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.5a9.58 9.58 0 0 0 3.75.75c2.2 0 4.22-.74 5.81-1.99a4.5 4.5 0 0 0-8.22-2.78M15 19.5v-.3c0-1.08-.26-2.1-.72-3M15 19.5A12.7 12.7 0 0 1 9 21c-3.05 0-5.84-1.08-8-2.87v-.18a6.75 6.75 0 0 1 12.53-3.75M10.5 6.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />,
+  },
+  {
+    href: '/dashboard/supplier/material-calculator',
+    label: 'Material Calculator',
+    icon: <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 3.75h9A2.25 2.25 0 0 1 18.75 6v12A2.25 2.25 0 0 1 16.5 20.25h-9A2.25 2.25 0 0 1 5.25 18V6A2.25 2.25 0 0 1 7.5 3.75ZM9 8.25h6M9 11.25h6M9 14.25h3" />,
+  },
+];
+
 const ADMIN_ROLES = ['owner', 'admin'];
 
 type NavLink = (typeof workspaceLinks)[number] & { adminOnly?: boolean };
@@ -162,12 +180,23 @@ function NavRows({
   );
 }
 
-export function DashboardNav({ slug, userRole, isMobile = false }: { slug: string; userRole: string | null; isMobile?: boolean }) {
+export function DashboardNav({
+  slug,
+  userRole,
+  accountType = 'contractor',
+  isMobile = false,
+}: {
+  slug: string;
+  userRole: string | null;
+  accountType?: string | null;
+  isMobile?: boolean;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const isAdmin = userRole && ADMIN_ROLES.includes(userRole);
+  const isSupplier = accountType === 'supplier';
   const filteredBusiness = businessLinks.filter((l) => !l.adminOnly || isAdmin);
-  const mobileLinks = [...workspaceLinks, ...filteredBusiness] as NavLink[];
+  const mobileLinks = [...workspaceLinks, ...filteredBusiness, ...(isSupplier ? supplierLinks : [])] as NavLink[];
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -196,6 +225,14 @@ export function DashboardNav({ slug, userRole, isMobile = false }: { slug: strin
           <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Business</p>
           <div className="flex flex-col gap-0.5">
             <NavRows links={filteredBusiness as NavLink[]} pathname={pathname} isMobile={false} />
+          </div>
+        </div>
+      )}
+      {isSupplier && (
+        <div>
+          <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Supplier Pages</p>
+          <div className="flex flex-col gap-0.5">
+            <NavRows links={supplierLinks as NavLink[]} pathname={pathname} isMobile={false} />
           </div>
         </div>
       )}

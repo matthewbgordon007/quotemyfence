@@ -31,7 +31,7 @@ export default async function DashboardLayout({
   const contractor = userRow?.contractor_id
     ? await supabase
         .from('contractors')
-        .select('id, company_name, slug, logo_url, primary_color')
+        .select('id, company_name, slug, logo_url, primary_color, account_type')
         .eq('id', userRow.contractor_id)
         .single()
     : { data: null };
@@ -77,7 +77,12 @@ export default async function DashboardLayout({
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
-          <DashboardNav slug={c?.slug ?? ''} userRole={userRow?.role ?? null} isMobile={false} />
+          <DashboardNav
+            slug={c?.slug ?? ''}
+            userRole={userRow?.role ?? null}
+            accountType={c?.account_type ?? 'contractor'}
+            isMobile={false}
+          />
         </div>
       </aside>
 
@@ -91,7 +96,12 @@ export default async function DashboardLayout({
 
       {/* Mobile Bottom Nav */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200/90 bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_32px_-8px_rgba(15,23,42,0.08)] backdrop-blur-xl">
-        <DashboardNav slug={c?.slug ?? ''} userRole={userRow?.role ?? null} isMobile={true} />
+        <DashboardNav
+          slug={c?.slug ?? ''}
+          userRole={userRow?.role ?? null}
+          accountType={c?.account_type ?? 'contractor'}
+          isMobile={true}
+        />
       </div>
     </div>
   );

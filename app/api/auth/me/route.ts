@@ -23,7 +23,17 @@ export async function GET() {
     .eq('is_active', true)
     .single();
 
-  if (contractorUser?.contractor_id) return NextResponse.json({ type: 'contractor' });
+  if (contractorUser?.contractor_id) {
+    const { data: contractor } = await supabase
+      .from('contractors')
+      .select('account_type')
+      .eq('id', contractorUser.contractor_id)
+      .maybeSingle();
+    if (contractor?.account_type === 'supplier') {
+      return NextResponse.json({ type: 'supplier' });
+    }
+    return NextResponse.json({ type: 'contractor' });
+  }
 
   return NextResponse.json({ type: null });
 }

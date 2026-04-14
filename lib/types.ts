@@ -10,6 +10,7 @@ export type QuoteSessionStatus =
 export interface Contractor {
   id: string;
   company_name: string;
+  account_type?: 'contractor' | 'supplier' | null;
   slug: string;
   email: string;
   phone: string | null;
