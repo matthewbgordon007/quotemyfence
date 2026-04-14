@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 
-export default function LoginPage() {
+export default function SupplierLoginPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,9 +32,7 @@ export default function LoginPage() {
         return;
       }
 
-      const me = await fetch('/api/auth/me', { credentials: 'include' });
-      const { type } = (await me.json()) || {};
-      router.push(type === 'master' ? '/master' : '/dashboard');
+      router.push('/dashboard');
       router.refresh();
     } catch {
       setError('Something went wrong. Please try again.');
@@ -48,9 +46,9 @@ export default function LoginPage() {
         <img src="/quotemyfence-logo.png" alt="QuoteMyFence" className="h-10 w-auto" />
       </Link>
       <div className="w-full max-w-md rounded-2xl border border-[var(--line)] bg-white p-8 shadow-xl">
-        <h1 className="text-2xl font-bold tracking-tight">Sign in</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Supplier sign in</h1>
         <p className="mt-2 text-sm text-[var(--muted)]">
-          Contractors: manage products and quotes. Admin: prepare material quotes.
+          Access your supplier dashboard and supplier pages.
         </p>
         <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-3">
           <input
@@ -67,11 +65,7 @@ export default function LoginPage() {
             required
             className="rounded-xl border border-[var(--line)] px-4 py-3 outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
           />
-          {error && (
-            <div className="rounded-xl bg-red-50 px-4 py-2 text-sm text-red-700">
-              {error}
-            </div>
-          )}
+          {error && <div className="rounded-xl bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
           <button
             type="submit"
             disabled={loading}
@@ -81,23 +75,15 @@ export default function LoginPage() {
           </button>
         </form>
         <p className="mt-4 text-center text-sm text-[var(--muted)]">
-          New contractor?{' '}
-          <Link href="/signup" className="font-semibold text-[var(--accent)] hover:underline">
-            Create an account
+          New supplier?{' '}
+          <Link href="/supplier/signup" className="font-semibold text-[var(--accent)] hover:underline">
+            Create a supplier account
           </Link>
         </p>
         <p className="mt-1 text-center text-sm text-[var(--muted)]">
-          Supplier?{' '}
-          <Link href="/supplier/login" className="font-semibold text-[var(--accent)] hover:underline">
-            Supplier sign in
-          </Link>
-        </p>
-        <p className="mt-1 text-center text-sm text-[var(--muted)]">
-          Admin? <Link href="/signup/master" className="font-semibold text-[var(--accent)] hover:underline">Create master account</Link>
-        </p>
-        <p className="mt-1 text-center text-sm text-[var(--muted)]">
-          <Link href="/" className="hover:underline">
-            Back to home
+          Contractor login?{' '}
+          <Link href="/login" className="font-semibold text-[var(--accent)] hover:underline">
+            Go to contractor sign in
           </Link>
         </p>
       </div>

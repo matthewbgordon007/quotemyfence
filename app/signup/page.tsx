@@ -285,6 +285,12 @@ export default function SignupPage() {
               Log in
             </Link>
           </p>
+          <p className="mt-1 text-center text-sm text-[var(--muted)]">
+            Supplier account?{' '}
+            <Link href="/supplier/signup" className="font-semibold text-[var(--accent)] hover:underline">
+              Create supplier account
+            </Link>
+          </p>
         </div>
       </div>
     </div>

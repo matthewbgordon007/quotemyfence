@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
     const {
       company_name,
       slug: rawSlug,
+      account_type,
       phone,
       website,
       address_line_1,
@@ -41,6 +42,7 @@ export async function POST(request: NextRequest) {
       last_name,
       logo_url,
     } = body;
+    const accountType = account_type === 'supplier' ? 'supplier' : 'contractor';
 
     if (!company_name?.trim()) {
       return NextResponse.json(
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
 
     if (existingAuthUser) {
       return NextResponse.json(
-        { error: 'This login already has a contractor account. Sign in to the dashboard instead of registering again.' },
+        { error: 'This login already has an account. Sign in to the dashboard instead of registering again.' },
         { status: 400 }
       );
     }
@@ -101,6 +103,7 @@ export async function POST(request: NextRequest) {
       .from('contractors')
       .insert({
         company_name: company_name.trim(),
+        account_type: accountType,
         slug,
         email: user.email!,
         phone: phone?.trim() || null,
