@@ -16,6 +16,21 @@ export default function SupplierLandingPage() {
             tools plus dedicated supplier pages.
           </p>
 
+          <div className="mt-8 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-slate-900">Contractor Quotes</p>
+              <p className="mt-1 text-sm text-slate-600">Track and respond to contractor quote requests in one place.</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-slate-900">Contractor Management</p>
+              <p className="mt-1 text-sm text-slate-600">Manage contractor relationships, status, and account details.</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-slate-900">Material Calculator</p>
+              <p className="mt-1 text-sm text-slate-600">Build material estimates quickly for incoming contractor jobs.</p>
+            </div>
+          </div>
+
           <div className="mt-8 grid gap-3 sm:grid-cols-2">
             <Link
               href="/supplier/login"
