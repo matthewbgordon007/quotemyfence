@@ -25,6 +25,7 @@ const navLinks = [
   { href: '/blog', label: 'Blog' },
   { href: '/press', label: 'Press' },
   { href: '/partners', label: 'Partners' },
+  { href: '/supplier', label: 'Supplier' },
   { href: '/#faq', label: 'FAQ' },
 ];
 
@@ -166,6 +167,12 @@ export function SiteNav() {
             >
               Member login
             </Link>
+            <Link
+              href="/supplier"
+              className="hidden rounded-full border border-blue-200/90 bg-blue-50/70 px-4 py-2.5 text-sm font-semibold text-blue-700 shadow-sm transition-all hover:border-blue-300 hover:bg-blue-100/80 sm:inline-flex"
+            >
+              Supplier portal
+            </Link>
             <a
               href={SCHEDULE_CALL_URL}
               target="_blank"
@@ -249,6 +256,13 @@ export function SiteNav() {
             className="block rounded-xl border border-slate-200 bg-white px-3 py-3 text-center text-[15px] font-semibold text-slate-800 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50/50"
           >
             Member login
+          </Link>
+          <Link
+            href="/supplier"
+            onClick={() => setMobileOpen(false)}
+            className="mt-2 block rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 text-center text-[15px] font-semibold text-blue-800 shadow-sm transition-colors hover:bg-blue-100/70"
+          >
+            Supplier portal
           </Link>
           <a
             href={SCHEDULE_CALL_URL}
