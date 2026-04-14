@@ -154,6 +154,17 @@ export async function POST(request: NextRequest) {
     }
 
     const optionId = colour_option_id || product_option_id;
+    const contractorId = (ruleRow as { contractor_id?: string | null })?.contractor_id ?? null;
+    let quoteRangePct: number | null = null;
+    if (contractorId) {
+      const { data: contractorRow } = await supabase
+        .from('contractors')
+        .select('*')
+        .eq('id', contractorId)
+        .single();
+      const raw = (contractorRow as { quote_range_pct?: number | null } | null)?.quote_range_pct;
+      quoteRangePct = Number.isFinite(Number(raw)) ? Number(raw) : null;
+    }
 
     const result = calculatePricing({
       total_length_ft: Number(total_length_ft) || 0,
@@ -161,6 +172,7 @@ export async function POST(request: NextRequest) {
       single_gate_qty: Number(single_gate_qty) || 0,
       double_gate_qty: Number(double_gate_qty) || 0,
       has_removal: !!has_removal,
+      quote_range_pct: quoteRangePct,
       rule: { ...ruleRow, tax_mode: ruleRow.tax_mode ?? 'excluded' },
     });
 

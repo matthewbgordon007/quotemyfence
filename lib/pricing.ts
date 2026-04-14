@@ -1,11 +1,11 @@
 /**
  * Server-side pricing engine.
- * Contractor sets single prices. Customer sees ±5% range on their quote.
+ * Contractor sets single prices. Customer sees a configurable ±range% on their quote.
  * Input: total_length_ft, product_option_id, gate counts, has_removal, pricing_rules.
- * Output: { subtotal_low, subtotal_high, total_low, total_high } (±5% of actual).
+ * Output: { subtotal_low, subtotal_high, total_low, total_high } (±range% of actual).
  */
 
-const QUOTE_RANGE_PCT = 0.05; // ±5%
+const DEFAULT_QUOTE_RANGE_PCT = Number(process.env.DEFAULT_QUOTE_RANGE_PCT ?? 5); // percent
 const DEFAULT_ESTIMATE_TAX_RATE = Number(process.env.ESTIMATE_TAX_RATE ?? 13); // %
 
 export interface PricingRuleRow {
@@ -28,6 +28,7 @@ export interface PricingInput {
   single_gate_qty: number;
   double_gate_qty: number;
   has_removal: boolean;
+  quote_range_pct?: number | null;
   rule: PricingRuleRow;
 }
 
@@ -54,6 +55,7 @@ export function calculatePricing(input: PricingInput): PricingResult {
     single_gate_qty,
     double_gate_qty,
     has_removal,
+    quote_range_pct,
     rule,
   } = input;
 
@@ -73,7 +75,12 @@ export function calculatePricing(input: PricingInput): PricingResult {
   const removal = has_removal && length > 0 ? length * removalPerFt : 0;
   const subtotalActual = Math.max(material + gates + removal, minJob);
 
-  const range = subtotalActual * QUOTE_RANGE_PCT;
+  const quoteRangePct = Number.isFinite(Number(quote_range_pct))
+    ? Math.max(0, Math.min(50, Number(quote_range_pct)))
+    : Number.isFinite(DEFAULT_QUOTE_RANGE_PCT)
+      ? Math.max(0, Math.min(50, DEFAULT_QUOTE_RANGE_PCT))
+      : 5;
+  const range = subtotalActual * (quoteRangePct / 100);
   const subtotal_low = Math.round((subtotalActual - range) * 100) / 100;
   const subtotal_high = Math.round((subtotalActual + range) * 100) / 100;
   const taxRate = Number.isFinite(DEFAULT_ESTIMATE_TAX_RATE)

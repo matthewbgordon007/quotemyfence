@@ -100,6 +100,7 @@ export async function PATCH(request: NextRequest) {
     'secondary_color',
     'accent_color',
     'quote_notification_email',
+    'quote_range_pct',
   ];
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
   for (const k of allowed) {
@@ -171,6 +172,11 @@ export async function PATCH(request: NextRequest) {
     if (conflicts.length > 0) {
       return NextResponse.json({ error: contractorConflictsErrorMessage(conflicts) }, { status: 400 });
     }
+  }
+
+  if (updates.quote_range_pct !== undefined) {
+    const n = Number(updates.quote_range_pct);
+    updates.quote_range_pct = Number.isFinite(n) ? Math.max(0, Math.min(50, n)) : 5;
   }
 
   const { data: contractor, error } = await supabase

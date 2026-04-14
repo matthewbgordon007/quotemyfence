@@ -60,12 +60,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: ruleRow } = await supabase
+    const [{ data: ruleRow }, { data: contractorRow }] = await Promise.all([
+      supabase
       .from('pricing_rules')
       .select('*')
       .eq('product_option_id', product_option_id)
       .eq('is_active', true)
-      .single();
+      .single(),
+      supabase.from('contractors').select('*').eq('id', userRow.contractor_id).single(),
+    ]);
 
     if (!ruleRow) {
       return NextResponse.json(
@@ -80,6 +83,7 @@ export async function POST(request: NextRequest) {
       single_gate_qty: Number(single_gate_qty) || 0,
       double_gate_qty: Number(double_gate_qty) || 0,
       has_removal: !!has_removal,
+      quote_range_pct: Number((contractorRow as { quote_range_pct?: number | null } | null)?.quote_range_pct ?? 5),
       rule: { ...ruleRow, tax_mode: ruleRow.tax_mode ?? 'excluded' },
     });
 

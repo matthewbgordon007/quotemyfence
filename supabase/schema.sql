@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS contractors (
   primary_color TEXT DEFAULT '#2563eb',
   secondary_color TEXT,
   accent_color TEXT,
+  quote_range_pct NUMERIC(5,2) NOT NULL DEFAULT 5,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()

@@ -23,6 +23,7 @@ export interface Contractor {
   primary_color: string | null;
   secondary_color: string | null;
   accent_color: string | null;
+  quote_range_pct?: number | null;
   is_active: boolean;
   created_at: string;
 }
