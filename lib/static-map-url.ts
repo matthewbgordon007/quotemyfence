@@ -151,8 +151,8 @@ function padBounds(
 }
 
 /**
- * Google Static Maps URL with satellite imagery and a thin solid yellow fence path.
- * Uses explicit center + zoom (tighter than path-only auto framing).
+ * Google Static Maps URL with satellite imagery and a thick, fully opaque yellow fence path.
+ * Color is 0xRRGGBBAA (alpha FF = solid, not translucent). Uses explicit center + zoom.
  */
 export function buildFenceStaticMapUrl(
   segments: FenceMapSegment[],
@@ -163,7 +163,8 @@ export function buildFenceStaticMapUrl(
   const w = options?.width ?? 640;
   const h = options?.height ?? 400;
   const points = pathPointString(segments);
-  const pathSpec = `color:0xffea00|weight:3|${points}`;
+  // Pure yellow + opaque alpha; weight reads well at scale=2 on satellite
+  const pathSpec = `color:0xffff00ff|weight:14|${points}`;
 
   const raw = boundsFromSegments(segments);
   const sized = expandBoundsWithMinSize(raw.minLat, raw.maxLat, raw.minLng, raw.maxLng);
