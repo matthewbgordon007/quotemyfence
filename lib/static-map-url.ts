@@ -168,8 +168,9 @@ function segmentMidpoints(segments: FenceMapSegment[]): { lat: number; lng: numb
 }
 
 /**
- * Google Static Maps URL with satellite imagery, golden-yellow fence path, and tiny
- * numbered markers at each segment midpoint (line 1, 2, …; 10+ shows as A–Z per API).
+ * Google Static Maps URL with satellite imagery, golden-yellow fence path, and numbered
+ * markers at each segment midpoint. Only `mid` (or default) markers support `label`;
+ * `tiny`/`small` ignore labels per Static API docs.
  */
 export function buildFenceStaticMapUrl(
   segments: FenceMapSegment[],
@@ -211,8 +212,8 @@ export function buildFenceStaticMapUrl(
     const label = segmentMarkerLabel(i + 1);
     const lat = mid.lat.toFixed(6);
     const lng = mid.lng.toFixed(6);
-    // tiny pin + circular label chip; dark fill reads on satellite
-    const marker = `size:tiny|color:0x334155|label:${label}|${lat},${lng}`;
+    // mid-sized: only mid/default markers render label (tiny/small omit the digit)
+    const marker = `size:mid|color:0x334155|label:${label.toUpperCase()}|${lat},${lng}`;
     url += `&markers=${encodeURIComponent(marker)}`;
   });
 

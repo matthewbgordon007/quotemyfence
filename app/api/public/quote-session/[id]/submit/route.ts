@@ -29,7 +29,7 @@ function fenceLayoutEmailSection(
 
   const mapPart = mapImageUrl
     ? `
-            <p style="margin: 0 0 12px 0; color: #6b7280; font-size: 13px;">Yellow line = fence path. Small numbered pins mark Line 1, Line 2, and so on—same order as the line lengths below (lines 10+ show as A, B, C…).</p>
+            <p style="margin: 0 0 12px 0; color: #6b7280; font-size: 13px;">Yellow line = fence path. Numbered pins mark Line 1, Line 2, and so on—same order as the line lengths below (lines 10+ show as A, B, C…).</p>
             <img src="${escapeHtmlAttr(mapImageUrl)}" alt="Fence layout on map" width="560" style="max-width: 100%; height: auto; border-radius: 8px; border: 1px solid #e5e7eb; display: block;" />
             <p style="margin: 12px 0 0 0; font-size: 13px;"><a href="${escapeHtmlAttr(mapImageUrl)}" style="${linkStyle}">Open layout map in browser</a> if the image doesn&apos;t load.</p>
           `
