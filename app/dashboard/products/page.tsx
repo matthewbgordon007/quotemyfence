@@ -873,6 +873,8 @@ export default function ProductsPage() {
                                   <button
                                     type="button"
                                     onClick={() => {
+                                      setExpandedTypes((prev) => new Set(prev).add(t.id));
+                                      setExpandedStyles((prev) => new Set(prev).add(s.id));
                                       setAddColourStyleId(s.id);
                                       setNewColourName('');
                                     }}
