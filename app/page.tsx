@@ -5,6 +5,8 @@ import { FAQAccordion } from '@/components/FAQAccordion';
 import { JsonLd } from '@/components/JsonLd';
 import { SiteNav } from '@/components/SiteNav';
 import { TestimonialsCarousel } from '@/components/TestimonialsCarousel';
+import { DesktopCTARail } from '@/components/DesktopCTARail';
+import { StickyMobileCTA } from '@/components/StickyMobileCTA';
 import { SITE_URL, canonical, SEO_DEFAULTS } from '@/lib/seo';
 
 const SCHEDULE_CALL_URL = 'https://calendar.app.google/vuWD6xi7CfNptAon9';
@@ -240,6 +242,8 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
+      <DesktopCTARail />
+      <StickyMobileCTA />
     </div>
   );
 }
