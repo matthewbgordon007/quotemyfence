@@ -9,17 +9,10 @@ const SCHEDULE_CALL_URL = 'https://calendar.app.google/vuWD6xi7CfNptAon9';
 /** Homepage section anchors — matches ids in app/page.tsx */
 const SECTION_LINKS = [
   { id: 'demo', label: 'Demo video' },
-  { id: 'customer-experience', label: 'Customer experience' },
-  { id: 'comparison', label: 'Old vs new' },
-  { id: 'quote-calculator', label: 'Quote calculator' },
-  { id: 'roi-calculator', label: 'ROI calculator' },
   { id: 'features', label: 'Features' },
-  { id: 'platform', label: 'Platform preview' },
-  { id: 'how-it-works', label: 'How it works' },
   { id: 'testimonials', label: 'Testimonials' },
   { id: 'pricing', label: 'Pricing' },
   { id: 'faq', label: 'FAQ' },
-  { id: 'for-contractors', label: 'For contractors' },
   { id: 'contact', label: 'Contact' },
 ] as const;
 
