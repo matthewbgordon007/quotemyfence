@@ -81,6 +81,13 @@ export default function ProductsPage() {
   const [quoteRangeSaveStatus, setQuoteRangeSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   /** Last value known to match the server; avoids PATCH on hydrate / unchanged. */
   const lastPersistedQuoteRange = useRef<number | null>(null);
+  const quoteRangePctRef = useRef(quoteRangePct);
+  const isAdminRef = useRef(isAdmin);
+  const loadingRef = useRef(loading);
+  quoteRangePctRef.current = quoteRangePct;
+  isAdminRef.current = isAdmin;
+  loadingRef.current = loading;
+
   const [search, setSearch] = useState('');
   const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
   const [expandedStyles, setExpandedStyles] = useState<Set<string>>(new Set());
@@ -130,6 +137,30 @@ export default function ProductsPage() {
     [applyHierarchyData]
   );
 
+  const persistQuoteRangeIfDirty = useCallback(async () => {
+    if (!isAdminRef.current || loadingRef.current) return;
+    if (lastPersistedQuoteRange.current === null) return;
+    const clamped = Math.max(0, Math.min(50, Number(quoteRangePctRef.current)));
+    if (!Number.isFinite(clamped) || lastPersistedQuoteRange.current === clamped) return;
+    setQuoteRangeSaveStatus('saving');
+    try {
+      const r = await fetch('/api/contractor/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quote_range_pct: clamped }),
+      });
+      if (r.ok) {
+        lastPersistedQuoteRange.current = clamped;
+        setQuoteRangeSaveStatus('saved');
+        window.setTimeout(() => setQuoteRangeSaveStatus('idle'), 2000);
+      } else {
+        setQuoteRangeSaveStatus('idle');
+      }
+    } catch {
+      setQuoteRangeSaveStatus('idle');
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -163,27 +194,18 @@ export default function ProductsPage() {
     if (lastPersistedQuoteRange.current === null) return;
     const clamped = Math.max(0, Math.min(50, Number(quoteRangePct)));
     if (!Number.isFinite(clamped) || lastPersistedQuoteRange.current === clamped) return;
-    const t = setTimeout(async () => {
-      setQuoteRangeSaveStatus('saving');
-      try {
-        const r = await fetch('/api/contractor/me', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ quote_range_pct: clamped }),
-        });
-        if (r.ok) {
-          lastPersistedQuoteRange.current = clamped;
-          setQuoteRangeSaveStatus('saved');
-          window.setTimeout(() => setQuoteRangeSaveStatus('idle'), 2000);
-        } else {
-          setQuoteRangeSaveStatus('idle');
-        }
-      } catch {
-        setQuoteRangeSaveStatus('idle');
-      }
+    const t = window.setTimeout(() => {
+      void persistQuoteRangeIfDirty();
     }, 650);
     return () => clearTimeout(t);
-  }, [quoteRangePct, isAdmin, loading]);
+  }, [quoteRangePct, isAdmin, loading, persistQuoteRangeIfDirty]);
+
+  /** Flush when leaving the page so navigation does not cancel the debounced save. */
+  useEffect(() => {
+    return () => {
+      void persistQuoteRangeIfDirty();
+    };
+  }, [persistQuoteRangeIfDirty]);
 
   useEffect(() => {
     if (!loading && types.length > 0 && !didAutoExpand.current) {
@@ -503,14 +525,27 @@ export default function ProductsPage() {
                 value={quoteRangePct}
                 onChange={(e) => {
                   const v = e.target.value === '' ? 0 : Number(e.target.value);
-                  setQuoteRangePct(Number.isFinite(v) ? v : 0);
+                  const next = Number.isFinite(v) ? v : 0;
+                  quoteRangePctRef.current = next;
+                  setQuoteRangePct(next);
                 }}
-                onBlur={() =>
-                  setQuoteRangePct((v) => Math.max(0, Math.min(50, Number.isFinite(Number(v)) ? Number(v) : 5)))
-                }
+                onBlur={() => {
+                  const next = Math.max(
+                    0,
+                    Math.min(
+                      50,
+                      Number.isFinite(Number(quoteRangePctRef.current)) ? Number(quoteRangePctRef.current) : 5
+                    )
+                  );
+                  quoteRangePctRef.current = next;
+                  setQuoteRangePct(next);
+                  void persistQuoteRangeIfDirty();
+                }}
                 className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-base font-semibold tabular-nums text-slate-900 shadow-inner focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/25"
               />
-              <p className="mt-2 text-xs text-slate-500">0–50. Saves automatically.</p>
+              <p className="mt-2 text-xs text-slate-500">
+                0–50. Saves when you leave this field or after a short pause while typing.
+              </p>
               {quoteRangeSaveStatus === 'saving' && (
                 <p className="mt-2 text-xs font-medium text-blue-600">Saving…</p>
               )}
