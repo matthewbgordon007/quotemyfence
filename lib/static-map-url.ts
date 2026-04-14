@@ -151,8 +151,25 @@ function padBounds(
 }
 
 /**
- * Google Static Maps URL with satellite imagery and an opaque golden-yellow fence path.
- * Color is 0xRRGGBBAA (alpha FF). Uses explicit center + zoom.
+ * Maps Static API allows one marker label character: 0–9, A–Z.
+ * Lines 1–9 → digits; 10–35 → A–Z; beyond → *.
+ */
+function segmentMarkerLabel(lineNumber: number): string {
+  if (lineNumber >= 1 && lineNumber <= 9) return String(lineNumber);
+  if (lineNumber >= 10 && lineNumber <= 35) return String.fromCharCode(55 + lineNumber);
+  return '*';
+}
+
+function segmentMidpoints(segments: FenceMapSegment[]): { lat: number; lng: number }[] {
+  return segments.map((seg) => ({
+    lat: (seg.start_lat + seg.end_lat) / 2,
+    lng: (seg.start_lng + seg.end_lng) / 2,
+  }));
+}
+
+/**
+ * Google Static Maps URL with satellite imagery, golden-yellow fence path, and tiny
+ * numbered markers at each segment midpoint (line 1, 2, …; 10+ shows as A–Z per API).
  */
 export function buildFenceStaticMapUrl(
   segments: FenceMapSegment[],
@@ -187,8 +204,19 @@ export function buildFenceStaticMapUrl(
     key: apiKey,
   });
 
-  const base = `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`;
-  return `${base}&path=${encodeURIComponent(pathSpec)}`;
+  let url = `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}&path=${encodeURIComponent(pathSpec)}`;
+
+  const mids = segmentMidpoints(segments);
+  mids.forEach((mid, i) => {
+    const label = segmentMarkerLabel(i + 1);
+    const lat = mid.lat.toFixed(6);
+    const lng = mid.lng.toFixed(6);
+    // tiny pin + circular label chip; dark fill reads on satellite
+    const marker = `size:tiny|color:0x334155|label:${label}|${lat},${lng}`;
+    url += `&markers=${encodeURIComponent(marker)}`;
+  });
+
+  return url;
 }
 
 export function canBuildFenceStaticMap(segments: FenceMapSegment[]): boolean {
