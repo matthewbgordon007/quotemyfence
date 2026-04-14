@@ -33,7 +33,6 @@ function buildContractorProfileBody(c: {
   province_state: string | null;
   postal_zip: string | null;
   quote_notification_email: string | null;
-  quote_range_pct: number | null;
   logo_url: string | null;
   primary_color: string | null;
 }) {
@@ -47,8 +46,6 @@ function buildContractorProfileBody(c: {
     province_state: c.province_state || null,
     postal_zip: c.postal_zip || null,
     quote_notification_email: c.quote_notification_email || null,
-    quote_range_pct:
-      Number.isFinite(Number(c.quote_range_pct)) ? Math.max(0, Math.min(50, Number(c.quote_range_pct))) : 5,
     logo_url: c.logo_url || null,
     primary_color: c.primary_color || '#2563eb',
     secondary_color: c.primary_color,
@@ -191,12 +188,11 @@ export default function SettingsPage() {
     address_line_1: string | null;
     city: string | null;
     province_state: string | null;
-    postal_zip: string | null;
-    logo_url: string | null;
-    primary_color: string | null;
-    quote_notification_email: string | null;
-    quote_range_pct: number | null;
-    user_role?: string;
+  postal_zip: string | null;
+  logo_url: string | null;
+  primary_color: string | null;
+  quote_notification_email: string | null;
+  user_role?: string;
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const contractorRef = useRef(contractor);
@@ -556,26 +552,6 @@ export default function SettingsPage() {
               />
               <p className="mt-1.5 text-xs text-slate-500">
                 New submissions go here. Leave blank to use your login email.
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Customer quote range (±%)</label>
-              <input
-                type="number"
-                min={0}
-                max={50}
-                step={0.5}
-                value={Number.isFinite(Number(contractor.quote_range_pct)) ? Number(contractor.quote_range_pct) : 5}
-                onChange={(e) =>
-                  setContractor({
-                    ...contractor,
-                    quote_range_pct: e.target.value === '' ? 5 : Number(e.target.value),
-                  })
-                }
-                className={field}
-              />
-              <p className="mt-1.5 text-xs text-slate-500">
-                Customers will see estimates as a plus/minus range around your base pricing.
               </p>
             </div>
             <div>

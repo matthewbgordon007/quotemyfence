@@ -77,6 +77,10 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [quoteRangePct, setQuoteRangePct] = useState(5);
+  const [quoteRangeSaveStatus, setQuoteRangeSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  /** Last value known to match the server; avoids PATCH on hydrate / unchanged. */
+  const lastPersistedQuoteRange = useRef<number | null>(null);
   const [search, setSearch] = useState('');
   const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
   const [expandedStyles, setExpandedStyles] = useState<Set<string>>(new Set());
@@ -139,6 +143,11 @@ export default function ProductsPage() {
         const data = hRes.ok ? await hRes.json() : {};
         if (cancelled) return;
         setIsAdmin(ADMIN_ROLES.includes(me?.user_role || ''));
+        const rawQr = Number(me?.quote_range_pct);
+        const qr =
+          Number.isFinite(rawQr) ? Math.max(0, Math.min(50, rawQr)) : 5;
+        lastPersistedQuoteRange.current = qr;
+        setQuoteRangePct(qr);
         applyHierarchyData(data);
       } finally {
         if (!cancelled) setLoading(false);
@@ -148,6 +157,33 @@ export default function ProductsPage() {
       cancelled = true;
     };
   }, [applyHierarchyData]);
+
+  useEffect(() => {
+    if (!isAdmin || loading) return;
+    if (lastPersistedQuoteRange.current === null) return;
+    const clamped = Math.max(0, Math.min(50, Number(quoteRangePct)));
+    if (!Number.isFinite(clamped) || lastPersistedQuoteRange.current === clamped) return;
+    const t = setTimeout(async () => {
+      setQuoteRangeSaveStatus('saving');
+      try {
+        const r = await fetch('/api/contractor/me', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ quote_range_pct: clamped }),
+        });
+        if (r.ok) {
+          lastPersistedQuoteRange.current = clamped;
+          setQuoteRangeSaveStatus('saved');
+          window.setTimeout(() => setQuoteRangeSaveStatus('idle'), 2000);
+        } else {
+          setQuoteRangeSaveStatus('idle');
+        }
+      } catch {
+        setQuoteRangeSaveStatus('idle');
+      }
+    }, 650);
+    return () => clearTimeout(t);
+  }, [quoteRangePct, isAdmin, loading]);
 
   useEffect(() => {
     if (!loading && types.length > 0 && !didAutoExpand.current) {
@@ -435,6 +471,56 @@ export default function ProductsPage() {
 
   return (
     <div className="mx-auto max-w-6xl pb-8">
+      {isAdmin && (
+        <section
+          className="mb-8 overflow-hidden rounded-2xl border-2 border-blue-500/40 bg-gradient-to-br from-blue-50 via-white to-indigo-50/80 p-6 shadow-lg shadow-blue-900/10 ring-1 ring-blue-500/15 sm:p-8"
+          aria-labelledby="products-quote-range-title"
+        >
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 flex-1 space-y-2">
+              <p className="text-xs font-bold uppercase tracking-widest text-blue-700">Instant customer quotes</p>
+              <h2
+                id="products-quote-range-title"
+                className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl"
+              >
+                Price range shown to customers (±%)
+              </h2>
+              <p className="max-w-2xl text-sm leading-relaxed text-slate-600">
+                This controls how wide the low–high band is on instant quotes and emails, around your base per-foot and
+                gate pricing. Set it here alongside your catalog prices.
+              </p>
+            </div>
+            <div className="shrink-0 rounded-xl border border-blue-200/90 bg-white/90 p-4 shadow-sm backdrop-blur-sm sm:min-w-[200px]">
+              <label htmlFor="products-quote-range-pct" className="block text-sm font-semibold text-slate-800">
+                Range ± (%)
+              </label>
+              <input
+                id="products-quote-range-pct"
+                type="number"
+                min={0}
+                max={50}
+                step={0.5}
+                value={quoteRangePct}
+                onChange={(e) => {
+                  const v = e.target.value === '' ? 0 : Number(e.target.value);
+                  setQuoteRangePct(Number.isFinite(v) ? v : 0);
+                }}
+                onBlur={() =>
+                  setQuoteRangePct((v) => Math.max(0, Math.min(50, Number.isFinite(Number(v)) ? Number(v) : 5)))
+                }
+                className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-base font-semibold tabular-nums text-slate-900 shadow-inner focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/25"
+              />
+              <p className="mt-2 text-xs text-slate-500">0–50. Saves automatically.</p>
+              {quoteRangeSaveStatus === 'saving' && (
+                <p className="mt-2 text-xs font-medium text-blue-600">Saving…</p>
+              )}
+              {quoteRangeSaveStatus === 'saved' && (
+                <p className="mt-2 text-xs font-medium text-emerald-600">Saved</p>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
       {!isAdmin && (
         <div
           className="mb-6 rounded-xl border border-amber-200/90 bg-amber-50 px-4 py-3 text-sm text-amber-950"
