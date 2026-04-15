@@ -4,6 +4,7 @@ import { AutoplayOnViewVideo } from '@/components/AutoplayOnViewVideo';
 import { FAQAccordion } from '@/components/FAQAccordion';
 import { JsonLd } from '@/components/JsonLd';
 import { SiteNav } from '@/components/SiteNav';
+import { HomeScrollBackdrop } from '@/components/HomeScrollBackdrop';
 import { TestimonialsCarousel } from '@/components/TestimonialsCarousel';
 import { DesktopCTARail } from '@/components/DesktopCTARail';
 import { StickyMobileCTA } from '@/components/StickyMobileCTA';
@@ -115,85 +116,102 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="relative min-h-screen text-slate-900">
+      <HomeScrollBackdrop />
       <JsonLd data={organizationJsonLd} />
       <JsonLd data={websiteJsonLd} />
       <JsonLd data={faqJsonLd} />
       <SiteNav />
 
-      <main id="main-content" className="mx-auto w-full max-w-6xl px-4 pb-16 pt-24 sm:px-6 sm:pt-28 lg:px-8">
-        <section id="hero" className="py-12 text-center sm:py-16">
-          <p className="mx-auto inline-flex rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-slate-600">
-            Built for fence contractors
-          </p>
-          <h1 className="mx-auto mt-6 max-w-4xl text-balance text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
-            Instant fence estimates. <span className="text-blue-600">Qualified leads.</span>
-          </h1>
-          <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-600">
-            A clean, branded quote experience that helps homeowners self-serve and helps your team close faster.
-          </p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <a
-              href={DEMO_URL}
-              className="inline-flex min-h-[46px] items-center justify-center rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-500"
-            >
-              Try live demo
-            </a>
-            <a
-              href={SCHEDULE_CALL_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex min-h-[46px] items-center justify-center rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-100"
-            >
-              Book a call
-            </a>
+      <main
+        id="main-content"
+        className="relative z-10 mx-auto w-full max-w-6xl space-y-16 px-4 pb-20 pt-24 sm:space-y-20 sm:px-6 sm:pb-24 sm:pt-28 lg:px-8"
+      >
+        <section id="hero" className="scroll-mt-28 pt-4 text-center sm:pt-6">
+          <div className="mx-auto max-w-4xl rounded-[2rem] border border-white/70 bg-white/80 px-6 py-10 shadow-2xl shadow-blue-900/10 ring-1 ring-blue-100/80 backdrop-blur-md sm:px-10 sm:py-12">
+            <p className="mx-auto inline-flex rounded-full border border-blue-200/90 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-blue-800 shadow-sm">
+              Built for fence contractors
+            </p>
+            <h1 className="mx-auto mt-6 max-w-4xl text-balance text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
+              Instant fence estimates. <span className="text-blue-600">Qualified leads.</span>
+            </h1>
+            <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-600">
+              A clean, branded quote experience that helps homeowners self-serve and helps your team close faster.
+            </p>
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <a
+                href={DEMO_URL}
+                className="inline-flex min-h-[46px] items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/25 transition hover:from-blue-500 hover:to-indigo-500"
+              >
+                Try live demo
+              </a>
+              <a
+                href={SCHEDULE_CALL_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-[46px] items-center justify-center rounded-xl border-2 border-blue-200/90 bg-white px-6 py-3 text-sm font-semibold text-blue-900 transition hover:bg-blue-50/90"
+              >
+                Book a call
+              </a>
+            </div>
           </div>
         </section>
 
-        <section id="demo" className="scroll-mt-24 py-6 sm:py-8">
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <section id="demo" className="scroll-mt-28">
+          <p className="mb-3 text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-900/70">See it in action</p>
+          <div className="overflow-hidden rounded-3xl border border-blue-200/60 bg-white/90 shadow-xl shadow-blue-900/15 ring-1 ring-white/80 backdrop-blur-sm">
             <AutoplayOnViewVideo src="/videos/QuoteProcess.mp4" className="w-full" />
           </div>
         </section>
 
-        <section id="features" className="scroll-mt-24 py-12 sm:py-16">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="rounded-2xl border border-slate-200 bg-white p-6">
-              <h3 className="text-base font-semibold">Satellite draw flow</h3>
-              <p className="mt-2 text-sm text-slate-600">Homeowners draw real fence lines on their own property.</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-6">
-              <h3 className="text-base font-semibold">Branded instant estimate</h3>
-              <p className="mt-2 text-sm text-slate-600">Your pricing rules and your visual identity, end to end.</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-6">
-              <h3 className="text-base font-semibold">Higher-intent leads</h3>
-              <p className="mt-2 text-sm text-slate-600">You get contact info with measurements, not vague inquiries.</p>
+        <section id="features" className="scroll-mt-28">
+          <div className="rounded-[2rem] border border-blue-200/50 bg-white/85 p-8 shadow-xl shadow-blue-900/10 ring-1 ring-blue-100/60 backdrop-blur-md sm:p-10">
+            <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-800/80">Why teams switch</p>
+            <h2 className="mt-2 text-center text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Built for real fence sales</h2>
+            <div className="mt-10 grid gap-4 sm:grid-cols-3">
+              <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/80 p-6 shadow-sm transition hover:border-blue-200 hover:shadow-md">
+                <h3 className="text-base font-semibold text-slate-900">Satellite draw flow</h3>
+                <p className="mt-2 text-sm text-slate-600">Homeowners draw real fence lines on their own property.</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/80 p-6 shadow-sm transition hover:border-blue-200 hover:shadow-md">
+                <h3 className="text-base font-semibold text-slate-900">Branded instant estimate</h3>
+                <p className="mt-2 text-sm text-slate-600">Your pricing rules and your visual identity, end to end.</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/80 p-6 shadow-sm transition hover:border-blue-200 hover:shadow-md">
+                <h3 className="text-base font-semibold text-slate-900">Higher-intent leads</h3>
+                <p className="mt-2 text-sm text-slate-600">You get contact info with measurements, not vague inquiries.</p>
+              </div>
             </div>
           </div>
         </section>
 
-        <section id="testimonials" className="scroll-mt-24 rounded-2xl border border-slate-200 bg-white py-12 sm:py-14">
-          <h2 className="px-6 text-center text-2xl font-bold tracking-tight sm:text-3xl">
-            Trusted by growing fence teams
-          </h2>
-          <TestimonialsCarousel items={testimonials} />
+        <section id="testimonials" className="scroll-mt-28">
+          <div className="rounded-[2rem] border border-indigo-300/40 bg-gradient-to-br from-blue-600/25 via-indigo-700/30 to-slate-900/40 p-1.5 shadow-2xl shadow-indigo-900/25 sm:p-2">
+            <div className="rounded-[1.65rem] border border-white/50 bg-white py-12 sm:py-14">
+              <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-800/80">Social proof</p>
+              <h2 className="mt-2 px-6 text-center text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+                Trusted by growing fence teams
+              </h2>
+              <TestimonialsCarousel items={testimonials} />
+            </div>
+          </div>
         </section>
 
-        <section id="pricing" className="scroll-mt-24 py-14 sm:py-16">
-          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center sm:p-10">
-            <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Simple pricing. Serious results.</h2>
+        <section id="pricing" className="scroll-mt-28">
+          <p className="mb-3 text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-900/70">Pricing</p>
+          <div className="rounded-[2rem] border border-blue-300/50 bg-gradient-to-br from-white via-blue-50/50 to-indigo-50/80 p-8 text-center shadow-xl shadow-blue-900/10 ring-1 ring-blue-100/70 sm:p-10">
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Simple pricing. Serious results.</h2>
             <p className="mt-3 text-slate-600">Launch your quote flow for $199.99 CAD/month. Cancel anytime.</p>
             <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
                 href="/signup"
-                className="inline-flex min-h-[46px] items-center justify-center rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-500"
+                className="inline-flex min-h-[46px] items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/25 transition hover:from-blue-500 hover:to-indigo-500"
               >
                 Start now
               </Link>
               <Link
                 href="/login"
-                className="inline-flex min-h-[46px] items-center justify-center rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-100"
+                className="inline-flex min-h-[46px] items-center justify-center rounded-xl border-2 border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-800 transition hover:border-blue-200 hover:bg-blue-50/50"
               >
                 Member login
               </Link>
@@ -201,44 +219,58 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="faq" className="scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-6 py-12 sm:p-8 sm:py-14">
-          <h2 className="text-center text-2xl font-bold tracking-tight sm:text-3xl">Frequently asked questions</h2>
-          <div className="mt-8">
-            <FAQAccordion items={faqs} />
+        <section id="faq" className="scroll-mt-28">
+          <div className="rounded-[2rem] border border-slate-200/90 bg-white/90 p-6 py-12 shadow-lg shadow-slate-900/5 ring-1 ring-slate-100 backdrop-blur-sm sm:p-8 sm:py-14">
+            <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">FAQ</p>
+            <h2 className="mt-2 text-center text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+              Frequently asked questions
+            </h2>
+            <div className="mt-8">
+              <FAQAccordion items={faqs} />
+            </div>
           </div>
         </section>
 
-        <section id="contact" className="scroll-mt-24 py-14 text-center sm:py-16">
-          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Want help getting set up?</h2>
-          <p className="mx-auto mt-3 max-w-xl text-slate-600">
-            We can walk through products, pricing, and launch best practices with your team.
-          </p>
-          <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <a
-              href={SCHEDULE_CALL_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex min-h-[46px] items-center justify-center rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-500"
-            >
-              Book a call
-            </a>
-            <a
-              href={`mailto:${CONTACT_EMAIL}`}
-              className="inline-flex min-h-[46px] items-center justify-center rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-100"
-            >
-              Email us
-            </a>
+        <section id="contact" className="scroll-mt-28 pb-4">
+          <div className="overflow-hidden rounded-[2rem] bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-900 px-6 py-12 text-center shadow-2xl shadow-blue-900/40 ring-1 ring-white/20 sm:px-10 sm:py-14">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-100/90">Next step</p>
+            <h2 className="mt-3 text-2xl font-bold tracking-tight text-white sm:text-3xl">Want help getting set up?</h2>
+            <p className="mx-auto mt-3 max-w-xl text-base text-blue-100/95">
+              We can walk through products, pricing, and launch best practices with your team.
+            </p>
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <a
+                href={SCHEDULE_CALL_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-[46px] items-center justify-center rounded-xl bg-white px-6 py-3 text-sm font-semibold text-blue-800 shadow-lg transition hover:bg-blue-50"
+              >
+                Book a call
+              </a>
+              <a
+                href={`mailto:${CONTACT_EMAIL}`}
+                className="inline-flex min-h-[46px] items-center justify-center rounded-xl border-2 border-white/40 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/20"
+              >
+                Email us
+              </a>
+            </div>
           </div>
         </section>
       </main>
 
-      <footer className="border-t border-slate-200 bg-white/70 py-10">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+      <footer className="relative z-10 border-t border-blue-900/30 bg-slate-950/50 py-10 text-blue-100/90 backdrop-blur-md">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <p>© <span suppressHydrationWarning>{new Date().getFullYear()}</span> QuoteMyFence</p>
           <div className="flex items-center gap-4">
-            <Link href="/blog" className="hover:text-slate-900">Blog</Link>
-            <Link href="/partners" className="hover:text-slate-900">Partners</Link>
-            <a href="/#faq" className="hover:text-slate-900">FAQ</a>
+            <Link href="/blog" className="transition hover:text-white">
+              Blog
+            </Link>
+            <Link href="/partners" className="transition hover:text-white">
+              Partners
+            </Link>
+            <a href="/#faq" className="transition hover:text-white">
+              FAQ
+            </a>
           </div>
         </div>
       </footer>
