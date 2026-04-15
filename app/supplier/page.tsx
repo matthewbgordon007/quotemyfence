@@ -94,7 +94,7 @@ export default function SupplierLandingPage() {
             <h1 className="mt-6 max-w-3xl text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl lg:text-[3.25rem] lg:leading-[1.1]">
               Power your supply side with a{' '}
               <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-600 bg-clip-text text-transparent">
-                crisp blue workspace
+                workspace built for suppliers
               </span>
             </h1>
 
