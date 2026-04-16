@@ -57,6 +57,53 @@ function formatQty(n: number): string {
   return n.toFixed(2);
 }
 
+/** First segment before comma/pipe — used as the master list column header (e.g. "Adobe, 6ft" → "Adobe"). */
+function colorHeadingFromDescription(description: string): string {
+  const t = description.trim();
+  if (!t) return 'Color';
+  const head = t.split(/[,|]/)[0]?.trim();
+  return head || 'Color';
+}
+
+type MasterSheetRow =
+  | { kind: 'item'; label: string; matchNames: string[] }
+  | { kind: 'section'; label: string };
+
+/** Spreadsheet order: labels match the supplier sheet; `matchNames` tie to recipe `name` values (merged totals). */
+const MASTER_MATERIAL_SHEET_ROWS: MasterSheetRow[] = [
+  { kind: 'item', label: 'Concrete', matchNames: ['Concrete'] },
+  { kind: 'item', label: 'Rail', matchNames: ['Rail'] },
+  { kind: 'item', label: 'Rail Stiffener', matchNames: ['Rail Stiffener'] },
+  { kind: 'item', label: 'Board', matchNames: ['Board'] },
+  { kind: 'item', label: 'Board Stiffener', matchNames: ['Board Stiffener'] },
+  { kind: 'item', label: 'H-Post', matchNames: ['H Post'] },
+  { kind: 'item', label: 'H-Post Stiffener', matchNames: ['H-Post Stiffener', 'H Post Stiffener'] },
+  { kind: 'item', label: 'Galvanized Post', matchNames: ['Galvanized Post'] },
+  { kind: 'item', label: 'U-Channel', matchNames: ['U Channel'] },
+  { kind: 'section', label: 'Post Filler' },
+  { kind: 'item', label: 'Post Cap', matchNames: ['Cap (H Post)', 'Cap (H post)'] },
+  { kind: 'item', label: 'Overhead Brace', matchNames: ['Gate OverHead Brace', 'Gate Overhead Brace'] },
+  { kind: 'item', label: 'Diagonal Brace', matchNames: ['Gate Cross Brace'] },
+  { kind: 'item', label: 'Hole Cap', matchNames: ['Hole Cap', 'Plug'] },
+  { kind: 'item', label: 'Large Screw', matchNames: ['Long Screw'] },
+  { kind: 'item', label: 'Small Screw', matchNames: ['Short Screw'] },
+  { kind: 'item', label: '*PREMIUM*Latch', matchNames: ['Latch kit', 'Latch Kit'] },
+  { kind: 'item', label: '*PREMIUM*Hinge', matchNames: ['Hinge Kit', 'Hinge kit'] },
+  { kind: 'section', label: 'Drop Rod/Sleeve' },
+  { kind: 'section', label: 'Base Plates' },
+];
+
+const MASTER_SHEET_COLOR_COL = '#FDE9A9';
+const MASTER_SHEET_SECTION_BG = '#55FF33';
+
+function lookupMaterialTotal(totals: Map<string, number>, matchNames: string[]): number {
+  for (const name of matchNames) {
+    const key = materialKey(name);
+    if (totals.has(key)) return totals.get(key) ?? 0;
+  }
+  return 0;
+}
+
 export function SupplierMaterialCalculatorFramework() {
   const [title, setTitle] = useState(starterMaterialCalculatorTemplate.title);
   const [description, setDescription] = useState(starterMaterialCalculatorTemplate.description);
@@ -139,19 +186,19 @@ export function SupplierMaterialCalculatorFramework() {
     });
   }, [exactPanels, gateRecipeItems, gateTotalBoards, roundedPanels, sampleGateLine.posts_needed, sampleLine]);
 
-  const masterMaterialRows = useMemo(() => {
-    const map = new Map<string, { label: string; total: number }>();
+  const materialTotalsByKey = useMemo(() => {
+    const map = new Map<string, number>();
     const add = (name: string, qty: number) => {
       const label = name.trim() || 'Untitled item';
       const key = materialKey(label);
-      const prev = map.get(key);
-      if (prev) prev.total += qty;
-      else map.set(key, { label, total: qty });
+      map.set(key, (map.get(key) ?? 0) + qty);
     };
     for (const row of previewRows) add(row.name || '', Number(row.final) || 0);
     for (const row of gatePreviewRows) add(row.name || '', Number(row.final) || 0);
-    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+    return map;
   }, [previewRows, gatePreviewRows]);
+
+  const masterListColorHeading = useMemo(() => colorHeadingFromDescription(description), [description]);
 
   const colorLineInputs = useMemo(() => firstSheetFieldSpecs.filter((f) => f.section === 'color_line' && f.mode === 'input'), []);
   const colorLineCalculated = useMemo(() => firstSheetFieldSpecs.filter((f) => f.section === 'color_line' && f.mode === 'calculated'), []);
@@ -342,31 +389,55 @@ export function SupplierMaterialCalculatorFramework() {
       <section className={cardShell}>
         <div className={cardHeader}>
           <h2 className="font-semibold text-slate-900">Master material list</h2>
-          <p className="mt-1 text-sm text-slate-600">Everything from the color line and gate line, combined in one order list.</p>
+          <p className="mt-1 text-sm text-slate-600">
+            Order sheet layout: quantities combine color and gate recipes. The center column is titled from the first part of{' '}
+            <span className="font-medium text-slate-800">Color and height</span> (for example <span className="font-medium">Adobe, 6ft</span> →{' '}
+            <span className="font-medium">Adobe</span>).
+          </p>
         </div>
         <div className="p-5 sm:p-6">
-          {masterMaterialRows.length === 0 ? (
-            <p className="text-sm text-slate-500">No materials yet. Add recipe items in the drawers below, or use the default lists.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 text-left">
-                    <th className="py-3 font-semibold text-slate-700">Item</th>
-                    <th className="py-3 text-right font-semibold text-slate-700">Total qty</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {masterMaterialRows.map((row) => (
-                    <tr key={materialKey(row.label)} className="border-b border-slate-100 last:border-0">
-                      <td className="py-2.5 font-medium text-slate-900">{row.label}</td>
-                      <td className="py-2.5 text-right font-semibold tabular-nums text-slate-900">{formatQty(row.total)}</td>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[320px] border-collapse text-sm text-slate-900">
+              <thead>
+                <tr>
+                  <th className="border border-black bg-white px-2 py-2 text-left font-bold text-slate-900" />
+                  <th
+                    className="border border-black px-2 py-2 text-center font-bold text-slate-900"
+                    style={{ backgroundColor: MASTER_SHEET_COLOR_COL }}
+                  >
+                    {masterListColorHeading}
+                  </th>
+                  <th className="border border-black bg-white px-2 py-2 text-center font-bold text-slate-900">Extras</th>
+                </tr>
+              </thead>
+              <tbody>
+                {MASTER_MATERIAL_SHEET_ROWS.map((row, idx) =>
+                  row.kind === 'section' ? (
+                    <tr key={`section-${idx}-${row.label}`}>
+                      <td
+                        colSpan={3}
+                        className="border border-black px-2 py-2 text-center text-sm font-bold text-slate-900"
+                        style={{ backgroundColor: MASTER_SHEET_SECTION_BG }}
+                      >
+                        {row.label}
+                      </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  ) : (
+                    <tr key={`item-${idx}-${row.label}`}>
+                      <td className="border border-black bg-white px-2 py-1.5 text-left font-medium">{row.label}</td>
+                      <td
+                        className="border border-black px-2 py-1.5 text-center font-semibold tabular-nums text-slate-900"
+                        style={{ backgroundColor: MASTER_SHEET_COLOR_COL }}
+                      >
+                        {formatQty(lookupMaterialTotal(materialTotalsByKey, row.matchNames))}
+                      </td>
+                      <td className="border border-black bg-white px-2 py-1.5 text-center text-slate-700" />
+                    </tr>
+                  ),
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
