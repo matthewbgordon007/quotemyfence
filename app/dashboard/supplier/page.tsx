@@ -1,11 +1,9 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { MATERIAL_QUOTE_REQUEST_SELECT } from '@/lib/supplier-material-quote-request-fields';
 import { enrichMaterialQuoteRequests } from '@/lib/supplier-material-quote-requests-enrich';
 import { requireSupplierDashboard } from '@/lib/supplier-dashboard-guard';
-
-const MATERIAL_QUOTE_SELECT =
-  'id, description, status, supplier_response, master_response, created_at, updated_at, contractor_id, quote_session_id, layout_drawing_id, attachment_url, attachment_name, attachment_content_type, attachment_size_bytes, supplier_seen_at';
 
 function formatDateShort(iso: string): string {
   const d = new Date(iso);
@@ -74,7 +72,7 @@ export default async function SupplierDashboardHomePage() {
       .order('created_at', { ascending: false }),
     supabase
       .from('material_quote_requests')
-      .select(MATERIAL_QUOTE_SELECT)
+      .select(MATERIAL_QUOTE_REQUEST_SELECT)
       .eq('supplier_contractor_id', supplierId)
       .order('created_at', { ascending: false })
       .limit(6),
@@ -380,9 +378,10 @@ export default async function SupplierDashboardHomePage() {
               </div>
             ) : (
               linkedContractors.slice(0, 8).map((row) => (
-                <div
+                <Link
                   key={row.link_id}
-                  className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-2.5 transition hover:border-slate-200 hover:bg-white"
+                  href={`/dashboard/supplier/contractor-management/contractors/${row.contractor.id}`}
+                  className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-2.5 transition hover:border-indigo-200/80 hover:bg-white"
                 >
                   {row.contractor.logo_url ? (
                     <img
@@ -399,7 +398,7 @@ export default async function SupplierDashboardHomePage() {
                     <p className="truncate text-sm font-semibold text-slate-900">{row.contractor.company_name}</p>
                     <p className="text-xs text-slate-500">Linked {formatDateShort(row.linked_at)}</p>
                   </div>
-                </div>
+                </Link>
               ))
             )}
             {linkedContractors.length > 8 ? (

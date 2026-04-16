@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getSupplierContractorSession } from '@/lib/supplier-auth-helpers';
+import { MATERIAL_QUOTE_REQUEST_SELECT } from '@/lib/supplier-material-quote-request-fields';
 import { enrichMaterialQuoteRequests } from '@/lib/supplier-material-quote-requests-enrich';
 
 const ALLOWED_STATUS = new Set(['pending', 'quoted', 'closed']);
 
-const SELECT_FIELDS =
-  'id, description, status, supplier_response, master_response, created_at, updated_at, contractor_id, quote_session_id, layout_drawing_id, attachment_url, attachment_name, attachment_content_type, attachment_size_bytes, supplier_seen_at';
+const SELECT_FIELDS = MATERIAL_QUOTE_REQUEST_SELECT;
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
