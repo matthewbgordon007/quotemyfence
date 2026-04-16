@@ -51,7 +51,7 @@ function roundNorm(n: number, decimals = 1): number {
 function computeLineMaterials(line: FenceLine, prevLine: FenceLine | null): MaterialItem[] {
   const panels = line.lengthFt / PVC_PANEL_LENGTH_FT;
   const wholePanels = roundUp(panels);
-  const posts = wholePanels;
+  const posts = wholePanels + 1;
 
   // If connects to previous, that end's H post and U channel already counted
   const hPostCount = line.connectsToPrevious ? Math.max(0, line.hPost - 1) : line.hPost;

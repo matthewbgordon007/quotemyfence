@@ -4,6 +4,8 @@ export type MaterialCalculatorInputField =
   | 'line_length_ft'
   | 'exact_panels'
   | 'rounded_panels'
+  /** Whole panels plus one starter post at the start of the run (ceil(panels) + 1). */
+  | 'line_posts_including_first'
   | 'h_post_terminations'
   | 'u_channel_terminations'
   | 'gate_unit'
@@ -92,9 +94,9 @@ export const starterMaterialCalculatorTemplate: MaterialCalculatorTemplate = {
       id: 'galvanized-post',
       name: 'Galvanized Post',
       quantity_per_panel: 1,
-      input_field: 'rounded_panels',
+      input_field: 'line_posts_including_first',
       rounding_mode: 'ceil',
-      notes: 'Rounded up because partial panels still need full structural support.',
+      notes: 'One post per whole panel plus one starter post for the first panel.',
     },
     {
       id: 'h-post',
@@ -177,11 +179,18 @@ export const firstSheetFieldSpecs: MaterialCalculatorFieldSpec[] = [
     notes: 'ceil(total_fence_line_panels)',
   },
   {
+    id: 'line_posts_including_first',
+    label: 'Line posts (whole panels + 1 starter post)',
+    mode: 'calculated',
+    section: 'color_line',
+    notes: 'ceil(total_fence_line_panels) + 1 for the first post that starts the line.',
+  },
+  {
     id: 'posts',
     label: 'Posts',
     mode: 'calculated',
     section: 'color_line',
-    notes: 'Based on rounded panels and termination logic.',
+    notes: 'Structural line posts: whole panels plus one starter post unless overridden in the recipe.',
   },
   {
     id: 'gate_address_line_label',
@@ -222,14 +231,14 @@ export const firstSheetFieldSpecs: MaterialCalculatorFieldSpec[] = [
 ];
 
 export const firstSheetColorLineRecipeDefaults: MaterialCalculatorRecipeItem[] = [
-  { id: 'color-galv-post', name: 'Galvanized Post', quantity_per_panel: 1, input_field: 'rounded_panels', rounding_mode: 'ceil' },
-  { id: 'color-h-post', name: 'H Post', quantity_per_panel: 1, input_field: 'rounded_panels', rounding_mode: 'ceil' },
-  { id: 'color-cap-h-post', name: 'Cap (H Post)', quantity_per_panel: 1, input_field: 'rounded_panels', rounding_mode: 'ceil' },
+  { id: 'color-galv-post', name: 'Galvanized Post', quantity_per_panel: 1, input_field: 'line_posts_including_first', rounding_mode: 'ceil' },
+  { id: 'color-h-post', name: 'H Post', quantity_per_panel: 1, input_field: 'line_posts_including_first', rounding_mode: 'ceil' },
+  { id: 'color-cap-h-post', name: 'Cap (H Post)', quantity_per_panel: 1, input_field: 'line_posts_including_first', rounding_mode: 'ceil' },
   { id: 'color-rail', name: 'Rail', quantity_per_panel: 2, input_field: 'exact_panels', rounding_mode: 'ceil' },
   { id: 'color-rail-stiffener', name: 'Rail Stiffener', quantity_per_panel: 2, input_field: 'exact_panels', rounding_mode: 'ceil' },
   { id: 'color-board', name: 'Board', quantity_per_panel: 16, input_field: 'exact_panels', rounding_mode: 'nearest' },
   { id: 'color-board-stiffener', name: 'Board Stiffener', quantity_per_panel: 3, input_field: 'exact_panels', rounding_mode: 'nearest' },
-  { id: 'color-short-screw', name: 'Short Screw', quantity_per_panel: 1, input_field: 'rounded_panels', rounding_mode: 'ceil' },
+  { id: 'color-short-screw', name: 'Short Screw', quantity_per_panel: 1, input_field: 'line_posts_including_first', rounding_mode: 'ceil' },
   { id: 'color-long-screw', name: 'Long Screw', quantity_per_panel: 4, input_field: 'exact_panels', rounding_mode: 'ceil' },
   { id: 'color-plug', name: 'Plug', quantity_per_panel: 4, input_field: 'exact_panels', rounding_mode: 'nearest' },
   { id: 'color-u-channel', name: 'U Channel', quantity_per_panel: 1, input_field: 'u_channel_terminations', rounding_mode: 'ceil' },

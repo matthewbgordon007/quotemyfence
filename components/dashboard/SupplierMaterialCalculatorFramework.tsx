@@ -34,6 +34,7 @@ const inputFieldLabels: Record<MaterialCalculatorInputField, string> = {
   line_length_ft: 'Line length',
   exact_panels: 'Exact panels',
   rounded_panels: 'Rounded panels',
+  line_posts_including_first: 'Line posts (panels + 1 starter)',
   h_post_terminations: 'H post terminations',
   u_channel_terminations: 'U channel terminations',
   gate_unit: 'Gate unit',
@@ -127,6 +128,9 @@ export function SupplierMaterialCalculatorFramework() {
 
   const roundedPanels = useMemo(() => Math.ceil(exactPanels || 0), [exactPanels]);
 
+  /** Whole panels plus one post that starts the first panel (always +1 vs panel count). */
+  const linePostsIncludingFirst = useMemo(() => roundedPanels + 1, [roundedPanels]);
+
   const previewRows = useMemo(() => {
     return recipeItems.map((item) => {
       const sourceValue =
@@ -136,9 +140,11 @@ export function SupplierMaterialCalculatorFramework() {
             ? exactPanels
             : item.input_field === 'rounded_panels'
               ? roundedPanels
-              : item.input_field === 'h_post_terminations'
-                ? sampleLine.h_post_terminations
-                : sampleLine.u_channel_terminations;
+              : item.input_field === 'line_posts_including_first'
+                ? linePostsIncludingFirst
+                : item.input_field === 'h_post_terminations'
+                  ? sampleLine.h_post_terminations
+                  : sampleLine.u_channel_terminations;
 
       const raw = sourceValue * item.quantity_per_panel;
       return {
@@ -147,7 +153,7 @@ export function SupplierMaterialCalculatorFramework() {
         final: roundForMode(raw, item.rounding_mode),
       };
     });
-  }, [exactPanels, recipeItems, roundedPanels, sampleLine]);
+  }, [exactPanels, linePostsIncludingFirst, recipeItems, roundedPanels, sampleLine]);
 
   const gateDoorWidth = useMemo(() => {
     return Math.max(0, sampleGateLine.line_width_inches - 10.5);
@@ -172,11 +178,13 @@ export function SupplierMaterialCalculatorFramework() {
                   ? exactPanels
                   : item.input_field === 'rounded_panels'
                     ? roundedPanels
-                    : item.input_field === 'h_post_terminations'
-                      ? sampleLine.h_post_terminations
-                      : item.input_field === 'u_channel_terminations'
-                        ? sampleLine.u_channel_terminations
-                        : 0;
+                    : item.input_field === 'line_posts_including_first'
+                      ? linePostsIncludingFirst
+                      : item.input_field === 'h_post_terminations'
+                        ? sampleLine.h_post_terminations
+                        : item.input_field === 'u_channel_terminations'
+                          ? sampleLine.u_channel_terminations
+                          : 0;
       const raw = sourceValue * item.quantity_per_panel;
       return {
         ...item,
@@ -184,7 +192,7 @@ export function SupplierMaterialCalculatorFramework() {
         final: roundForMode(raw, item.rounding_mode),
       };
     });
-  }, [exactPanels, gateRecipeItems, gateTotalBoards, roundedPanels, sampleGateLine.posts_needed, sampleLine]);
+  }, [exactPanels, gateRecipeItems, gateTotalBoards, linePostsIncludingFirst, roundedPanels, sampleGateLine.posts_needed, sampleLine]);
 
   const materialTotalsByKey = useMemo(() => {
     const map = new Map<string, number>();
@@ -303,7 +311,7 @@ export function SupplierMaterialCalculatorFramework() {
           <h2 className="font-semibold text-slate-900">Premium Fence Color Line - Material totals</h2>
         </div>
         <div className="space-y-4 p-5 sm:p-6">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total fence line panels</p>
               <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{exactPanels.toFixed(2)}</p>
@@ -311,6 +319,10 @@ export function SupplierMaterialCalculatorFramework() {
             <div className="rounded-2xl border border-indigo-200/80 bg-indigo-50/70 p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Total whole panels</p>
               <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{roundedPanels}</p>
+            </div>
+            <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/70 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Line posts (whole panels + 1 starter)</p>
+              <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{linePostsIncludingFirst}</p>
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -464,7 +476,9 @@ export function SupplierMaterialCalculatorFramework() {
               <ul className="mt-2 space-y-1.5 text-sm text-slate-700">{gateLineCalculated.map((f) => <li key={f.id}>- {f.label}</li>)}</ul>
             </div>
           </div>
-          <p className="mt-4 text-sm text-slate-600">Core math: `exact panels = length / panel length`, `whole panels = ceil(exact panels)`.</p>
+          <p className="mt-4 text-sm text-slate-600">
+            Core math: `exact panels = length / panel length`, `whole panels = ceil(exact panels)`, and `line posts = whole panels + 1` for the starter post at the beginning of the run.
+          </p>
         </div>
       </details>
 
