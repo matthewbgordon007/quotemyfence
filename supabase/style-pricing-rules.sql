@@ -15,11 +15,20 @@ CREATE TABLE IF NOT EXISTS style_pricing_rules (
   removal_price_per_ft_high NUMERIC(10,2) DEFAULT 0,
   minimum_job_low NUMERIC(10,2) DEFAULT 0,
   minimum_job_high NUMERIC(10,2) DEFAULT 0,
+  contractor_material_price_per_ft NUMERIC(10,2) DEFAULT 0,
+  contractor_material_single_gate NUMERIC(10,2) DEFAULT 0,
+  contractor_material_double_gate NUMERIC(10,2) DEFAULT 0,
+  contractor_material_minimum_job NUMERIC(10,2) DEFAULT 0,
   tax_mode TEXT DEFAULT 'excluded',
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE(fence_style_id)
 );
+
+ALTER TABLE style_pricing_rules ADD COLUMN IF NOT EXISTS contractor_material_price_per_ft NUMERIC(10,2) DEFAULT 0;
+ALTER TABLE style_pricing_rules ADD COLUMN IF NOT EXISTS contractor_material_single_gate NUMERIC(10,2) DEFAULT 0;
+ALTER TABLE style_pricing_rules ADD COLUMN IF NOT EXISTS contractor_material_double_gate NUMERIC(10,2) DEFAULT 0;
+ALTER TABLE style_pricing_rules ADD COLUMN IF NOT EXISTS contractor_material_minimum_job NUMERIC(10,2) DEFAULT 0;
 
 -- Migrate: create style rules from first colour rule per style (for existing data)
 INSERT INTO style_pricing_rules (

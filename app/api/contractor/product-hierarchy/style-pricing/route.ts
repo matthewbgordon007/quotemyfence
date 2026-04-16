@@ -29,6 +29,10 @@ export async function PATCH(request: NextRequest) {
     'single_gate_low', 'single_gate_high', 'double_gate_low', 'double_gate_high',
     'removal_price_per_ft_low', 'removal_price_per_ft_high',
     'minimum_job_low', 'minimum_job_high',
+    'contractor_material_price_per_ft',
+    'contractor_material_single_gate',
+    'contractor_material_double_gate',
+    'contractor_material_minimum_job',
   ];
   const updates: Record<string, number> = {};
   for (const k of allowed) {
@@ -58,6 +62,10 @@ export async function PATCH(request: NextRequest) {
   const d = updates.double_gate_low ?? updates.double_gate_high ?? 800;
   const r = updates.removal_price_per_ft_low ?? updates.removal_price_per_ft_high ?? 5;
   const m = updates.minimum_job_low ?? updates.minimum_job_high ?? 500;
+  const contractorMaterialPricePerFt = updates.contractor_material_price_per_ft ?? 0;
+  const contractorMaterialSingleGate = updates.contractor_material_single_gate ?? 0;
+  const contractorMaterialDoubleGate = updates.contractor_material_double_gate ?? 0;
+  const contractorMaterialMinJob = updates.contractor_material_minimum_job ?? 0;
 
   const { data, error } = await supabase
     .from('style_pricing_rules')
@@ -74,6 +82,10 @@ export async function PATCH(request: NextRequest) {
       removal_price_per_ft_high: r,
       minimum_job_low: m,
       minimum_job_high: m,
+      contractor_material_price_per_ft: contractorMaterialPricePerFt,
+      contractor_material_single_gate: contractorMaterialSingleGate,
+      contractor_material_double_gate: contractorMaterialDoubleGate,
+      contractor_material_minimum_job: contractorMaterialMinJob,
       is_active: true,
     })
     .select()

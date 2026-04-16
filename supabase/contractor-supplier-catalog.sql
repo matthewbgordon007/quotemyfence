@@ -100,6 +100,21 @@ BEGIN
   END IF;
 END $$;
 
+-- 5) Supplier pricing split
+-- Homeowners see supplied + installed pricing in the quote flow.
+-- Suppliers can also keep a separate contractor-facing material-only rate on the same style.
+ALTER TABLE style_pricing_rules
+  ADD COLUMN IF NOT EXISTS contractor_material_price_per_ft NUMERIC(10,2) DEFAULT 0;
+
+ALTER TABLE style_pricing_rules
+  ADD COLUMN IF NOT EXISTS contractor_material_single_gate NUMERIC(10,2) DEFAULT 0;
+
+ALTER TABLE style_pricing_rules
+  ADD COLUMN IF NOT EXISTS contractor_material_double_gate NUMERIC(10,2) DEFAULT 0;
+
+ALTER TABLE style_pricing_rules
+  ADD COLUMN IF NOT EXISTS contractor_material_minimum_job NUMERIC(10,2) DEFAULT 0;
+
 CREATE INDEX IF NOT EXISTS idx_material_quote_requests_supplier ON material_quote_requests(supplier_contractor_id);
 CREATE INDEX IF NOT EXISTS idx_material_quote_requests_supplier_unread
   ON material_quote_requests(supplier_contractor_id, supplier_seen_at);

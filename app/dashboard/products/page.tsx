@@ -53,6 +53,10 @@ const defaultRule = (styleId: string): StylePricingRule => ({
   removal_price_per_ft_high: 5,
   minimum_job_low: 0,
   minimum_job_high: 0,
+  contractor_material_price_per_ft: 0,
+  contractor_material_single_gate: 0,
+  contractor_material_double_gate: 0,
+  contractor_material_minimum_job: 0,
 });
 
 function Chevron({ open }: { open: boolean }) {
@@ -801,6 +805,7 @@ export default function ProductsPage() {
           styleName={pricingModal.styleName}
           rule={pricingModal.rule}
           installTiers={tiersForStyle(pricingModal.styleId)}
+          showContractorPricing={accountType === 'supplier'}
           readOnly={pricingModal.readOnly ?? false}
           singlePricingUnset={pricingModal.singlePricingUnset ?? false}
           onClose={() => setPricingModal(null)}
@@ -1041,6 +1046,12 @@ export default function ProductsPage() {
                                   </span>
                                 )
                               )}
+                              {accountType === 'supplier' &&
+                              Number(styleRule?.contractor_material_price_per_ft ?? 0) > 0 ? (
+                                <span className="rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-800">
+                                  Contractor ${Number(styleRule?.contractor_material_price_per_ft ?? 0).toFixed(2)}/ft
+                                </span>
+                              ) : null}
                             </button>
                             <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                               {!isAdmin && (

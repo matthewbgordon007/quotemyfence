@@ -15,6 +15,10 @@ export interface StylePricingRule {
   removal_price_per_ft_high: number;
   minimum_job_low: number;
   minimum_job_high: number;
+  contractor_material_price_per_ft?: number;
+  contractor_material_single_gate?: number;
+  contractor_material_double_gate?: number;
+  contractor_material_minimum_job?: number;
 }
 
 export interface StyleInstallLengthTier extends StylePricingRule {
@@ -65,6 +69,7 @@ interface Props {
   styleName: string;
   rule: StylePricingRule;
   installTiers: StyleInstallLengthTier[];
+  showContractorPricing?: boolean;
   /** Sales / view-only: show pricing and bands, no edits or save. */
   readOnly?: boolean;
   /** When read-only and true, single-price tab shows “not set” instead of placeholder numbers. */
@@ -88,17 +93,21 @@ export function StylePricingModal({
   styleName,
   rule,
   installTiers,
+  showContractorPricing = false,
   readOnly = false,
   singlePricingUnset = false,
   onSave,
   onSaveInstallTiers,
   onClose,
 }: Props) {
-  const [tab, setTab] = useState<'single' | 'length'>('single');
+  const [tab, setTab] = useState<'single' | 'length' | 'contractor'>('single');
   const [pricePerFt, setPricePerFt] = useState(String(rule.base_price_per_ft_low));
   const [singleGate, setSingleGate] = useState(String(rule.single_gate_low));
   const [removal, setRemoval] = useState(String(rule.removal_price_per_ft_low));
   const [minJob, setMinJob] = useState(String(rule.minimum_job_low));
+  const [contractorPricePerFt, setContractorPricePerFt] = useState(String(rule.contractor_material_price_per_ft ?? 0));
+  const [contractorSingleGate, setContractorSingleGate] = useState(String(rule.contractor_material_single_gate ?? 0));
+  const [contractorMinJob, setContractorMinJob] = useState(String(rule.contractor_material_minimum_job ?? 0));
   const [tierRows, setTierRows] = useState<TierDraft[]>([]);
   const [savingTiers, setSavingTiers] = useState(false);
 
@@ -111,6 +120,9 @@ export function StylePricingModal({
       setSingleGate(String(rule.single_gate_low));
       setRemoval(String(rule.removal_price_per_ft_low));
       setMinJob(String(rule.minimum_job_low));
+      setContractorPricePerFt(String(rule.contractor_material_price_per_ft ?? 0));
+      setContractorSingleGate(String(rule.contractor_material_single_gate ?? 0));
+      setContractorMinJob(String(rule.contractor_material_minimum_job ?? 0));
       setTierRows(
         installTiers.length > 0
           ? [...installTiers].sort((a, b) => a.display_order - b.display_order).map(tierToDraft)
@@ -154,6 +166,21 @@ export function StylePricingModal({
     }
   }
 
+  function submitContractorMaterial(e: React.FormEvent) {
+    e.preventDefault();
+    if (readOnly) return;
+    const p = Number(contractorPricePerFt) || 0;
+    const s = Number(contractorSingleGate) || 0;
+    const d = doubleGatePriceFromSingle(s);
+    const m = Number(contractorMinJob) || 0;
+    onSave({
+      contractor_material_price_per_ft: p,
+      contractor_material_single_gate: s,
+      contractor_material_double_gate: d,
+      contractor_material_minimum_job: m,
+    });
+  }
+
   function addTierRow() {
     setTierRows((prev) => [...prev, emptyDraft(rule)]);
   }
@@ -176,6 +203,11 @@ export function StylePricingModal({
             <p className="mt-0.5 text-sm text-slate-600">{styleName}</p>
             {readOnly ? (
               <p className="mt-1 text-xs font-medium text-amber-800">You can view rates and length bands; only admins can change them.</p>
+            ) : null}
+            {showContractorPricing ? (
+              <p className="mt-1 text-xs text-slate-500">
+                Homeowner pricing is supplied and installed. Contractor pricing is material only.
+              </p>
             ) : null}
           </div>
           <button
@@ -210,6 +242,17 @@ export function StylePricingModal({
             >
               By install length
             </button>
+            {showContractorPricing ? (
+              <button
+                type="button"
+                onClick={() => setTab('contractor')}
+                className={`border-b-2 px-3 py-3 text-sm font-semibold transition ${
+                  tab === 'contractor' ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                Contractor material
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -546,6 +589,100 @@ export function StylePricingModal({
                 className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:opacity-60"
               >
                 {savingTiers ? 'Saving…' : 'Save length bands'}
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+
+        {tab === 'contractor' && readOnly && showContractorPricing && (
+          <div className="space-y-4 px-5 py-5 sm:px-6">
+            <p className="text-sm text-slate-600">
+              Material-only pricing for contractors. This does not affect the homeowner installed quote flow.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <ReadOnlyField label="Material price per ft (CAD)" value={`$${Number(contractorPricePerFt).toFixed(2)}`} />
+              <ReadOnlyField label="Minimum order (CAD)" value={`$${Number(contractorMinJob).toFixed(2)}`} />
+              <ReadOnlyField label="Single gate material (CAD)" value={`$${Number(contractorSingleGate).toFixed(2)}`} />
+              <ReadOnlyField
+                label="Double gate material (CAD)"
+                value={`$${Number(doubleGatePriceFromSingle(Number(contractorSingleGate) || 0)).toFixed(2)}`}
+              />
+            </div>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+
+        {tab === 'contractor' && !readOnly && showContractorPricing && (
+          <form onSubmit={submitContractorMaterial} className="space-y-4 px-5 py-5 sm:px-6">
+            <p className="text-sm text-slate-600">
+              Set the contractor-facing <strong className="font-semibold text-slate-800">material-only</strong> pricing for this style.
+              Homeowner installed pricing stays on the other tabs.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Material price per ft (CAD)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={contractorPricePerFt}
+                  onChange={(e) => setContractorPricePerFt(e.target.value)}
+                  className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Minimum order (CAD)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={contractorMinJob}
+                  onChange={(e) => setContractorMinJob(e.target.value)}
+                  className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Single gate material (CAD)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={contractorSingleGate}
+                  onChange={(e) => setContractorSingleGate(e.target.value)}
+                  className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Double gate material (CAD)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  readOnly
+                  title="Single × 2 − $100"
+                  value={String(doubleGatePriceFromSingle(Number(contractorSingleGate) || 0))}
+                  className="mt-1.5 w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-700 shadow-sm"
+                />
+                <p className="mt-1 text-xs text-slate-500">Single × 2 − $100</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 pt-2">
+              <button
+                type="submit"
+                className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500"
+              >
+                Save contractor pricing
               </button>
               <button
                 type="button"
