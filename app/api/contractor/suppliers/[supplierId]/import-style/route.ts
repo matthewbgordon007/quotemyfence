@@ -69,6 +69,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { data: style, error: stErr } = await admin.from('fence_styles').select('*').eq('id', supplierFenceStyleId).single();
   if (stErr || !style) return NextResponse.json({ error: 'Style not found' }, { status: 404 });
+  if ((style as { visibility_target?: string | null }).visibility_target === 'homeowners_only') {
+    return NextResponse.json({ error: 'This supplier style is not available to contractors' }, { status: 403 });
+  }
 
   const { data: fenceType, error: ftErr } = await admin
     .from('fence_types')
@@ -128,6 +131,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       photo_url: style.photo_url ?? null,
       display_order: typeof style.display_order === 'number' ? style.display_order : 0,
       is_hidden: Boolean(style.is_hidden),
+      visibility_target:
+        (style as { visibility_target?: string | null }).visibility_target === 'contractors_only'
+          ? 'contractors_only'
+          : 'both',
       is_active: true,
     })
     .select('id')

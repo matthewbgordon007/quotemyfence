@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import type { Contractor, Product, ProductOption, PricingRule, SalesTeamMember, LeadSource } from '@/lib/types';
+import { stripSupplierFromTypeName } from '@/lib/supplier-import-label';
 
 export async function getContractorBySlug(slug: string): Promise<Contractor | null> {
   const supabase = await createClient();
@@ -75,7 +76,11 @@ export async function getContractorPublicConfig(slug: string) {
     .eq('contractor_id', contractor.id)
     .eq('is_active', true)
     .order('display_order');
-  fenceTypes = types || [];
+  fenceTypes = (types || []).map((t) => ({
+    ...t,
+    // Homeowner-facing UI should not expose supplier source names.
+    name: stripSupplierFromTypeName((t as { name?: string }).name || ''),
+  }));
 
   const typeIds = fenceTypes.map((t) => t.id);
   if (typeIds.length > 0) {
@@ -85,7 +90,10 @@ export async function getContractorPublicConfig(slug: string) {
       .in('fence_type_id', typeIds)
       .eq('is_active', true)
       .order('display_order');
-    fenceStyles = (styles || []).filter((s) => (s as { is_hidden?: boolean | null }).is_hidden !== true);
+    fenceStyles = (styles || []).filter((s) => {
+      const row = s as { is_hidden?: boolean | null; visibility_target?: string | null };
+      return row.is_hidden !== true && row.visibility_target !== 'contractors_only';
+    });
 
     const styleIds = fenceStyles.map((s) => s.id);
     if (styleIds.length > 0) {

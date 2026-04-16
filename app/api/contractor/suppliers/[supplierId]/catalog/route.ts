@@ -61,7 +61,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ sup
     .eq('is_active', true)
     .order('display_order', { ascending: true });
 
-  const fenceStyles = styles || [];
+  const fenceStyles = (styles || []).filter((s) => {
+    const v = (s as { visibility_target?: string | null }).visibility_target;
+    return v == null || v === 'both' || v === 'contractors_only';
+  });
   const styleIds = fenceStyles.map((s) => s.id);
 
   const { data: colours } =

@@ -34,7 +34,11 @@ export async function POST(request: NextRequest) {
           .eq('id', colour.fence_style_id)
           .eq('is_active', true)
           .single();
-        if (!selectedStyle || (selectedStyle as { is_hidden?: boolean | null }).is_hidden === true) {
+        if (
+          !selectedStyle ||
+          (selectedStyle as { is_hidden?: boolean | null }).is_hidden === true ||
+          (selectedStyle as { visibility_target?: string | null }).visibility_target === 'contractors_only'
+        ) {
           return NextResponse.json({ error: 'Pricing not found for this option' }, { status: 400 });
         }
 
@@ -74,7 +78,9 @@ export async function POST(request: NextRequest) {
             .eq('is_active', true);
 
           const visibleSiblingStyles = (siblingStyles || []).filter(
-            (s) => (s as { is_hidden?: boolean | null }).is_hidden !== true
+            (s) =>
+              (s as { is_hidden?: boolean | null }).is_hidden !== true &&
+              (s as { visibility_target?: string | null }).visibility_target !== 'contractors_only'
           );
 
           if (visibleSiblingStyles.length) {

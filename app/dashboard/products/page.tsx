@@ -10,6 +10,7 @@ import {
 } from '@/components/dashboard/StylePricingModal';
 import { doubleGatePriceFromSingle } from '@/lib/gate-pricing';
 import { uploadContractorAssetClient } from '@/lib/upload-contractor-asset-client';
+import { extractSupplierFromTypeName } from '@/lib/supplier-import-label';
 
 interface FenceType {
   id: string;
@@ -24,6 +25,7 @@ interface FenceStyle {
   style_name: string;
   photo_url: string | null;
   is_hidden?: boolean;
+  visibility_target?: 'both' | 'contractors_only' | 'homeowners_only';
 }
 
 interface ColourOption {
@@ -77,6 +79,7 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [accountType, setAccountType] = useState<'contractor' | 'supplier' | null>(null);
   const [quoteRangePct, setQuoteRangePct] = useState(5);
   const [quoteRangeSaveStatus, setQuoteRangeSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   /** Last value known to match the server; avoids PATCH on hydrate / unchanged. */
@@ -174,6 +177,7 @@ export default function ProductsPage() {
         const data = hRes.ok ? await hRes.json() : {};
         if (cancelled) return;
         setIsAdmin(ADMIN_ROLES.includes(me?.user_role || ''));
+        setAccountType(me?.account_type === 'supplier' ? 'supplier' : 'contractor');
         const rawQr = Number(me?.quote_range_pct);
         const qr =
           Number.isFinite(rawQr) ? Math.max(0, Math.min(50, rawQr)) : 5;
@@ -241,6 +245,15 @@ export default function ProductsPage() {
       return false;
     });
   }, [types, search, stylesForType, coloursForStyle]);
+
+  const displayTypes = useMemo(() => {
+    return [...filteredTypes].sort((a, b) => {
+      const aSupplier = extractSupplierFromTypeName(a.name).supplierName ?? '';
+      const bSupplier = extractSupplierFromTypeName(b.name).supplierName ?? '';
+      if (aSupplier !== bSupplier) return aSupplier.localeCompare(bSupplier, undefined, { sensitivity: 'base' });
+      return a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true });
+    });
+  }, [filteredTypes]);
 
   const stats = useMemo(() => {
     const typeCount = types.length;
@@ -365,6 +378,29 @@ export default function ProductsPage() {
         return;
       }
       setStyles((prev) => prev.map((st) => (st.id === styleId ? { ...st, is_hidden: hidden } : st)));
+    } catch {
+      alert('Network error — check your connection and try again.');
+    }
+  }
+
+  async function updateStyleVisibilityTarget(
+    styleId: string,
+    visibilityTarget: 'both' | 'contractors_only' | 'homeowners_only'
+  ) {
+    try {
+      const patchRes = await fetch(`/api/contractor/product-hierarchy/styles/${styleId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visibility_target: visibilityTarget }),
+      });
+      const patchData = await patchRes.json().catch(() => ({}));
+      if (!patchRes.ok) {
+        alert(patchData?.error || 'Could not update catalog audience. Try again.');
+        return;
+      }
+      setStyles((prev) =>
+        prev.map((st) => (st.id === styleId ? { ...st, visibility_target: visibilityTarget } : st))
+      );
     } catch {
       alert('Network error — check your connection and try again.');
     }
@@ -647,9 +683,9 @@ export default function ProductsPage() {
       </div>
 
       {/* Jump strip */}
-      {filteredTypes.length > 1 && (
+      {displayTypes.length > 1 && (
         <div className="no-scrollbar mt-6 flex gap-2 overflow-x-auto pb-1">
-          {filteredTypes.map((t) => (
+          {displayTypes.map((t) => (
             <button
               key={t.id}
               type="button"
@@ -750,12 +786,21 @@ export default function ProductsPage() {
           </div>
         )}
 
-        {filteredTypes.map((t) => (
-          <section
-            key={t.id}
-            id={`product-type-${t.id}`}
-            className="scroll-mt-24 overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm"
-          >
+        {displayTypes.map((t, idx) => {
+          const supplierName = extractSupplierFromTypeName(t.name).supplierName;
+          const prevSupplier = idx > 0 ? extractSupplierFromTypeName(displayTypes[idx - 1].name).supplierName : null;
+          const showSupplierHeader = supplierName && supplierName !== prevSupplier;
+          return (
+            <div key={t.id} className="space-y-3">
+              {showSupplierHeader ? (
+                <div className="rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-2.5 text-sm font-semibold text-blue-900">
+                  Imported from {supplierName}
+                </div>
+              ) : null}
+              <section
+                id={`product-type-${t.id}`}
+                className="scroll-mt-24 overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm"
+              >
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/50 px-4 py-4 sm:px-6">
               <button
                 type="button"
@@ -915,6 +960,13 @@ export default function ProductsPage() {
                                   Hidden from customers
                                 </span>
                               ) : null}
+                              {accountType === 'supplier' && (s.visibility_target ?? 'both') !== 'both' ? (
+                                <span className="rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-800">
+                                  {(s.visibility_target ?? 'both') === 'contractors_only'
+                                    ? 'Contractors only'
+                                    : 'Homeowners only'}
+                                </span>
+                              ) : null}
                               {lengthTiers.length > 0 ? (
                                 <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">
                                   {lengthTiers.length} length band{lengthTiers.length === 1 ? '' : 's'}
@@ -947,6 +999,25 @@ export default function ProductsPage() {
                               )}
                               {isAdmin && (
                                 <>
+                                  {accountType === 'supplier' && (
+                                    <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700">
+                                      Audience
+                                      <select
+                                        value={s.visibility_target ?? 'both'}
+                                        onChange={(e) =>
+                                          updateStyleVisibilityTarget(
+                                            s.id,
+                                            (e.target.value as 'both' | 'contractors_only' | 'homeowners_only') ?? 'both'
+                                          )
+                                        }
+                                        className="rounded border border-slate-200 bg-white px-1.5 py-1 text-xs font-semibold text-slate-700"
+                                      >
+                                        <option value="both">Contractors + homeowners</option>
+                                        <option value="contractors_only">Contractors only</option>
+                                        <option value="homeowners_only">Homeowners only</option>
+                                      </select>
+                                    </label>
+                                  )}
                                   <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                                     <input
                                       type="checkbox"
@@ -1127,8 +1198,10 @@ export default function ProductsPage() {
                 })}
               </div>
             )}
-          </section>
-        ))}
+              </section>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

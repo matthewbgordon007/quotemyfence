@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS fence_styles (
   photo_url TEXT,
   display_order INT DEFAULT 0,
   is_hidden BOOLEAN DEFAULT false,
+  visibility_target TEXT NOT NULL DEFAULT 'both' CHECK (visibility_target IN ('both', 'contractors_only', 'homeowners_only')),
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now()
 );
@@ -36,6 +37,19 @@ CREATE TABLE IF NOT EXISTS fence_styles (
 -- If table already existed without photo_url, add the column
 ALTER TABLE fence_styles ADD COLUMN IF NOT EXISTS photo_url TEXT;
 ALTER TABLE fence_styles ADD COLUMN IF NOT EXISTS is_hidden BOOLEAN DEFAULT false;
+ALTER TABLE fence_styles ADD COLUMN IF NOT EXISTS visibility_target TEXT NOT NULL DEFAULT 'both';
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'fence_styles_visibility_target_check'
+  ) THEN
+    ALTER TABLE fence_styles
+      ADD CONSTRAINT fence_styles_visibility_target_check
+      CHECK (visibility_target IN ('both', 'contractors_only', 'homeowners_only'));
+  END IF;
+END $$;
 
 -- 4. Colour options (with photo) - under each style; this is the leaf the customer picks
 CREATE TABLE IF NOT EXISTS colour_options (
@@ -91,7 +105,11 @@ CREATE POLICY "Public read fence_heights"
 CREATE POLICY "Public read fence_types"
   ON fence_types FOR SELECT USING (is_active = true);
 CREATE POLICY "Public read fence_styles"
-  ON fence_styles FOR SELECT USING (is_active = true AND COALESCE(is_hidden, false) = false);
+  ON fence_styles FOR SELECT USING (
+    is_active = true
+    AND COALESCE(is_hidden, false) = false
+    AND COALESCE(visibility_target, 'both') <> 'contractors_only'
+  );
 CREATE POLICY "Public read colour_options"
   ON colour_options FOR SELECT USING (is_active = true);
 CREATE POLICY "Public read colour_pricing_rules"

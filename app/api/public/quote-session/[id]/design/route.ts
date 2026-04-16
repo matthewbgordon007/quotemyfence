@@ -38,7 +38,11 @@ export async function POST(
         .eq('id', selectedColour.fence_style_id)
         .eq('is_active', true)
         .single();
-      if (!selectedStyle || (selectedStyle as { is_hidden?: boolean | null }).is_hidden === true) {
+      if (
+        !selectedStyle ||
+        (selectedStyle as { is_hidden?: boolean | null }).is_hidden === true ||
+        (selectedStyle as { visibility_target?: string | null }).visibility_target === 'contractors_only'
+      ) {
         return NextResponse.json({ error: 'Selected style is hidden' }, { status: 400 });
       }
     }

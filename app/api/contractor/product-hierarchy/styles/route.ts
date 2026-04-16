@@ -11,8 +11,12 @@ export async function POST(request: NextRequest) {
   const contractorId = cu.contractorId;
 
   const body = await request.json();
-  const { fence_type_id, style_name } = body;
+  const { fence_type_id, style_name, visibility_target } = body;
   if (!fence_type_id || !style_name?.trim()) return NextResponse.json({ error: 'fence_type_id and style_name required' }, { status: 400 });
+  const normalizedVisibility =
+    visibility_target === 'contractors_only' || visibility_target === 'homeowners_only'
+      ? visibility_target
+      : 'both';
 
   const { data: ft } = await supabase.from('fence_types').select('height_id, contractor_id').eq('id', fence_type_id).single();
   if (!ft) return NextResponse.json({ error: 'Fence type not found' }, { status: 404 });
@@ -25,7 +29,7 @@ export async function POST(request: NextRequest) {
 
   const { data, error } = await supabase
     .from('fence_styles')
-    .insert({ fence_type_id, style_name: style_name.trim(), is_active: true })
+    .insert({ fence_type_id, style_name: style_name.trim(), visibility_target: normalizedVisibility, is_active: true })
     .select()
     .single();
 

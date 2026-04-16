@@ -7,6 +7,7 @@ import {
   normalizeFenceMapSegments,
   type FenceMapSegment,
 } from '@/lib/static-map-url';
+import { stripSupplierFromTypeName } from '@/lib/supplier-import-label';
 
 function escapeHtmlAttr(s: string): string {
   return s
@@ -96,7 +97,7 @@ async function getDesignSummary(
         if (ftRow) {
           const parts = [
             ftRow.standard_height_ft != null && `${ftRow.standard_height_ft} ft`,
-            ftRow.name,
+            stripSupplierFromTypeName(ftRow.name),
             styleRow.style_name,
             colourRow.color_name,
           ].filter(Boolean);

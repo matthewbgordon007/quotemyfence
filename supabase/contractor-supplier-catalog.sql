@@ -80,6 +80,26 @@ ALTER TABLE material_quote_requests
 ALTER TABLE material_quote_requests
   ADD COLUMN IF NOT EXISTS supplier_seen_at TIMESTAMPTZ;
 
+-- 4) Supplier catalog audience controls on styles
+-- both: visible to homeowners and contractors
+-- contractors_only: visible in supplier catalog import to contractors, hidden from homeowner quote flow
+-- homeowners_only: visible to homeowners, hidden from contractor supplier catalog browsing
+ALTER TABLE fence_styles
+  ADD COLUMN IF NOT EXISTS visibility_target TEXT NOT NULL DEFAULT 'both';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'fence_styles_visibility_target_check'
+  ) THEN
+    ALTER TABLE fence_styles
+      ADD CONSTRAINT fence_styles_visibility_target_check
+      CHECK (visibility_target IN ('both', 'contractors_only', 'homeowners_only'));
+  END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_material_quote_requests_supplier ON material_quote_requests(supplier_contractor_id);
 CREATE INDEX IF NOT EXISTS idx_material_quote_requests_supplier_unread
   ON material_quote_requests(supplier_contractor_id, supplier_seen_at);

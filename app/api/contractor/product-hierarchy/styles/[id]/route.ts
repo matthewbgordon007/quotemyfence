@@ -32,6 +32,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (body.style_name !== undefined) updates.style_name = body.style_name;
   if (body.photo_url !== undefined) updates.photo_url = body.photo_url;
   if (body.is_hidden !== undefined) updates.is_hidden = !!body.is_hidden;
+  if (body.visibility_target !== undefined) {
+    const v = String(body.visibility_target);
+    if (v !== 'both' && v !== 'contractors_only' && v !== 'homeowners_only') {
+      return NextResponse.json({ error: 'Invalid visibility_target' }, { status: 400 });
+    }
+    updates.visibility_target = v;
+  }
   if (Object.keys(updates).length === 0) return NextResponse.json({ error: 'No updates' }, { status: 400 });
 
   const { data, error } = await supabase.from('fence_styles').update(updates).eq('id', id).select().single();
