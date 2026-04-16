@@ -49,9 +49,8 @@ export interface MaterialCalculatorFieldSpec {
 
 export const starterMaterialCalculatorTemplate: MaterialCalculatorTemplate = {
   id: 'starter-premium-fence',
-  title: 'Material calculator framework',
-  description:
-    'Starter configuration for suppliers to define panel-based material rules before wiring in full custom math.',
+  title: '',
+  description: 'Adobe, 6ft',
   panel_length_ft: 8.21,
   sections: [
     {
@@ -232,27 +231,60 @@ export const firstSheetFieldSpecs: MaterialCalculatorFieldSpec[] = [
 
 export const firstSheetColorLineRecipeDefaults: MaterialCalculatorRecipeItem[] = [
   { id: 'color-galv-post', name: 'Galvanized Post', quantity_per_panel: 1, input_field: 'line_posts_including_first', rounding_mode: 'ceil' },
-  { id: 'color-h-post', name: 'H Post', quantity_per_panel: 1, input_field: 'h_post_terminations', rounding_mode: 'ceil' },
-  { id: 'color-cap-h-post', name: 'Cap (H Post)', quantity_per_panel: 1, input_field: 'h_post_terminations', rounding_mode: 'ceil' },
+  {
+    id: 'color-h-post',
+    name: 'H Post',
+    quantity_per_panel: 1,
+    input_field: 'line_posts_including_first',
+    rounding_mode: 'ceil',
+    notes: 'Matches structural line post count (whole panels + starter post), same as galvanized posts.',
+  },
+  {
+    id: 'color-cap-h-post',
+    name: 'Cap (H Post)',
+    quantity_per_panel: 1,
+    input_field: 'line_posts_including_first',
+    rounding_mode: 'ceil',
+    notes: 'One cap per line post; same multiply-from as H Post / galvanized.',
+  },
   { id: 'color-rail', name: 'Rail', quantity_per_panel: 2, input_field: 'exact_panels', rounding_mode: 'ceil' },
   { id: 'color-rail-stiffener', name: 'Rail Stiffener', quantity_per_panel: 2, input_field: 'exact_panels', rounding_mode: 'ceil' },
   { id: 'color-board', name: 'Board', quantity_per_panel: 16, input_field: 'exact_panels', rounding_mode: 'nearest' },
   { id: 'color-board-stiffener', name: 'Board Stiffener', quantity_per_panel: 3, input_field: 'exact_panels', rounding_mode: 'nearest' },
   { id: 'color-short-screw', name: 'Short Screw', quantity_per_panel: 1, input_field: 'line_posts_including_first', rounding_mode: 'ceil' },
-  { id: 'color-long-screw', name: 'Long Screw', quantity_per_panel: 4, input_field: 'exact_panels', rounding_mode: 'ceil' },
+  {
+    id: 'color-long-screw',
+    name: 'Long Screw',
+    quantity_per_panel: 4,
+    input_field: 'exact_panels',
+    rounding_mode: 'ceil',
+    notes: 'Line: 4× exact panels (round up). Gate line adds more long screws per gate boards — see gate recipe.',
+  },
   { id: 'color-plug', name: 'Plug', quantity_per_panel: 4, input_field: 'exact_panels', rounding_mode: 'nearest' },
   { id: 'color-u-channel', name: 'U Channel', quantity_per_panel: 1, input_field: 'u_channel_terminations', rounding_mode: 'ceil' },
 ];
 
+/** Gate line adds boards, hardware, and braces. Line-level post counts (galvanized / H / caps) stay on the color recipe so they are not double-counted here. */
 export const firstSheetGateLineRecipeDefaults: MaterialCalculatorRecipeItem[] = [
-  { id: 'gate-galv-post', name: 'Galvanized Post', quantity_per_panel: 1, input_field: 'gate_posts_needed', rounding_mode: 'ceil' },
-  { id: 'gate-h-post', name: 'H Post', quantity_per_panel: 1, input_field: 'gate_posts_needed', rounding_mode: 'ceil' },
-  { id: 'gate-cap-h-post', name: 'Cap (H post)', quantity_per_panel: 1, input_field: 'gate_posts_needed', rounding_mode: 'ceil' },
   { id: 'gate-rail', name: 'Rail', quantity_per_panel: 1, input_field: 'gate_unit', rounding_mode: 'ceil' },
   { id: 'gate-rail-stiffener', name: 'Rail Stiffener', quantity_per_panel: 1, input_field: 'gate_unit', rounding_mode: 'ceil' },
   { id: 'gate-board', name: 'Board', quantity_per_panel: 1, input_field: 'gate_total_boards', rounding_mode: 'ceil' },
-  { id: 'gate-short-screw', name: 'Short Screw', quantity_per_panel: 1.33, input_field: 'gate_total_boards', rounding_mode: 'ceil' },
-  { id: 'gate-long-screw', name: 'Long Screw', quantity_per_panel: 1.25, input_field: 'gate_total_boards', rounding_mode: 'ceil' },
+  {
+    id: 'gate-short-screw',
+    name: 'Short Screw',
+    quantity_per_panel: 1.09,
+    input_field: 'gate_total_boards',
+    rounding_mode: 'ceil',
+    notes: 'Tuned with line short screws (1 per line post) to match supplier takeoff sheets.',
+  },
+  {
+    id: 'gate-long-screw',
+    name: 'Long Screw',
+    quantity_per_panel: 3.7,
+    input_field: 'gate_total_boards',
+    rounding_mode: 'ceil',
+    notes: 'Tuned vs line long screws (4× exact panels, round up) for typical single-gate board counts.',
+  },
   { id: 'gate-plug', name: 'Plug', quantity_per_panel: 2.25, input_field: 'gate_total_boards', rounding_mode: 'ceil' },
   { id: 'gate-u-channel', name: 'U Channel', quantity_per_panel: 1, input_field: 'gate_posts_needed', rounding_mode: 'ceil' },
   { id: 'gate-cross-brace', name: 'Gate Cross Brace', quantity_per_panel: 1, input_field: 'gate_unit', rounding_mode: 'ceil' },

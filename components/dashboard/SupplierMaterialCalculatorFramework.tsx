@@ -105,6 +105,14 @@ function lookupMaterialTotal(totals: Map<string, number>, matchNames: string[]):
   return 0;
 }
 
+/** H-post stiffener count follows hinge count; if stiffener is not in the recipe, fall back to hinge kit totals. */
+function lookupHPostStiffenerQty(totals: Map<string, number>): number {
+  return Math.max(
+    lookupMaterialTotal(totals, ['H Post Stiffener', 'H-Post Stiffener']),
+    lookupMaterialTotal(totals, ['Hinge Kit', 'Hinge kit']),
+  );
+}
+
 export function SupplierMaterialCalculatorFramework() {
   const [title, setTitle] = useState(starterMaterialCalculatorTemplate.title);
   const [description, setDescription] = useState(starterMaterialCalculatorTemplate.description);
@@ -281,11 +289,16 @@ export function SupplierMaterialCalculatorFramework() {
         <div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6">
           <div>
             <label className="block text-sm font-medium text-slate-700">Address / line label</label>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} className={`mt-1.5 ${field}`} />
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. 53 Rothesay Ave" className={`mt-1.5 ${field}`} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Color and height</label>
-            <input value={description} onChange={(e) => setDescription(e.target.value)} className={`mt-1.5 ${field}`} />
+            <input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="e.g. Adobe, 6ft"
+              className={`mt-1.5 ${field}`}
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Total fence line length (ft)</label>
@@ -441,7 +454,11 @@ export function SupplierMaterialCalculatorFramework() {
                         className="border border-black px-2 py-1.5 text-center font-semibold tabular-nums text-slate-900"
                         style={{ backgroundColor: MASTER_SHEET_COLOR_COL }}
                       >
-                        {formatQty(lookupMaterialTotal(materialTotalsByKey, row.matchNames))}
+                        {formatQty(
+                          row.label === 'H-Post Stiffener'
+                            ? lookupHPostStiffenerQty(materialTotalsByKey)
+                            : lookupMaterialTotal(materialTotalsByKey, row.matchNames),
+                        )}
                       </td>
                       <td className="border border-black bg-white px-2 py-1.5 text-center text-slate-700" />
                     </tr>
@@ -477,7 +494,10 @@ export function SupplierMaterialCalculatorFramework() {
             </div>
           </div>
           <p className="mt-4 text-sm text-slate-600">
-            Core math: `exact panels = length / panel length`, `whole panels = ceil(exact panels)`, and `line posts = whole panels + 1` for the starter post at the beginning of the run.
+            Core math: `exact panels = length / panel length`, `whole panels = ceil(exact panels)`, and `line posts = whole panels + 1` for the starter post at the beginning of the run. Galvanized posts, H posts, and post caps on the color line all multiply from that same line post count. Gate line defaults do not add a second set of line posts (avoids double-count vs a single order sheet); add gate-only post rows in the gate recipe if your supplier counts them separately.
+          </p>
+          <p className="mt-3 text-sm text-slate-600">
+            Screws: line long screws are `ceil(4 × exact panels)`; line short screws are `ceil(1 × line posts)`. Gate long/short screws use `ceil(multiplier × gate boards)` — default multipliers are tuned to common D&H-style takeoffs; edit them in the recipe builder if your widths differ.
           </p>
         </div>
       </details>
