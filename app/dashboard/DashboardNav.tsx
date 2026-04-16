@@ -71,7 +71,7 @@ const businessLinks = [
 
 const supplierOverviewLink = {
   href: '/dashboard/supplier',
-  label: 'Overview',
+  label: 'Supplier home',
   icon: <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />,
 };
 
@@ -209,8 +209,8 @@ export function DashboardNav({
   const filteredBusiness = businessLinks.filter((l) => !l.adminOnly || isAdmin);
   const mobileLinks = (
     isSupplier
-      ? [...supplierNavLinks, ...filteredBusiness]
-      : [...workspaceLinks, ...filteredBusiness]
+      ? ([...workspaceLinks, ...supplierNavLinks, ...filteredBusiness] as NavLink[])
+      : ([...workspaceLinks, ...filteredBusiness] as NavLink[])
   ) as NavLink[];
 
   async function handleLogout() {
@@ -229,18 +229,21 @@ export function DashboardNav({
 
   return (
     <nav className="flex flex-col gap-6 p-3">
-      {isSupplier ? (
-        <div>
-          <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Supplier</p>
-          <div className="flex flex-col gap-0.5">
-            <NavRows links={supplierNavLinks as NavLink[]} pathname={pathname} isMobile={false} />
-          </div>
+      <div>
+        <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+          {isSupplier ? 'Contractor workspace' : 'Workspace'}
+        </p>
+        <div className="flex flex-col gap-0.5">
+          <NavRows links={workspaceLinks as NavLink[]} pathname={pathname} isMobile={false} />
         </div>
-      ) : (
+      </div>
+      {isSupplier && (
         <div>
-          <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Workspace</p>
-          <div className="flex flex-col gap-0.5">
-            <NavRows links={workspaceLinks as NavLink[]} pathname={pathname} isMobile={false} />
+          <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-indigo-500">
+            Supplier workspace
+          </p>
+          <div className="flex flex-col gap-0.5 rounded-xl border border-indigo-100/80 bg-indigo-50/40 p-1.5">
+            <NavRows links={supplierNavLinks as NavLink[]} pathname={pathname} isMobile={false} />
           </div>
         </div>
       )}
@@ -254,7 +257,7 @@ export function DashboardNav({
       )}
 
       <div className="flex flex-col gap-1 border-t border-slate-100 pt-4">
-        {slug && !isSupplier && (
+        {slug && (
           <a
             href={`/estimate/${slug}/contact`}
             target="_blank"

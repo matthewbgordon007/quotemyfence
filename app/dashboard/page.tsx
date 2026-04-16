@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { LeadStatusPieChart } from '@/components/LeadStatusPieChart';
 
 type AnalyticsPeriod = 'day' | 'week' | 'month' | 'year';
@@ -34,6 +33,7 @@ interface MeResponse {
   company_name?: string;
   slug?: string;
   user_role?: string;
+  account_type?: string;
 }
 
 const ADMIN_ROLES = ['owner', 'admin'];
@@ -67,7 +67,6 @@ function Skeleton({ className }: { className?: string }) {
 }
 
 export default function DashboardPage() {
-  const router = useRouter();
   const [recent, setRecent] = useState<CustomerRow[]>([]);
   const [unviewedCount, setUnviewedCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -81,17 +80,6 @@ export default function DashboardPage() {
     let cancelled = false;
     setLoading(true);
     (async () => {
-      try {
-        const meAuthRes = await fetch('/api/auth/me', { credentials: 'include' });
-        const meAuth = await meAuthRes.json();
-        if (cancelled) return;
-        if (meAuth?.type === 'supplier') {
-          router.replace('/dashboard/supplier');
-          return;
-        }
-      } catch {
-        /* continue as contractor workspace */
-      }
       if (cancelled) return;
 
       Promise.all([fetch('/api/contractor/me'), fetch('/api/contractor/customers?limit=5&unviewed_count=1')])
@@ -117,7 +105,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -144,13 +132,24 @@ export default function DashboardPage() {
   }, [analytics]);
 
   const quotePageUrl = contractor?.slug ? `/estimate/${contractor.slug}/contact` : null;
+  const isSupplierAccount = contractor?.account_type === 'supplier';
 
   return (
     <div className="mx-auto w-full max-w-6xl pb-4">
       {/* Page header */}
       <div className="flex flex-col gap-6 border-b border-slate-200/80 pb-8 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-slate-500">Overview</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-medium text-slate-500">Overview</p>
+            {isSupplierAccount && (
+              <Link
+                href="/dashboard/supplier"
+                className="rounded-md bg-indigo-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-indigo-800 hover:bg-indigo-200/80"
+              >
+                Supplier home
+              </Link>
+            )}
+          </div>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
             {contractor?.company_name ? (
               <>
@@ -162,8 +161,20 @@ export default function DashboardPage() {
             )}
           </h1>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-600">
-            Leads, pipeline value, and shortcuts in one place. Open your public quote page anytime to test what
-            customers see.
+            {isSupplierAccount ? (
+              <>
+                Contractor-style leads, pipeline, and quote tools. Supplier-only shortcuts live on{' '}
+                <Link href="/dashboard/supplier" className="font-semibold text-blue-600 hover:text-blue-500">
+                  supplier home
+                </Link>
+                .
+              </>
+            ) : (
+              <>
+                Leads, pipeline value, and shortcuts in one place. Open your public quote page anytime to test what
+                customers see.
+              </>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
