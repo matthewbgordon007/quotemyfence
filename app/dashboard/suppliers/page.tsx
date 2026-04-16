@@ -16,6 +16,7 @@ type CatalogStyle = {
 type CatalogType = { id: string; name: string };
 
 type CatalogColour = { id: string; fence_style_id: string; color_name: string; photo_url: string | null };
+type BuyerType = { id: string; name: string };
 
 export default function SuppliersPage() {
   const [accountType, setAccountType] = useState<string | null>(null);
@@ -32,6 +33,13 @@ export default function SuppliersPage() {
   const [colours, setColours] = useState<CatalogColour[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [importingStyleId, setImportingStyleId] = useState<string | null>(null);
+  const [buyerTypes, setBuyerTypes] = useState<BuyerType[]>([]);
+  const [targetTypeId, setTargetTypeId] = useState<string>('');
+  const [showImported, setShowImported] = useState(true);
+  const [bulkMode, setBulkMode] = useState(false);
+  const [selectedStyleIds, setSelectedStyleIds] = useState<Set<string>>(new Set());
+  const [bulkImporting, setBulkImporting] = useState(false);
+  const [status, setStatus] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
 
   const refreshDirectory = useCallback(async () => {
     const r = await fetch('/api/contractor/suppliers', { credentials: 'include' });
@@ -54,6 +62,12 @@ export default function SuppliersPage() {
           return;
         }
         setIsAdmin(me?.user_role === 'owner' || me?.user_role === 'admin');
+        const hierarchyRes = await fetch('/api/contractor/product-hierarchy', { credentials: 'include' });
+        const hierarchy = hierarchyRes.ok ? await hierarchyRes.json() : {};
+        if (!cancelled) {
+          const types = (hierarchy?.fenceTypes || []) as BuyerType[];
+          setBuyerTypes(types.map((t) => ({ id: t.id, name: t.name })));
+        }
         await refreshDirectory();
       } catch {
         if (!cancelled) setSuppliers([]);
@@ -72,6 +86,7 @@ export default function SuppliersPage() {
       setFenceStyles([]);
       setColours([]);
       setSupplierMeta(null);
+      setSelectedStyleIds(new Set());
       return;
     }
     let cancelled = false;
@@ -86,6 +101,7 @@ export default function SuppliersPage() {
         setFenceTypes(d.fenceTypes || []);
         setFenceStyles(d.fenceStyles || []);
         setColours(d.colourOptions || []);
+        setSelectedStyleIds(new Set());
       })
       .catch((e) => {
         if (!cancelled) setCatalogError(e instanceof Error ? e.message : 'Failed to load');
@@ -144,22 +160,71 @@ export default function SuppliersPage() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ supplier_fence_style_id: styleId }),
+        body: JSON.stringify({
+          supplier_fence_style_id: styleId,
+          target_type_id: targetTypeId || undefined,
+        }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || 'Import failed');
-      alert(d.message || 'Imported. Set pricing on the Products page.');
+      setStatus({ kind: 'success', text: d.message || 'Imported. Set pricing on Products.' });
       const cat = await fetch(`/api/contractor/suppliers/${selectedSupplierId}/catalog`, { credentials: 'include' });
       const cd = await cat.json();
       if (cat.ok) {
         setFenceStyles(cd.fenceStyles || []);
         setColours(cd.colourOptions || []);
+        setSelectedStyleIds((prev) => {
+          const next = new Set(prev);
+          next.delete(styleId);
+          return next;
+        });
       }
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Import failed');
+      setStatus({ kind: 'error', text: e instanceof Error ? e.message : 'Import failed' });
     } finally {
       setImportingStyleId(null);
     }
+  }
+
+  async function bulkImportSelected() {
+    if (!selectedSupplierId || selectedStyleIds.size === 0) return;
+    setBulkImporting(true);
+    setStatus(null);
+    const ids = Array.from(selectedStyleIds);
+    let okCount = 0;
+    let failCount = 0;
+    for (const id of ids) {
+      try {
+        const r = await fetch(`/api/contractor/suppliers/${selectedSupplierId}/import-style`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            supplier_fence_style_id: id,
+            target_type_id: targetTypeId || undefined,
+          }),
+        });
+        if (r.ok) okCount += 1;
+        else failCount += 1;
+      } catch {
+        failCount += 1;
+      }
+    }
+    const cat = await fetch(`/api/contractor/suppliers/${selectedSupplierId}/catalog`, { credentials: 'include' });
+    const cd = await cat.json();
+    if (cat.ok) {
+      setFenceStyles(cd.fenceStyles || []);
+      setColours(cd.colourOptions || []);
+    }
+    setSelectedStyleIds(new Set());
+    setStatus({
+      kind: failCount > 0 ? 'error' : 'success',
+      text:
+        failCount > 0
+          ? `Imported ${okCount}. ${failCount} failed or already imported.`
+          : `Imported ${okCount} style${okCount === 1 ? '' : 's'}.`,
+    });
+    setBulkImporting(false);
   }
 
   if (loading) {
@@ -269,6 +334,54 @@ export default function SuppliersPage() {
               <p className="text-sm font-semibold text-slate-800">
                 {supplierMeta?.company_name || 'Supplier'} — catalog preview
               </p>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={showImported}
+                    onChange={(e) => setShowImported(e.target.checked)}
+                  />
+                  Show already imported
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={bulkMode}
+                    onChange={(e) => {
+                      setBulkMode(e.target.checked);
+                      setSelectedStyleIds(new Set());
+                    }}
+                  />
+                  Bulk import mode
+                </label>
+                <select
+                  value={targetTypeId}
+                  onChange={(e) => setTargetTypeId(e.target.value)}
+                  className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                >
+                  <option value="">Create a new type per import</option>
+                  {buyerTypes.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      Import into: {t.name}
+                    </option>
+                  ))}
+                </select>
+                {bulkMode && (
+                  <button
+                    type="button"
+                    disabled={!isAdmin || selectedStyleIds.size === 0 || bulkImporting}
+                    onClick={() => void bulkImportSelected()}
+                    className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white disabled:bg-slate-300"
+                  >
+                    {bulkImporting ? 'Importing…' : `Import selected (${selectedStyleIds.size})`}
+                  </button>
+                )}
+              </div>
+              {status && (
+                <p className={`mt-3 text-sm ${status.kind === 'success' ? 'text-emerald-700' : 'text-red-600'}`}>
+                  {status.text}
+                </p>
+              )}
               {catalogError && <p className="mt-2 text-sm text-red-600">{catalogError}</p>}
               {catalogLoading && <p className="mt-3 text-sm text-slate-500">Loading…</p>}
               {!catalogLoading && !catalogError && fenceStyles.length === 0 && (
@@ -276,9 +389,10 @@ export default function SuppliersPage() {
               )}
               {!catalogLoading && !catalogError && fenceStyles.length > 0 && (
                 <ul className="mt-4 space-y-3">
-                  {fenceStyles.map((st) => {
+                  {fenceStyles.filter((st) => showImported || !st.already_imported).map((st) => {
                     const type = fenceTypes.find((t) => t.id === st.fence_type_id);
                     const styleColours = colours.filter((c) => c.fence_style_id === st.id);
+                    const checked = selectedStyleIds.has(st.id);
                     return (
                       <li
                         key={st.id}
@@ -286,6 +400,23 @@ export default function SuppliersPage() {
                       >
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div>
+                            {bulkMode && !st.already_imported && (
+                              <label className="mb-1 inline-flex items-center gap-2 text-xs text-slate-600">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={(e) => {
+                                    setSelectedStyleIds((prev) => {
+                                      const next = new Set(prev);
+                                      if (e.target.checked) next.add(st.id);
+                                      else next.delete(st.id);
+                                      return next;
+                                    });
+                                  }}
+                                />
+                                Select
+                              </label>
+                            )}
                             <p className="text-xs font-medium uppercase text-slate-400">{type?.name || 'Type'}</p>
                             <p className="font-semibold text-slate-900">{st.style_name}</p>
                             <p className="mt-1 text-xs text-slate-500">

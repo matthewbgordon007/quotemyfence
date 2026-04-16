@@ -40,6 +40,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const body = await request.json();
   const supplierFenceStyleId = String(body.supplier_fence_style_id || '').trim();
+  const targetTypeId = body.target_type_id ? String(body.target_type_id).trim() : '';
   if (!supplierFenceStyleId) return NextResponse.json({ error: 'supplier_fence_style_id required' }, { status: 400 });
 
   const admin = createServiceRoleClient();
@@ -77,37 +78,52 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .single();
   if (ftErr || !fenceType) return NextResponse.json({ error: 'Product type not found for this style' }, { status: 404 });
 
-  const standardHeight = await resolveStandardHeightFt(admin, fenceType as { height_id?: string | null; standard_height_ft?: number | null });
-  const typeLabel = String(fenceType.name || 'Product').trim();
-  const supplierLabel = String(supplier.company_name || 'Supplier').trim();
-  const newTypeName = `${typeLabel} (${supplierLabel})`;
+  let buyerTypeId = targetTypeId;
+  let createdNewType = false;
+  if (buyerTypeId) {
+    const { data: existingType } = await admin
+      .from('fence_types')
+      .select('id')
+      .eq('id', buyerTypeId)
+      .eq('contractor_id', cu.contractorId)
+      .eq('is_active', true)
+      .maybeSingle();
+    if (!existingType) return NextResponse.json({ error: 'Selected destination type not found' }, { status: 400 });
+  } else {
+    const standardHeight = await resolveStandardHeightFt(admin, fenceType as { height_id?: string | null; standard_height_ft?: number | null });
+    const typeLabel = String(fenceType.name || 'Product').trim();
+    const supplierLabel = String(supplier.company_name || 'Supplier').trim();
+    const newTypeName = `${typeLabel} (${supplierLabel})`;
 
-  const { data: maxOrd } = await admin
-    .from('fence_types')
-    .select('display_order')
-    .eq('contractor_id', cu.contractorId)
-    .order('display_order', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const nextDisplayOrder = (typeof maxOrd?.display_order === 'number' ? maxOrd.display_order : -1) + 1;
+    const { data: maxOrd } = await admin
+      .from('fence_types')
+      .select('display_order')
+      .eq('contractor_id', cu.contractorId)
+      .order('display_order', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const nextDisplayOrder = (typeof maxOrd?.display_order === 'number' ? maxOrd.display_order : -1) + 1;
 
-  const { data: newType, error: ntErr } = await admin
-    .from('fence_types')
-    .insert({
-      contractor_id: cu.contractorId,
-      name: newTypeName,
-      standard_height_ft: standardHeight,
-      display_order: nextDisplayOrder,
-      is_active: true,
-    })
-    .select('id')
-    .single();
-  if (ntErr || !newType) return NextResponse.json({ error: ntErr?.message || 'Failed to create type' }, { status: 500 });
+    const { data: newType, error: ntErr } = await admin
+      .from('fence_types')
+      .insert({
+        contractor_id: cu.contractorId,
+        name: newTypeName,
+        standard_height_ft: standardHeight,
+        display_order: nextDisplayOrder,
+        is_active: true,
+      })
+      .select('id')
+      .single();
+    if (ntErr || !newType) return NextResponse.json({ error: ntErr?.message || 'Failed to create type' }, { status: 500 });
+    buyerTypeId = newType.id;
+    createdNewType = true;
+  }
 
   const { data: newStyle, error: nsErr } = await admin
     .from('fence_styles')
     .insert({
-      fence_type_id: newType.id,
+      fence_type_id: buyerTypeId,
       style_name: String(style.style_name || 'Style').trim(),
       photo_url: style.photo_url ?? null,
       display_order: typeof style.display_order === 'number' ? style.display_order : 0,
@@ -117,7 +133,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .select('id')
     .single();
   if (nsErr || !newStyle) {
-    await admin.from('fence_types').delete().eq('id', newType.id);
+    if (createdNewType) await admin.from('fence_types').delete().eq('id', buyerTypeId);
     return NextResponse.json({ error: nsErr?.message || 'Failed to create style' }, { status: 500 });
   }
 
@@ -137,7 +153,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       is_active: true,
     });
     if (cErr) {
-      await admin.from('fence_types').delete().eq('id', newType.id);
+      if (createdNewType) await admin.from('fence_types').delete().eq('id', buyerTypeId);
       return NextResponse.json({ error: cErr.message }, { status: 500 });
     }
   }
@@ -149,14 +165,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     buyer_fence_style_id: newStyle.id,
   });
   if (impErr) {
-    await admin.from('fence_types').delete().eq('id', newType.id);
+    if (createdNewType) await admin.from('fence_types').delete().eq('id', buyerTypeId);
     return NextResponse.json({ error: impErr.message }, { status: 500 });
   }
 
   return NextResponse.json({
     ok: true,
-    fence_type_id: newType.id,
+    fence_type_id: buyerTypeId,
     fence_style_id: newStyle.id,
-    message: 'Imported — set your pricing on the Products page.',
+    message: createdNewType
+      ? 'Imported into a new type — set your pricing on the Products page.'
+      : 'Imported into your selected type — set your pricing on the Products page.',
   });
 }
