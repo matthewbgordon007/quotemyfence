@@ -158,24 +158,25 @@ export default function HomePage() {
           <div className="mx-auto w-full max-w-6xl px-4 pb-12 pt-8 sm:px-6 sm:pb-16 sm:pt-10 lg:px-8">
             <div className="mx-auto max-w-4xl text-center lg:mx-0 lg:max-w-3xl lg:text-left">
               <p className="inline-flex rounded-full border border-blue-200/90 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.22em] text-blue-800 shadow-sm">
-                Online fence quoting
+                Fence quote software
               </p>
               <h1 className="mt-6 text-balance text-4xl font-extrabold leading-[1.08] tracking-tight text-slate-900 sm:text-5xl sm:leading-[1.06] lg:text-6xl lg:leading-[1.05]">
-                Fence leads that arrive{' '}
+                Instant fence estimates on your site—{' '}
                 <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  scoped, priced, and ready to talk.
+                  more qualified leads for your crew.
                 </span>
               </h1>
               <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-600 lg:mx-0 lg:max-w-xl lg:text-xl">
-                Pair aerial drawing with your catalog and rules so homeowners self-serve a realistic number—then your
-                crew follows up with context instead of cold guessing.
+                Homeowners draw the fence on a satellite map, pick styles and heights, and see a real price from your
+                catalog. You get contact info and linear feet so your sales team is talking to people who are already
+                interested.
               </p>
               <div className="mt-9 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:flex-wrap sm:justify-center lg:justify-start">
                 <a
                   href={DEMO_URL}
                   className="inline-flex min-h-[52px] items-center justify-center rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-3.5 text-base font-bold text-white shadow-xl shadow-blue-600/30 transition hover:from-blue-500 hover:to-indigo-500"
                 >
-                  Explore the live flow
+                  Try free demo
                 </a>
                 <a
                   href={SCHEDULE_CALL_URL}
@@ -183,10 +184,10 @@ export default function HomePage() {
                   rel="noopener noreferrer"
                   className="inline-flex min-h-[52px] items-center justify-center rounded-2xl border-2 border-blue-300/90 bg-white/95 px-8 py-3.5 text-base font-bold text-blue-900 shadow-md transition hover:bg-blue-50"
                 >
-                  Book a walkthrough
+                  Book a call
                 </a>
               </div>
-              <p className="mt-4 text-sm font-medium text-slate-500">Demo opens in a new tab · no account needed</p>
+              <p className="mt-4 text-sm font-medium text-slate-500">Try the demo with no signup</p>
             </div>
           </div>
         </section>
@@ -201,18 +202,18 @@ export default function HomePage() {
           <div className="mx-auto grid max-w-6xl divide-y divide-slate-200/90 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
             <div className="px-6 py-12 text-center sm:py-14">
               <p className="text-5xl font-black tabular-nums text-blue-600 sm:text-6xl">3</p>
-              <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Lightweight go-live</p>
-              <p className="mt-2 text-sm text-slate-600">Share one link, wire up what you sell, and publish a guided quote path—no heavyweight rollout.</p>
+              <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Fast setup</p>
+              <p className="mt-2 text-sm text-slate-600">Three steps: add your link, load your fence styles and pricing, go live. No IT project.</p>
             </div>
             <div className="px-6 py-12 text-center sm:py-14">
               <p className="text-5xl font-black tabular-nums text-blue-600 sm:text-6xl">24/7</p>
-              <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Self-serve estimates</p>
-              <p className="mt-2 text-sm text-slate-600">Prospects can sketch and price after hours so Monday starts with warmer conversations.</p>
+              <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Quotes while you sleep</p>
+              <p className="mt-2 text-sm text-slate-600">Homeowners run fence quotes nights and weekends so your pipeline keeps filling.</p>
             </div>
             <div className="px-6 py-12 text-center sm:py-14">
               <p className="text-5xl font-black tabular-nums text-blue-600 sm:text-5xl">$199.99</p>
               <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">CAD / month</p>
-              <p className="mt-2 text-sm text-slate-600">Current promotional rate—leave whenever you want.</p>
+              <p className="mt-2 text-sm text-slate-600">Promo pricing. No long contract—cancel when you want.</p>
             </div>
           </div>
         </section>
@@ -223,19 +224,19 @@ export default function HomePage() {
         >
           <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:gap-16 lg:px-8">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-blue-300/95">Purpose-built</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-blue-300/95">Fence pros</p>
               <h2 className="mt-3 text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl lg:text-5xl">
-                Quoting that feels like your yard—not a generic widget
+                Turn your website into a 24/7 fence lead machine
               </h2>
               <p className="mt-5 max-w-lg text-base leading-relaxed text-blue-100/90 sm:text-lg">
-                Map-based drawing, your fence catalog, your math—rolled into a polished flow so submissions land with
-                context your estimators can trust.
+                Satellite map drawing, your fence styles and gates, your pricing—customers get an instant ballpark and
+                you get name, phone, and footage so every lead is easier to close.
               </p>
               <a
                 href={DEMO_URL}
                 className="mt-8 inline-flex min-h-[48px] items-center justify-center rounded-2xl bg-white px-8 py-3 text-sm font-bold text-blue-900 shadow-lg transition hover:bg-blue-50"
               >
-                Peek at a sample project
+                See live demo
               </a>
             </div>
             <div className="flex justify-center lg:justify-end">
@@ -251,17 +252,17 @@ export default function HomePage() {
 
         <section id="pitch" className="scroll-mt-28 border-b border-slate-900/10 bg-white py-16 sm:py-20">
           <div className="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
-            <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Let the flow qualify interest first</h2>
+            <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Stop chasing bad fence leads</h2>
             <p className="mt-5 text-lg leading-relaxed text-slate-600 sm:text-xl">
-              Swap static &ldquo;request a quote&rdquo; boxes for a guided estimate so your reps pick up the phone already
-              knowing rough footage, style choices, and whether the budget is in range.
+              Skip the empty &ldquo;contact us&rdquo; forms. Homeowners show you the job on the map and see a real price
+              range first—so your estimators spend time on serious fence jobs, not tire-kickers.
             </p>
             <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <a
                 href={DEMO_URL}
                 className="inline-flex min-h-[48px] items-center justify-center rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition hover:from-blue-500 hover:to-indigo-500"
               >
-                Run the sample quote
+                Try the demo
               </a>
               <a
                 href={SCHEDULE_CALL_URL}
@@ -269,7 +270,7 @@ export default function HomePage() {
                 rel="noopener noreferrer"
                 className="inline-flex min-h-[48px] items-center justify-center rounded-2xl border-2 border-slate-200 bg-white px-8 py-3 text-sm font-bold text-slate-800 transition hover:border-blue-200 hover:bg-blue-50/60"
               >
-                Talk with our team
+                Talk to sales
               </a>
             </div>
           </div>
@@ -281,37 +282,39 @@ export default function HomePage() {
         >
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <h2 className="text-center text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-              Ship a polished quote page without a huge project plan
+              Easy setup for busy fence contractors
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-center text-lg text-slate-600">
-              Three practical checkpoints keep onboarding tight so you can publish faster.
+              Get your online fence quote tool live in three simple steps.
             </p>
             <ol className="mt-14 grid gap-10 sm:grid-cols-3 sm:gap-8">
               <li className="relative rounded-2xl border border-blue-100/80 bg-white p-8 pt-12 shadow-lg shadow-blue-900/5 ring-1 ring-slate-100">
                 <span className="absolute left-8 top-0 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-lg font-black text-white shadow-md">
                   1
                 </span>
-                <h3 className="text-lg font-bold text-slate-900">Drop in your public link</h3>
+                <h3 className="text-lg font-bold text-slate-900">Add your branded link</h3>
                 <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                  Point website visitors, ads, or QR codes to one branded URL that drops them straight into quoting.
+                  Put one link on your website, Facebook ads, truck wrap, or email—customers click straight into your
+                  fence quote tool.
                 </p>
               </li>
               <li className="relative rounded-2xl border border-blue-100/80 bg-white p-8 pt-12 shadow-lg shadow-blue-900/5 ring-1 ring-slate-100">
                 <span className="absolute left-8 top-0 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-lg font-black text-white shadow-md">
                   2
                 </span>
-                <h3 className="text-lg font-bold text-slate-900">Model what you install</h3>
+                <h3 className="text-lg font-bold text-slate-900">Build your fence catalog &amp; pricing</h3>
                 <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                  Capture styles, heights, gates, and add-ons so automated math mirrors the way your crew bids jobs.
+                  Load your vinyl, wood, chain link, gates, heights, and add-ons so every instant quote matches how you
+                  bid jobs in the field.
                 </p>
               </li>
               <li className="relative rounded-2xl border border-blue-100/80 bg-white p-8 pt-12 shadow-lg shadow-blue-900/5 ring-1 ring-slate-100">
                 <span className="absolute left-8 top-0 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-lg font-black text-white shadow-md">
                   3
                 </span>
-                <h3 className="text-lg font-bold text-slate-900">Flip the switch and watch leads land</h3>
+                <h3 className="text-lg font-bold text-slate-900">Go live and get leads</h3>
                 <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                  Publish the flow and let homeowner sketches, contact fields, and measurements flow into the workspace you already use.
+                  Publish and start getting fence leads with drawings, contact info, and footage in your dashboard.
                 </p>
               </li>
             </ol>
@@ -320,38 +323,38 @@ export default function HomePage() {
                 href={DEMO_URL}
                 className="inline-flex min-h-[48px] items-center justify-center rounded-2xl bg-slate-900 px-8 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-slate-800"
               >
-                Click through the sandbox
+                Try it yourself
               </a>
             </div>
-            <p className="mt-3 text-center text-sm text-slate-500">Hands-on preview · no login wall</p>
+            <p className="mt-3 text-center text-sm text-slate-500">No signup required</p>
           </div>
         </section>
 
         <section id="homeowner" className="scroll-mt-28 border-b border-slate-900/10 bg-slate-50 py-16 sm:py-20">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <h2 className="text-center text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-              Homeowners stay oriented from map to number
+              Customers love the instant fence quote
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-center text-lg text-slate-600">
-              A tight three-step path keeps them moving: locate the lot, sketch the run, see a defensible ballpark.
+              Three easy steps: find the yard, draw the fence line, get a price range before they ever call you.
             </p>
             <ol className="mt-14 grid gap-10 sm:grid-cols-3 sm:gap-8">
               <li className="rounded-2xl border border-slate-200/90 bg-white p-8 shadow-md ring-1 ring-slate-100">
-                <h3 className="text-sm font-bold uppercase tracking-wide text-blue-700">Anchor on the lot</h3>
+                <h3 className="text-sm font-bold uppercase tracking-wide text-blue-700">Enter their address</h3>
                 <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                  Address lookup jumps them onto crisp aerial imagery so the fence lines snap to their real yard.
+                  They type in the property address and land on a clear satellite view of their lot.
                 </p>
               </li>
               <li className="rounded-2xl border border-slate-200/90 bg-white p-8 shadow-md ring-1 ring-slate-100">
-                <h3 className="text-sm font-bold uppercase tracking-wide text-blue-700">Trace the layout</h3>
+                <h3 className="text-sm font-bold uppercase tracking-wide text-blue-700">Draw the fence</h3>
                 <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                  Simple drawing tools keep segments honest while still feeling approachable for first-time planners.
+                  They click and drag to trace where the fence goes—front yard, backyard, gates, the whole job.
                 </p>
               </li>
               <li className="rounded-2xl border border-slate-200/90 bg-white p-8 shadow-md ring-1 ring-slate-100">
-                <h3 className="text-sm font-bold uppercase tracking-wide text-blue-700">See the ballpark</h3>
+                <h3 className="text-sm font-bold uppercase tracking-wide text-blue-700">See the price</h3>
                 <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                  Your pricing engine returns an immediate range so both sides share the same starting point for the real quote.
+                  They get an instant fence estimate from your pricing so they know roughly what the job costs.
                 </p>
               </li>
             </ol>
@@ -360,9 +363,9 @@ export default function HomePage() {
                 href={DEMO_URL}
                 className="inline-flex min-h-[48px] items-center justify-center rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-10 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition hover:from-blue-500 hover:to-indigo-500"
               >
-                Launch the homeowner preview
+                Try the customer demo
               </a>
-              <p className="text-sm text-slate-500">Same sandbox link · still no signup</p>
+              <p className="text-sm text-slate-500">No signup required</p>
             </div>
           </div>
         </section>
@@ -379,8 +382,8 @@ export default function HomePage() {
           <div className="mx-auto w-full max-w-6xl px-3 sm:px-5 lg:px-8">
             <div className="overflow-hidden border-[6px] border-blue-700 bg-white shadow-[0_28px_70px_-24px_rgba(30,64,175,0.45)] sm:border-8 sm:rounded-sm">
               <div className="px-4 pb-5 pt-10 text-center sm:px-6 sm:pt-12">
-                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-900/70">Product tour</p>
-                <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">Two minutes inside the homeowner flow</h2>
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-900/70">Video</p>
+                <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">Watch how the fence quote works</h2>
               </div>
               <div className="border-t border-slate-200/90 bg-slate-950/[0.04]">
                 <AutoplayOnViewVideo src="/videos/QuoteProcess.mp4" className="w-full" />
@@ -392,19 +395,19 @@ export default function HomePage() {
         <section id="value-prop" className="scroll-mt-28 border-b border-slate-900/20 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950 py-16 text-white sm:py-20">
           <div className="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
             <h2 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">
-              Tighter handoffs between <span className="text-blue-300">marketing</span> and sales
+              Close more fence jobs with <span className="text-blue-300">better leads</span>
             </h2>
             <p className="mt-5 text-lg leading-relaxed text-blue-100/95">
-              Because homeowners leave with a map-backed number, your reps inherit drawings, notes, and contact data
-              instead of rebuilding the story from scratch.
+              When homeowners already drew the job and saw a price, your sales calls start hot—less back-and-forth, more
+              booked site visits and sold jobs.
             </p>
             <a
               href={DEMO_URL}
               className="mt-10 inline-flex min-h-[48px] items-center justify-center rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-500 px-10 py-3 text-sm font-bold text-white shadow-lg shadow-blue-900/40 transition hover:from-blue-400 hover:to-indigo-400"
             >
-              Replay the guided tour
+              Try the demo again
             </a>
-            <p className="mt-3 text-sm text-blue-200/80">Public sandbox link · still zero signup</p>
+            <p className="mt-3 text-sm text-blue-200/80">No signup required</p>
           </div>
         </section>
 
@@ -421,13 +424,13 @@ export default function HomePage() {
           }}
         >
           <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
-            <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-900/70">Workspace tour</p>
+            <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-900/70">Dashboard</p>
             <h2 className="mt-2 text-center text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-              Operational clarity—not vanity charts
+              Real screenshots from the fence contractor dashboard
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-center text-lg text-slate-600">
-              Triage inbound work, reopen quotes, and tune catalogs from one place. Everything below is pulled straight
-              from the live product (not marketing renders).
+              Manage leads, quotes, and your fence catalog in one place. These are actual screens from the app—not fake
+              mockups.
             </p>
 
             <div className="mt-10 flex w-full flex-wrap items-center justify-center gap-6 px-1 sm:gap-8">
@@ -467,7 +470,7 @@ export default function HomePage() {
             </div>
 
             <div className="mt-12 border-t border-slate-200/80 pt-10">
-              <h3 className="text-center text-lg font-bold text-slate-900 sm:text-xl">Even more views in rotation</h3>
+              <h3 className="text-center text-lg font-bold text-slate-900 sm:text-xl">More screens from the product</h3>
               <RotatingScreenshots count={6} className="mt-6 justify-center sm:mt-8" />
             </div>
 
@@ -476,7 +479,7 @@ export default function HomePage() {
                 href={DEMO_URL}
                 className="inline-flex min-h-[46px] items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/25 transition hover:from-blue-500 hover:to-indigo-500"
               >
-                Jump back into the demo
+                Open the demo
               </a>
             </div>
           </div>
@@ -493,25 +496,25 @@ export default function HomePage() {
           }}
         >
           <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
-            <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-800/80">Why crews adopt it</p>
+            <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-800/80">Why fence companies use it</p>
             <h2 className="mt-2 text-center text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-              Field-tested building blocks for fence revenue teams
+              Built for real fence sales—not generic software
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-center text-slate-600">
-              Focused modules that solve quoting, intake, and follow-up—nothing extra to babysit.
+              The features that matter for fence quotes, leads, and follow-up. Nothing extra.
             </p>
             <div className="mt-10 grid gap-4 sm:grid-cols-3">
               <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/80 p-6 shadow-sm transition hover:border-blue-200 hover:shadow-md">
-                <h3 className="text-base font-semibold text-slate-900">Map-native drawing</h3>
-                <p className="mt-2 text-sm text-slate-600">Fence lines stay tied to real parcels so measurements stay honest.</p>
+                <h3 className="text-base font-semibold text-slate-900">Satellite fence drawing</h3>
+                <p className="mt-2 text-sm text-slate-600">Homeowners draw right on the map so you get real footage and layout.</p>
               </div>
               <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/80 p-6 shadow-sm transition hover:border-blue-200 hover:shadow-md">
-                <h3 className="text-base font-semibold text-slate-900">On-brand estimates</h3>
-                <p className="mt-2 text-sm text-slate-600">Carry your visuals, voice, and guardrails through every touchpoint.</p>
+                <h3 className="text-base font-semibold text-slate-900">Your brand, your prices</h3>
+                <p className="mt-2 text-sm text-slate-600">Your logo, colors, and fence pricing—customers see your company, not ours.</p>
               </div>
               <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/80 p-6 shadow-sm transition hover:border-blue-200 hover:shadow-md">
-                <h3 className="text-base font-semibold text-slate-900">Signal-rich intake</h3>
-                <p className="mt-2 text-sm text-slate-600">Submissions show who they are, what they drew, and what it measured.</p>
+                <h3 className="text-base font-semibold text-slate-900">Hotter fence leads</h3>
+                <p className="mt-2 text-sm text-slate-600">Name, phone, email, and what they drew—so you quote faster and win more jobs.</p>
               </div>
             </div>
           </div>
@@ -519,36 +522,36 @@ export default function HomePage() {
 
         <section id="get-started" className="scroll-mt-28 border-b border-slate-900/10 bg-white py-16 sm:py-20">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-            <h2 className="text-center text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Line up the launch checklist</h2>
+            <h2 className="text-center text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Get started in three steps</h2>
             <p className="mx-auto mt-4 max-w-xl text-center text-slate-600">
-              Most crews pair onboarding with a short punch list so the first publish feels intentional, not rushed.
+              From signup to live fence quotes—most contractors move fast.
             </p>
             <ol className="mt-14 grid gap-8 md:grid-cols-3">
               <li className="text-center">
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-2xl font-black text-white shadow-lg">
                   1
                 </div>
-                <h3 className="mt-6 text-lg font-bold text-slate-900">Kickoff with your playbook</h3>
+                <h3 className="mt-6 text-lg font-bold text-slate-900">Get set up fast</h3>
                 <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                  Align catalog, pricing tiers, and brand touches so the first customer-facing build reflects reality.
+                  We help you load your fence styles, gates, heights, and pricing so your first quotes look right.
                 </p>
               </li>
               <li className="text-center">
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-2xl font-black text-white shadow-lg">
                   2
                 </div>
-                <h3 className="mt-6 text-lg font-bold text-slate-900">Plant the link where leads already look</h3>
+                <h3 className="mt-6 text-lg font-bold text-slate-900">Put the link on your website</h3>
                 <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                  Homepage hero, paid campaigns, truck wraps, or post-site-visit emails—one consistent entry point.
+                  Add the quote button to your homepage, ads, or email—one link for every homeowner lead.
                 </p>
               </li>
               <li className="text-center">
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-2xl font-black text-white shadow-lg">
                   3
                 </div>
-                <h3 className="mt-6 text-lg font-bold text-slate-900">Let submissions carry their own context</h3>
+                <h3 className="mt-6 text-lg font-bold text-slate-900">Start winning fence jobs</h3>
                 <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                  Each lead arrives with drawings, notes, and measurements so estimators can respond with confidence.
+                  Leads roll in with drawings and measurements so your team can quote and close faster.
                 </p>
               </li>
             </ol>
@@ -557,13 +560,13 @@ export default function HomePage() {
                 href="/signup"
                 className="inline-flex min-h-[48px] items-center justify-center rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-10 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition hover:from-blue-500 hover:to-indigo-500"
               >
-                Create your account
+                Sign up now
               </Link>
               <a
                 href={DEMO_URL}
                 className="inline-flex min-h-[48px] items-center justify-center rounded-2xl border-2 border-slate-200 bg-white px-10 py-3 text-sm font-bold text-slate-800 transition hover:border-blue-200 hover:bg-blue-50/60"
               >
-                Keep exploring the demo
+                Try demo first
               </a>
             </div>
           </div>
@@ -578,11 +581,11 @@ export default function HomePage() {
         >
           <div className="mx-auto w-full max-w-6xl px-3 sm:px-5 lg:px-8">
             <div className="border-4 border-blue-900/85 bg-gradient-to-b from-white via-white to-slate-50/95 px-4 py-12 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.8)] sm:px-8 sm:py-14">
-              <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-800/80">Voices from the field</p>
+              <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-800/80">Testimonials</p>
               <h2 className="mt-2 text-center text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-                What partners say
+                What fence contractors say
               </h2>
-              <p className="text-center text-3xl font-extrabold tracking-tight text-blue-600 sm:text-4xl">after switching flows</p>
+              <p className="text-center text-3xl font-extrabold tracking-tight text-blue-600 sm:text-4xl">about QuoteMyFence</p>
               <TestimonialsCarousel items={testimonials} />
             </div>
           </div>
@@ -601,23 +604,22 @@ export default function HomePage() {
         >
           <div className="mx-auto w-full max-w-6xl px-4 py-14 text-center sm:px-6 sm:py-16 lg:px-8">
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-900/70">Pricing</p>
-            <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Straightforward pricing</h2>
+            <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Simple monthly pricing</h2>
             <p className="mt-4 text-lg text-slate-600">
-              Publish the full quote experience for $199.99 CAD per month while the promo runs—walk away whenever you
-              need to.
+              $199.99 CAD per month for the full fence quote tool and dashboard. Promo pricing—cancel anytime.
             </p>
             <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
                 href="/signup"
                 className="inline-flex min-h-[48px] items-center justify-center rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition hover:from-blue-500 hover:to-indigo-500"
               >
-                Open a workspace
+                Start now
               </Link>
               <Link
                 href="/login"
                 className="inline-flex min-h-[48px] items-center justify-center rounded-2xl border-2 border-slate-200 bg-white px-8 py-3 text-sm font-bold text-slate-800 transition hover:border-blue-200 hover:bg-blue-50/50"
               >
-                Contractor login
+                Member login
               </Link>
             </div>
           </div>
@@ -633,7 +635,7 @@ export default function HomePage() {
           <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
             <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">FAQ</p>
             <h2 className="mt-2 text-center text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-              Answers before you reach out
+              Frequently asked questions
             </h2>
             <div className="mt-8">
               <FAQAccordion items={faqs} />
@@ -651,11 +653,11 @@ export default function HomePage() {
           }}
         >
           <div className="mx-auto w-full max-w-6xl px-4 py-14 text-center sm:px-6 sm:py-16 lg:px-8">
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-100/90">Human support</p>
-            <h2 className="mt-3 text-2xl font-bold tracking-tight text-white sm:text-3xl">Prefer a guided onboarding call?</h2>
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-100/90">Contact</p>
+            <h2 className="mt-3 text-2xl font-bold tracking-tight text-white sm:text-3xl">Questions? Want help getting started?</h2>
             <p className="mx-auto mt-3 max-w-xl text-base text-blue-100/95">
-              We&apos;ll pair you with someone who can sanity-check catalog structure, pricing logic, and the customer
-              journey before you flip the switch.
+              Book a call or email us—we&apos;re happy to walk through fence products, pricing, and how to get more leads
+              from your website.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <a
@@ -664,13 +666,13 @@ export default function HomePage() {
                 rel="noopener noreferrer"
                 className="inline-flex min-h-[46px] items-center justify-center rounded-xl bg-white px-6 py-3 text-sm font-semibold text-blue-800 shadow-lg transition hover:bg-blue-50"
               >
-                Grab a calendar slot
+                Book a call
               </a>
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
                 className="inline-flex min-h-[46px] items-center justify-center rounded-xl border-2 border-white/40 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/20"
               >
-                Write the team
+                Email us
               </a>
             </div>
           </div>
