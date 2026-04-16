@@ -51,16 +51,16 @@ function roundNorm(n: number, decimals = 1): number {
 function computeLineMaterials(line: FenceLine, prevLine: FenceLine | null): MaterialItem[] {
   const panels = line.lengthFt / PVC_PANEL_LENGTH_FT;
   const wholePanels = roundUp(panels);
-  const posts = wholePanels + 1;
+  // PVC sheet post count for materials (=D9+D6−1): whole panels + H terminations − 1
+  const posts = Math.max(0, wholePanels + line.hPost - 1);
 
   // If connects to previous, that end's H post and U channel already counted
-  const hPostCount = line.connectsToPrevious ? Math.max(0, line.hPost - 1) : line.hPost;
   const uChannelCount = line.connectsToPrevious ? Math.max(0, line.uChannel - 1) : line.uChannel;
 
   const concrete = roundNorm(posts * 2.5, 1);
   const galvanized = posts;
-  const hPost = hPostCount;
-  const cap = hPost;
+  const hPost = posts;
+  const cap = posts;
   const rail = roundUp(panels * ITEMS_PER_PANEL.rail);
   const railStiffener = roundUp(panels * ITEMS_PER_PANEL.railStiffener);
   const board = roundNorm(panels * ITEMS_PER_PANEL.board, 1);

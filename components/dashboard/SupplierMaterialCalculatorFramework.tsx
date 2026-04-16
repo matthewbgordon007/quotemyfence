@@ -34,7 +34,7 @@ const inputFieldLabels: Record<MaterialCalculatorInputField, string> = {
   line_length_ft: 'Line length',
   exact_panels: 'Exact panels',
   rounded_panels: 'Rounded panels',
-  line_posts_including_first: 'Line posts (panels + 1 starter)',
+  line_posts_including_first: 'Post count (panels + H terminations − 1)',
   h_post_terminations: 'H post terminations',
   u_channel_terminations: 'U channel terminations',
   gate_unit: 'Gate unit',
@@ -136,8 +136,11 @@ export function SupplierMaterialCalculatorFramework() {
 
   const roundedPanels = useMemo(() => Math.ceil(exactPanels || 0), [exactPanels]);
 
-  /** Whole panels plus one post that starts the first panel (always +1 vs panel count). */
-  const linePostsIncludingFirst = useMemo(() => roundedPanels + 1, [roundedPanels]);
+  /** PVC Premium sheet: =D9+D6−1 → whole panels + H post terminations − 1 (galvanized / H / cap / short screw / concrete). */
+  const linePostsIncludingFirst = useMemo(
+    () => Math.max(0, roundedPanels + sampleLine.h_post_terminations - 1),
+    [roundedPanels, sampleLine.h_post_terminations],
+  );
 
   const previewRows = useMemo(() => {
     return recipeItems.map((item) => {
@@ -334,7 +337,7 @@ export function SupplierMaterialCalculatorFramework() {
               <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{roundedPanels}</p>
             </div>
             <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/70 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Line posts (whole panels + 1 starter)</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Post count for materials (panels + H terminations − 1)</p>
               <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{linePostsIncludingFirst}</p>
             </div>
           </div>
@@ -494,7 +497,7 @@ export function SupplierMaterialCalculatorFramework() {
             </div>
           </div>
           <p className="mt-4 text-sm text-slate-600">
-            Core math: `exact panels = length / panel length`, `whole panels = ceil(exact panels)`, and `line posts = whole panels + 1` for the starter post at the beginning of the run. Galvanized posts, H posts, post caps, short screws, and concrete (default 2.5 per line post) all multiply from that same line post count. Gate line defaults do not add a second set of line posts (avoids double-count vs a single order sheet); add gate-only post rows in the gate recipe if your supplier counts them separately.
+            Core math: `exact panels = length / panel length`, `whole panels = ceil(exact panels)`, and post count for materials = `whole panels + (fence terminated with H post) − 1`, matching the PVC calculator (`=D9+D6−1`). Galvanized posts, H posts, post caps, short screws, and concrete (default 2.5 per line post) all multiply from that count. Gate line defaults do not add a second set of line posts (avoids double-count vs a single order sheet); add gate-only post rows in the gate recipe if your supplier counts them separately.
           </p>
           <p className="mt-3 text-sm text-slate-600">
             Screws: line long screws are `ceil(4 × exact panels)`; line short screws are `ceil(1 × line posts)`. Gate long/short screws use `ceil(multiplier × gate boards)` — default multipliers are tuned to common D&H-style takeoffs; edit them in the recipe builder if your widths differ.

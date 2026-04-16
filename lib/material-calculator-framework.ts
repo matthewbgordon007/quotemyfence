@@ -4,7 +4,7 @@ export type MaterialCalculatorInputField =
   | 'line_length_ft'
   | 'exact_panels'
   | 'rounded_panels'
-  /** Whole panels plus one starter post at the start of the run (ceil(panels) + 1). */
+  /** PVC sheet post count for galvanized/H/caps/screws: ceil(panels) + H post terminations − 1 (e.g. =D9+D6−1). */
   | 'line_posts_including_first'
   | 'h_post_terminations'
   | 'u_channel_terminations'
@@ -95,7 +95,7 @@ export const starterMaterialCalculatorTemplate: MaterialCalculatorTemplate = {
       quantity_per_panel: 1,
       input_field: 'line_posts_including_first',
       rounding_mode: 'ceil',
-      notes: 'One post per whole panel plus one starter post for the first panel.',
+      notes: 'Uses PVC line post count: whole panels + H terminations − 1 (same as first-sheet galvanized).',
     },
     {
       id: 'h-post',
@@ -179,17 +179,17 @@ export const firstSheetFieldSpecs: MaterialCalculatorFieldSpec[] = [
   },
   {
     id: 'line_posts_including_first',
-    label: 'Line posts (whole panels + 1 starter post)',
+    label: 'Post count for materials (whole panels + H terminations − 1)',
     mode: 'calculated',
     section: 'color_line',
-    notes: 'ceil(total_fence_line_panels) + 1 for the first post that starts the line.',
+    notes: 'Matches Premium Fence PVC sheet: D9 + D6 − 1 (whole panels + fence terminated with H post − 1).',
   },
   {
     id: 'posts',
     label: 'Posts',
     mode: 'calculated',
     section: 'color_line',
-    notes: 'Structural line posts: whole panels plus one starter post unless overridden in the recipe.',
+    notes: 'Same as line post count for materials unless your sheet uses a separate “Posts” row; see line_posts_including_first.',
   },
   {
     id: 'gate_address_line_label',
@@ -245,7 +245,7 @@ export const firstSheetColorLineRecipeDefaults: MaterialCalculatorRecipeItem[] =
     quantity_per_panel: 1,
     input_field: 'line_posts_including_first',
     rounding_mode: 'ceil',
-    notes: 'Matches structural line post count (whole panels + starter post), same as galvanized posts.',
+    notes: 'Same post count as galvanized on the PVC sheet (whole panels + H terminations − 1).',
   },
   {
     id: 'color-cap-h-post',
@@ -253,7 +253,7 @@ export const firstSheetColorLineRecipeDefaults: MaterialCalculatorRecipeItem[] =
     quantity_per_panel: 1,
     input_field: 'line_posts_including_first',
     rounding_mode: 'ceil',
-    notes: 'One cap per line post; same multiply-from as H Post / galvanized.',
+    notes: 'Same multiply-from as H Post / galvanized (PVC sheet D9 + D6 − 1).',
   },
   { id: 'color-rail', name: 'Rail', quantity_per_panel: 2, input_field: 'exact_panels', rounding_mode: 'ceil' },
   { id: 'color-rail-stiffener', name: 'Rail Stiffener', quantity_per_panel: 2, input_field: 'exact_panels', rounding_mode: 'ceil' },
