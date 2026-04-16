@@ -20,7 +20,8 @@ type BuyerType = { id: string; name: string };
 
 export default function SuppliersPage() {
   const [accountType, setAccountType] = useState<string | null>(null);
-  const [suppliers, setSuppliers] = useState<SupplierRow[]>([]);
+  const [linkedSuppliers, setLinkedSuppliers] = useState<SupplierRow[]>([]);
+  const [searchResults, setSearchResults] = useState<SupplierRow[]>([]);
   const [linkedIds, setLinkedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -41,14 +42,39 @@ export default function SuppliersPage() {
   const [bulkImporting, setBulkImporting] = useState(false);
   const [status, setStatus] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
   const [catalogSearch, setCatalogSearch] = useState('');
+  const [supplierSearch, setSupplierSearch] = useState('');
 
   const refreshDirectory = useCallback(async () => {
     const r = await fetch('/api/contractor/suppliers', { credentials: 'include' });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || 'Failed to load');
-    setSuppliers(d.suppliers || []);
+    setLinkedSuppliers(d.linkedSuppliers || []);
     setLinkedIds(new Set(d.linkedSupplierIds || []));
+    setSearchResults([]);
   }, []);
+
+  useEffect(() => {
+    const q = supplierSearch.trim();
+    if (q.length < 3) {
+      setSearchResults([]);
+      return;
+    }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/contractor/suppliers?q=${encodeURIComponent(q)}`, { credentials: 'include' });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || 'Failed to search');
+        if (!cancelled) setSearchResults(d.searchResults || []);
+      } catch {
+        if (!cancelled) setSearchResults([]);
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [supplierSearch]);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,7 +97,7 @@ export default function SuppliersPage() {
         }
         await refreshDirectory();
       } catch {
-        if (!cancelled) setSuppliers([]);
+        if (!cancelled) setLinkedSuppliers([]);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -115,10 +141,6 @@ export default function SuppliersPage() {
     };
   }, [selectedSupplierId, linkedIds]);
 
-  const linkedSuppliers = useMemo(
-    () => suppliers.filter((s) => linkedIds.has(s.id)),
-    [suppliers, linkedIds]
-  );
   const styleColoursMap = useMemo(() => {
     const map = new Map<string, CatalogColour[]>();
     for (const c of colours) {
@@ -171,6 +193,7 @@ export default function SuppliersPage() {
       }
       await refreshDirectory();
       if (linked && selectedSupplierId === supplierId) setSelectedSupplierId(null);
+      if (!linked) setSupplierSearch('');
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Error');
     } finally {
@@ -284,14 +307,73 @@ export default function SuppliersPage() {
       </div>
 
       <section className="mt-10">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Directory</h2>
-        <p className="mt-1 text-sm text-slate-600">Toggle suppliers you work with. Only linked suppliers can be browsed or receive layout requests.</p>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Find supplier</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Search for a supplier you already know. Results appear after 3 characters so contractors cannot browse the full supplier network.
+        </p>
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <input
+            type="search"
+            value={supplierSearch}
+            onChange={(e) => setSupplierSearch(e.target.value)}
+            placeholder="Search supplier name..."
+            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          />
+          {supplierSearch.trim().length > 0 && supplierSearch.trim().length < 3 && (
+            <p className="mt-3 text-sm text-slate-500">Type at least 3 characters to search.</p>
+          )}
+          {supplierSearch.trim().length >= 3 && (
+            <ul className="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
+              {searchResults.length === 0 ? (
+                <li className="px-4 py-6 text-center text-sm text-slate-500">No matching suppliers found.</li>
+              ) : (
+                searchResults.map((s) => {
+                  const linked = linkedIds.has(s.id);
+                  return (
+                    <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
+                      <div className="flex min-w-0 items-center gap-3">
+                        {s.logo_url ? (
+                          <img src={s.logo_url} alt="" className="h-10 w-10 shrink-0 rounded-lg object-contain" />
+                        ) : (
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-500">
+                            {s.company_name.slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="font-semibold text-slate-900">{s.company_name}</p>
+                          <p className="truncate text-xs text-slate-500">{s.slug}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={busyId === s.id}
+                        onClick={() => void toggleLink(s.id, linked)}
+                        className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${
+                          linked
+                            ? 'border border-slate-200 text-slate-600 bg-slate-50'
+                            : 'bg-blue-600 text-white hover:bg-blue-500'
+                        } disabled:opacity-50`}
+                      >
+                        {busyId === s.id ? '…' : linked ? 'Linked' : 'Link supplier'}
+                      </button>
+                    </li>
+                  );
+                })
+              )}
+            </ul>
+          )}
+        </div>
+      </section>
+
+      <section className="mt-10">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Linked suppliers</h2>
+        <p className="mt-1 text-sm text-slate-600">Only linked suppliers can be browsed or receive layout requests.</p>
         <ul className="mt-4 divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white shadow-sm">
-          {suppliers.length === 0 ? (
-            <li className="px-4 py-8 text-center text-sm text-slate-500">No supplier companies on the platform yet.</li>
+          {linkedSuppliers.length === 0 ? (
+            <li className="px-4 py-8 text-center text-sm text-slate-500">No linked suppliers yet.</li>
           ) : (
-            suppliers.map((s) => {
-              const linked = linkedIds.has(s.id);
+            linkedSuppliers.map((s) => {
+              const linked = true;
               return (
                 <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
                   <div className="flex min-w-0 items-center gap-3">
@@ -333,7 +415,7 @@ export default function SuppliersPage() {
                           : 'bg-blue-600 text-white hover:bg-blue-500'
                       } disabled:opacity-50`}
                     >
-                      {busyId === s.id ? '…' : linked ? 'Unlink' : 'Link supplier'}
+                      {busyId === s.id ? '…' : 'Unlink'}
                     </button>
                   </div>
                 </li>

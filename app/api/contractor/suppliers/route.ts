@@ -10,33 +10,60 @@ async function assertBuyerAccount(supabase: Awaited<ReturnType<typeof createClie
   return null;
 }
 
-/** Directory of platform suppliers + which ones this contractor has linked. */
-export async function GET() {
+/** Linked suppliers + optional supplier search (min 3 chars). */
+export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const cu = await getActiveContractorUser(supabase);
   if (!cu) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const block = await assertBuyerAccount(supabase, cu.contractorId);
   if (block) return block;
 
-  const [{ data: suppliers, error: sErr }, { data: links, error: lErr }] = await Promise.all([
+  const q = request.nextUrl.searchParams.get('q')?.trim() || '';
+
+  const [{ data: links, error: lErr }, { data: linkedSuppliers, error: linkedErr }] = await Promise.all([
+    supabase
+      .from('contractor_supplier_links')
+      .select('supplier_contractor_id')
+      .eq('contractor_id', cu.contractorId),
     supabase
       .from('contractors')
       .select('id, company_name, logo_url, slug')
       .eq('account_type', 'supplier')
       .eq('is_active', true)
+      .in(
+        'id',
+        (
+          await supabase
+            .from('contractor_supplier_links')
+            .select('supplier_contractor_id')
+            .eq('contractor_id', cu.contractorId)
+        ).data?.map((r) => r.supplier_contractor_id) || ['00000000-0000-0000-0000-000000000000']
+      )
       .order('company_name', { ascending: true }),
-    supabase
-      .from('contractor_supplier_links')
-      .select('supplier_contractor_id')
-      .eq('contractor_id', cu.contractorId),
   ]);
 
-  if (sErr) return NextResponse.json({ error: sErr.message }, { status: 500 });
   if (lErr) return NextResponse.json({ error: lErr.message }, { status: 500 });
+  if (linkedErr) return NextResponse.json({ error: linkedErr.message }, { status: 500 });
 
   const linkedIds = Array.from(new Set((links || []).map((r) => r.supplier_contractor_id)));
+
+  let searchResults: { id: string; company_name: string; logo_url: string | null; slug: string }[] = [];
+  if (q.length >= 3) {
+    const { data: matches, error: searchErr } = await supabase
+      .from('contractors')
+      .select('id, company_name, logo_url, slug')
+      .eq('account_type', 'supplier')
+      .eq('is_active', true)
+      .or(`company_name.ilike.%${q}%,slug.ilike.%${q}%`)
+      .order('company_name', { ascending: true })
+      .limit(12);
+    if (searchErr) return NextResponse.json({ error: searchErr.message }, { status: 500 });
+    searchResults = matches || [];
+  }
+
   return NextResponse.json({
-    suppliers: suppliers || [],
+    linkedSuppliers: linkedSuppliers || [],
+    searchResults,
     linkedSupplierIds: linkedIds,
   });
 }
