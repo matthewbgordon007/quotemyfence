@@ -13,13 +13,17 @@ export async function GET() {
 
   const { data, error } = await supabaseAdmin
     .from('contractors')
-    .select(
-      'id, company_name, email, slug, account_type, created_at, stripe_subscription_status, billing_access_override, billing_access_override_note'
-    )
-    .eq('account_type', 'contractor')
+    .select('*')
     .order('company_name', { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ contractors: data ?? [] });
+
+  // Treat missing/null account_type as contractor (legacy DBs before account_type existed or was backfilled).
+  const contractors = (data ?? []).filter((row: { account_type?: string | null }) => {
+    const t = row.account_type;
+    return t !== 'supplier';
+  });
+
+  return NextResponse.json({ contractors });
 }
 

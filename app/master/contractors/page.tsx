@@ -15,13 +15,20 @@ type Contractor = {
 export default function MasterContractorsPage() {
   const [rows, setRows] = useState<Contractor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
 
   async function load() {
     setLoading(true);
     const res = await fetch('/api/master/contractors', { credentials: 'include' });
     const data = await res.json().catch(() => ({}));
-    setRows(data.contractors || []);
+    if (!res.ok) {
+      setRows([]);
+      setLoadError(data.error || 'Could not load contractors. Check the browser console and server logs.');
+    } else {
+      setLoadError(null);
+      setRows(data.contractors || []);
+    }
     setLoading(false);
   }
 
@@ -47,6 +54,11 @@ export default function MasterContractorsPage() {
 
   return (
     <div className="mx-auto max-w-6xl">
+      {loadError && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {loadError}
+        </div>
+      )}
       <h1 className="text-2xl font-bold">Contractors</h1>
       <p className="mt-1 text-sm text-[var(--muted)]">
         Contractor accounts (not suppliers). Open a row to view or edit company details, team users, and billing

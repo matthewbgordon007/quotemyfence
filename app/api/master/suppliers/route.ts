@@ -13,12 +13,12 @@ export async function GET() {
 
   const { data, error } = await supabaseAdmin
     .from('contractors')
-    .select(
-      'id, company_name, email, slug, account_type, created_at, stripe_subscription_status, billing_access_override, billing_access_override_note'
-    )
-    .eq('account_type', 'supplier')
+    .select('*')
     .order('company_name', { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ suppliers: data ?? [] });
+
+  const suppliers = (data ?? []).filter((row: { account_type?: string | null }) => row.account_type === 'supplier');
+
+  return NextResponse.json({ suppliers });
 }
