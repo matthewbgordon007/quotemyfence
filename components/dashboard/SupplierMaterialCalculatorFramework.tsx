@@ -124,7 +124,15 @@ function hybridHorizontalTypeRows(fenceTypes: FenceTypeRow[]): FenceTypeRow[] {
 
 function hybridHorizontalStyleNames(fenceTypes: FenceTypeRow[], fenceStyles: FenceStyleRow[]): string[] {
   const typeIds = new Set(hybridHorizontalTypeRows(fenceTypes).map((t) => t.id));
-  const preferredOrder = ['Standard', 'Triple Top Standard', 'Premium', 'Triple Top Premium'];
+  const preferredOrder = [
+    'Wood Grain WPC',
+    'Slatted WPC + PVC',
+    'Aluminum',
+    'Standard',
+    'Triple Top Standard',
+    'Premium',
+    'Triple Top Premium',
+  ];
   const names = Array.from(
     new Set(
       fenceStyles
@@ -889,7 +897,7 @@ export function SupplierMaterialCalculatorFramework() {
             <div className={cardHeader}>
               <h2 className="font-semibold text-slate-900">Hybrid Horizontal style selectors</h2>
               <p className="mt-1 text-sm text-slate-600">
-                Each style gets its own height and colour dropdown pulled from your current products so the next calculator can stay separated by style.
+                Each style gets its own height and colour dropdown pulled from your current products. Workbook-mapped families like Wood Grain WPC, Slatted WPC + PVC, and Aluminum will appear here as soon as they exist in the catalog.
               </p>
             </div>
             <div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6 xl:grid-cols-4">
