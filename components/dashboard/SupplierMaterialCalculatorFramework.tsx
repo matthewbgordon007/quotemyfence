@@ -312,10 +312,24 @@ export function SupplierMaterialCalculatorFramework() {
         <p className="inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--dashboard-ink)]" style={{ background: 'var(--dashboard-soft)' }}>
           Supplier Pages
         </p>
-        <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Material calculator</h1>
-        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">Quick workflow: enter the manual inputs first, then review the material totals right below.</p>
+        <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">PVC material calculator</h1>
+        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
+          Premium fence PVC takeoff: color line, gate line, master order sheet, framework notes, and recipe builders. Open the drawer below to use the calculator.
+        </p>
       </div>
 
+      <details className="group rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 sm:px-6">
+          <span>
+            <span className="block text-base font-semibold text-slate-900">PVC material calculator</span>
+            <span className="mt-0.5 block text-xs font-normal text-slate-500">Inputs, totals, master list, math, and recipes</span>
+          </span>
+          <span className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 group-open:bg-emerald-50 group-open:text-emerald-800 group-open:border-emerald-200">
+            <span className="group-open:hidden">Open</span>
+            <span className="hidden group-open:inline">Close</span>
+          </span>
+        </summary>
+        <div className="space-y-6 border-t border-slate-100 px-5 py-6 sm:px-6">
       <section className={cardShell}>
         <div className={cardHeader}>
           <h2 className="font-semibold text-slate-900">Premium Fence Color Line - Manual inputs</h2>
@@ -759,6 +773,8 @@ export function SupplierMaterialCalculatorFramework() {
               ))}
             </div>
           </section>
+        </div>
+      </details>
         </div>
       </details>
     </div>
