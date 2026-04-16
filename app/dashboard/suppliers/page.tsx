@@ -40,6 +40,7 @@ export default function SuppliersPage() {
   const [selectedStyleIds, setSelectedStyleIds] = useState<Set<string>>(new Set());
   const [bulkImporting, setBulkImporting] = useState(false);
   const [status, setStatus] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+  const [catalogSearch, setCatalogSearch] = useState('');
 
   const refreshDirectory = useCallback(async () => {
     const r = await fetch('/api/contractor/suppliers', { credentials: 'include' });
@@ -118,6 +119,31 @@ export default function SuppliersPage() {
     () => suppliers.filter((s) => linkedIds.has(s.id)),
     [suppliers, linkedIds]
   );
+  const styleColoursMap = useMemo(() => {
+    const map = new Map<string, CatalogColour[]>();
+    for (const c of colours) {
+      const list = map.get(c.fence_style_id) || [];
+      list.push(c);
+      map.set(c.fence_style_id, list);
+    }
+    return map;
+  }, [colours]);
+  const groupedStyles = useMemo(() => {
+    const q = catalogSearch.trim().toLowerCase();
+    const visible = fenceStyles.filter((st) => {
+      if (!showImported && st.already_imported) return false;
+      if (!q) return true;
+      const typeName = fenceTypes.find((t) => t.id === st.fence_type_id)?.name || '';
+      const colourNames = (styleColoursMap.get(st.id) || []).map((c) => c.color_name).join(' ');
+      return [typeName, st.style_name, colourNames].join(' ').toLowerCase().includes(q);
+    });
+    return fenceTypes
+      .map((t) => ({
+        type: t,
+        styles: visible.filter((st) => st.fence_type_id === t.id),
+      }))
+      .filter((g) => g.styles.length > 0);
+  }, [catalogSearch, fenceStyles, fenceTypes, showImported, styleColoursMap]);
 
   async function toggleLink(supplierId: string, linked: boolean) {
     setBusyId(supplierId);
@@ -377,6 +403,15 @@ export default function SuppliersPage() {
                   </button>
                 )}
               </div>
+              <div className="mt-3">
+                <input
+                  type="text"
+                  value={catalogSearch}
+                  onChange={(e) => setCatalogSearch(e.target.value)}
+                  placeholder="Search by type, style, or colour..."
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
+                />
+              </div>
               {status && (
                 <p className={`mt-3 text-sm ${status.kind === 'success' ? 'text-emerald-700' : 'text-red-600'}`}>
                   {status.text}
@@ -387,58 +422,91 @@ export default function SuppliersPage() {
               {!catalogLoading && !catalogError && fenceStyles.length === 0 && (
                 <p className="mt-3 text-sm text-slate-600">This supplier has not published fence styles yet.</p>
               )}
-              {!catalogLoading && !catalogError && fenceStyles.length > 0 && (
-                <ul className="mt-4 space-y-3">
-                  {fenceStyles.filter((st) => showImported || !st.already_imported).map((st) => {
-                    const type = fenceTypes.find((t) => t.id === st.fence_type_id);
-                    const styleColours = colours.filter((c) => c.fence_style_id === st.id);
-                    const checked = selectedStyleIds.has(st.id);
+              {!catalogLoading && !catalogError && groupedStyles.length > 0 && (
+                <div className="mt-4 space-y-6">
+                  {groupedStyles.map(({ type, styles }) => {
+                    const selectableInType = styles.filter((s) => !s.already_imported).map((s) => s.id);
+                    const selectedInType = selectableInType.filter((id) => selectedStyleIds.has(id));
+                    const allInTypeSelected =
+                      selectableInType.length > 0 && selectedInType.length === selectableInType.length;
                     return (
-                      <li
-                        key={st.id}
-                        className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-                      >
-                        <div className="flex flex-wrap items-start justify-between gap-3">
+                      <section key={type.id} className="rounded-xl border border-slate-200 bg-white p-4">
+                        <div className="mb-3 flex items-center justify-between gap-3">
                           <div>
-                            {bulkMode && !st.already_imported && (
-                              <label className="mb-1 inline-flex items-center gap-2 text-xs text-slate-600">
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  onChange={(e) => {
-                                    setSelectedStyleIds((prev) => {
-                                      const next = new Set(prev);
-                                      if (e.target.checked) next.add(st.id);
-                                      else next.delete(st.id);
-                                      return next;
-                                    });
-                                  }}
-                                />
-                                Select
-                              </label>
-                            )}
-                            <p className="text-xs font-medium uppercase text-slate-400">{type?.name || 'Type'}</p>
-                            <p className="font-semibold text-slate-900">{st.style_name}</p>
-                            <p className="mt-1 text-xs text-slate-500">
-                              {styleColours.length} colour{styleColours.length === 1 ? '' : 's'} (import includes all)
-                            </p>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Type</p>
+                            <h3 className="text-base font-semibold text-slate-900">{type.name}</h3>
                           </div>
-                          <button
-                            type="button"
-                            disabled={!isAdmin || st.already_imported || importingStyleId === st.id}
-                            onClick={() => void importStyle(st.id)}
-                            className="shrink-0 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300"
-                          >
-                            {st.already_imported ? 'Imported' : importingStyleId === st.id ? 'Importing…' : 'Import to my products'}
-                          </button>
+                          {bulkMode && selectableInType.length > 0 && (
+                            <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-700">
+                              <input
+                                type="checkbox"
+                                checked={allInTypeSelected}
+                                onChange={(e) => {
+                                  setSelectedStyleIds((prev) => {
+                                    const next = new Set(prev);
+                                    if (e.target.checked) selectableInType.forEach((id) => next.add(id));
+                                    else selectableInType.forEach((id) => next.delete(id));
+                                    return next;
+                                  });
+                                }}
+                              />
+                              Select all in type
+                            </label>
+                          )}
                         </div>
-                        {!isAdmin && (
-                          <p className="mt-2 text-xs text-amber-800">Only company admins can import catalog items.</p>
-                        )}
-                      </li>
+                        <ul className="space-y-3">
+                          {styles.map((st) => {
+                            const styleColours = styleColoursMap.get(st.id) || [];
+                            const checked = selectedStyleIds.has(st.id);
+                            return (
+                              <li key={st.id} className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 shadow-sm">
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                  <div>
+                                    {bulkMode && !st.already_imported && (
+                                      <label className="mb-1 inline-flex items-center gap-2 text-xs text-slate-600">
+                                        <input
+                                          type="checkbox"
+                                          checked={checked}
+                                          onChange={(e) => {
+                                            setSelectedStyleIds((prev) => {
+                                              const next = new Set(prev);
+                                              if (e.target.checked) next.add(st.id);
+                                              else next.delete(st.id);
+                                              return next;
+                                            });
+                                          }}
+                                        />
+                                        Select
+                                      </label>
+                                    )}
+                                    <p className="font-semibold text-slate-900">{st.style_name}</p>
+                                    <p className="mt-1 text-xs text-slate-500">
+                                      {styleColours.length} colour{styleColours.length === 1 ? '' : 's'} (import includes all)
+                                    </p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    disabled={!isAdmin || st.already_imported || importingStyleId === st.id}
+                                    onClick={() => void importStyle(st.id)}
+                                    className="shrink-0 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+                                  >
+                                    {st.already_imported ? 'Imported' : importingStyleId === st.id ? 'Importing…' : 'Import to my products'}
+                                  </button>
+                                </div>
+                                {!isAdmin && (
+                                  <p className="mt-2 text-xs text-amber-800">Only company admins can import catalog items.</p>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </section>
                     );
                   })}
-                </ul>
+                </div>
+              )}
+              {!catalogLoading && !catalogError && groupedStyles.length === 0 && (
+                <p className="mt-3 text-sm text-slate-600">No catalog matches your current filters/search.</p>
               )}
             </div>
           )}
