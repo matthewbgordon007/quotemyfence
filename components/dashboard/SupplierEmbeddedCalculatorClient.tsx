@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   buildGoogleSheetsEmbedUrl,
+  getGoogleSheetsTopLevelEditUrl,
   sanitizeExcelOfficeEmbedUrl,
   type GoogleSheetsEmbedMode,
 } from '@/lib/supplier-embed-calculator-urls';
@@ -71,6 +72,7 @@ export function SupplierEmbeddedCalculatorClient() {
     [googlePasted, googleSheetsMode],
   );
   const excelEmbed = useMemo(() => sanitizeExcelOfficeEmbedUrl(excelPasted), [excelPasted]);
+  const googleOpenInSheetsUrl = useMemo(() => getGoogleSheetsTopLevelEditUrl(googlePasted), [googlePasted]);
 
   const persist = useCallback((patch: Partial<Stored>) => {
     setHydrated(true);
@@ -312,9 +314,36 @@ export function SupplierEmbeddedCalculatorClient() {
           <h2 className="font-semibold text-slate-900">Live embed</h2>
           <p className="mt-1 text-sm text-slate-600">
             {active === 'google'
-              ? 'If the frame is blank, confirm sharing on the sheet and that you are signed into the correct Google account in this browser.'
+              ? 'If the frame is blank, confirm sharing on the sheet. If it asks you to sign in even though you use Google elsewhere, see the note below—that is usually your browser blocking Google cookies inside an embedded page, not your dashboard login.'
               : 'If the frame is blank, regenerate the embed link from OneDrive/SharePoint and ensure the file allows embedding for your org.'}
           </p>
+          {active === 'google' && googleEmbed.ok && googleOpenInSheetsUrl ? (
+            <div
+              className="mt-4 rounded-xl border px-4 py-3 text-sm sm:px-5"
+              style={{
+                borderColor: 'rgb(var(--dashboard-brand-rgb) / 0.22)',
+                background: 'linear-gradient(135deg, rgb(var(--dashboard-brand-rgb) / 0.08), rgb(255 255 255 / 0.96))',
+              }}
+            >
+              <p className="font-semibold text-slate-900">Why “Sign in” or “View only” inside the frame?</p>
+              <p className="mt-1.5 leading-relaxed text-slate-700">
+                Your QuoteMyFence login is separate from Google. In an iframe, Chrome and other browsers often treat Google as
+                a third party and do not send your normal Google session cookies, so Sheets may ask you to sign in again—or
+                show view-only until you do. Click <span className="font-medium">Sign in</span> inside the sheet, or open the
+                file in a full Google tab where your session already works.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <a
+                  href={googleOpenInSheetsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+                >
+                  Open in Google Sheets (new tab)
+                </a>
+              </div>
+            </div>
+          ) : null}
         </div>
         <div className="relative min-h-[70vh] w-full bg-slate-50/50 overscroll-contain">
           {!hydrated ? (
@@ -353,6 +382,10 @@ export function SupplierEmbeddedCalculatorClient() {
             <li>
               Editing in the frame follows each vendor&apos;s rules: you need Editor access, and some orgs block embedding or
               third-party cookies that sign-in relies on.
+            </li>
+            <li>
+              Google Sheets in an iframe may not see the same Google account as a normal tab; that is a browser privacy rule,
+              not a bug in your dashboard password.
             </li>
           </ul>
         </div>

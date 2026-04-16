@@ -40,6 +40,18 @@ export function buildGoogleSheetsEmbedUrl(pasted: string, mode: GoogleSheetsEmbe
 }
 
 /**
+ * Top-level Google Sheets URL for the same workbook (opens in a new tab).
+ * Use when the iframe shows "Sign in" because third-party cookie rules block Google session inside the embed.
+ */
+export function getGoogleSheetsTopLevelEditUrl(pasted: string): string | null {
+  const u = isHttpsUrl(pasted);
+  if (!u || u.hostname !== 'docs.google.com') return null;
+  const m = u.pathname.match(GOOGLE_SHEETS_PATH);
+  if (!m) return null;
+  return `https://docs.google.com/spreadsheets/d/${m[1]}/edit`;
+}
+
+/**
  * Nudge Office Online embed URLs toward in-frame editing when Microsoft supports the flag on this host.
  * Real editability still depends on file permissions and tenant settings.
  */
