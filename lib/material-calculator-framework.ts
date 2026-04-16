@@ -232,8 +232,8 @@ export const firstSheetFieldSpecs: MaterialCalculatorFieldSpec[] = [
 
 export const firstSheetColorLineRecipeDefaults: MaterialCalculatorRecipeItem[] = [
   { id: 'color-galv-post', name: 'Galvanized Post', quantity_per_panel: 1, input_field: 'line_posts_including_first', rounding_mode: 'ceil' },
-  { id: 'color-h-post', name: 'H Post', quantity_per_panel: 1, input_field: 'line_posts_including_first', rounding_mode: 'ceil' },
-  { id: 'color-cap-h-post', name: 'Cap (H Post)', quantity_per_panel: 1, input_field: 'line_posts_including_first', rounding_mode: 'ceil' },
+  { id: 'color-h-post', name: 'H Post', quantity_per_panel: 1, input_field: 'h_post_terminations', rounding_mode: 'ceil' },
+  { id: 'color-cap-h-post', name: 'Cap (H Post)', quantity_per_panel: 1, input_field: 'h_post_terminations', rounding_mode: 'ceil' },
   { id: 'color-rail', name: 'Rail', quantity_per_panel: 2, input_field: 'exact_panels', rounding_mode: 'ceil' },
   { id: 'color-rail-stiffener', name: 'Rail Stiffener', quantity_per_panel: 2, input_field: 'exact_panels', rounding_mode: 'ceil' },
   { id: 'color-board', name: 'Board', quantity_per_panel: 16, input_field: 'exact_panels', rounding_mode: 'nearest' },
