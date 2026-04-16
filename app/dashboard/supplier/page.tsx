@@ -19,6 +19,11 @@ const supplierToolCards = [
     title: 'Material calculator',
     description: 'SKUs, bundles, and quote-to-material workflows.',
   },
+  {
+    href: '/dashboard/supplier/embedded-calculator',
+    title: 'My sheet calculator',
+    description: 'Embed your Google Sheet or Excel workbook and work from it in the dashboard.',
+  },
 ];
 
 export default async function SupplierDashboardHomePage() {

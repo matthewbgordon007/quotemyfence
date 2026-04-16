@@ -97,6 +97,11 @@ const supplierToolLinks = [
     label: 'Material Calculator',
     icon: <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 3.75h9A2.25 2.25 0 0 1 18.75 6v12A2.25 2.25 0 0 1 16.5 20.25h-9A2.25 2.25 0 0 1 5.25 18V6A2.25 2.25 0 0 1 7.5 3.75ZM9 8.25h6M9 11.25h6M9 14.25h3" />,
   },
+  {
+    href: '/dashboard/supplier/embedded-calculator',
+    label: 'My sheet calculator',
+    icon: <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.5h16.5A1.5 1.5 0 0 1 21.75 6v12a1.5 1.5 0 0 1-1.5 1.5H3.75a1.5 1.5 0 0 1-1.5-1.5V6A1.5 1.5 0 0 1 3.75 4.5Zm3 3.75v1.5h10.5v-1.5H6.75Zm0 3v1.5h7.5v-1.5H6.75Zm0 3v1.5h10.5v-1.5H6.75Z" />,
+  },
 ];
 
 const supplierNavLinks = [supplierOverviewLink, ...supplierToolLinks];
