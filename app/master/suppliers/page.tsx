@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 
-type Contractor = {
+type Supplier = {
   id: string;
   company_name: string;
   email: string | null;
@@ -12,16 +12,16 @@ type Contractor = {
   stripe_subscription_status: string | null;
 };
 
-export default function MasterContractorsPage() {
-  const [rows, setRows] = useState<Contractor[]>([]);
+export default function MasterSuppliersPage() {
+  const [rows, setRows] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
 
   async function load() {
     setLoading(true);
-    const res = await fetch('/api/master/contractors', { credentials: 'include' });
+    const res = await fetch('/api/master/suppliers', { credentials: 'include' });
     const data = await res.json().catch(() => ({}));
-    setRows(data.contractors || []);
+    setRows(data.suppliers || []);
     setLoading(false);
   }
 
@@ -47,10 +47,9 @@ export default function MasterContractorsPage() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <h1 className="text-2xl font-bold">Contractors</h1>
+      <h1 className="text-2xl font-bold">Suppliers</h1>
       <p className="mt-1 text-sm text-[var(--muted)]">
-        Contractor accounts (not suppliers). Open a row to view or edit company details, team users, and billing
-        overrides.
+        Supplier workspaces. Open a row to view or edit company details, team users, and billing overrides.
       </p>
 
       <div className="mt-4 rounded-xl border border-[var(--line)] bg-white p-3">
@@ -94,7 +93,7 @@ export default function MasterContractorsPage() {
             {filtered.length === 0 ? (
               <tr>
                 <td colSpan={4} className="px-4 py-10 text-center text-[var(--muted)]">
-                  No contractors match your search.
+                  No suppliers match your search.
                 </td>
               </tr>
             ) : null}

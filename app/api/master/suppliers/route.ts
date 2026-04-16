@@ -16,10 +16,9 @@ export async function GET() {
     .select(
       'id, company_name, email, slug, account_type, created_at, stripe_subscription_status, billing_access_override, billing_access_override_note'
     )
-    .eq('account_type', 'contractor')
+    .eq('account_type', 'supplier')
     .order('company_name', { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ contractors: data ?? [] });
+  return NextResponse.json({ suppliers: data ?? [] });
 }
-

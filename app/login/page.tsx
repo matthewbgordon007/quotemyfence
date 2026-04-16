@@ -95,9 +95,6 @@ export default function LoginPage() {
           </Link>
         </p>
         <p className="mt-1 text-center text-sm text-[var(--muted)]">
-          Admin? <Link href="/signup/master" className="font-semibold text-[var(--accent)] hover:underline">Create master account</Link>
-        </p>
-        <p className="mt-1 text-center text-sm text-[var(--muted)]">
           <Link href="/" className="hover:underline">
             Back to home
           </Link>

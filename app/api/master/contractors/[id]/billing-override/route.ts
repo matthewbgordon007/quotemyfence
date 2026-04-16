@@ -1,28 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
-
-async function getMasterAdminId(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-  const { data: ma } = await supabase
-    .from('master_admins')
-    .select('id')
-    .eq('auth_id', user.id)
-    .single();
-  return ma?.id ?? null;
-}
+import { getSessionMasterAdmin } from '@/lib/master-auth';
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const supabase = await createClient();
-  const masterId = await getMasterAdminId(supabase);
-  if (!masterId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const session = await getSessionMasterAdmin();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await request.json().catch(() => ({}));
   const enabled = !!body?.enabled;
