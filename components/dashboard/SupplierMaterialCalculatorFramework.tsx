@@ -47,6 +47,16 @@ function roundForMode(value: number, mode: MaterialCalculatorRecipeItem['roundin
   return Math.ceil(value);
 }
 
+function materialKey(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function formatQty(n: number): string {
+  if (!Number.isFinite(n)) return '0';
+  if (Math.abs(n - Math.round(n)) < 1e-6) return String(Math.round(n));
+  return n.toFixed(2);
+}
+
 export function SupplierMaterialCalculatorFramework() {
   const [title, setTitle] = useState(starterMaterialCalculatorTemplate.title);
   const [description, setDescription] = useState(starterMaterialCalculatorTemplate.description);
@@ -109,7 +119,17 @@ export function SupplierMaterialCalculatorFramework() {
             ? gateTotalBoards
             : item.input_field === 'gate_unit'
               ? 1
-              : 0;
+              : item.input_field === 'line_length_ft'
+                ? sampleLine.length_ft
+                : item.input_field === 'exact_panels'
+                  ? exactPanels
+                  : item.input_field === 'rounded_panels'
+                    ? roundedPanels
+                    : item.input_field === 'h_post_terminations'
+                      ? sampleLine.h_post_terminations
+                      : item.input_field === 'u_channel_terminations'
+                        ? sampleLine.u_channel_terminations
+                        : 0;
       const raw = sourceValue * item.quantity_per_panel;
       return {
         ...item,
@@ -117,7 +137,21 @@ export function SupplierMaterialCalculatorFramework() {
         final: roundForMode(raw, item.rounding_mode),
       };
     });
-  }, [gateRecipeItems, gateTotalBoards, sampleGateLine.posts_needed]);
+  }, [exactPanels, gateRecipeItems, gateTotalBoards, roundedPanels, sampleGateLine.posts_needed, sampleLine]);
+
+  const masterMaterialRows = useMemo(() => {
+    const map = new Map<string, { label: string; total: number }>();
+    const add = (name: string, qty: number) => {
+      const label = name.trim() || 'Untitled item';
+      const key = materialKey(label);
+      const prev = map.get(key);
+      if (prev) prev.total += qty;
+      else map.set(key, { label, total: qty });
+    };
+    for (const row of previewRows) add(row.name || '', Number(row.final) || 0);
+    for (const row of gatePreviewRows) add(row.name || '', Number(row.final) || 0);
+    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+  }, [previewRows, gatePreviewRows]);
 
   const colorLineInputs = useMemo(() => firstSheetFieldSpecs.filter((f) => f.section === 'color_line' && f.mode === 'input'), []);
   const colorLineCalculated = useMemo(() => firstSheetFieldSpecs.filter((f) => f.section === 'color_line' && f.mode === 'calculated'), []);
@@ -302,6 +336,37 @@ export function SupplierMaterialCalculatorFramework() {
               </tbody>
             </table>
           </div>
+        </div>
+      </section>
+
+      <section className={cardShell}>
+        <div className={cardHeader}>
+          <h2 className="font-semibold text-slate-900">Master material list</h2>
+          <p className="mt-1 text-sm text-slate-600">Everything from the color line and gate line, combined in one order list.</p>
+        </div>
+        <div className="p-5 sm:p-6">
+          {masterMaterialRows.length === 0 ? (
+            <p className="text-sm text-slate-500">No materials yet. Add recipe items in the drawers below, or use the default lists.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left">
+                    <th className="py-3 font-semibold text-slate-700">Item</th>
+                    <th className="py-3 text-right font-semibold text-slate-700">Total qty</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {masterMaterialRows.map((row) => (
+                    <tr key={materialKey(row.label)} className="border-b border-slate-100 last:border-0">
+                      <td className="py-2.5 font-medium text-slate-900">{row.label}</td>
+                      <td className="py-2.5 text-right font-semibold tabular-nums text-slate-900">{formatQty(row.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </section>
 
