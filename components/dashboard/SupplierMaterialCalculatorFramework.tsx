@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   firstSheetColorLineRecipeDefaults,
   firstSheetFieldSpecs,
@@ -73,6 +73,55 @@ function colorHeadingFromDescription(description: string): string {
   return head || 'Color';
 }
 
+type FenceTypeRow = { id: string; standard_height_ft?: number | null };
+type FenceStyleRow = { id: string; fence_type_id: string };
+type ColourOptionRow = { id: string; fence_style_id: string; color_name: string };
+
+type ProductHierarchyPayload = {
+  fenceTypes: FenceTypeRow[];
+  fenceStyles: FenceStyleRow[];
+  colourOptions: ColourOptionRow[];
+};
+
+function parseStarterDescription(desc: string): { colorName: string; heightFt: number | null } {
+  const t = desc.trim();
+  const parts = t.split(',').map((s) => s.trim()).filter(Boolean);
+  const colorName = parts[0] ?? '';
+  const heightPart = parts[1] ?? '';
+  const m = heightPart.match(/(\d+(?:\.\d+)?)\s*ft/i);
+  const heightFt = m ? Number(m[1]) : null;
+  return { colorName, heightFt };
+}
+
+function typeHeightFt(t: FenceTypeRow): number {
+  return Number(t.standard_height_ft ?? 6);
+}
+
+function uniqueHeightsForTypes(fenceTypes: FenceTypeRow[]): number[] {
+  const s = new Set<number>();
+  for (const t of fenceTypes) s.add(typeHeightFt(t));
+  return Array.from(s).sort((a, b) => a - b);
+}
+
+function colorNamesForHeight(
+  heightFt: number,
+  fenceTypes: FenceTypeRow[],
+  fenceStyles: FenceStyleRow[],
+  colourOptions: ColourOptionRow[],
+): string[] {
+  const typeIds = new Set(fenceTypes.filter((t) => typeHeightFt(t) === heightFt).map((t) => t.id));
+  const styleIds = new Set(fenceStyles.filter((s) => typeIds.has(s.fence_type_id)).map((s) => s.id));
+  const names = colourOptions
+    .filter((c) => styleIds.has(c.fence_style_id))
+    .map((c) => c.color_name.trim())
+    .filter(Boolean);
+  return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }));
+}
+
+const supplierMaterialCalculatorStarterColourHeight = parseStarterDescription(
+  starterMaterialCalculatorTemplate.description,
+);
+
 type MasterSheetRow =
   | { kind: 'item'; label: string; matchNames: string[] }
   | { kind: 'section'; label: string };
@@ -125,7 +174,12 @@ function lookupHPostStiffenerQty(totals: Map<string, number>): number {
 
 export function SupplierMaterialCalculatorFramework() {
   const [title, setTitle] = useState(starterMaterialCalculatorTemplate.title);
-  const [description, setDescription] = useState(starterMaterialCalculatorTemplate.description);
+  const [selectedHeightFt, setSelectedHeightFt] = useState<number | null>(supplierMaterialCalculatorStarterColourHeight.heightFt);
+  const [selectedColorName, setSelectedColorName] = useState(supplierMaterialCalculatorStarterColourHeight.colorName);
+  const [productHierarchy, setProductHierarchy] = useState<ProductHierarchyPayload | null>(null);
+  const [productHierarchyLoading, setProductHierarchyLoading] = useState(true);
+  const [productHierarchyError, setProductHierarchyError] = useState<string | null>(null);
+
   const [panelLengthFt, setPanelLengthFt] = useState(starterMaterialCalculatorTemplate.panel_length_ft);
   const [sampleLine, setSampleLine] = useState<SampleLine>({
     length_ft: 70,
@@ -138,9 +192,77 @@ export function SupplierMaterialCalculatorFramework() {
     line_width_inches: 60,
     posts_needed: 2,
   });
-
-  /** Free-text cells on the master order sheet (green band rows + Extras column). */
   const [masterSheetCellEdits, setMasterSheetCellEdits] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setProductHierarchyLoading(true);
+      setProductHierarchyError(null);
+      try {
+        const r = await fetch('/api/contractor/product-hierarchy', { cache: 'no-store', credentials: 'include' });
+        const j = (await r.json()) as ProductHierarchyPayload & { error?: string };
+        if (!r.ok) throw new Error(j.error || 'Could not load products');
+        if (cancelled) return;
+        const fenceTypes = j.fenceTypes ?? [];
+        const fenceStyles = j.fenceStyles ?? [];
+        const colourOptions = j.colourOptions ?? [];
+        setProductHierarchy({ fenceTypes, fenceStyles, colourOptions });
+
+        const heights = uniqueHeightsForTypes(fenceTypes);
+        if (heights.length > 0) {
+          const wantH = supplierMaterialCalculatorStarterColourHeight.heightFt;
+          const h = wantH != null && heights.includes(wantH) ? wantH : heights[0];
+          const colors = colorNamesForHeight(h, fenceTypes, fenceStyles, colourOptions);
+          const wantC = supplierMaterialCalculatorStarterColourHeight.colorName;
+          const c = wantC && colors.includes(wantC) ? wantC : colors[0] ?? '';
+          setSelectedHeightFt(h);
+          setSelectedColorName(c);
+        }
+      } catch (e) {
+        if (!cancelled) setProductHierarchyError(e instanceof Error ? e.message : 'Could not load products');
+      } finally {
+        if (!cancelled) setProductHierarchyLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const heightOptions = useMemo(() => {
+    if (!productHierarchy?.fenceTypes.length) return [];
+    return uniqueHeightsForTypes(productHierarchy.fenceTypes);
+  }, [productHierarchy]);
+
+  const colourOptionsForHeight = useMemo(() => {
+    if (!productHierarchy || selectedHeightFt == null) return [];
+    return colorNamesForHeight(
+      selectedHeightFt,
+      productHierarchy.fenceTypes,
+      productHierarchy.fenceStyles,
+      productHierarchy.colourOptions,
+    );
+  }, [productHierarchy, selectedHeightFt]);
+
+  const description = useMemo(() => {
+    const parts: string[] = [];
+    if (selectedColorName.trim()) parts.push(selectedColorName.trim());
+    if (selectedHeightFt != null && Number.isFinite(selectedHeightFt)) parts.push(`${selectedHeightFt}ft`);
+    return parts.join(', ');
+  }, [selectedColorName, selectedHeightFt]);
+
+  function onHeightSelectChange(heightFt: number) {
+    setSelectedHeightFt(heightFt);
+    if (!productHierarchy) return;
+    const nextColours = colorNamesForHeight(
+      heightFt,
+      productHierarchy.fenceTypes,
+      productHierarchy.fenceStyles,
+      productHierarchy.colourOptions,
+    );
+    setSelectedColorName((prev) => (nextColours.includes(prev) ? prev : nextColours[0] ?? ''));
+  }
 
   const exactPanels = useMemo(() => {
     if (!panelLengthFt || panelLengthFt <= 0) return 0;
@@ -340,13 +462,51 @@ export function SupplierMaterialCalculatorFramework() {
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. 53 Rothesay Ave" className={`mt-1.5 ${field}`} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700">Color and height</label>
-            <input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g. Adobe, 6ft"
+            <label className="block text-sm font-medium text-slate-700">Height (ft)</label>
+            <select
               className={`mt-1.5 ${field}`}
-            />
+              value={selectedHeightFt != null && heightOptions.includes(selectedHeightFt) ? String(selectedHeightFt) : ''}
+              disabled={productHierarchyLoading || heightOptions.length === 0}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (Number.isFinite(v)) onHeightSelectChange(v);
+              }}
+            >
+              {productHierarchyLoading ? (
+                <option value="">Loading catalog…</option>
+              ) : heightOptions.length === 0 ? (
+                <option value="">No heights in catalog</option>
+              ) : (
+                heightOptions.map((h) => (
+                  <option key={h} value={h}>
+                    {Math.abs(h - Math.round(h)) < 1e-6 ? String(Math.round(h)) : String(h)} ft
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Colour</label>
+            <select
+              className={`mt-1.5 ${field}`}
+              value={colourOptionsForHeight.includes(selectedColorName) ? selectedColorName : ''}
+              disabled={productHierarchyLoading || colourOptionsForHeight.length === 0}
+              onChange={(e) => setSelectedColorName(e.target.value)}
+            >
+              {productHierarchyLoading ? (
+                <option value="">Loading catalog…</option>
+              ) : colourOptionsForHeight.length === 0 ? (
+                <option value="">No colours for this height</option>
+              ) : (
+                colourOptionsForHeight.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))
+              )}
+            </select>
+            <p className="mt-1.5 text-xs text-slate-500">Pulled from your company’s product catalog (Dashboard → Products).</p>
+            {productHierarchyError ? <p className="mt-1 text-xs font-medium text-red-600">{productHierarchyError}</p> : null}
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Total fence line length (ft)</label>
@@ -466,9 +626,9 @@ export function SupplierMaterialCalculatorFramework() {
         <div className={cardHeader}>
           <h2 className="font-semibold text-slate-900">Master material list</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Order sheet layout: quantities combine color and gate recipes. The center column is titled from the first part of{' '}
-            <span className="font-medium text-slate-800">Color and height</span> (for example <span className="font-medium">Adobe, 6ft</span> →{' '}
-            <span className="font-medium">Adobe</span>). Green section rows and the Extras column are editable for handwritten add-ons.
+            Order sheet layout: quantities combine color and gate recipes. The center column uses the{' '}
+            <span className="font-medium text-slate-800">Colour</span> you selected above (for example <span className="font-medium">Adobe</span> at{' '}
+            <span className="font-medium">6 ft</span>). Green section rows and the Extras column are editable for handwritten add-ons.
           </p>
         </div>
         <div className="p-5 sm:p-6">
