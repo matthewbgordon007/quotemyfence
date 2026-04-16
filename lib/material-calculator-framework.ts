@@ -34,6 +34,14 @@ export interface MaterialCalculatorTemplate {
   recipe_items: MaterialCalculatorRecipeItem[];
 }
 
+export interface MaterialCalculatorFieldSpec {
+  id: string;
+  label: string;
+  mode: 'input' | 'calculated';
+  section: 'color_line' | 'gate_line';
+  notes?: string;
+}
+
 export const starterMaterialCalculatorTemplate: MaterialCalculatorTemplate = {
   id: 'starter-premium-fence',
   title: 'Material calculator framework',
@@ -119,3 +127,107 @@ export const starterMaterialCalculatorTemplate: MaterialCalculatorTemplate = {
     },
   ],
 };
+
+export const firstSheetFieldSpecs: MaterialCalculatorFieldSpec[] = [
+  {
+    id: 'address_line_label',
+    label: 'Address / Line Label',
+    mode: 'input',
+    section: 'color_line',
+  },
+  {
+    id: 'color_and_height',
+    label: 'Color And Height',
+    mode: 'input',
+    section: 'color_line',
+  },
+  {
+    id: 'total_fence_line_length_ft',
+    label: 'Total Fence Line Length (Feet)',
+    mode: 'input',
+    section: 'color_line',
+  },
+  {
+    id: 'fence_terminated_h_post',
+    label: 'Fence Terminated with H post (Type 0, 1, or 2)',
+    mode: 'input',
+    section: 'color_line',
+  },
+  {
+    id: 'fence_terminated_u_channel',
+    label: 'Fence Terminated with U Channel (Type 0, 1, or 2)',
+    mode: 'input',
+    section: 'color_line',
+  },
+  {
+    id: 'total_fence_line_panels',
+    label: 'Total Fence Line Panels',
+    mode: 'calculated',
+    section: 'color_line',
+    notes: 'length_ft / panel_length_ft',
+  },
+  {
+    id: 'total_whole_panels',
+    label: 'Total Whole Number of Fence line Panels',
+    mode: 'calculated',
+    section: 'color_line',
+    notes: 'ceil(total_fence_line_panels)',
+  },
+  {
+    id: 'posts',
+    label: 'Posts',
+    mode: 'calculated',
+    section: 'color_line',
+    notes: 'Based on rounded panels and termination logic.',
+  },
+  {
+    id: 'gate_address_line_label',
+    label: 'Address / Line Label',
+    mode: 'input',
+    section: 'gate_line',
+  },
+  {
+    id: 'gate_color_height',
+    label: 'Color And Height',
+    mode: 'input',
+    section: 'gate_line',
+  },
+  {
+    id: 'total_gate_line_width_inches',
+    label: 'Total Gate Line Width (Inches)',
+    mode: 'input',
+    section: 'gate_line',
+  },
+  {
+    id: 'posts_needed_gate',
+    label: 'Post needed (0, 1, or 2)',
+    mode: 'input',
+    section: 'gate_line',
+  },
+  {
+    id: 'total_gate_door_width',
+    label: 'Total Gate Door Width',
+    mode: 'calculated',
+    section: 'gate_line',
+  },
+  {
+    id: 'total_gate_boards',
+    label: 'Total Gate Boards',
+    mode: 'calculated',
+    section: 'gate_line',
+  },
+];
+
+export const firstSheetColorLineRecipeDefaults: MaterialCalculatorRecipeItem[] = [
+  { id: 'color-galv-post', name: 'Galvanized Post', quantity_per_panel: 1, input_field: 'rounded_panels', rounding_mode: 'ceil' },
+  { id: 'color-h-post', name: 'H Post', quantity_per_panel: 1, input_field: 'rounded_panels', rounding_mode: 'ceil' },
+  { id: 'color-cap-h-post', name: 'Cap (H Post)', quantity_per_panel: 1, input_field: 'rounded_panels', rounding_mode: 'ceil' },
+  { id: 'color-rail', name: 'Rail', quantity_per_panel: 2, input_field: 'exact_panels', rounding_mode: 'ceil' },
+  { id: 'color-rail-stiffener', name: 'Rail Stiffener', quantity_per_panel: 2, input_field: 'exact_panels', rounding_mode: 'ceil' },
+  { id: 'color-board', name: 'Board', quantity_per_panel: 16, input_field: 'exact_panels', rounding_mode: 'nearest' },
+  { id: 'color-board-stiffener', name: 'Board Stiffener', quantity_per_panel: 3, input_field: 'exact_panels', rounding_mode: 'nearest' },
+  { id: 'color-short-screw', name: 'Short Screw', quantity_per_panel: 1, input_field: 'rounded_panels', rounding_mode: 'ceil' },
+  { id: 'color-long-screw', name: 'Long Screw', quantity_per_panel: 4, input_field: 'exact_panels', rounding_mode: 'ceil' },
+  { id: 'color-plug', name: 'Plug', quantity_per_panel: 4, input_field: 'exact_panels', rounding_mode: 'nearest' },
+  { id: 'color-u-channel', name: 'U Channel', quantity_per_panel: 1, input_field: 'u_channel_terminations', rounding_mode: 'ceil' },
+];

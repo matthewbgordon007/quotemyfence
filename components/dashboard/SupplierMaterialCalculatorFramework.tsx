@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import {
+  firstSheetColorLineRecipeDefaults,
+  firstSheetFieldSpecs,
   starterMaterialCalculatorTemplate,
   type MaterialCalculatorInputField,
   type MaterialCalculatorRecipeItem,
@@ -45,7 +47,7 @@ export function SupplierMaterialCalculatorFramework() {
     h_post_terminations: 3,
     u_channel_terminations: 2,
   });
-  const [recipeItems, setRecipeItems] = useState(starterMaterialCalculatorTemplate.recipe_items);
+  const [recipeItems, setRecipeItems] = useState(firstSheetColorLineRecipeDefaults);
 
   const exactPanels = useMemo(() => {
     if (!panelLengthFt || panelLengthFt <= 0) return 0;
@@ -75,6 +77,23 @@ export function SupplierMaterialCalculatorFramework() {
       };
     });
   }, [exactPanels, recipeItems, roundedPanels, sampleLine]);
+
+  const colorLineInputs = useMemo(
+    () => firstSheetFieldSpecs.filter((f) => f.section === 'color_line' && f.mode === 'input'),
+    []
+  );
+  const colorLineCalculated = useMemo(
+    () => firstSheetFieldSpecs.filter((f) => f.section === 'color_line' && f.mode === 'calculated'),
+    []
+  );
+  const gateLineInputs = useMemo(
+    () => firstSheetFieldSpecs.filter((f) => f.section === 'gate_line' && f.mode === 'input'),
+    []
+  );
+  const gateLineCalculated = useMemo(
+    () => firstSheetFieldSpecs.filter((f) => f.section === 'gate_line' && f.mode === 'calculated'),
+    []
+  );
 
   function updateRecipeItem(id: string, patch: Partial<MaterialCalculatorRecipeItem>) {
     setRecipeItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
@@ -164,21 +183,52 @@ export function SupplierMaterialCalculatorFramework() {
 
           <section className={cardShell}>
             <div className={cardHeader}>
-              <h2 className="font-semibold text-slate-900">Sections from your example</h2>
-              <p className="mt-1 text-sm text-slate-600">These map the calculator into clean editable areas.</p>
+              <h2 className="font-semibold text-slate-900">First sheet field map</h2>
+              <p className="mt-1 text-sm text-slate-600">Direct mapping of what contractors enter vs what auto-calculates.</p>
             </div>
             <div className="space-y-3 p-5 sm:p-6">
-              {starterMaterialCalculatorTemplate.sections.map((section) => (
-                <div key={section.id} className="rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="font-semibold text-slate-900">{section.title}</p>
-                    <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                      {section.kind}
-                    </span>
+              <div className="rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4">
+                <p className="font-semibold text-slate-900">Premium Fence Color Line Calculator</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Contractor inputs</p>
+                    <ul className="mt-2 space-y-1.5 text-sm text-slate-700">
+                      {colorLineInputs.map((f) => (
+                        <li key={f.id}>- {f.label}</li>
+                      ))}
+                    </ul>
                   </div>
-                  <p className="mt-2 text-sm text-slate-600">{section.description}</p>
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Auto calculated</p>
+                    <ul className="mt-2 space-y-1.5 text-sm text-slate-700">
+                      {colorLineCalculated.map((f) => (
+                        <li key={f.id}>- {f.label}</li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
-              ))}
+              </div>
+              <div className="rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4">
+                <p className="font-semibold text-slate-900">Gate Line Calculator</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Contractor inputs</p>
+                    <ul className="mt-2 space-y-1.5 text-sm text-slate-700">
+                      {gateLineInputs.map((f) => (
+                        <li key={f.id}>- {f.label}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Auto calculated</p>
+                    <ul className="mt-2 space-y-1.5 text-sm text-slate-700">
+                      {gateLineCalculated.map((f) => (
+                        <li key={f.id}>- {f.label}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
 
