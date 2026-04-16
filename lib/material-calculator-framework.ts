@@ -283,7 +283,7 @@ export const firstSheetColorLineRecipeDefaults: MaterialCalculatorRecipeItem[] =
     quantity_per_panel: 1,
     input_field: 'line_posts_including_first',
     rounding_mode: 'ceil',
-    notes: 'PVC sheet: 1 per post count for materials (D9+D6−1).',
+    notes: 'After sheet-style ceil on line posts, add +1 spare short screw (see calculator preview).',
   },
   {
     id: 'color-long-screw',
@@ -291,7 +291,7 @@ export const firstSheetColorLineRecipeDefaults: MaterialCalculatorRecipeItem[] =
     quantity_per_panel: 1,
     input_field: 'pvc_long_screw_sheet_final',
     rounding_mode: 'none',
-    notes: 'Sheet: C=ceil(4×exact panels); Final=IF(U=1,C+6,IF(U=0,C,IF(U=2,C+12))) with U = fence terminated with U channel (0–2). Gate line still adds long screws per gate boards.',
+    notes: 'Sheet Final plus 10 extra long screws job-wide. Gate line still adds long screws per gate boards.',
   },
   {
     id: 'color-plug',
@@ -299,7 +299,7 @@ export const firstSheetColorLineRecipeDefaults: MaterialCalculatorRecipeItem[] =
     quantity_per_panel: 1,
     input_field: 'pvc_plug_sheet_final',
     rounding_mode: 'none',
-    notes: 'Sheet: same C as long screws; Final=IF(U=1,C-2,IF(U=0,C,IF(U=2,C-4))).',
+    notes: 'Sheet Final plus 10 extra plugs (hole caps) job-wide.',
   },
   { id: 'color-u-channel', name: 'U Channel', quantity_per_panel: 1, input_field: 'u_channel_terminations', rounding_mode: 'ceil' },
 ];
@@ -354,22 +354,32 @@ export function pvcSheetUChannelBranch(uChannelTerminations: number): 0 | 1 | 2 
   return Math.min(2, Math.max(0, Math.round(n))) as 0 | 1 | 2;
 }
 
-/** Long screw Final =IF(B22=1,C+6,IF(B22=0,C,IF(B22=2,C+12))). */
+/** Job-wide spare long screws added after sheet Final. */
+export const PVC_JOB_EXTRA_LONG_SCREWS = 10;
+
+/** Job-wide spare plugs / hole caps added after sheet Final. */
+export const PVC_JOB_EXTRA_PLUGS = 10;
+
+/** Long screw Final =IF(B22=1,C+6,IF(B22=0,C,IF(B22=2,C+12))) plus job extras. */
 export function pvcLongScrewFinalFromSheet(exactPanels: number, uChannelTerminations: number): number {
   const c = pvcScrewPlugBaseFromExactPanels(exactPanels);
   const b = pvcSheetUChannelBranch(uChannelTerminations);
-  if (b === 1) return c + 6;
-  if (b === 0) return c;
-  return c + 12;
+  let base: number;
+  if (b === 1) base = c + 6;
+  else if (b === 0) base = c;
+  else base = c + 12;
+  return base + PVC_JOB_EXTRA_LONG_SCREWS;
 }
 
-/** Plug Final =IF(B22=1,C-2,IF(B22=0,C,IF(B22=2,C-4))). */
+/** Plug Final =IF(B22=1,C-2,IF(B22=0,C,IF(B22=2,C-4))) plus job extras (hole caps). */
 export function pvcPlugFinalFromSheet(exactPanels: number, uChannelTerminations: number): number {
   const c = pvcScrewPlugBaseFromExactPanels(exactPanels);
   const b = pvcSheetUChannelBranch(uChannelTerminations);
-  if (b === 1) return c - 2;
-  if (b === 0) return c;
-  return c - 4;
+  let base: number;
+  if (b === 1) base = c - 2;
+  else if (b === 0) base = c;
+  else base = c - 4;
+  return base + PVC_JOB_EXTRA_PLUGS;
 }
 
 /** Sheet cell D9: whole panel count = ceil(exact panels). */

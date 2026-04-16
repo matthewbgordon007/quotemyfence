@@ -66,7 +66,7 @@ function computeLineMaterials(line: FenceLine, prevLine: FenceLine | null): Mate
   const railStiffener = roundUp(panels * ITEMS_PER_PANEL.railStiffener);
   const board = roundNorm(panels * ITEMS_PER_PANEL.board, 1);
   const boardStiffener = roundNorm(panels * ITEMS_PER_PANEL.boardStiffener, 1);
-  const shortScrew = posts;
+  const shortScrew = Math.ceil(posts) + 1;
   const longScrew = pvcLongScrewFinalFromSheet(panels, line.uChannel);
   const plug = pvcPlugFinalFromSheet(panels, line.uChannel);
   const uChannel = uChannelCount;

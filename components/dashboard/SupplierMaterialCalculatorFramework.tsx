@@ -175,10 +175,14 @@ export function SupplierMaterialCalculatorFramework() {
                       : sampleLine.u_channel_terminations;
 
       const raw = sourceValue * item.quantity_per_panel;
+      let final = roundForMode(raw, item.rounding_mode);
+      if (item.id === 'color-short-screw') {
+        final = Math.ceil(raw) + 1;
+      }
       return {
         ...item,
         raw,
-        final: roundForMode(raw, item.rounding_mode),
+        final,
       };
     });
   }, [exactPanels, linePostsIncludingFirst, recipeItems, roundedPanels, sampleLine]);
@@ -524,7 +528,7 @@ export function SupplierMaterialCalculatorFramework() {
             Core math: `exact panels = length / panel length`, `D9 whole panels = ceil(exact panels)`, fence-line material post count = `D9 + D6 − 1`, then add gate posts needed for the full total used by the color line (galvanized, H posts, caps, short screws, concrete). Gate recipe rows that use “line posts” resolve to the fence-only base so gate post counts are not applied twice. A D9-only “Posts” row is lower than D9+D6−1 when D6 is 3 (by D6−1) and does not include gate posts.
           </p>
           <p className="mt-3 text-sm text-slate-600">
-            Long screws and plugs (PVC color line): both start from `C = ceil(4 × exact panels)` (sheet column C). Final long screws use `=IF(B22=1,C+6,IF(B22=0,C,IF(B22=2,C+12)))` and plugs use `=IF(B22=1,C-2,IF(B22=0,C,IF(B22=2,C-4)))`, where B22 is fence terminated with U channel (0, 1, or 2). Short screws use the full post count (fence D9+D6−1 plus gate posts). Gate line screws add `ceil(multiplier × gate boards)` on top.
+            Long screws and plugs (PVC color line): both start from `C = ceil(4 × exact panels)` (sheet column C), then sheet IFs on U channel (B22). After that, long screws include 10 extras and plugs include 10 extras (hole caps). Color-line short screws use `ceil(line post count × qty)` then add 1 spare. Gate line screws add `ceil(multiplier × gate boards)` on top of line long/short totals.
           </p>
         </div>
       </details>
