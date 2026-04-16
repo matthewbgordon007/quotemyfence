@@ -4,7 +4,6 @@ import { AutoplayOnViewVideo } from '@/components/AutoplayOnViewVideo';
 import { FAQAccordion } from '@/components/FAQAccordion';
 import { JsonLd } from '@/components/JsonLd';
 import { SiteNav } from '@/components/SiteNav';
-import { HomeScrollBackdrop } from '@/components/HomeScrollBackdrop';
 import { FloatingScreenshot } from '@/components/FloatingScreenshot';
 import { FadeInScreenshot } from '@/components/FadeInScreenshot';
 import { RotatingScreenshots } from '@/components/RotatingScreenshots';
@@ -119,8 +118,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="relative min-h-screen text-slate-900">
-      <HomeScrollBackdrop />
+    <div className="relative min-h-screen bg-slate-200/90 text-slate-900">
       <JsonLd data={organizationJsonLd} />
       <JsonLd data={websiteJsonLd} />
       <JsonLd data={faqJsonLd} />
@@ -129,7 +127,7 @@ export default function HomePage() {
       <main id="main-content" className="relative z-10 w-full pb-20 pt-24 sm:pb-24 sm:pt-28">
         <section
           id="hero"
-          className="scroll-mt-28 border-b border-slate-900/10 bg-gradient-to-b from-white/85 via-white/55 to-slate-50/40 backdrop-blur-[2px]"
+          className="scroll-mt-28 border-b border-slate-900/15 bg-[linear-gradient(122deg,rgb(252_253_255)_0%,rgb(248_250_252)_34%,rgb(219_234_254)_52%,rgb(59_130_246)_74%,rgb(30_58_138)_92%,rgb(15_23_42)_100%)]"
         >
           <div className="mx-auto w-full max-w-6xl px-4 pb-14 pt-6 text-center sm:px-6 sm:pb-16 sm:pt-8 lg:px-8">
             <div className="mx-auto max-w-4xl pb-12 sm:pb-14">
@@ -162,18 +160,22 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="demo" className="scroll-mt-28 border-b border-slate-900/10 bg-slate-200/50">
-          <div className="mx-auto w-full max-w-6xl px-4 pb-4 pt-12 text-center sm:px-6 sm:pt-14 lg:px-8">
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-900/70">See it in action</p>
-          </div>
-          <div className="border-y border-slate-300/40 bg-slate-900/[0.06] shadow-inner shadow-slate-900/10">
-            <AutoplayOnViewVideo src="/videos/QuoteProcess.mp4" className="w-full" />
+        <section id="demo" className="scroll-mt-28 border-b border-slate-900/10 bg-slate-300/40 py-8 sm:py-12">
+          <div className="mx-auto w-full max-w-6xl px-3 sm:px-5 lg:px-8">
+            <div className="overflow-hidden border-[6px] border-blue-700 bg-white shadow-[0_28px_70px_-24px_rgba(30,64,175,0.45)] sm:border-8 sm:rounded-sm">
+              <div className="px-4 pb-5 pt-10 text-center sm:px-6 sm:pt-12">
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-900/70">See it in action</p>
+              </div>
+              <div className="border-t border-slate-200/90 bg-slate-950/[0.04]">
+                <AutoplayOnViewVideo src="/videos/QuoteProcess.mp4" className="w-full" />
+              </div>
+            </div>
           </div>
         </section>
 
         <section
           id="dashboard"
-          className="scroll-mt-28 border-b border-slate-900/10 bg-gradient-to-b from-blue-50/70 via-white to-slate-50/80"
+          className="scroll-mt-28 border-b border-slate-200/90 bg-white bg-[radial-gradient(120%_90%_at_100%_-10%,rgba(59,130,246,0.14),transparent_52%),radial-gradient(90%_70%_at_0%_110%,rgba(99,102,241,0.1),transparent_55%)]"
         >
           <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
             <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-900/70">Inside the app</p>
@@ -239,7 +241,7 @@ export default function HomePage() {
 
         <section
           id="features"
-          className="scroll-mt-28 border-b border-slate-900/10 bg-gradient-to-br from-indigo-50/90 via-white to-sky-50/60"
+          className="scroll-mt-28 border-b border-slate-900/10 bg-[linear-gradient(158deg,rgb(255_255_255)_0%,rgb(239_246_255)_42%,rgb(238_242_255)_100%)]"
         >
           <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
             <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-800/80">Why teams switch</p>
@@ -261,22 +263,21 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section
-          id="testimonials"
-          className="scroll-mt-28 border-b border-slate-900/10 bg-gradient-to-r from-slate-100 via-blue-50/80 to-indigo-100/90"
-        >
-          <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
-            <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-800/80">Social proof</p>
-            <h2 className="mt-2 text-center text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-              Trusted by growing fence teams
-            </h2>
-            <TestimonialsCarousel items={testimonials} />
+        <section id="testimonials" className="scroll-mt-28 border-b border-slate-900/10 bg-slate-200/70 py-10 sm:py-14">
+          <div className="mx-auto w-full max-w-6xl px-3 sm:px-5 lg:px-8">
+            <div className="border-4 border-blue-900/85 bg-gradient-to-b from-white via-white to-slate-50/95 px-4 py-12 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.8)] sm:px-8 sm:py-14">
+              <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-800/80">Social proof</p>
+              <h2 className="mt-2 text-center text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+                Trusted by growing fence teams
+              </h2>
+              <TestimonialsCarousel items={testimonials} />
+            </div>
           </div>
         </section>
 
         <section
           id="pricing"
-          className="scroll-mt-28 border-b border-slate-900/10 bg-gradient-to-b from-blue-50/80 via-white to-indigo-50/50"
+          className="scroll-mt-28 border-b border-slate-200/90 bg-white bg-[radial-gradient(ellipse_90%_60%_at_50%_0%,rgba(37,99,235,0.12),transparent_65%),linear-gradient(180deg,rgba(239,246,255,0.5)_0%,transparent_35%)]"
         >
           <div className="mx-auto w-full max-w-6xl px-4 py-14 text-center sm:px-6 sm:py-16 lg:px-8">
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-900/70">Pricing</p>
@@ -299,7 +300,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="faq" className="scroll-mt-28 border-b border-slate-900/10 bg-slate-50/95">
+        <section id="faq" className="scroll-mt-28 border-b border-slate-300/80 bg-zinc-100">
           <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
             <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">FAQ</p>
             <h2 className="mt-2 text-center text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
