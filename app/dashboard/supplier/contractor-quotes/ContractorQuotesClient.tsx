@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { LayoutDrawCanvas } from '@/components/LayoutDrawCanvas';
 
 type MaterialReq = {
   id: string;
@@ -13,7 +14,18 @@ type MaterialReq = {
   attachment_url?: string | null;
   attachment_name?: string | null;
   supplier_seen_at?: string | null;
-  contractor: { company_name: string; slug: string | null };
+  contractor: { company_name: string; slug: string | null; email?: string | null; phone?: string | null };
+  project?: {
+    total_length_ft?: number | null;
+    design_summary?: string | null;
+    has_removal?: boolean | null;
+    drawing_data?: {
+      points: { x: number; y: number }[];
+      segments: { length_ft: number }[];
+      gates: { type: 'single' | 'double'; quantity: number }[];
+      total_length_ft: number;
+    } | null;
+  };
 };
 
 export function ContractorQuotesClient() {
@@ -114,7 +126,35 @@ export function ContractorQuotesClient() {
                   <div>
                     <p className="text-xs font-semibold uppercase text-slate-500">{req.contractor.company_name}</p>
                     <p className="mt-1 text-xs text-slate-500">{new Date(req.created_at).toLocaleString()}</p>
+                    {(req.contractor.email || req.contractor.phone) && (
+                      <div className="mt-2 space-y-0.5 text-xs text-slate-500">
+                        {req.contractor.email && <p>Contractor email: {req.contractor.email}</p>}
+                        {req.contractor.phone && <p>Contractor phone: {req.contractor.phone}</p>}
+                      </div>
+                    )}
                     <p className="mt-2 text-sm text-slate-800">{req.description}</p>
+                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Project details</p>
+                        <p className="mt-2 text-sm text-slate-800">
+                          Material selection: {req.project?.design_summary || 'Not selected'}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-800">
+                          Total footage: {Math.round(Number(req.project?.total_length_ft || 0))} ft
+                        </p>
+                        {req.project?.has_removal ? (
+                          <p className="mt-1 text-sm text-slate-600">Removal included</p>
+                        ) : null}
+                      </div>
+                      {req.project?.drawing_data ? (
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Customer drawing</p>
+                          <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-white">
+                            <LayoutDrawCanvas initialDrawing={req.project.drawing_data} readOnly />
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
                     {req.attachment_url && (
                       <p className="mt-2 text-xs">
                         <a
