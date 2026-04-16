@@ -5,8 +5,10 @@ import {
   firstSheetColorLineRecipeDefaults,
   firstSheetFieldSpecs,
   firstSheetGateLineRecipeDefaults,
+  pvcLinePostsForMaterials,
   pvcLongScrewFinalFromSheet,
   pvcPlugFinalFromSheet,
+  pvcWholePanelsD9,
   starterMaterialCalculatorTemplate,
   type MaterialCalculatorInputField,
   type MaterialCalculatorRecipeItem,
@@ -138,12 +140,12 @@ export function SupplierMaterialCalculatorFramework() {
     return sampleLine.length_ft / panelLengthFt;
   }, [panelLengthFt, sampleLine.length_ft]);
 
-  const roundedPanels = useMemo(() => Math.ceil(exactPanels || 0), [exactPanels]);
+  const roundedPanels = useMemo(() => pvcWholePanelsD9(exactPanels), [exactPanels]);
 
-  /** PVC Premium sheet: =D9+D6−1 → whole panels + H post terminations − 1 (galvanized / H / cap / short screw / concrete). */
+  /** PVC sheet galvanized/H/cap/short/concrete: =D9+D6−1 (see note under stats — not the same as a D9-only “Posts” row). */
   const linePostsIncludingFirst = useMemo(
-    () => Math.max(0, roundedPanels + sampleLine.h_post_terminations - 1),
-    [roundedPanels, sampleLine.h_post_terminations],
+    () => pvcLinePostsForMaterials(exactPanels, sampleLine.h_post_terminations),
+    [exactPanels, sampleLine.h_post_terminations],
   );
 
   const previewRows = useMemo(() => {
@@ -345,12 +347,15 @@ export function SupplierMaterialCalculatorFramework() {
               <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{exactPanels.toFixed(2)}</p>
             </div>
             <div className="rounded-2xl border border-indigo-200/80 bg-indigo-50/70 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Total whole panels</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Whole panels (D9)</p>
               <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{roundedPanels}</p>
             </div>
             <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/70 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Post count for materials (panels + H terminations − 1)</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Post count for materials (D9+D6−1)</p>
               <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{linePostsIncludingFirst}</p>
+              <p className="mt-2 text-xs leading-snug text-emerald-900/80">
+                Galvanized, H posts, caps, and short screws use this value, not D9 alone. If your sheet has a “Posts” row that shows only whole panels (D9), it is lower by (D6−1) — e.g. when fence terminated with H post (D6) is 3, that row is 2 less than galvanized.
+              </p>
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -509,7 +514,7 @@ export function SupplierMaterialCalculatorFramework() {
             </div>
           </div>
           <p className="mt-4 text-sm text-slate-600">
-            Core math: `exact panels = length / panel length`, `whole panels = ceil(exact panels)`, and post count for materials = `whole panels + (fence terminated with H post) − 1`, matching the PVC calculator (`=D9+D6−1`). Galvanized posts, H posts, post caps, short screws, and concrete (default 2.5 per line post) all multiply from that count. Gate line defaults do not add a second set of line posts (avoids double-count vs a single order sheet); add gate-only post rows in the gate recipe if your supplier counts them separately.
+            Core math: `exact panels = length / panel length`, `D9 whole panels = ceil(exact panels)`, and **material post count** = `D9 + D6 − 1` (`=D9+D6−1` on the sheet). That count drives galvanized posts, H posts, caps, short screws, and concrete (default 2.5 per line post). It is **not** the same number as a “Posts” row that only shows D9: when D6 is 3, D9+D6−1 is **2 more** than D9-only because `3 − 1 = 2`. Gate line defaults do not add a second set of line posts; add gate-only post rows in the gate recipe if needed.
           </p>
           <p className="mt-3 text-sm text-slate-600">
             Long screws and plugs (PVC color line): both start from `C = ceil(4 × exact panels)` (sheet column C). Final long screws use `=IF(B22=1,C+6,IF(B22=0,C,IF(B22=2,C+12)))` and plugs use `=IF(B22=1,C-2,IF(B22=0,C,IF(B22=2,C-4)))`, where **B22** is fence terminated with U channel (0, 1, or 2). Short screws still use post count for materials (`D9+D6−1`). Gate line screws add `ceil(multiplier × gate boards)` on top.

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { pvcLongScrewFinalFromSheet, pvcPlugFinalFromSheet } from '@/lib/material-calculator-framework';
+import { pvcLinePostsForMaterials, pvcLongScrewFinalFromSheet, pvcPlugFinalFromSheet } from '@/lib/material-calculator-framework';
 
 const field =
   'w-full rounded-xl border border-slate-200/90 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20';
@@ -52,8 +52,7 @@ function roundNorm(n: number, decimals = 1): number {
 function computeLineMaterials(line: FenceLine, prevLine: FenceLine | null): MaterialItem[] {
   const panels = line.lengthFt / PVC_PANEL_LENGTH_FT;
   const wholePanels = roundUp(panels);
-  // PVC sheet post count for materials (=D9+D6−1): whole panels + H terminations − 1
-  const posts = Math.max(0, wholePanels + line.hPost - 1);
+  const posts = pvcLinePostsForMaterials(panels, line.hPost);
 
   // If connects to previous, that end's H post and U channel already counted
   const uChannelCount = line.connectsToPrevious ? Math.max(0, line.uChannel - 1) : line.uChannel;
