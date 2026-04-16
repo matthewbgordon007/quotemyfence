@@ -5,6 +5,9 @@ import { FAQAccordion } from '@/components/FAQAccordion';
 import { JsonLd } from '@/components/JsonLd';
 import { SiteNav } from '@/components/SiteNav';
 import { HomeScrollBackdrop } from '@/components/HomeScrollBackdrop';
+import { FloatingScreenshot } from '@/components/FloatingScreenshot';
+import { FadeInScreenshot } from '@/components/FadeInScreenshot';
+import { RotatingScreenshots } from '@/components/RotatingScreenshots';
 import { TestimonialsCarousel } from '@/components/TestimonialsCarousel';
 import { DesktopCTARail } from '@/components/DesktopCTARail';
 import { StickyMobileCTA } from '@/components/StickyMobileCTA';
@@ -161,6 +164,69 @@ export default function HomePage() {
           <p className="mb-3 text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-900/70">See it in action</p>
           <div className="overflow-hidden rounded-3xl border border-blue-200/60 bg-white/90 shadow-xl shadow-blue-900/15 ring-1 ring-white/80 backdrop-blur-sm">
             <AutoplayOnViewVideo src="/videos/QuoteProcess.mp4" className="w-full" />
+          </div>
+        </section>
+
+        <section id="dashboard" className="scroll-mt-28">
+          <p className="mb-3 text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-900/70">Inside the app</p>
+          <div className="rounded-[2rem] border border-blue-200/50 bg-white/85 p-8 shadow-xl shadow-blue-900/10 ring-1 ring-blue-100/60 backdrop-blur-md sm:p-10">
+            <h2 className="text-center text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+              Real dashboard screenshots
+            </h2>
+            <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600">
+              Leads, quotes, products—the same workspace your team uses every day. These are actual views from the
+              platform (not mockups).
+            </p>
+
+            <div className="mt-10 flex w-full flex-wrap items-center justify-center gap-6 px-1 sm:gap-8">
+              <FloatingScreenshot
+                src="/images/screenshots/app-02.png"
+                alt="Customer contact step in quote flow"
+                delay={0}
+                className="w-full max-w-[min(100%,300px)] sm:max-w-[280px]"
+              />
+              <FloatingScreenshot
+                src="/images/screenshots/app-10.png"
+                alt="Quote review screen"
+                delay={200}
+                className="w-full max-w-[min(100%,300px)] sm:max-w-[280px]"
+              />
+              <FloatingScreenshot
+                src="/images/screenshots/app-13.png"
+                alt="Thank you and next steps"
+                delay={400}
+                className="w-full max-w-[min(100%,300px)] sm:max-w-[280px]"
+              />
+            </div>
+
+            <div className="mt-14 grid gap-8 sm:grid-cols-2 sm:gap-10 lg:gap-12">
+              <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-md ring-1 ring-slate-100">
+                <FadeInScreenshot src="/images/screenshots/app-01.png" alt="Leads dashboard" />
+              </div>
+              <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-md ring-1 ring-slate-100 sm:mt-0 lg:mt-10">
+                <FadeInScreenshot src="/images/screenshots/app-06.png" alt="Quote calculator" />
+              </div>
+              <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-md ring-1 ring-slate-100 lg:mt-0">
+                <FadeInScreenshot src="/images/screenshots/app-15.png" alt="Quote calculator with fence segments" />
+              </div>
+              <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-md ring-1 ring-slate-100 lg:mt-10">
+                <FadeInScreenshot src="/images/screenshots/app-03.png" alt="Products and catalog configuration" />
+              </div>
+            </div>
+
+            <div className="mt-12 border-t border-slate-200/80 pt-10">
+              <h3 className="text-center text-lg font-bold text-slate-900 sm:text-xl">More of the platform—at a glance</h3>
+              <RotatingScreenshots count={6} className="mt-6 justify-center sm:mt-8" />
+            </div>
+
+            <div className="mt-10 flex justify-center">
+              <a
+                href={DEMO_URL}
+                className="inline-flex min-h-[46px] items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/25 transition hover:from-blue-500 hover:to-indigo-500"
+              >
+                Try the live demo
+              </a>
+            </div>
           </div>
         </section>
 
