@@ -99,7 +99,7 @@ export default async function SupplierDashboardHomePage() {
             >
               <div className="flex items-center justify-between gap-2">
                 <h2 className="text-lg font-semibold text-slate-900">{c.title}</h2>
-                {c.href === '/dashboard/supplier/contractor-management' && unreadCount > 0 && (
+                {c.href === '/dashboard/supplier/contractor-quotes' && unreadCount > 0 && (
                   <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-bold text-white">
                     {unreadCount}
                   </span>
