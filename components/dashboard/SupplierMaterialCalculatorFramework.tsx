@@ -83,6 +83,26 @@ type ProductHierarchyPayload = {
   colourOptions: ColourOptionRow[];
 };
 
+type HybridHorizontalSelection = {
+  heightFt: number | null;
+  colorName: string;
+};
+
+type HybridHorizontalInputs = {
+  lineLabel: string;
+  lineLengthFt: number;
+  hPostTerminations: number;
+  uChannelTerminations: number;
+  gateLabel: string;
+  gateWidthInches: number;
+  gatePostsNeeded: number;
+};
+
+type HybridHorizontalFamilyConfig = {
+  boardQtyPerRoundedPanel: number;
+  gateBoardQtyFullWidth: number;
+};
+
 function parseStarterDescription(desc: string): { colorName: string; heightFt: number | null } {
   const t = desc.trim();
   const parts = t.split(',').map((s) => s.trim()).filter(Boolean);
@@ -186,6 +206,75 @@ function hybridHorizontalColoursForStyleAndHeight(
   return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }));
 }
 
+function defaultHybridHorizontalInputs(): HybridHorizontalInputs {
+  return {
+    lineLabel: '',
+    lineLengthFt: 0,
+    hPostTerminations: 0,
+    uChannelTerminations: 0,
+    gateLabel: '',
+    gateWidthInches: 0,
+    gatePostsNeeded: 0,
+  };
+}
+
+function hybridHorizontalFamilyConfig(styleName: string, heightFt: number | null): HybridHorizontalFamilyConfig | null {
+  if (heightFt == null) return null;
+  const roundedHeight = Math.round(heightFt);
+  if (styleName === 'Wood Grain WPC') {
+    return roundedHeight >= 7
+      ? { boardQtyPerRoundedPanel: 14, gateBoardQtyFullWidth: 14 }
+      : { boardQtyPerRoundedPanel: 12, gateBoardQtyFullWidth: 12 };
+  }
+  if (styleName === 'Slatted WPC + PVC') {
+    return roundedHeight >= 7
+      ? { boardQtyPerRoundedPanel: 13, gateBoardQtyFullWidth: 13 }
+      : { boardQtyPerRoundedPanel: 11, gateBoardQtyFullWidth: 11 };
+  }
+  if (styleName === 'Aluminum') {
+    return roundedHeight >= 7
+      ? { boardQtyPerRoundedPanel: 19, gateBoardQtyFullWidth: 19 }
+      : { boardQtyPerRoundedPanel: 17, gateBoardQtyFullWidth: 17 };
+  }
+  return null;
+}
+
+const HYBRID_HORIZONTAL_PANEL_LENGTH_FT = 6.0833;
+
+function hybridHalfPanelCeiling(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  return Math.ceil(value * 2) / 2;
+}
+
+function hybridRoundedWholePanels(halfPanelCeil: number): number {
+  if (!Number.isFinite(halfPanelCeil) || halfPanelCeil <= 0) return 0;
+  return Math.ceil(halfPanelCeil);
+}
+
+type HybridHorizontalMaterialRow = { name: string; qty: number };
+
+const HYBRID_HORIZONTAL_MASTER_ROWS = [
+  'Concrete',
+  'Aluminum HPost 120"',
+  'Aluminum HPost Cap',
+  '3" Aluminum Pocket Rail 72"',
+  'Board',
+  'Outer U-Channel',
+  'Inner U-Channel',
+  'Aluminum Gate Side Frame',
+  'Aluminum Gate Post Cap',
+  'Adjustable Aluminum Gate Brace',
+  'Long Black Screw (2.5")',
+  'Rail Screw (1.5" x #10)',
+  'Plugs (7/8")',
+  'Gate Screw (1.5")',
+  'U-Channel Screw (3/4")',
+  'Latch kit',
+  'Hinge Kit',
+  'Base Plate w Screws',
+  'Drop Rod',
+] as const;
+
 const supplierMaterialCalculatorStarterColourHeight = parseStarterDescription(
   starterMaterialCalculatorTemplate.description,
 );
@@ -261,7 +350,8 @@ export function SupplierMaterialCalculatorFramework() {
     posts_needed: 2,
   });
   const [masterSheetCellEdits, setMasterSheetCellEdits] = useState<Record<string, string>>({});
-  const [hybridHorizontalSelections, setHybridHorizontalSelections] = useState<Record<string, { heightFt: number | null; colorName: string }>>({});
+  const [hybridHorizontalSelections, setHybridHorizontalSelections] = useState<Record<string, HybridHorizontalSelection>>({});
+  const [hybridHorizontalInputs, setHybridHorizontalInputs] = useState<Record<string, HybridHorizontalInputs>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -310,6 +400,13 @@ export function SupplierMaterialCalculatorFramework() {
                   ? prevSelection.colorName
                   : (coloursForStyle[0] ?? ''),
             };
+          }
+          return next;
+        });
+        setHybridHorizontalInputs((prev) => {
+          const next: Record<string, HybridHorizontalInputs> = {};
+          for (const styleName of hybridStyles) {
+            next[styleName] = prev[styleName] ?? defaultHybridHorizontalInputs();
           }
           return next;
         });
@@ -387,6 +484,16 @@ export function SupplierMaterialCalculatorFramework() {
       [styleName]: {
         heightFt: prev[styleName]?.heightFt ?? null,
         colorName,
+      },
+    }));
+  }
+
+  function updateHybridHorizontalInputs(styleName: string, patch: Partial<HybridHorizontalInputs>) {
+    setHybridHorizontalInputs((prev) => ({
+      ...prev,
+      [styleName]: {
+        ...(prev[styleName] ?? defaultHybridHorizontalInputs()),
+        ...patch,
       },
     }));
   }
@@ -895,14 +1002,14 @@ export function SupplierMaterialCalculatorFramework() {
         <div className="space-y-6 border-t border-slate-100 px-5 py-6 sm:px-6">
           <section className={cardShell}>
             <div className={cardHeader}>
-              <h2 className="font-semibold text-slate-900">Hybrid Horizontal style selectors</h2>
+              <h2 className="font-semibold text-slate-900">Hybrid Horizontal families</h2>
               <p className="mt-1 text-sm text-slate-600">
-                Each style gets its own height and colour dropdown pulled from your current products. Workbook-mapped families like Wood Grain WPC, Slatted WPC + PVC, and Aluminum will appear here as soon as they exist in the catalog.
+                Built from the workbook families: each card includes the correct line calculator, gate calculator, material totals, and master list for that Hybrid Horizontal family.
               </p>
             </div>
-            <div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6 xl:grid-cols-4">
+            <div className="space-y-6 p-5 sm:p-6">
               {hybridHorizontalStyleOptions.length === 0 ? (
-                <div className="sm:col-span-2 xl:col-span-4">
+                <div>
                   <p className="text-sm text-slate-600">
                     {productHierarchyLoading
                       ? 'Loading Hybrid Horizontal styles from your catalog...'
@@ -913,6 +1020,7 @@ export function SupplierMaterialCalculatorFramework() {
               ) : (
                 hybridHorizontalStyleOptions.map((styleName) => {
                   const selection = hybridHorizontalSelections[styleName] ?? { heightFt: null, colorName: '' };
+                  const inputs = hybridHorizontalInputs[styleName] ?? defaultHybridHorizontalInputs();
                   const heightsForStyle = productHierarchy
                     ? hybridHorizontalHeightsForStyle(styleName, productHierarchy.fenceTypes, productHierarchy.fenceStyles)
                     : [];
@@ -926,57 +1034,363 @@ export function SupplierMaterialCalculatorFramework() {
                           productHierarchy.colourOptions,
                         )
                       : [];
+                  const config = hybridHorizontalFamilyConfig(styleName, selection.heightFt);
+                  const exactPanels = inputs.lineLengthFt > 0 ? inputs.lineLengthFt / HYBRID_HORIZONTAL_PANEL_LENGTH_FT : 0;
+                  const halfPanelCeil = hybridHalfPanelCeiling(exactPanels);
+                  const roundedWholePanels = hybridRoundedWholePanels(halfPanelCeil);
+                  const linePostCount = Math.max(0, roundedWholePanels + Math.round(inputs.hPostTerminations) - 1);
+                  const lineRows: HybridHorizontalMaterialRow[] = config
+                    ? [
+                        { name: 'Aluminum H Post', qty: linePostCount },
+                        { name: 'Cap (H Post)', qty: linePostCount },
+                        { name: `6' Rail`, qty: halfPanelCeil * 2 },
+                        { name: 'Board', qty: roundedWholePanels * config.boardQtyPerRoundedPanel },
+                        {
+                          name: 'Long Black Screw (2.5)',
+                          qty:
+                            roundedWholePanels * 4 -
+                            (inputs.uChannelTerminations === 1
+                              ? 2
+                              : inputs.uChannelTerminations === 2
+                                ? 4
+                                : 0),
+                        },
+                        { name: 'U Channel', qty: Math.max(0, Math.round(inputs.uChannelTerminations)) },
+                        { name: 'Small Black Screw (3/4)', qty: Math.max(0, Math.round(inputs.uChannelTerminations)) * 6 },
+                      ]
+                    : [];
+                  const gateIsActive = inputs.gateWidthInches > 0;
+                  const gateBoardQty =
+                    gateIsActive && config
+                      ? inputs.gateWidthInches > 37
+                        ? config.gateBoardQtyFullWidth
+                        : config.gateBoardQtyFullWidth / 2
+                      : 0;
+                  const gateRows: HybridHorizontalMaterialRow[] = gateIsActive
+                    ? [
+                        { name: 'Gate Side Frame', qty: 2 },
+                        { name: 'H Post', qty: Math.max(0, Math.round(inputs.gatePostsNeeded)) },
+                        { name: 'Cap (H post)', qty: Math.max(0, Math.round(inputs.gatePostsNeeded)) },
+                        { name: 'Small Cap (Gate Side Frame Cap)', qty: 2 },
+                        { name: '6 Foot Rail/Overhead Brace', qty: 3 },
+                        { name: 'Board', qty: gateBoardQty },
+                        { name: 'Long Black Screw (2.5)', qty: 2 },
+                        { name: 'Medium Black screw (1.5)', qty: 8 },
+                        { name: 'Gate Cross Brace', qty: 1 },
+                        { name: 'Latch kit', qty: 1 },
+                        { name: 'Hinge Kit', qty: 1 },
+                      ]
+                    : [];
+                  const longBlackTotal =
+                    (lineRows.find((row) => row.name === 'Long Black Screw (2.5)')?.qty ?? 0) +
+                    (gateRows.find((row) => row.name === 'Long Black Screw (2.5)')?.qty ?? 0);
+                  const linePostTotal = lineRows.find((row) => row.name === 'Aluminum H Post')?.qty ?? 0;
+                  const gatePostTotal = gateRows.find((row) => row.name === 'H Post')?.qty ?? 0;
+                  const lineCapTotal = lineRows.find((row) => row.name === 'Cap (H Post)')?.qty ?? 0;
+                  const gateCapTotal = gateRows.find((row) => row.name === 'Cap (H post)')?.qty ?? 0;
+                  const railTotal =
+                    (lineRows.find((row) => row.name === `6' Rail`)?.qty ?? 0) +
+                    (gateRows.find((row) => row.name === '6 Foot Rail/Overhead Brace')?.qty ?? 0);
+                  const boardTotal =
+                    (lineRows.find((row) => row.name === 'Board')?.qty ?? 0) +
+                    (gateRows.find((row) => row.name === 'Board')?.qty ?? 0);
+                  const uChannelTotal = lineRows.find((row) => row.name === 'U Channel')?.qty ?? 0;
+                  const crossBraceTotal = gateRows.find((row) => row.name === 'Gate Cross Brace')?.qty ?? 0;
+                  const gateSideFrameTotal = gateRows.find((row) => row.name === 'Gate Side Frame')?.qty ?? 0;
+                  const gateSideCapTotal = gateRows.find((row) => row.name === 'Small Cap (Gate Side Frame Cap)')?.qty ?? 0;
+                  const uChannelScrewTotal = lineRows.find((row) => row.name === 'Small Black Screw (3/4)')?.qty ?? 0;
+                  const gateScrewTotal = gateRows.find((row) => row.name === 'Medium Black screw (1.5)')?.qty ?? 0;
+                  const masterRows: HybridHorizontalMaterialRow[] = [
+                    { name: 'Concrete', qty: (linePostTotal + gatePostTotal) * 2.5 },
+                    { name: 'Aluminum HPost 120"', qty: linePostTotal + gatePostTotal },
+                    { name: 'Aluminum HPost Cap', qty: lineCapTotal + gateCapTotal },
+                    { name: '3" Aluminum Pocket Rail 72"', qty: railTotal },
+                    { name: 'Board', qty: boardTotal },
+                    { name: 'Outer U-Channel', qty: uChannelTotal },
+                    { name: 'Inner U-Channel', qty: uChannelTotal },
+                    { name: 'Aluminum Gate Side Frame', qty: gateSideFrameTotal },
+                    { name: 'Aluminum Gate Post Cap', qty: gateSideCapTotal },
+                    { name: 'Adjustable Aluminum Gate Brace', qty: crossBraceTotal },
+                    { name: 'Long Black Screw (2.5")', qty: longBlackTotal },
+                    { name: 'Rail Screw (1.5" x #10)', qty: longBlackTotal * 2 },
+                    { name: 'Plugs (7/8")', qty: longBlackTotal * 2 },
+                    { name: 'Gate Screw (1.5")', qty: gateScrewTotal },
+                    { name: 'U-Channel Screw (3/4")', qty: uChannelScrewTotal },
+                    { name: 'Latch kit', qty: gateRows.find((row) => row.name === 'Latch kit')?.qty ?? 0 },
+                    { name: 'Hinge Kit', qty: gateRows.find((row) => row.name === 'Hinge Kit')?.qty ?? 0 },
+                    { name: 'Base Plate w Screws', qty: 0 },
+                    { name: 'Drop Rod', qty: 0 },
+                  ];
                   return (
-                    <div key={styleName} className="rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4">
-                      <h3 className="text-sm font-semibold text-slate-900">{styleName}</h3>
-                      <div className="mt-3 space-y-3">
+                    <section key={styleName} className="rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4 sm:p-5">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                          <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Height</label>
-                          <select
-                            className={`mt-1.5 ${field}`}
-                            value={selection.heightFt != null && heightsForStyle.includes(selection.heightFt) ? String(selection.heightFt) : ''}
-                            disabled={productHierarchyLoading || heightsForStyle.length === 0}
-                            onChange={(e) => {
-                              const v = Number(e.target.value);
-                              if (Number.isFinite(v)) updateHybridHorizontalHeight(styleName, v);
-                            }}
-                          >
-                            {productHierarchyLoading ? (
-                              <option value="">Loading catalog...</option>
-                            ) : heightsForStyle.length === 0 ? (
-                              <option value="">No heights</option>
-                            ) : (
-                              heightsForStyle.map((h) => (
-                                <option key={`${styleName}-${h}`} value={h}>
-                                  {Math.abs(h - Math.round(h)) < 1e-6 ? String(Math.round(h)) : String(h)} ft
-                                </option>
-                              ))
-                            )}
-                          </select>
+                          <h3 className="text-lg font-semibold text-slate-900">{styleName}</h3>
+                          <p className="mt-1 text-sm text-slate-600">
+                            Workbook panel basis: `length / 6.0833`, then `CEILING(..., 0.5)` and `ROUNDUP(...)` before line posts and board totals.
+                          </p>
                         </div>
-                        <div>
-                          <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Colour</label>
-                          <select
-                            className={`mt-1.5 ${field}`}
-                            value={coloursForStyle.includes(selection.colorName) ? selection.colorName : ''}
-                            disabled={productHierarchyLoading || coloursForStyle.length === 0}
-                            onChange={(e) => updateHybridHorizontalColour(styleName, e.target.value)}
-                          >
-                            {productHierarchyLoading ? (
-                              <option value="">Loading catalog...</option>
-                            ) : coloursForStyle.length === 0 ? (
-                              <option value="">No colours</option>
-                            ) : (
-                              coloursForStyle.map((name) => (
-                                <option key={`${styleName}-${name}`} value={name}>
-                                  {name}
-                                </option>
-                              ))
-                            )}
-                          </select>
+                        {config ? (
+                          <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+                            Boards per rounded panel: <span className="font-semibold text-slate-900">{config.boardQtyPerRoundedPanel}</span>
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                        <div className={cardShell}>
+                          <div className={cardHeader}>
+                            <h4 className="font-semibold text-slate-900">Line calculator</h4>
+                          </div>
+                          <div className="grid gap-4 p-5 sm:grid-cols-2">
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700">Height</label>
+                              <select
+                                className={`mt-1.5 ${field}`}
+                                value={selection.heightFt != null && heightsForStyle.includes(selection.heightFt) ? String(selection.heightFt) : ''}
+                                disabled={productHierarchyLoading || heightsForStyle.length === 0}
+                                onChange={(e) => {
+                                  const v = Number(e.target.value);
+                                  if (Number.isFinite(v)) updateHybridHorizontalHeight(styleName, v);
+                                }}
+                              >
+                                {productHierarchyLoading ? (
+                                  <option value="">Loading catalog...</option>
+                                ) : heightsForStyle.length === 0 ? (
+                                  <option value="">No heights</option>
+                                ) : (
+                                  heightsForStyle.map((h) => (
+                                    <option key={`${styleName}-${h}`} value={h}>
+                                      {Math.abs(h - Math.round(h)) < 1e-6 ? String(Math.round(h)) : String(h)} ft
+                                    </option>
+                                  ))
+                                )}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700">Colour</label>
+                              <select
+                                className={`mt-1.5 ${field}`}
+                                value={coloursForStyle.includes(selection.colorName) ? selection.colorName : ''}
+                                disabled={productHierarchyLoading || coloursForStyle.length === 0}
+                                onChange={(e) => updateHybridHorizontalColour(styleName, e.target.value)}
+                              >
+                                {productHierarchyLoading ? (
+                                  <option value="">Loading catalog...</option>
+                                ) : coloursForStyle.length === 0 ? (
+                                  <option value="">No colours</option>
+                                ) : (
+                                  coloursForStyle.map((name) => (
+                                    <option key={`${styleName}-${name}`} value={name}>
+                                      {name}
+                                    </option>
+                                  ))
+                                )}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700">Address / line label</label>
+                              <input
+                                value={inputs.lineLabel}
+                                onChange={(e) => updateHybridHorizontalInputs(styleName, { lineLabel: e.target.value })}
+                                className={`mt-1.5 ${field}`}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700">Total fence line length (ft)</label>
+                              <input
+                                type="number"
+                                min={0}
+                                step={0.01}
+                                value={inputs.lineLengthFt}
+                                onChange={(e) => updateHybridHorizontalInputs(styleName, { lineLengthFt: Number(e.target.value) || 0 })}
+                                className={`mt-1.5 ${field}`}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700">Fence terminated with H post (0, 1, 2)</label>
+                              <input
+                                type="number"
+                                min={0}
+                                step={1}
+                                value={inputs.hPostTerminations}
+                                onChange={(e) => updateHybridHorizontalInputs(styleName, { hPostTerminations: Number(e.target.value) || 0 })}
+                                className={`mt-1.5 ${field}`}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700">Fence terminated with U channel (0, 1, 2)</label>
+                              <input
+                                type="number"
+                                min={0}
+                                step={1}
+                                value={inputs.uChannelTerminations}
+                                onChange={(e) => updateHybridHorizontalInputs(styleName, { uChannelTerminations: Number(e.target.value) || 0 })}
+                                className={`mt-1.5 ${field}`}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className={cardShell}>
+                          <div className={cardHeader}>
+                            <h4 className="font-semibold text-slate-900">Gate calculator</h4>
+                          </div>
+                          <div className="grid gap-4 p-5 sm:grid-cols-2">
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700">Address / line label</label>
+                              <input
+                                value={inputs.gateLabel}
+                                onChange={(e) => updateHybridHorizontalInputs(styleName, { gateLabel: e.target.value })}
+                                className={`mt-1.5 ${field}`}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700">Total gate line width (inches)</label>
+                              <input
+                                type="number"
+                                min={0}
+                                step={0.01}
+                                value={inputs.gateWidthInches}
+                                onChange={(e) => updateHybridHorizontalInputs(styleName, { gateWidthInches: Number(e.target.value) || 0 })}
+                                className={`mt-1.5 ${field}`}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700">Post needed (0, 1, or 2)</label>
+                              <input
+                                type="number"
+                                min={0}
+                                step={1}
+                                value={inputs.gatePostsNeeded}
+                                onChange={(e) => updateHybridHorizontalInputs(styleName, { gatePostsNeeded: Number(e.target.value) || 0 })}
+                                className={`mt-1.5 ${field}`}
+                              />
+                            </div>
+                            <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Gate boards</p>
+                              <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(gateBoardQty)}</p>
+                              <p className="mt-2 text-xs text-slate-600">Workbook rule: if width is greater than 37&quot;, use the full board count; otherwise use half.</p>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
+
+                      <div className="mt-4 grid gap-4 xl:grid-cols-3">
+                        <div className="rounded-2xl border border-slate-200/80 bg-white p-4">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Exact panels</p>
+                          <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{exactPanels.toFixed(2)}</p>
+                        </div>
+                        <div className="rounded-2xl border border-indigo-200/80 bg-indigo-50/70 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Ceiling to 0.5 panel</p>
+                          <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(halfPanelCeil)}</p>
+                        </div>
+                        <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/70 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Rounded whole panels / posts row</p>
+                          <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(roundedWholePanels)}</p>
+                          <p className="mt-2 text-xs text-emerald-900/80">Line structural posts use `rounded whole panels + H posts - 1`.</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                        <section className={cardShell}>
+                          <div className={cardHeader}>
+                            <h4 className="font-semibold text-slate-900">Line material totals</h4>
+                          </div>
+                          <div className="p-5 sm:p-6">
+                            <div className="overflow-x-auto">
+                              <table className="min-w-full text-sm">
+                                <thead>
+                                  <tr className="border-b border-slate-200 text-left">
+                                    <th className="py-3 font-semibold text-slate-700">Item</th>
+                                    <th className="py-3 text-right font-semibold text-slate-700">Final</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {lineRows.map((row) => (
+                                    <tr key={`${styleName}-line-${row.name}`} className="border-b border-slate-100 last:border-0">
+                                      <td className="py-2.5 font-medium text-slate-900">{row.name}</td>
+                                      <td className="py-2.5 text-right font-semibold tabular-nums text-slate-900">{formatQty(row.qty)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </section>
+
+                        <section className={cardShell}>
+                          <div className={cardHeader}>
+                            <h4 className="font-semibold text-slate-900">Gate material totals</h4>
+                          </div>
+                          <div className="p-5 sm:p-6">
+                            <div className="overflow-x-auto">
+                              <table className="min-w-full text-sm">
+                                <thead>
+                                  <tr className="border-b border-slate-200 text-left">
+                                    <th className="py-3 font-semibold text-slate-700">Item</th>
+                                    <th className="py-3 text-right font-semibold text-slate-700">Final</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {gateRows.length === 0 ? (
+                                    <tr>
+                                      <td className="py-2.5 text-sm text-slate-500" colSpan={2}>Enter a gate width above to calculate gate materials.</td>
+                                    </tr>
+                                  ) : (
+                                    gateRows.map((row) => (
+                                      <tr key={`${styleName}-gate-${row.name}`} className="border-b border-slate-100 last:border-0">
+                                        <td className="py-2.5 font-medium text-slate-900">{row.name}</td>
+                                        <td className="py-2.5 text-right font-semibold tabular-nums text-slate-900">{formatQty(row.qty)}</td>
+                                      </tr>
+                                    ))
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </section>
+                      </div>
+
+                      <section className={`${cardShell} mt-4`}>
+                        <div className={cardHeader}>
+                          <h4 className="font-semibold text-slate-900">Hybrid Horizontal master material list</h4>
+                          <p className="mt-1 text-sm text-slate-600">
+                            Master list rows mirror the workbook&apos;s horizontal-hybrid material sheet for the selected family and height.
+                          </p>
+                        </div>
+                        <div className="p-5 sm:p-6">
+                          <div className="overflow-x-auto">
+                            <table className="w-full min-w-[360px] border-collapse text-sm text-slate-900">
+                              <thead>
+                                <tr>
+                                  <th className="border border-black bg-white px-2 py-2 text-left font-bold text-slate-900">Item</th>
+                                  <th
+                                    className="border border-black px-2 py-2 text-center font-bold text-slate-900"
+                                    style={{ backgroundColor: MASTER_SHEET_COLOR_COL }}
+                                  >
+                                    {selection.colorName || styleName}
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {HYBRID_HORIZONTAL_MASTER_ROWS.map((rowLabel) => (
+                                  <tr key={`${styleName}-master-${rowLabel}`}>
+                                    <td className="border border-black bg-white px-2 py-1.5 text-left font-medium">{rowLabel}</td>
+                                    <td
+                                      className="border border-black px-2 py-1.5 text-center font-semibold tabular-nums text-slate-900"
+                                      style={{ backgroundColor: MASTER_SHEET_COLOR_COL }}
+                                    >
+                                      {formatQty(masterRows.find((row) => row.name === rowLabel)?.qty ?? 0)}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </section>
+                    </section>
                   );
                 })
               )}
