@@ -259,4 +259,12 @@ export const firstSheetGateLineRecipeDefaults: MaterialCalculatorRecipeItem[] = 
   { id: 'gate-overhead-brace', name: 'Gate OverHead Brace', quantity_per_panel: 0.5, input_field: 'gate_unit', rounding_mode: 'none' },
   { id: 'gate-latch-kit', name: 'Latch kit', quantity_per_panel: 1, input_field: 'gate_unit', rounding_mode: 'ceil' },
   { id: 'gate-hinge-kit', name: 'Hinge Kit', quantity_per_panel: 1, input_field: 'gate_unit', rounding_mode: 'ceil' },
+  {
+    id: 'gate-h-post-stiffener',
+    name: 'H Post Stiffener',
+    quantity_per_panel: 1,
+    input_field: 'gate_unit',
+    rounding_mode: 'ceil',
+    notes: 'Same count as hinges; keep qty / multiply-from in sync with Hinge Kit.',
+  },
 ];
