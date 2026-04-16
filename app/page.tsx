@@ -158,24 +158,24 @@ export default function HomePage() {
           <div className="mx-auto w-full max-w-6xl px-4 pb-12 pt-8 sm:px-6 sm:pb-16 sm:pt-10 lg:px-8">
             <div className="mx-auto max-w-4xl text-center lg:mx-0 lg:max-w-3xl lg:text-left">
               <p className="inline-flex rounded-full border border-blue-200/90 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.22em] text-blue-800 shadow-sm">
-                Fence contractor software
+                Online fence quoting
               </p>
               <h1 className="mt-6 text-balance text-4xl font-extrabold leading-[1.08] tracking-tight text-slate-900 sm:text-5xl sm:leading-[1.06] lg:text-6xl lg:leading-[1.05]">
-                Qualified fence leads,{' '}
+                Fence leads that arrive{' '}
                 <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  delivered to your inbox.
+                  scoped, priced, and ready to talk.
                 </span>
               </h1>
               <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-600 lg:mx-0 lg:max-w-xl lg:text-xl">
-                Stop chasing tire-kickers. Give homeowners a branded, self-serve estimate they can run anytime—so your
-                team talks to buyers who already know their budget.
+                Pair aerial drawing with your catalog and rules so homeowners self-serve a realistic number—then your
+                crew follows up with context instead of cold guessing.
               </p>
               <div className="mt-9 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:flex-wrap sm:justify-center lg:justify-start">
                 <a
                   href={DEMO_URL}
                   className="inline-flex min-h-[52px] items-center justify-center rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-3.5 text-base font-bold text-white shadow-xl shadow-blue-600/30 transition hover:from-blue-500 hover:to-indigo-500"
                 >
-                  Try the demo — free
+                  Explore the live flow
                 </a>
                 <a
                   href={SCHEDULE_CALL_URL}
@@ -183,10 +183,10 @@ export default function HomePage() {
                   rel="noopener noreferrer"
                   className="inline-flex min-h-[52px] items-center justify-center rounded-2xl border-2 border-blue-300/90 bg-white/95 px-8 py-3.5 text-base font-bold text-blue-900 shadow-md transition hover:bg-blue-50"
                 >
-                  Schedule a call
+                  Book a walkthrough
                 </a>
               </div>
-              <p className="mt-4 text-sm font-medium text-slate-500">Instant demo link · No signup required</p>
+              <p className="mt-4 text-sm font-medium text-slate-500">Demo opens in a new tab · no account needed</p>
             </div>
           </div>
         </section>
@@ -201,18 +201,18 @@ export default function HomePage() {
           <div className="mx-auto grid max-w-6xl divide-y divide-slate-200/90 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
             <div className="px-6 py-12 text-center sm:py-14">
               <p className="text-5xl font-black tabular-nums text-blue-600 sm:text-6xl">3</p>
-              <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Steps to publish</p>
-              <p className="mt-2 text-sm text-slate-600">Link, catalog, and live quotes—without a long IT project.</p>
+              <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Lightweight go-live</p>
+              <p className="mt-2 text-sm text-slate-600">Share one link, wire up what you sell, and publish a guided quote path—no heavyweight rollout.</p>
             </div>
             <div className="px-6 py-12 text-center sm:py-14">
               <p className="text-5xl font-black tabular-nums text-blue-600 sm:text-6xl">24/7</p>
-              <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Your quote desk</p>
-              <p className="mt-2 text-sm text-slate-600">Homeowners run estimates on their schedule, not only business hours.</p>
+              <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Self-serve estimates</p>
+              <p className="mt-2 text-sm text-slate-600">Prospects can sketch and price after hours so Monday starts with warmer conversations.</p>
             </div>
             <div className="px-6 py-12 text-center sm:py-14">
               <p className="text-5xl font-black tabular-nums text-blue-600 sm:text-5xl">$199.99</p>
               <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">CAD / month</p>
-              <p className="mt-2 text-sm text-slate-600">Promotional pricing. Cancel anytime.</p>
+              <p className="mt-2 text-sm text-slate-600">Current promotional rate—leave whenever you want.</p>
             </div>
           </div>
         </section>
@@ -223,18 +223,19 @@ export default function HomePage() {
         >
           <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:gap-16 lg:px-8">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-blue-300/95">Industry-leading</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-blue-300/95">Purpose-built</p>
               <h2 className="mt-3 text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl lg:text-5xl">
-                Fence estimate software built for contractors
+                Quoting that feels like your yard—not a generic widget
               </h2>
               <p className="mt-5 max-w-lg text-base leading-relaxed text-blue-100/90 sm:text-lg">
-                Satellite drawing, your products, your prices—and leads that show up with measurements and intent.
+                Map-based drawing, your fence catalog, your math—rolled into a polished flow so submissions land with
+                context your estimators can trust.
               </p>
               <a
                 href={DEMO_URL}
                 className="mt-8 inline-flex min-h-[48px] items-center justify-center rounded-2xl bg-white px-8 py-3 text-sm font-bold text-blue-900 shadow-lg transition hover:bg-blue-50"
               >
-                More info — try the demo
+                Peek at a sample project
               </a>
             </div>
             <div className="flex justify-center lg:justify-end">
@@ -250,17 +251,17 @@ export default function HomePage() {
 
         <section id="pitch" className="scroll-mt-28 border-b border-slate-900/10 bg-white py-16 sm:py-20">
           <div className="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
-            <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Your always-on salesperson</h2>
+            <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Let the flow qualify interest first</h2>
             <p className="mt-5 text-lg leading-relaxed text-slate-600 sm:text-xl">
-              Replace vague &ldquo;contact us&rdquo; forms with a guided flow that qualifies budget before your team picks up
-              the phone—so you can <span className="font-semibold text-slate-800">know before you go.</span>
+              Swap static &ldquo;request a quote&rdquo; boxes for a guided estimate so your reps pick up the phone already
+              knowing rough footage, style choices, and whether the budget is in range.
             </p>
             <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <a
                 href={DEMO_URL}
                 className="inline-flex min-h-[48px] items-center justify-center rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition hover:from-blue-500 hover:to-indigo-500"
               >
-                Free demo
+                Run the sample quote
               </a>
               <a
                 href={SCHEDULE_CALL_URL}
@@ -268,7 +269,7 @@ export default function HomePage() {
                 rel="noopener noreferrer"
                 className="inline-flex min-h-[48px] items-center justify-center rounded-2xl border-2 border-slate-200 bg-white px-8 py-3 text-sm font-bold text-slate-800 transition hover:border-blue-200 hover:bg-blue-50/60"
               >
-                Schedule a call
+                Talk with our team
               </a>
             </div>
           </div>
@@ -280,37 +281,37 @@ export default function HomePage() {
         >
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <h2 className="text-center text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-              Finally, fence software that&apos;s easy to set up
+              Ship a polished quote page without a huge project plan
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-center text-lg text-slate-600">
-              Start publishing qualified experiences in three straightforward steps.
+              Three practical checkpoints keep onboarding tight so you can publish faster.
             </p>
             <ol className="mt-14 grid gap-10 sm:grid-cols-3 sm:gap-8">
               <li className="relative rounded-2xl border border-blue-100/80 bg-white p-8 pt-12 shadow-lg shadow-blue-900/5 ring-1 ring-slate-100">
                 <span className="absolute left-8 top-0 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-lg font-black text-white shadow-md">
                   1
                 </span>
-                <h3 className="text-lg font-bold text-slate-900">Add your branded link</h3>
+                <h3 className="text-lg font-bold text-slate-900">Drop in your public link</h3>
                 <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                  Drop a single link on your homepage, campaigns, or QR codes—customers land in your quote flow.
+                  Point website visitors, ads, or QR codes to one branded URL that drops them straight into quoting.
                 </p>
               </li>
               <li className="relative rounded-2xl border border-blue-100/80 bg-white p-8 pt-12 shadow-lg shadow-blue-900/5 ring-1 ring-slate-100">
                 <span className="absolute left-8 top-0 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-lg font-black text-white shadow-md">
                   2
                 </span>
-                <h3 className="text-lg font-bold text-slate-900">Define products &amp; pricing</h3>
+                <h3 className="text-lg font-bold text-slate-900">Model what you install</h3>
                 <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                  Configure styles, heights, gates, and rules so every instant estimate matches how you actually sell.
+                  Capture styles, heights, gates, and add-ons so automated math mirrors the way your crew bids jobs.
                 </p>
               </li>
               <li className="relative rounded-2xl border border-blue-100/80 bg-white p-8 pt-12 shadow-lg shadow-blue-900/5 ring-1 ring-slate-100">
                 <span className="absolute left-8 top-0 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-lg font-black text-white shadow-md">
                   3
                 </span>
-                <h3 className="text-lg font-bold text-slate-900">Publish &amp; collect leads</h3>
+                <h3 className="text-lg font-bold text-slate-900">Flip the switch and watch leads land</h3>
                 <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                  Go live and watch homeowner-drawn layouts arrive with contact details and measurements in your inbox.
+                  Publish the flow and let homeowner sketches, contact fields, and measurements flow into the workspace you already use.
                 </p>
               </li>
             </ol>
@@ -319,38 +320,38 @@ export default function HomePage() {
                 href={DEMO_URL}
                 className="inline-flex min-h-[48px] items-center justify-center rounded-2xl bg-slate-900 px-8 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-slate-800"
               >
-                Try it yourself
+                Click through the sandbox
               </a>
             </div>
-            <p className="mt-3 text-center text-sm text-slate-500">Instant access · No signup required</p>
+            <p className="mt-3 text-center text-sm text-slate-500">Hands-on preview · no login wall</p>
           </div>
         </section>
 
         <section id="homeowner" className="scroll-mt-28 border-b border-slate-900/10 bg-slate-50 py-16 sm:py-20">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <h2 className="text-center text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-              Your customers will love the experience
+              Homeowners stay oriented from map to number
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-center text-lg text-slate-600">
-              Three quick steps to an instant fence budget—clear, visual, and on their timeline.
+              A tight three-step path keeps them moving: locate the lot, sketch the run, see a defensible ballpark.
             </p>
             <ol className="mt-14 grid gap-10 sm:grid-cols-3 sm:gap-8">
               <li className="rounded-2xl border border-slate-200/90 bg-white p-8 shadow-md ring-1 ring-slate-100">
-                <h3 className="text-sm font-bold uppercase tracking-wide text-blue-700">Find the property</h3>
+                <h3 className="text-sm font-bold uppercase tracking-wide text-blue-700">Anchor on the lot</h3>
                 <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                  They enter an address and jump straight to high-resolution satellite context.
+                  Address lookup jumps them onto crisp aerial imagery so the fence lines snap to their real yard.
                 </p>
               </li>
               <li className="rounded-2xl border border-slate-200/90 bg-white p-8 shadow-md ring-1 ring-slate-100">
-                <h3 className="text-sm font-bold uppercase tracking-wide text-blue-700">Draw the fence</h3>
+                <h3 className="text-sm font-bold uppercase tracking-wide text-blue-700">Trace the layout</h3>
                 <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                  An intuitive draw tool lets them trace lines on their own lot—not guess from photos.
+                  Simple drawing tools keep segments honest while still feeling approachable for first-time planners.
                 </p>
               </li>
               <li className="rounded-2xl border border-slate-200/90 bg-white p-8 shadow-md ring-1 ring-slate-100">
-                <h3 className="text-sm font-bold uppercase tracking-wide text-blue-700">Get the estimate</h3>
+                <h3 className="text-sm font-bold uppercase tracking-wide text-blue-700">See the ballpark</h3>
                 <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                  Pricing rules fire instantly so both sides receive a budget-ready summary for follow-up.
+                  Your pricing engine returns an immediate range so both sides share the same starting point for the real quote.
                 </p>
               </li>
             </ol>
@@ -359,9 +360,9 @@ export default function HomePage() {
                 href={DEMO_URL}
                 className="inline-flex min-h-[48px] items-center justify-center rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-10 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition hover:from-blue-500 hover:to-indigo-500"
               >
-                Try the demo
+                Launch the homeowner preview
               </a>
-              <p className="text-sm text-slate-500">Instant access · No signup required</p>
+              <p className="text-sm text-slate-500">Same sandbox link · still no signup</p>
             </div>
           </div>
         </section>
@@ -378,8 +379,8 @@ export default function HomePage() {
           <div className="mx-auto w-full max-w-6xl px-3 sm:px-5 lg:px-8">
             <div className="overflow-hidden border-[6px] border-blue-700 bg-white shadow-[0_28px_70px_-24px_rgba(30,64,175,0.45)] sm:border-8 sm:rounded-sm">
               <div className="px-4 pb-5 pt-10 text-center sm:px-6 sm:pt-12">
-                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-900/70">See the flow in motion</p>
-                <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">Watch the quote journey</h2>
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-900/70">Product tour</p>
+                <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">Two minutes inside the homeowner flow</h2>
               </div>
               <div className="border-t border-slate-200/90 bg-slate-950/[0.04]">
                 <AutoplayOnViewVideo src="/videos/QuoteProcess.mp4" className="w-full" />
@@ -391,19 +392,19 @@ export default function HomePage() {
         <section id="value-prop" className="scroll-mt-28 border-b border-slate-900/20 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950 py-16 text-white sm:py-20">
           <div className="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
             <h2 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">
-              Make fence sales easier with <span className="text-blue-300">qualified</span> leads
+              Tighter handoffs between <span className="text-blue-300">marketing</span> and sales
             </h2>
             <p className="mt-5 text-lg leading-relaxed text-blue-100/95">
-              When homeowners see an instant estimate on their own property, your sales conversations start one step ahead—
-              with budget clarity and measurements already on the page.
+              Because homeowners leave with a map-backed number, your reps inherit drawings, notes, and contact data
+              instead of rebuilding the story from scratch.
             </p>
             <a
               href={DEMO_URL}
               className="mt-10 inline-flex min-h-[48px] items-center justify-center rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-500 px-10 py-3 text-sm font-bold text-white shadow-lg shadow-blue-900/40 transition hover:from-blue-400 hover:to-indigo-400"
             >
-              Try the demo
+              Replay the guided tour
             </a>
-            <p className="mt-3 text-sm text-blue-200/80">Instant access · No signup required</p>
+            <p className="mt-3 text-sm text-blue-200/80">Public sandbox link · still zero signup</p>
           </div>
         </section>
 
@@ -420,13 +421,13 @@ export default function HomePage() {
           }}
         >
           <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
-            <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-900/70">Inside the platform</p>
+            <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-900/70">Workspace tour</p>
             <h2 className="mt-2 text-center text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-              Insights your team can actually use
+              Operational clarity—not vanity charts
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-center text-lg text-slate-600">
-              Filter leads, review quotes, tune products—the same workspace you run daily. Screens below are real
-              product views, not mockups.
+              Triage inbound work, reopen quotes, and tune catalogs from one place. Everything below is pulled straight
+              from the live product (not marketing renders).
             </p>
 
             <div className="mt-10 flex w-full flex-wrap items-center justify-center gap-6 px-1 sm:gap-8">
@@ -466,7 +467,7 @@ export default function HomePage() {
             </div>
 
             <div className="mt-12 border-t border-slate-200/80 pt-10">
-              <h3 className="text-center text-lg font-bold text-slate-900 sm:text-xl">More of the platform—at a glance</h3>
+              <h3 className="text-center text-lg font-bold text-slate-900 sm:text-xl">Even more views in rotation</h3>
               <RotatingScreenshots count={6} className="mt-6 justify-center sm:mt-8" />
             </div>
 
@@ -475,7 +476,7 @@ export default function HomePage() {
                 href={DEMO_URL}
                 className="inline-flex min-h-[46px] items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/25 transition hover:from-blue-500 hover:to-indigo-500"
               >
-                Try the live demo
+                Jump back into the demo
               </a>
             </div>
           </div>
@@ -492,25 +493,25 @@ export default function HomePage() {
           }}
         >
           <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
-            <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-800/80">Why teams switch</p>
+            <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-800/80">Why crews adopt it</p>
             <h2 className="mt-2 text-center text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-              Built for real fence sales
+              Field-tested building blocks for fence revenue teams
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-center text-slate-600">
-              The essentials contractors asked for—without the bloat.
+              Focused modules that solve quoting, intake, and follow-up—nothing extra to babysit.
             </p>
             <div className="mt-10 grid gap-4 sm:grid-cols-3">
               <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/80 p-6 shadow-sm transition hover:border-blue-200 hover:shadow-md">
-                <h3 className="text-base font-semibold text-slate-900">Satellite draw flow</h3>
-                <p className="mt-2 text-sm text-slate-600">Homeowners draw real fence lines on their own property.</p>
+                <h3 className="text-base font-semibold text-slate-900">Map-native drawing</h3>
+                <p className="mt-2 text-sm text-slate-600">Fence lines stay tied to real parcels so measurements stay honest.</p>
               </div>
               <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/80 p-6 shadow-sm transition hover:border-blue-200 hover:shadow-md">
-                <h3 className="text-base font-semibold text-slate-900">Branded instant estimate</h3>
-                <p className="mt-2 text-sm text-slate-600">Your pricing rules and your visual identity, end to end.</p>
+                <h3 className="text-base font-semibold text-slate-900">On-brand estimates</h3>
+                <p className="mt-2 text-sm text-slate-600">Carry your visuals, voice, and guardrails through every touchpoint.</p>
               </div>
               <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/80 p-6 shadow-sm transition hover:border-blue-200 hover:shadow-md">
-                <h3 className="text-base font-semibold text-slate-900">Higher-intent leads</h3>
-                <p className="mt-2 text-sm text-slate-600">You get contact info with measurements, not vague inquiries.</p>
+                <h3 className="text-base font-semibold text-slate-900">Signal-rich intake</h3>
+                <p className="mt-2 text-sm text-slate-600">Submissions show who they are, what they drew, and what it measured.</p>
               </div>
             </div>
           </div>
@@ -518,36 +519,36 @@ export default function HomePage() {
 
         <section id="get-started" className="scroll-mt-28 border-b border-slate-900/10 bg-white py-16 sm:py-20">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-            <h2 className="text-center text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Get started today</h2>
+            <h2 className="text-center text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Line up the launch checklist</h2>
             <p className="mx-auto mt-4 max-w-xl text-center text-slate-600">
-              From first login to live link—most teams move fast with a simple checklist.
+              Most crews pair onboarding with a short punch list so the first publish feels intentional, not rushed.
             </p>
             <ol className="mt-14 grid gap-8 md:grid-cols-3">
               <li className="text-center">
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-2xl font-black text-white shadow-lg">
                   1
                 </div>
-                <h3 className="mt-6 text-lg font-bold text-slate-900">Personalized setup</h3>
+                <h3 className="mt-6 text-lg font-bold text-slate-900">Kickoff with your playbook</h3>
                 <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                  Walk through products, pricing, and branding so your first publish matches how you sell.
+                  Align catalog, pricing tiers, and brand touches so the first customer-facing build reflects reality.
                 </p>
               </li>
               <li className="text-center">
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-2xl font-black text-white shadow-lg">
                   2
                 </div>
-                <h3 className="mt-6 text-lg font-bold text-slate-900">Add your link everywhere</h3>
+                <h3 className="mt-6 text-lg font-bold text-slate-900">Plant the link where leads already look</h3>
                 <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                  Place your quote URL on the homepage, ads, trucks, or follow-up emails—one entry point for every lead.
+                  Homepage hero, paid campaigns, truck wraps, or post-site-visit emails—one consistent entry point.
                 </p>
               </li>
               <li className="text-center">
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-2xl font-black text-white shadow-lg">
                   3
                 </div>
-                <h3 className="mt-6 text-lg font-bold text-slate-900">Collect qualified leads</h3>
+                <h3 className="mt-6 text-lg font-bold text-slate-900">Let submissions carry their own context</h3>
                 <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                  Watch homeowner-drawn layouts arrive with contact info and measurements ready for your sales team.
+                  Each lead arrives with drawings, notes, and measurements so estimators can respond with confidence.
                 </p>
               </li>
             </ol>
@@ -556,13 +557,13 @@ export default function HomePage() {
                 href="/signup"
                 className="inline-flex min-h-[48px] items-center justify-center rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-10 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition hover:from-blue-500 hover:to-indigo-500"
               >
-                Start now
+                Create your account
               </Link>
               <a
                 href={DEMO_URL}
                 className="inline-flex min-h-[48px] items-center justify-center rounded-2xl border-2 border-slate-200 bg-white px-10 py-3 text-sm font-bold text-slate-800 transition hover:border-blue-200 hover:bg-blue-50/60"
               >
-                Try the demo first
+                Keep exploring the demo
               </a>
             </div>
           </div>
@@ -577,11 +578,11 @@ export default function HomePage() {
         >
           <div className="mx-auto w-full max-w-6xl px-3 sm:px-5 lg:px-8">
             <div className="border-4 border-blue-900/85 bg-gradient-to-b from-white via-white to-slate-50/95 px-4 py-12 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.8)] sm:px-8 sm:py-14">
-              <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-800/80">Happy customers</p>
+              <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-800/80">Voices from the field</p>
               <h2 className="mt-2 text-center text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-                Kind words from
+                What partners say
               </h2>
-              <p className="text-center text-3xl font-extrabold tracking-tight text-blue-600 sm:text-4xl">awesome teams</p>
+              <p className="text-center text-3xl font-extrabold tracking-tight text-blue-600 sm:text-4xl">after switching flows</p>
               <TestimonialsCarousel items={testimonials} />
             </div>
           </div>
@@ -600,20 +601,23 @@ export default function HomePage() {
         >
           <div className="mx-auto w-full max-w-6xl px-4 py-14 text-center sm:px-6 sm:py-16 lg:px-8">
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-900/70">Pricing</p>
-            <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Simple pricing. Serious results.</h2>
-            <p className="mt-4 text-lg text-slate-600">Launch your quote flow for $199.99 CAD/month. Cancel anytime.</p>
+            <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Straightforward pricing</h2>
+            <p className="mt-4 text-lg text-slate-600">
+              Publish the full quote experience for $199.99 CAD per month while the promo runs—walk away whenever you
+              need to.
+            </p>
             <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
                 href="/signup"
                 className="inline-flex min-h-[48px] items-center justify-center rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition hover:from-blue-500 hover:to-indigo-500"
               >
-                Start now
+                Open a workspace
               </Link>
               <Link
                 href="/login"
                 className="inline-flex min-h-[48px] items-center justify-center rounded-2xl border-2 border-slate-200 bg-white px-8 py-3 text-sm font-bold text-slate-800 transition hover:border-blue-200 hover:bg-blue-50/50"
               >
-                Member login
+                Contractor login
               </Link>
             </div>
           </div>
@@ -629,7 +633,7 @@ export default function HomePage() {
           <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
             <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">FAQ</p>
             <h2 className="mt-2 text-center text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-              Frequently asked questions
+              Answers before you reach out
             </h2>
             <div className="mt-8">
               <FAQAccordion items={faqs} />
@@ -647,10 +651,11 @@ export default function HomePage() {
           }}
         >
           <div className="mx-auto w-full max-w-6xl px-4 py-14 text-center sm:px-6 sm:py-16 lg:px-8">
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-100/90">Next step</p>
-            <h2 className="mt-3 text-2xl font-bold tracking-tight text-white sm:text-3xl">Want help getting set up?</h2>
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-100/90">Human support</p>
+            <h2 className="mt-3 text-2xl font-bold tracking-tight text-white sm:text-3xl">Prefer a guided onboarding call?</h2>
             <p className="mx-auto mt-3 max-w-xl text-base text-blue-100/95">
-              We can walk through products, pricing, and launch best practices with your team.
+              We&apos;ll pair you with someone who can sanity-check catalog structure, pricing logic, and the customer
+              journey before you flip the switch.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <a
@@ -659,13 +664,13 @@ export default function HomePage() {
                 rel="noopener noreferrer"
                 className="inline-flex min-h-[46px] items-center justify-center rounded-xl bg-white px-6 py-3 text-sm font-semibold text-blue-800 shadow-lg transition hover:bg-blue-50"
               >
-                Book a call
+                Grab a calendar slot
               </a>
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
                 className="inline-flex min-h-[46px] items-center justify-center rounded-xl border-2 border-white/40 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/20"
               >
-                Email us
+                Write the team
               </a>
             </div>
           </div>
