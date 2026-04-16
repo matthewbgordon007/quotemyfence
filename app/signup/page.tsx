@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { withAuthEmailAlreadyExistsHint } from '@/lib/auth-signup-errors';
 import { ContractorQuoteLinkShare } from '@/components/ContractorQuoteLinkShare';
 
 export default function SignupPage() {
@@ -54,7 +55,7 @@ export default function SignupPage() {
       });
 
       if (signUpError) {
-        setError(signUpError.message);
+        setError(withAuthEmailAlreadyExistsHint(signUpError.message));
         setLoading(false);
         return;
       }
@@ -80,6 +81,8 @@ export default function SignupPage() {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
+        await fetch('/api/auth/abandon-signup', { method: 'POST', credentials: 'include' });
+        await supabase.auth.signOut();
         setError(data.error || 'Signup failed');
         setLoading(false);
         return;
