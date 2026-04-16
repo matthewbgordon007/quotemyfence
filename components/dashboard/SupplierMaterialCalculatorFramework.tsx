@@ -104,6 +104,9 @@ const MASTER_MATERIAL_SHEET_ROWS: MasterSheetRow[] = [
 const MASTER_SHEET_COLOR_COL = '#FDE9A9';
 const MASTER_SHEET_SECTION_BG = '#55FF33';
 
+const masterSheetCellInput =
+  'min-h-[2.25rem] w-full border-0 bg-transparent px-2 py-1.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-600/70 focus:bg-white/40 focus:ring-2 focus:ring-blue-500/25';
+
 function lookupMaterialTotal(totals: Map<string, number>, matchNames: string[]): number {
   for (const name of matchNames) {
     const key = materialKey(name);
@@ -135,6 +138,9 @@ export function SupplierMaterialCalculatorFramework() {
     line_width_inches: 60,
     posts_needed: 2,
   });
+
+  /** Free-text cells on the master order sheet (green band rows + Extras column). */
+  const [masterSheetCellEdits, setMasterSheetCellEdits] = useState<Record<string, string>>({});
 
   const exactPanels = useMemo(() => {
     if (!panelLengthFt || panelLengthFt <= 0) return 0;
@@ -448,7 +454,7 @@ export function SupplierMaterialCalculatorFramework() {
           <p className="mt-1 text-sm text-slate-600">
             Order sheet layout: quantities combine color and gate recipes. The center column is titled from the first part of{' '}
             <span className="font-medium text-slate-800">Color and height</span> (for example <span className="font-medium">Adobe, 6ft</span> →{' '}
-            <span className="font-medium">Adobe</span>).
+            <span className="font-medium">Adobe</span>). Green section rows and the Extras column are editable for handwritten add-ons.
           </p>
         </div>
         <div className="p-5 sm:p-6">
@@ -463,19 +469,51 @@ export function SupplierMaterialCalculatorFramework() {
                   >
                     {masterListColorHeading}
                   </th>
-                  <th className="border border-black bg-white px-2 py-2 text-center font-bold text-slate-900">Extras</th>
+                  <th className="border border-black bg-white p-0 font-bold text-slate-900">
+                    <input
+                      type="text"
+                      aria-label="Extras column header note"
+                      placeholder="Extras"
+                      value={masterSheetCellEdits['m-hdr-ex'] ?? ''}
+                      onChange={(e) => setMasterSheetCellEdits((prev) => ({ ...prev, 'm-hdr-ex': e.target.value }))}
+                      className={`${masterSheetCellInput} text-center font-bold`}
+                    />
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {MASTER_MATERIAL_SHEET_ROWS.map((row, idx) =>
                   row.kind === 'section' ? (
                     <tr key={`section-${idx}-${row.label}`}>
-                      <td
-                        colSpan={3}
-                        className="border border-black px-2 py-2 text-center text-sm font-bold text-slate-900"
-                        style={{ backgroundColor: MASTER_SHEET_SECTION_BG }}
-                      >
-                        {row.label}
+                      <td className="border border-black p-0" style={{ backgroundColor: MASTER_SHEET_SECTION_BG }}>
+                        <input
+                          type="text"
+                          aria-label={`Section row ${idx + 1} label`}
+                          placeholder={row.label}
+                          value={masterSheetCellEdits[`m-${idx}-s1`] ?? ''}
+                          onChange={(e) => setMasterSheetCellEdits((prev) => ({ ...prev, [`m-${idx}-s1`]: e.target.value }))}
+                          className={`${masterSheetCellInput} text-left font-semibold`}
+                        />
+                      </td>
+                      <td className="border border-black p-0" style={{ backgroundColor: MASTER_SHEET_SECTION_BG }}>
+                        <input
+                          type="text"
+                          aria-label={`Section row ${idx + 1} center`}
+                          placeholder="Qty / notes"
+                          value={masterSheetCellEdits[`m-${idx}-s2`] ?? ''}
+                          onChange={(e) => setMasterSheetCellEdits((prev) => ({ ...prev, [`m-${idx}-s2`]: e.target.value }))}
+                          className={`${masterSheetCellInput} text-center font-medium`}
+                        />
+                      </td>
+                      <td className="border border-black p-0" style={{ backgroundColor: MASTER_SHEET_SECTION_BG }}>
+                        <input
+                          type="text"
+                          aria-label={`Section row ${idx + 1} extras`}
+                          placeholder="Extras"
+                          value={masterSheetCellEdits[`m-${idx}-s3`] ?? ''}
+                          onChange={(e) => setMasterSheetCellEdits((prev) => ({ ...prev, [`m-${idx}-s3`]: e.target.value }))}
+                          className={`${masterSheetCellInput} text-center font-medium`}
+                        />
                       </td>
                     </tr>
                   ) : (
@@ -491,7 +529,16 @@ export function SupplierMaterialCalculatorFramework() {
                             : lookupMaterialTotal(materialTotalsByKey, row.matchNames),
                         )}
                       </td>
-                      <td className="border border-black bg-white px-2 py-1.5 text-center text-slate-700" />
+                      <td className="border border-black bg-white p-0">
+                        <input
+                          type="text"
+                          aria-label={`${row.label} extras`}
+                          placeholder="—"
+                          value={masterSheetCellEdits[`m-${idx}-ex`] ?? ''}
+                          onChange={(e) => setMasterSheetCellEdits((prev) => ({ ...prev, [`m-${idx}-ex`]: e.target.value }))}
+                          className={`${masterSheetCellInput} text-center text-slate-800`}
+                        />
+                      </td>
                     </tr>
                   ),
                 )}
