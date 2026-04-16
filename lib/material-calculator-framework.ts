@@ -5,7 +5,10 @@ export type MaterialCalculatorInputField =
   | 'exact_panels'
   | 'rounded_panels'
   | 'h_post_terminations'
-  | 'u_channel_terminations';
+  | 'u_channel_terminations'
+  | 'gate_unit'
+  | 'gate_posts_needed'
+  | 'gate_total_boards';
 
 export type MaterialCalculatorSectionKind = 'job-info' | 'panel-basis' | 'line-inputs' | 'recipe-items' | 'output';
 
@@ -230,4 +233,21 @@ export const firstSheetColorLineRecipeDefaults: MaterialCalculatorRecipeItem[] =
   { id: 'color-long-screw', name: 'Long Screw', quantity_per_panel: 4, input_field: 'exact_panels', rounding_mode: 'ceil' },
   { id: 'color-plug', name: 'Plug', quantity_per_panel: 4, input_field: 'exact_panels', rounding_mode: 'nearest' },
   { id: 'color-u-channel', name: 'U Channel', quantity_per_panel: 1, input_field: 'u_channel_terminations', rounding_mode: 'ceil' },
+];
+
+export const firstSheetGateLineRecipeDefaults: MaterialCalculatorRecipeItem[] = [
+  { id: 'gate-galv-post', name: 'Galvanized Post', quantity_per_panel: 1, input_field: 'gate_posts_needed', rounding_mode: 'ceil' },
+  { id: 'gate-h-post', name: 'H Post', quantity_per_panel: 1, input_field: 'gate_posts_needed', rounding_mode: 'ceil' },
+  { id: 'gate-cap-h-post', name: 'Cap (H post)', quantity_per_panel: 1, input_field: 'gate_posts_needed', rounding_mode: 'ceil' },
+  { id: 'gate-rail', name: 'Rail', quantity_per_panel: 1, input_field: 'gate_unit', rounding_mode: 'ceil' },
+  { id: 'gate-rail-stiffener', name: 'Rail Stiffener', quantity_per_panel: 1, input_field: 'gate_unit', rounding_mode: 'ceil' },
+  { id: 'gate-board', name: 'Board', quantity_per_panel: 1, input_field: 'gate_total_boards', rounding_mode: 'ceil' },
+  { id: 'gate-short-screw', name: 'Short Screw', quantity_per_panel: 1.33, input_field: 'gate_total_boards', rounding_mode: 'ceil' },
+  { id: 'gate-long-screw', name: 'Long Screw', quantity_per_panel: 1.25, input_field: 'gate_total_boards', rounding_mode: 'ceil' },
+  { id: 'gate-plug', name: 'Plug', quantity_per_panel: 2.25, input_field: 'gate_total_boards', rounding_mode: 'ceil' },
+  { id: 'gate-u-channel', name: 'U Channel', quantity_per_panel: 1, input_field: 'gate_posts_needed', rounding_mode: 'ceil' },
+  { id: 'gate-cross-brace', name: 'Gate Cross Brace', quantity_per_panel: 1, input_field: 'gate_unit', rounding_mode: 'ceil' },
+  { id: 'gate-overhead-brace', name: 'Gate OverHead Brace', quantity_per_panel: 0.5, input_field: 'gate_unit', rounding_mode: 'none' },
+  { id: 'gate-latch-kit', name: 'Latch kit', quantity_per_panel: 1, input_field: 'gate_unit', rounding_mode: 'ceil' },
+  { id: 'gate-hinge-kit', name: 'Hinge Kit', quantity_per_panel: 1, input_field: 'gate_unit', rounding_mode: 'ceil' },
 ];

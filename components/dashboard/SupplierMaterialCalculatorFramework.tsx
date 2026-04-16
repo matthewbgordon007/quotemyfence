@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import {
   firstSheetColorLineRecipeDefaults,
   firstSheetFieldSpecs,
+  firstSheetGateLineRecipeDefaults,
   starterMaterialCalculatorTemplate,
   type MaterialCalculatorInputField,
   type MaterialCalculatorRecipeItem,
@@ -24,12 +25,20 @@ type SampleLine = {
   u_channel_terminations: number;
 };
 
+type SampleGateLine = {
+  line_width_inches: number;
+  posts_needed: number;
+};
+
 const inputFieldLabels: Record<MaterialCalculatorInputField, string> = {
   line_length_ft: 'Line length',
   exact_panels: 'Exact panels',
   rounded_panels: 'Rounded panels',
   h_post_terminations: 'H post terminations',
   u_channel_terminations: 'U channel terminations',
+  gate_unit: 'Gate unit',
+  gate_posts_needed: 'Gate posts needed',
+  gate_total_boards: 'Gate total boards',
 };
 
 function roundForMode(value: number, mode: MaterialCalculatorRecipeItem['rounding_mode']) {
@@ -48,6 +57,11 @@ export function SupplierMaterialCalculatorFramework() {
     u_channel_terminations: 2,
   });
   const [recipeItems, setRecipeItems] = useState(firstSheetColorLineRecipeDefaults);
+  const [gateRecipeItems, setGateRecipeItems] = useState(firstSheetGateLineRecipeDefaults);
+  const [sampleGateLine, setSampleGateLine] = useState<SampleGateLine>({
+    line_width_inches: 60,
+    posts_needed: 2,
+  });
 
   const exactPanels = useMemo(() => {
     if (!panelLengthFt || panelLengthFt <= 0) return 0;
@@ -77,6 +91,33 @@ export function SupplierMaterialCalculatorFramework() {
       };
     });
   }, [exactPanels, recipeItems, roundedPanels, sampleLine]);
+
+  const gateDoorWidth = useMemo(() => {
+    return Math.max(0, sampleGateLine.line_width_inches - 10.5);
+  }, [sampleGateLine.line_width_inches]);
+
+  const gateTotalBoards = useMemo(() => {
+    return gateDoorWidth / 6.125;
+  }, [gateDoorWidth]);
+
+  const gatePreviewRows = useMemo(() => {
+    return gateRecipeItems.map((item) => {
+      const sourceValue =
+        item.input_field === 'gate_posts_needed'
+          ? sampleGateLine.posts_needed
+          : item.input_field === 'gate_total_boards'
+            ? gateTotalBoards
+            : item.input_field === 'gate_unit'
+              ? 1
+              : 0;
+      const raw = sourceValue * item.quantity_per_panel;
+      return {
+        ...item,
+        raw,
+        final: roundForMode(raw, item.rounding_mode),
+      };
+    });
+  }, [gateRecipeItems, gateTotalBoards, sampleGateLine.posts_needed]);
 
   const colorLineInputs = useMemo(
     () => firstSheetFieldSpecs.filter((f) => f.section === 'color_line' && f.mode === 'input'),
@@ -115,6 +156,28 @@ export function SupplierMaterialCalculatorFramework() {
 
   function removeRecipeItem(id: string) {
     setRecipeItems((prev) => prev.filter((item) => item.id !== id));
+  }
+
+  function updateGateRecipeItem(id: string, patch: Partial<MaterialCalculatorRecipeItem>) {
+    setGateRecipeItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+  }
+
+  function addGateRecipeItem() {
+    setGateRecipeItems((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        name: '',
+        quantity_per_panel: 1,
+        input_field: 'gate_unit',
+        rounding_mode: 'ceil',
+        notes: '',
+      },
+    ]);
+  }
+
+  function removeGateRecipeItem(id: string) {
+    setGateRecipeItems((prev) => prev.filter((item) => item.id !== id));
   }
 
   return (
@@ -321,6 +384,92 @@ export function SupplierMaterialCalculatorFramework() {
               ))}
             </div>
           </section>
+
+          <section className={cardShell}>
+            <div className={cardHeader}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="font-semibold text-slate-900">Gate line recipe builder</h2>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Gate material items from the first sheet with editable quantities, sources, and rounding.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={addGateRecipeItem}
+                  className="rounded-xl bg-[var(--dashboard-brand)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm"
+                >
+                  Add gate item
+                </button>
+              </div>
+            </div>
+            <div className="space-y-4 p-5 sm:p-6">
+              {gateRecipeItems.map((item) => (
+                <div key={item.id} className="rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4">
+                  <div className="grid gap-3 lg:grid-cols-12">
+                    <div className="lg:col-span-3">
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Item</label>
+                      <input value={item.name} onChange={(e) => updateGateRecipeItem(item.id, { name: e.target.value })} className={`mt-1.5 ${field}`} />
+                    </div>
+                    <div className="lg:col-span-2">
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Qty</label>
+                      <input
+                        type="number"
+                        step={0.01}
+                        value={item.quantity_per_panel}
+                        onChange={(e) => updateGateRecipeItem(item.id, { quantity_per_panel: Number(e.target.value) || 0 })}
+                        className={`mt-1.5 ${field}`}
+                      />
+                    </div>
+                    <div className="lg:col-span-3">
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Multiply from</label>
+                      <select
+                        value={item.input_field}
+                        onChange={(e) => updateGateRecipeItem(item.id, { input_field: e.target.value as MaterialCalculatorInputField })}
+                        className={`mt-1.5 ${field}`}
+                      >
+                        {Object.entries(inputFieldLabels).map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="lg:col-span-2">
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Rounding</label>
+                      <select
+                        value={item.rounding_mode}
+                        onChange={(e) => updateGateRecipeItem(item.id, { rounding_mode: e.target.value as MaterialCalculatorRecipeItem['rounding_mode'] })}
+                        className={`mt-1.5 ${field}`}
+                      >
+                        <option value="ceil">Round up</option>
+                        <option value="nearest">Nearest whole</option>
+                        <option value="none">Keep exact</option>
+                      </select>
+                    </div>
+                    <div className="flex items-end lg:col-span-2">
+                      <button
+                        type="button"
+                        onClick={() => removeGateRecipeItem(item.id)}
+                        className="w-full rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-100"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <div className="lg:col-span-12">
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Notes</label>
+                      <input
+                        value={item.notes ?? ''}
+                        onChange={(e) => updateGateRecipeItem(item.id, { notes: e.target.value })}
+                        placeholder="Optional reminder for gate-specific logic"
+                        className={`mt-1.5 ${field}`}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
 
         <div className="space-y-6">
@@ -387,6 +536,47 @@ export function SupplierMaterialCalculatorFramework() {
 
           <section className={cardShell}>
             <div className={cardHeader}>
+              <h2 className="font-semibold text-slate-900">Sample gate line preview</h2>
+              <p className="mt-1 text-sm text-slate-600">Gate calculator inputs and auto-calculated values from the first sheet.</p>
+            </div>
+            <div className="grid gap-4 p-5 sm:p-6">
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Total gate line width (inches)</label>
+                <input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={sampleGateLine.line_width_inches}
+                  onChange={(e) => setSampleGateLine((prev) => ({ ...prev, line_width_inches: Number(e.target.value) || 0 }))}
+                  className={`mt-1.5 ${field}`}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Post needed (0, 1, or 2)</label>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={sampleGateLine.posts_needed}
+                  onChange={(e) => setSampleGateLine((prev) => ({ ...prev, posts_needed: Number(e.target.value) || 0 }))}
+                  className={`mt-1.5 ${field}`}
+                />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total gate door width</p>
+                  <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{gateDoorWidth.toFixed(2)}</p>
+                </div>
+                <div className="rounded-2xl border border-indigo-200/80 bg-indigo-50/70 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Total gate boards</p>
+                  <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{gateTotalBoards.toFixed(2)}</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className={cardShell}>
+            <div className={cardHeader}>
               <h2 className="font-semibold text-slate-900">Output preview</h2>
               <p className="mt-1 text-sm text-slate-600">A starter version of the final material summary table from your screenshot.</p>
             </div>
@@ -402,6 +592,35 @@ export function SupplierMaterialCalculatorFramework() {
                 </thead>
                 <tbody>
                   {previewRows.map((row) => (
+                    <tr key={row.id} className="border-b border-slate-100 last:border-0">
+                      <td className="py-2.5 font-medium text-slate-900">{row.name || 'Untitled item'}</td>
+                      <td className="py-2.5 text-slate-600">{inputFieldLabels[row.input_field]}</td>
+                      <td className="py-2.5 text-right tabular-nums text-slate-700">{row.raw.toFixed(2)}</td>
+                      <td className="py-2.5 text-right font-semibold tabular-nums text-slate-900">{row.final}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className={cardShell}>
+            <div className={cardHeader}>
+              <h2 className="font-semibold text-slate-900">Gate output preview</h2>
+              <p className="mt-1 text-sm text-slate-600">Live gate material totals, built from the gate recipe block.</p>
+            </div>
+            <div className="overflow-x-auto p-5 sm:p-6">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left">
+                    <th className="py-3 font-semibold text-slate-700">Item</th>
+                    <th className="py-3 font-semibold text-slate-700">Source</th>
+                    <th className="py-3 text-right font-semibold text-slate-700">Raw</th>
+                    <th className="py-3 text-right font-semibold text-slate-700">Final</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {gatePreviewRows.map((row) => (
                     <tr key={row.id} className="border-b border-slate-100 last:border-0">
                       <td className="py-2.5 font-medium text-slate-900">{row.name || 'Untitled item'}</td>
                       <td className="py-2.5 text-slate-600">{inputFieldLabels[row.input_field]}</td>
