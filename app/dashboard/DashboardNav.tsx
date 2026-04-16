@@ -69,7 +69,13 @@ const businessLinks = [
   },
 ];
 
-const supplierLinks = [
+const supplierOverviewLink = {
+  href: '/dashboard/supplier',
+  label: 'Overview',
+  icon: <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />,
+};
+
+const supplierToolLinks = [
   {
     href: '/dashboard/supplier/contractor-quotes',
     label: 'Contractor Quotes',
@@ -86,6 +92,8 @@ const supplierLinks = [
     icon: <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 3.75h9A2.25 2.25 0 0 1 18.75 6v12A2.25 2.25 0 0 1 16.5 20.25h-9A2.25 2.25 0 0 1 5.25 18V6A2.25 2.25 0 0 1 7.5 3.75ZM9 8.25h6M9 11.25h6M9 14.25h3" />,
   },
 ];
+
+const supplierNavLinks = [supplierOverviewLink, ...supplierToolLinks];
 
 const ADMIN_ROLES = ['owner', 'admin'];
 
@@ -106,7 +114,10 @@ function NavRows({
         const disabled = 'disabled' in link && link.disabled;
         const isActive =
           !disabled &&
-          (pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(link.href + '/')));
+          (pathname === link.href ||
+            (link.href !== '/dashboard' &&
+              link.href !== '/dashboard/supplier' &&
+              pathname.startsWith(link.href + '/')));
         if (isMobile) {
           const baseClass = `flex min-w-[4.25rem] shrink-0 flex-col items-center gap-1 rounded-2xl p-1.5 transition ${
             disabled
@@ -196,11 +207,15 @@ export function DashboardNav({
   const isAdmin = userRole && ADMIN_ROLES.includes(userRole);
   const isSupplier = accountType === 'supplier';
   const filteredBusiness = businessLinks.filter((l) => !l.adminOnly || isAdmin);
-  const mobileLinks = [...workspaceLinks, ...filteredBusiness, ...(isSupplier ? supplierLinks : [])] as NavLink[];
+  const mobileLinks = (
+    isSupplier
+      ? [...supplierNavLinks, ...filteredBusiness]
+      : [...workspaceLinks, ...filteredBusiness]
+  ) as NavLink[];
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/login');
+    router.push(isSupplier ? '/supplier/login' : '/login');
     router.refresh();
   }
 
@@ -214,12 +229,21 @@ export function DashboardNav({
 
   return (
     <nav className="flex flex-col gap-6 p-3">
-      <div>
-        <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Workspace</p>
-        <div className="flex flex-col gap-0.5">
-          <NavRows links={workspaceLinks as NavLink[]} pathname={pathname} isMobile={false} />
+      {isSupplier ? (
+        <div>
+          <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Supplier</p>
+          <div className="flex flex-col gap-0.5">
+            <NavRows links={supplierNavLinks as NavLink[]} pathname={pathname} isMobile={false} />
+          </div>
         </div>
-      </div>
+      ) : (
+        <div>
+          <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Workspace</p>
+          <div className="flex flex-col gap-0.5">
+            <NavRows links={workspaceLinks as NavLink[]} pathname={pathname} isMobile={false} />
+          </div>
+        </div>
+      )}
       {filteredBusiness.length > 0 && (
         <div>
           <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Business</p>
@@ -228,17 +252,9 @@ export function DashboardNav({
           </div>
         </div>
       )}
-      {isSupplier && (
-        <div>
-          <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Supplier Pages</p>
-          <div className="flex flex-col gap-0.5">
-            <NavRows links={supplierLinks as NavLink[]} pathname={pathname} isMobile={false} />
-          </div>
-        </div>
-      )}
 
       <div className="flex flex-col gap-1 border-t border-slate-100 pt-4">
-        {slug && (
+        {slug && !isSupplier && (
           <a
             href={`/estimate/${slug}/contact`}
             target="_blank"

@@ -1,30 +1,8 @@
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
-
-async function ensureSupplierAccess() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-  const { data: userRow } = await supabase
-    .from('users')
-    .select('contractor_id')
-    .eq('auth_id', user.id)
-    .eq('is_active', true)
-    .single();
-  if (!userRow?.contractor_id) redirect('/dashboard');
-  const { data: contractor } = await supabase
-    .from('contractors')
-    .select('account_type')
-    .eq('id', userRow.contractor_id)
-    .maybeSingle();
-  if (contractor?.account_type !== 'supplier') redirect('/dashboard');
-}
+import { requireSupplierDashboard } from '@/lib/supplier-dashboard-guard';
 
 export default async function SupplierContractorManagementPage() {
-  await ensureSupplierAccess();
+  await requireSupplierDashboard();
 
   return (
     <div className="mx-auto max-w-5xl pb-8">
@@ -37,10 +15,10 @@ export default async function SupplierContractorManagementPage() {
         </p>
         <div className="mt-6">
           <Link
-            href="/dashboard"
+            href="/dashboard/supplier"
             className="inline-flex items-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
           >
-            Back to dashboard
+            Back to supplier home
           </Link>
         </div>
       </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { LeadStatusPieChart } from '@/components/LeadStatusPieChart';
 
 type AnalyticsPeriod = 'day' | 'week' | 'month' | 'year';
@@ -66,6 +67,7 @@ function Skeleton({ className }: { className?: string }) {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [recent, setRecent] = useState<CustomerRow[]>([]);
   const [unviewedCount, setUnviewedCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -78,29 +80,44 @@ export default function DashboardPage() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    Promise.all([fetch('/api/contractor/me'), fetch('/api/contractor/customers?limit=5&unviewed_count=1')])
-      .then(async ([meRes, custRes]) => {
-        const me = meRes.ok ? ((await meRes.json()) as MeResponse) : {};
-        const cust = custRes.ok ? await custRes.json() : {};
+    (async () => {
+      try {
+        const meAuthRes = await fetch('/api/auth/me', { credentials: 'include' });
+        const meAuth = await meAuthRes.json();
         if (cancelled) return;
-        setContractor(meRes.ok ? me : null);
-        setIsAdmin(ADMIN_ROLES.includes(me?.user_role || ''));
-        setRecent(cust.customers || []);
-        setUnviewedCount(cust.unviewed_count ?? 0);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setRecent([]);
-          setUnviewedCount(0);
+        if (meAuth?.type === 'supplier') {
+          router.replace('/dashboard/supplier');
+          return;
         }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      } catch {
+        /* continue as contractor workspace */
+      }
+      if (cancelled) return;
+
+      Promise.all([fetch('/api/contractor/me'), fetch('/api/contractor/customers?limit=5&unviewed_count=1')])
+        .then(async ([meRes, custRes]) => {
+          const me = meRes.ok ? ((await meRes.json()) as MeResponse) : {};
+          const cust = custRes.ok ? await custRes.json() : {};
+          if (cancelled) return;
+          setContractor(meRes.ok ? me : null);
+          setIsAdmin(ADMIN_ROLES.includes(me?.user_role || ''));
+          setRecent(cust.customers || []);
+          setUnviewedCount(cust.unviewed_count ?? 0);
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setRecent([]);
+            setUnviewedCount(0);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     let cancelled = false;

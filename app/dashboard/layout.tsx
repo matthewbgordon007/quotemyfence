@@ -37,6 +37,7 @@ export default async function DashboardLayout({
     : { data: null };
 
   const c = contractor.data;
+  const isSupplier = c?.account_type === 'supplier';
 
   return (
     <div className="flex h-[100dvh] flex-col md:flex-row overflow-hidden w-full fixed inset-0 bg-slate-100">
@@ -49,8 +50,15 @@ export default async function DashboardLayout({
             className="h-7 w-7 rounded-md object-contain"
           />
         ) : null}
-        <div className="font-semibold text-base tracking-tight text-[var(--text)]">
-          {c?.company_name || 'QuoteMyFence'}
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="truncate font-semibold text-base tracking-tight text-[var(--text)]">
+            {c?.company_name || 'QuoteMyFence'}
+          </div>
+          {isSupplier && (
+            <span className="shrink-0 rounded-md bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-800">
+              Supplier
+            </span>
+          )}
         </div>
       </div>
 
@@ -72,7 +80,14 @@ export default async function DashboardLayout({
             />
           )}
           <div className="min-w-0 flex-1">
-            <div className="truncate font-semibold tracking-tight text-slate-900">{c?.company_name}</div>
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="truncate font-semibold tracking-tight text-slate-900">{c?.company_name}</span>
+              {isSupplier && (
+                <span className="shrink-0 rounded-md bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-800">
+                  Supplier
+                </span>
+              )}
+            </div>
             <div className="truncate font-mono text-[11px] text-slate-500">/{c?.slug}</div>
           </div>
         </div>

@@ -48,7 +48,7 @@ export default function SupplierSignupPage() {
       const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: `${location.origin}/auth/callback?next=/dashboard` },
+        options: { emailRedirectTo: `${location.origin}/auth/callback?next=/dashboard/supplier` },
       });
 
       if (signUpError) {
@@ -83,7 +83,7 @@ export default function SupplierSignupPage() {
         return;
       }
 
-      router.push('/dashboard');
+      router.push('/dashboard/supplier');
       router.refresh();
     } catch {
       setError('Something went wrong. Please try again.');

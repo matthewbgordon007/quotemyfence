@@ -32,7 +32,17 @@ export default function SupplierLoginPage() {
         return;
       }
 
-      router.push('/dashboard');
+      const me = await fetch('/api/auth/me', { credentials: 'include' });
+      const { type } = (await me.json()) || {};
+      const next =
+        type === 'master'
+          ? '/master'
+          : type === 'supplier'
+            ? '/dashboard/supplier'
+            : type === 'contractor'
+              ? '/dashboard'
+              : '/dashboard/supplier';
+      router.push(next);
       router.refresh();
     } catch {
       setError('Something went wrong. Please try again.');

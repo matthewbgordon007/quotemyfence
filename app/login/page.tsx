@@ -34,7 +34,9 @@ export default function LoginPage() {
 
       const me = await fetch('/api/auth/me', { credentials: 'include' });
       const { type } = (await me.json()) || {};
-      router.push(type === 'master' ? '/master' : '/dashboard');
+      const next =
+        type === 'master' ? '/master' : type === 'supplier' ? '/dashboard/supplier' : '/dashboard';
+      router.push(next);
       router.refresh();
     } catch {
       setError('Something went wrong. Please try again.');
