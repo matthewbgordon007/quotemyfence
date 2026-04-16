@@ -1,7 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { buildGoogleSheetsEmbedUrl, sanitizeExcelOfficeEmbedUrl } from '@/lib/supplier-embed-calculator-urls';
+import {
+  buildGoogleSheetsEmbedUrl,
+  sanitizeExcelOfficeEmbedUrl,
+  type GoogleSheetsEmbedMode,
+} from '@/lib/supplier-embed-calculator-urls';
 
 const STORAGE_KEY = 'supplier-embedded-calculator-links-v1';
 
@@ -9,24 +13,30 @@ type Stored = {
   googlePasted: string;
   excelPasted: string;
   active: 'google' | 'excel';
+  googleSheetsMode: GoogleSheetsEmbedMode;
 };
 
 const field =
   'w-full rounded-xl border border-slate-200/90 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20';
 
 function loadStored(): Stored {
-  if (typeof window === 'undefined') return { googlePasted: '', excelPasted: '', active: 'google' };
+  if (typeof window === 'undefined') {
+    return { googlePasted: '', excelPasted: '', active: 'google', googleSheetsMode: 'fullEdit' };
+  }
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { googlePasted: '', excelPasted: '', active: 'google' };
+    if (!raw) return { googlePasted: '', excelPasted: '', active: 'google', googleSheetsMode: 'fullEdit' };
     const j = JSON.parse(raw) as Partial<Stored>;
+    const mode: GoogleSheetsEmbedMode =
+      j.googleSheetsMode === 'compact' || j.googleSheetsMode === 'fullEdit' ? j.googleSheetsMode : 'fullEdit';
     return {
       googlePasted: typeof j.googlePasted === 'string' ? j.googlePasted : '',
       excelPasted: typeof j.excelPasted === 'string' ? j.excelPasted : '',
       active: j.active === 'excel' ? 'excel' : 'google',
+      googleSheetsMode: mode,
     };
   } catch {
-    return { googlePasted: '', excelPasted: '', active: 'google' };
+    return { googlePasted: '', excelPasted: '', active: 'google', googleSheetsMode: 'fullEdit' };
   }
 }
 
@@ -45,16 +55,21 @@ export function SupplierEmbeddedCalculatorClient() {
   const [hydrated, setHydrated] = useState(false);
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [excelError, setExcelError] = useState<string | null>(null);
+  const [googleSheetsMode, setGoogleSheetsMode] = useState<GoogleSheetsEmbedMode>('fullEdit');
 
   useEffect(() => {
     const s = loadStored();
     setGooglePasted(s.googlePasted);
     setExcelPasted(s.excelPasted);
     setActive(s.active);
+    setGoogleSheetsMode(s.googleSheetsMode);
     setHydrated(true);
   }, []);
 
-  const googleEmbed = useMemo(() => buildGoogleSheetsEmbedUrl(googlePasted), [googlePasted]);
+  const googleEmbed = useMemo(
+    () => buildGoogleSheetsEmbedUrl(googlePasted, googleSheetsMode),
+    [googlePasted, googleSheetsMode],
+  );
   const excelEmbed = useMemo(() => sanitizeExcelOfficeEmbedUrl(excelPasted), [excelPasted]);
 
   const persist = useCallback((patch: Partial<Stored>) => {
@@ -63,12 +78,14 @@ export function SupplierEmbeddedCalculatorClient() {
       googlePasted: patch.googlePasted ?? googlePasted,
       excelPasted: patch.excelPasted ?? excelPasted,
       active: patch.active ?? active,
+      googleSheetsMode: patch.googleSheetsMode ?? googleSheetsMode,
     };
     saveStored(next);
     if (patch.googlePasted !== undefined) setGooglePasted(patch.googlePasted);
     if (patch.excelPasted !== undefined) setExcelPasted(patch.excelPasted);
     if (patch.active !== undefined) setActive(patch.active);
-  }, [googlePasted, excelPasted, active]);
+    if (patch.googleSheetsMode !== undefined) setGoogleSheetsMode(patch.googleSheetsMode);
+  }, [googlePasted, excelPasted, active, googleSheetsMode]);
 
   const iframeSrc =
     active === 'google'
@@ -97,7 +114,8 @@ export function SupplierEmbeddedCalculatorClient() {
         </p>
         <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Embedded calculator</h1>
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
-          Link your own Google Sheet or Microsoft Excel (Excel for the web / OneDrive / SharePoint embed) and work from it here. Links are saved in this browser only until we add per-company storage.
+          Link your own Google Sheet or Microsoft Excel embed and edit in the frame when your account has Editor access—no
+          separate tab required. Links are saved in this browser only until we add per-company storage.
         </p>
       </div>
 
@@ -139,9 +157,9 @@ export function SupplierEmbeddedCalculatorClient() {
           <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-indigo-50/40 px-5 py-4 sm:px-6">
             <h2 className="font-semibold text-slate-900">Google Sheets — link</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Paste the normal browser URL (contains <span className="font-mono text-xs">/spreadsheets/d/…</span>). Share the
-              sheet with people who need access (Viewer or Editor). Publishing to the web is optional; link sharing is usually
-              enough for your team when they are signed into Google.
+              Paste the normal browser URL (contains <span className="font-mono text-xs">/spreadsheets/d/…</span>). For
+              in-dashboard editing, use <span className="font-medium">Edit here (full toolbar)</span> and grant{' '}
+              <span className="font-medium">Editor</span> on the sheet. You must be signed into Google in this browser.
             </p>
           </div>
           <div className="space-y-4 p-5 sm:p-6">
@@ -162,6 +180,44 @@ export function SupplierEmbeddedCalculatorClient() {
             {!googleEmbed.ok && googlePasted.trim() ? (
               <p className="text-sm text-amber-800">{googleEmbed.error}</p>
             ) : null}
+            <div>
+              <p className="text-sm font-medium text-slate-700">How the sheet appears below</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={!hydrated}
+                  onClick={() => {
+                    setGoogleSheetsMode('fullEdit');
+                    persist({ googleSheetsMode: 'fullEdit' });
+                  }}
+                  className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                    googleSheetsMode === 'fullEdit'
+                      ? 'bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-500/30'
+                      : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  Edit here (full toolbar)
+                </button>
+                <button
+                  type="button"
+                  disabled={!hydrated}
+                  onClick={() => {
+                    setGoogleSheetsMode('compact');
+                    persist({ googleSheetsMode: 'compact' });
+                  }}
+                  className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                    googleSheetsMode === 'compact'
+                      ? 'bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-500/30'
+                      : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  Compact (read-mostly)
+                </button>
+              </div>
+              <p className="mt-1.5 text-xs text-slate-500">
+                Full toolbar is the same Google Sheets UI you get in a new tab, just inside this page.
+              </p>
+            </div>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
@@ -200,8 +256,8 @@ export function SupplierEmbeddedCalculatorClient() {
               open the workbook → <span className="font-medium">⋯</span> → <span className="font-medium">Embed</span> → copy the
               URL from the iframe code (starts with{' '}
               <span className="font-mono text-xs">https://onedrive.live.com/embed</span> or{' '}
-              <span className="font-mono text-xs">view.officeapps.live.com</span>). You can also paste a SharePoint{' '}
-              <span className="font-mono text-xs">embed.aspx</span> link.
+              <span className="font-mono text-xs">view.officeapps.live.com</span>). When you have edit rights, you can usually
+              type in cells right in the frame below; your tenant may restrict embedding or interactivity.
             </p>
           </div>
           <div className="space-y-4 p-5 sm:p-6">
@@ -268,7 +324,7 @@ export function SupplierEmbeddedCalculatorClient() {
               title={active === 'google' ? 'Embedded Google Sheet' : 'Embedded Excel workbook'}
               src={iframeSrc}
               className="h-[min(85vh,900px)] w-full border-0"
-              allow="clipboard-write; fullscreen"
+              allow="clipboard-write; clipboard-read; fullscreen"
               referrerPolicy="strict-origin-when-cross-origin"
             />
           ) : (
@@ -292,6 +348,10 @@ export function SupplierEmbeddedCalculatorClient() {
             <li>Only https links on Google Docs or Microsoft embed hosts are accepted.</li>
             <li>Saved links stay in this browser (localStorage), not on our servers yet.</li>
             <li>Google and Microsoft control login, printing, and whether a file may be embedded.</li>
+            <li>
+              Editing in the frame follows each vendor&apos;s rules: you need Editor access, and some orgs block embedding or
+              third-party cookies that sign-in relies on.
+            </li>
           </ul>
         </div>
       </details>

@@ -5,6 +5,9 @@
 
 export type EmbedUrlResult = { ok: true; embedUrl: string } | { ok: false; error: string };
 
+/** Compact chrome (read-heavy). `fullEdit` loads the normal Sheets editor in the iframe so people can type formulas without leaving your site (needs Editor + Google login). */
+export type GoogleSheetsEmbedMode = 'compact' | 'fullEdit';
+
 const GOOGLE_SHEETS_PATH = /\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/;
 
 function isHttpsUrl(raw: string): URL | null {
@@ -19,8 +22,8 @@ function isHttpsUrl(raw: string): URL | null {
   }
 }
 
-/** Turn a Sheets browser URL into a minimal-chrome embed (still requires sheet sharing for viewers). */
-export function buildGoogleSheetsEmbedUrl(pasted: string): EmbedUrlResult {
+/** Turn a Sheets browser URL into an iframe `src` (compact or full editor). */
+export function buildGoogleSheetsEmbedUrl(pasted: string, mode: GoogleSheetsEmbedMode = 'fullEdit'): EmbedUrlResult {
   const u = isHttpsUrl(pasted);
   if (!u) return { ok: false, error: 'Paste a full https:// link from Google Sheets.' };
   if (u.hostname !== 'docs.google.com') {
@@ -29,8 +32,26 @@ export function buildGoogleSheetsEmbedUrl(pasted: string): EmbedUrlResult {
   const m = u.pathname.match(GOOGLE_SHEETS_PATH);
   if (!m) return { ok: false, error: 'Could not read the spreadsheet ID from that link.' };
   const id = m[1];
-  const embedUrl = `https://docs.google.com/spreadsheets/d/${id}/edit?rm=minimal&widget=true&headers=false`;
+  const embedUrl =
+    mode === 'compact'
+      ? `https://docs.google.com/spreadsheets/d/${id}/edit?rm=minimal&widget=true&headers=false`
+      : `https://docs.google.com/spreadsheets/d/${id}/edit?usp=sharing`;
   return { ok: true, embedUrl };
+}
+
+/**
+ * Nudge Office Online embed URLs toward in-frame editing when Microsoft supports the flag on this host.
+ * Real editability still depends on file permissions and tenant settings.
+ */
+export function enhanceExcelOfficeEmbedForEditing(embedUrl: string): string {
+  const u = isHttpsUrl(embedUrl);
+  if (!u) return embedUrl;
+  const host = u.hostname.toLowerCase();
+  if (host === 'view.officeapps.live.com' && !u.searchParams.has('wdAllowInteractivity')) {
+    u.searchParams.set('wdAllowInteractivity', 'True');
+    return u.toString();
+  }
+  return embedUrl;
 }
 
 /** Accept Office embed URLs as pasted (OneDrive embed, SharePoint embed, or Office viewer). */
@@ -50,5 +71,5 @@ export function sanitizeExcelOfficeEmbedUrl(pasted: string): EmbedUrlResult {
     };
   }
 
-  return { ok: true, embedUrl: u.toString() };
+  return { ok: true, embedUrl: enhanceExcelOfficeEmbedForEditing(u.toString()) };
 }
