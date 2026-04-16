@@ -42,6 +42,12 @@ const workspaceLinks = [
   },
 ];
 
+const suppliersNavLink = {
+  href: '/dashboard/suppliers',
+  label: 'Suppliers',
+  icon: <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18a.75.75 0 0 1 .75-.75h6a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1-.75-.75Zm.75-11.25a.75.75 0 0 0 0 1.5h6a.75.75 0 0 0 0-1.5H9ZM3 6.75A2.25 2.25 0 0 1 5.25 4.5h13.5A2.25 2.25 0 0 1 21 6.75v10.5A2.25 2.25 0 0 1 18.75 19.5H5.25A2.25 2.25 0 0 1 3 17.25V6.75Zm2.25-.75a.75.75 0 0 0-.75.75v10.5c0 .414.336.75.75.75h13.5a.75.75 0 0 0 .75-.75V6.75a.75.75 0 0 0-.75-.75H5.25Z" />,
+};
+
 const businessLinks = [
   {
     href: '/dashboard/billing',
@@ -207,10 +213,11 @@ export function DashboardNav({
   const isAdmin = userRole && ADMIN_ROLES.includes(userRole);
   const isSupplier = accountType === 'supplier';
   const filteredBusiness = businessLinks.filter((l) => !l.adminOnly || isAdmin);
+  const contractorWorkspace = [...workspaceLinks, suppliersNavLink] as NavLink[];
   const mobileLinks = (
     isSupplier
       ? ([...workspaceLinks, ...supplierNavLinks, ...filteredBusiness] as NavLink[])
-      : ([...workspaceLinks, ...filteredBusiness] as NavLink[])
+      : ([...contractorWorkspace, ...filteredBusiness] as NavLink[])
   ) as NavLink[];
 
   async function handleLogout() {
@@ -234,7 +241,11 @@ export function DashboardNav({
           {isSupplier ? 'Contractor workspace' : 'Workspace'}
         </p>
         <div className="flex flex-col gap-0.5">
-          <NavRows links={workspaceLinks as NavLink[]} pathname={pathname} isMobile={false} />
+          <NavRows
+            links={(isSupplier ? workspaceLinks : contractorWorkspace) as NavLink[]}
+            pathname={pathname}
+            isMobile={false}
+          />
         </div>
       </div>
       {isSupplier && (

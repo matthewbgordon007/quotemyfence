@@ -55,7 +55,11 @@ export async function POST(request: NextRequest) {
   if (!contractorId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await request.json();
-  const { layout_drawing_id, quote_session_id, description } = body;
+  const { layout_drawing_id, quote_session_id, description, supplier_contractor_id: rawSupplier } = body;
+  const supplierContractorId =
+    rawSupplier && String(rawSupplier).trim() && String(rawSupplier).trim() !== 'master'
+      ? String(rawSupplier).trim()
+      : null;
 
   let layoutId = layout_drawing_id ?? body.layoutId;
   let sessionId = quote_session_id ?? body.quote_session_id;
@@ -127,12 +131,32 @@ export async function POST(request: NextRequest) {
 
   if (layoutErr || !layout) return NextResponse.json({ error: 'Layout not found' }, { status: 404 });
 
+  if (supplierContractorId) {
+    const { data: tgt } = await supabase
+      .from('contractors')
+      .select('account_type')
+      .eq('id', supplierContractorId)
+      .eq('is_active', true)
+      .single();
+    if (!tgt || tgt.account_type !== 'supplier') {
+      return NextResponse.json({ error: 'Invalid supplier' }, { status: 400 });
+    }
+    const { data: rel } = await supabase
+      .from('contractor_supplier_links')
+      .select('id')
+      .eq('contractor_id', contractorId)
+      .eq('supplier_contractor_id', supplierContractorId)
+      .maybeSingle();
+    if (!rel) return NextResponse.json({ error: 'Link that supplier on the Suppliers page first' }, { status: 403 });
+  }
+
   const { data: req, error } = await supabase
     .from('material_quote_requests')
     .insert({
       layout_drawing_id: layout.id,
       quote_session_id: sessionId || null,
       contractor_id: contractorId,
+      supplier_contractor_id: supplierContractorId,
       description: descFinal,
       status: 'pending',
       updated_at: new Date().toISOString(),

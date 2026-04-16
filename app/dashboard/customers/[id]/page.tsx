@@ -44,6 +44,8 @@ export default function CustomerDetailPage() {
   const [showExportToAdmin, setShowExportToAdmin] = useState(false);
   const [exportNotes, setExportNotes] = useState('');
   const [submittingExport, setSubmittingExport] = useState(false);
+  const [linkedSuppliers, setLinkedSuppliers] = useState<{ id: string; company_name: string }[]>([]);
+  const [exportSupplierId, setExportSupplierId] = useState<string>('master');
   const [editForm, setEditForm] = useState({
     first_name: '',
     last_name: '',
@@ -100,11 +102,16 @@ export default function CustomerDetailPage() {
   const handleExportToAdmin = async () => {
     setSubmittingExport(true);
     try {
+      const supplier_contractor_id = exportSupplierId === 'master' ? null : exportSupplierId;
       const res = await fetch('/api/contractor/material-quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ quote_session_id: id, description: exportNotes.trim() || undefined }),
+        body: JSON.stringify({
+          quote_session_id: id,
+          description: exportNotes.trim() || undefined,
+          supplier_contractor_id,
+        }),
       });
       if (!res.ok) {
         const d = await res.json();
@@ -112,7 +119,11 @@ export default function CustomerDetailPage() {
       }
       setShowExportToAdmin(false);
       setExportNotes('');
-      alert('Fence layout and notes sent to admin. They will prepare your material quote.');
+      alert(
+        supplier_contractor_id
+          ? 'Fence layout and notes sent to your supplier. They can respond from their dashboard.'
+          : 'Fence layout and notes sent to the platform team for a material quote.'
+      );
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Failed to send');
     } finally {
@@ -142,6 +153,17 @@ export default function CustomerDetailPage() {
       setDeletingQuoteId(null);
     }
   };
+
+  useEffect(() => {
+    fetch('/api/contractor/suppliers', { credentials: 'include' })
+      .then((r) => r.json())
+      .then((d) => {
+        const linkedIds: string[] = d.linkedSupplierIds || [];
+        const all: { id: string; company_name: string }[] = d.suppliers || [];
+        setLinkedSuppliers(all.filter((s) => linkedIds.includes(s.id)));
+      })
+      .catch(() => setLinkedSuppliers([]));
+  }, []);
 
   useEffect(() => {
     fetch(`/api/contractor/customers/${id}`)
@@ -473,10 +495,13 @@ export default function CustomerDetailPage() {
               {(layoutDrawing || segments.length > 0 || fence) && (
                 <button
                   type="button"
-                  onClick={() => setShowExportToAdmin(true)}
+                  onClick={() => {
+                    setExportSupplierId(linkedSuppliers[0]?.id ?? 'master');
+                    setShowExportToAdmin(true);
+                  }}
                   className="rounded-xl border border-amber-500 bg-amber-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-600"
                 >
-                  Export fence layout to admin →
+                  Send fence layout to supplier →
                 </button>
               )}
               <button
@@ -547,10 +572,30 @@ export default function CustomerDetailPage() {
       {showExportToAdmin && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !submittingExport && setShowExportToAdmin(false)}>
           <div className="w-full max-w-lg rounded-2xl border border-[var(--line)] bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold">Export fence layout to admin</h3>
+            <h3 className="text-lg font-semibold">Send fence layout for material quote</h3>
             <p className="mt-1 text-sm text-[var(--muted)]">
-              Add quote notes with specifications or anything the admin should know. The layout will be sent for a material quote.
+              Choose who receives the layout and notes. Link suppliers under{' '}
+              <Link href="/dashboard/suppliers" className="font-medium text-[var(--accent)] hover:underline">
+                Suppliers
+              </Link>
+              .
             </p>
+            <label className="mt-4 block text-sm font-medium text-[var(--text)]">Send to</label>
+            <select
+              value={exportSupplierId}
+              onChange={(e) => setExportSupplierId(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+            >
+              <option value="master">Platform team (legacy)</option>
+              {linkedSuppliers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.company_name}
+                </option>
+              ))}
+            </select>
+            {linkedSuppliers.length === 0 && (
+              <p className="mt-2 text-xs text-amber-800">No linked suppliers — only the platform team option is available until you add one.</p>
+            )}
             <textarea
               value={exportNotes}
               onChange={(e) => setExportNotes(e.target.value)}
@@ -565,7 +610,7 @@ export default function CustomerDetailPage() {
                 disabled={submittingExport}
                 className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 hover:bg-amber-600"
               >
-                {submittingExport ? 'Sending…' : 'Submit to admin'}
+                {submittingExport ? 'Sending…' : 'Send layout'}
               </button>
               <button
                 type="button"
