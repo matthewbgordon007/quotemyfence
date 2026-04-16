@@ -7,11 +7,17 @@ import {
   sanitizeExcelOfficeEmbedUrl,
   type GoogleSheetsEmbedMode,
 } from '@/lib/supplier-embed-calculator-urls';
+import {
+  defaultEmbedCalculatorConfig,
+  EMBED_CALC_CONFIG_VERSION,
+  parseEmbedCalculatorConfig,
+} from '@/lib/supplier-embed-calculator-config';
 import type { MaterialQuoteRequestDto } from '@/lib/supplier-material-quote-requests-enrich';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+/** Legacy browser-only storage; migrated once to company settings when server config is empty. */
 const STORAGE_KEY = 'supplier-embedded-calculator-links-v1';
 
 type Stored = {
@@ -45,14 +51,6 @@ function loadStored(): Stored {
   }
 }
 
-function saveStored(s: Stored) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
-  } catch {
-    /* ignore quota */
-  }
-}
-
 export function SupplierEmbeddedCalculatorClient() {
   const searchParams = useSearchParams();
   const materialRequestId = searchParams.get('materialRequest');
@@ -68,14 +66,64 @@ export function SupplierEmbeddedCalculatorClient() {
   const [sideRequest, setSideRequest] = useState<MaterialQuoteRequestDto | null>(null);
   const [sideLoading, setSideLoading] = useState(false);
   const [sideError, setSideError] = useState<string | null>(null);
+  const [syncState, setSyncState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    const s = loadStored();
-    setGooglePasted(s.googlePasted);
-    setExcelPasted(s.excelPasted);
-    setActive(s.active);
-    setGoogleSheetsMode(s.googleSheetsMode);
-    setHydrated(true);
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch('/api/supplier/embed-calculator-config', { credentials: 'include' });
+        const j = (await r.json()) as { error?: string; config?: unknown };
+        if (cancelled) return;
+        if (!r.ok) throw new Error(j.error || 'Could not load saved links');
+        let cfg = parseEmbedCalculatorConfig(j.config);
+        if (!cfg.googlePasted.trim() && !cfg.excelPasted.trim()) {
+          const local = loadStored();
+          if (local.googlePasted.trim() || local.excelPasted.trim()) {
+            const body = { version: EMBED_CALC_CONFIG_VERSION, ...local };
+            const put = await fetch('/api/supplier/embed-calculator-config', {
+              method: 'PUT',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            });
+            const pj = (await put.json()) as { error?: string; config?: unknown };
+            if (put.ok && pj.config) {
+              cfg = parseEmbedCalculatorConfig(pj.config);
+              try {
+                localStorage.removeItem(STORAGE_KEY);
+              } catch {
+                /* ignore */
+              }
+            } else {
+              cfg = { ...defaultEmbedCalculatorConfig(), ...local, version: EMBED_CALC_CONFIG_VERSION };
+            }
+          }
+        }
+        setGooglePasted(cfg.googlePasted);
+        setExcelPasted(cfg.excelPasted);
+        setActive(cfg.active);
+        setGoogleSheetsMode(cfg.googleSheetsMode);
+      } catch (e) {
+        if (!cancelled) {
+          const local = loadStored();
+          setGooglePasted(local.googlePasted);
+          setExcelPasted(local.excelPasted);
+          setActive(local.active);
+          setGoogleSheetsMode(local.googleSheetsMode);
+          setSyncMessage(
+            e instanceof Error ? e.message : 'Using this browser only until company save is available.',
+          );
+          setSyncState('error');
+        }
+      } finally {
+        if (!cancelled) setHydrated(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -128,20 +176,55 @@ export function SupplierEmbeddedCalculatorClient() {
   const excelEmbed = useMemo(() => sanitizeExcelOfficeEmbedUrl(excelPasted), [excelPasted]);
   const googleOpenInSheetsUrl = useMemo(() => getGoogleSheetsTopLevelEditUrl(googlePasted), [googlePasted]);
 
-  const persist = useCallback((patch: Partial<Stored>) => {
-    setHydrated(true);
-    const next: Stored = {
-      googlePasted: patch.googlePasted ?? googlePasted,
-      excelPasted: patch.excelPasted ?? excelPasted,
-      active: patch.active ?? active,
-      googleSheetsMode: patch.googleSheetsMode ?? googleSheetsMode,
-    };
-    saveStored(next);
-    if (patch.googlePasted !== undefined) setGooglePasted(patch.googlePasted);
-    if (patch.excelPasted !== undefined) setExcelPasted(patch.excelPasted);
-    if (patch.active !== undefined) setActive(patch.active);
-    if (patch.googleSheetsMode !== undefined) setGoogleSheetsMode(patch.googleSheetsMode);
-  }, [googlePasted, excelPasted, active, googleSheetsMode]);
+  const saveToServer = useCallback(async (payload: Stored) => {
+    setSyncState('saving');
+    setSyncMessage(null);
+    try {
+      const r = await fetch('/api/supplier/embed-calculator-config', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          version: EMBED_CALC_CONFIG_VERSION,
+          googlePasted: payload.googlePasted,
+          excelPasted: payload.excelPasted,
+          active: payload.active,
+          googleSheetsMode: payload.googleSheetsMode,
+        }),
+      });
+      const j = (await r.json()) as { error?: string };
+      if (!r.ok) {
+        setSyncMessage(j.error || 'Save failed');
+        setSyncState('error');
+        return;
+      }
+      setSyncState('saved');
+      window.setTimeout(() => {
+        setSyncState((s) => (s === 'saved' ? 'idle' : s));
+      }, 2200);
+    } catch {
+      setSyncMessage('Network error while saving.');
+      setSyncState('error');
+    }
+  }, []);
+
+  const persist = useCallback(
+    (patch: Partial<Stored>) => {
+      setHydrated(true);
+      const next: Stored = {
+        googlePasted: patch.googlePasted ?? googlePasted,
+        excelPasted: patch.excelPasted ?? excelPasted,
+        active: patch.active ?? active,
+        googleSheetsMode: patch.googleSheetsMode ?? googleSheetsMode,
+      };
+      if (patch.googlePasted !== undefined) setGooglePasted(patch.googlePasted);
+      if (patch.excelPasted !== undefined) setExcelPasted(patch.excelPasted);
+      if (patch.active !== undefined) setActive(patch.active);
+      if (patch.googleSheetsMode !== undefined) setGoogleSheetsMode(patch.googleSheetsMode);
+      void saveToServer(next);
+    },
+    [googlePasted, excelPasted, active, googleSheetsMode, saveToServer],
+  );
 
   const iframeSrc =
     active === 'google'
@@ -170,10 +253,22 @@ export function SupplierEmbeddedCalculatorClient() {
         >
           Supplier workspace
         </p>
-        <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Embedded calculator</h1>
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Embedded calculator</h1>
+          {syncState === 'saving' ? (
+            <span className="text-xs font-medium text-slate-500">Saving…</span>
+          ) : syncState === 'saved' ? (
+            <span className="text-xs font-semibold text-emerald-600">Saved for your company</span>
+          ) : syncState === 'error' && syncMessage ? (
+            <span className="max-w-md text-xs font-medium text-amber-700" title={syncMessage}>
+              {syncMessage}
+            </span>
+          ) : null}
+        </div>
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
           Link your own Google Sheet or Microsoft Excel embed and edit in the frame when your account has Editor access—no
-          separate tab required. Links are saved in this browser only until we add per-company storage.
+          separate tab required. When you save, links are stored for your whole supplier company so teammates see the same
+          calculator.
           {showQuotePanel ? (
             <>
               {' '}
@@ -344,7 +439,7 @@ export function SupplierEmbeddedCalculatorClient() {
                   persist({ googlePasted });
                 }}
               >
-                Save link in this browser
+                Save for company
               </button>
               <button
                 type="button"
@@ -402,7 +497,7 @@ export function SupplierEmbeddedCalculatorClient() {
                   persist({ excelPasted });
                 }}
               >
-                Save link in this browser
+                Save for company
               </button>
               <button
                 type="button"
@@ -488,7 +583,7 @@ export function SupplierEmbeddedCalculatorClient() {
         <div className="border-t border-slate-100 px-5 py-4 text-sm text-slate-600 sm:px-6">
           <ul className="list-inside list-disc space-y-2">
             <li>Only https links on Google Docs or Microsoft embed hosts are accepted.</li>
-            <li>Saved links stay in this browser (localStorage), not on our servers yet.</li>
+            <li>Saved sheet links are stored on your supplier company record so any signed-in teammate can use the same embed.</li>
             <li>Google and Microsoft control login, printing, and whether a file may be embedded.</li>
             <li>
               Editing in the frame follows each vendor&apos;s rules: you need Editor access, and some orgs block embedding or

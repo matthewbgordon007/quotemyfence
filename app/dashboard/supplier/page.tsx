@@ -444,7 +444,9 @@ export default async function SupplierDashboardHomePage() {
               className="flex h-full flex-col rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm transition hover:border-indigo-200 hover:shadow-md"
             >
               <h3 className="font-semibold text-slate-900">Sheet calculator</h3>
-              <p className="mt-2 flex-1 text-sm text-slate-600">Embed Google Sheets or Excel and open requests beside it.</p>
+              <p className="mt-2 flex-1 text-sm text-slate-600">
+                Embed Google Sheets or Excel; saved links are shared with everyone on your supplier account.
+              </p>
               <span className="mt-4 text-sm font-semibold text-indigo-600">Open →</span>
             </Link>
           </li>
