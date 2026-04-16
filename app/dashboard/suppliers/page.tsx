@@ -297,12 +297,21 @@ export default function SuppliersPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl pb-10">
-      <div className="border-b border-slate-200 pb-8">
-        <p className="text-sm font-medium text-slate-500">Workspace</p>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Suppliers</h1>
+      <div
+        className="relative overflow-hidden rounded-[2rem] border p-6 shadow-xl shadow-slate-900/[0.05] sm:p-8"
+        style={{
+          borderColor: 'var(--dashboard-line)',
+          background:
+            'linear-gradient(135deg, rgb(var(--dashboard-brand-rgb) / 0.14), rgb(255 255 255 / 0.98) 42%, rgb(var(--dashboard-brand-rgb) / 0.05))',
+        }}
+      >
+        <p className="inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--dashboard-ink)]" style={{ background: 'var(--dashboard-soft)' }}>
+          Workspace
+        </p>
+        <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Suppliers</h1>
         <p className="mt-2 max-w-2xl text-sm text-slate-600">
-          Choose suppliers on QuoteMyFence, then browse their catalog (without seeing their pricing) and import styles
-          into your Products page. You set all customer-facing prices after import.
+          Choose suppliers on QuoteMyFence, then browse their catalog without pricing and import styles into your
+          Products page. You stay fully in control of customer-facing prices.
         </p>
       </div>
 

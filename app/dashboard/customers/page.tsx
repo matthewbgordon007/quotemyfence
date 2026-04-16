@@ -284,10 +284,20 @@ export default function CustomersPage() {
         onCreated={(id) => router.push(`/dashboard/customers/${id}`)}
       />
 
+      <div
+        className="relative overflow-hidden rounded-[2rem] border p-6 shadow-xl shadow-slate-900/[0.05] sm:p-8"
+        style={{
+          borderColor: 'var(--dashboard-line)',
+          background:
+            'linear-gradient(135deg, rgb(var(--dashboard-brand-rgb) / 0.14), rgb(255 255 255 / 0.98) 42%, rgb(var(--dashboard-brand-rgb) / 0.05))',
+        }}
+      >
       {/* Header */}
-      <div className="flex flex-col gap-6 border-b border-slate-200/80 pb-8 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-slate-500">Pipeline</p>
+          <p className="inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--dashboard-ink)]" style={{ background: 'var(--dashboard-soft)' }}>
+            Pipeline
+          </p>
           <div className="mt-1 flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Leads</h1>
             {refreshing && (
@@ -306,7 +316,8 @@ export default function CustomersPage() {
           <button
             type="button"
             onClick={() => setShowNewLead(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-500 active:scale-[0.98]"
+            className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition active:scale-[0.98]"
+            style={{ background: 'var(--dashboard-brand)', boxShadow: '0 10px 24px rgb(var(--dashboard-brand-rgb) / 0.22)' }}
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -318,7 +329,8 @@ export default function CustomersPage() {
               href={quotePageUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border bg-white/90 px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm backdrop-blur-sm transition hover:bg-white"
+              style={{ borderColor: 'var(--dashboard-line)' }}
             >
               Quote page
               <svg className="h-3.5 w-3.5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -328,11 +340,13 @@ export default function CustomersPage() {
           )}
           <Link
             href="/dashboard"
-            className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+            className="inline-flex items-center justify-center rounded-xl border bg-white/90 px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm backdrop-blur-sm transition hover:bg-white"
+            style={{ borderColor: 'var(--dashboard-line)' }}
           >
             Overview
           </Link>
         </div>
+      </div>
       </div>
 
       {/* KPI strip */}
@@ -340,9 +354,17 @@ export default function CustomersPage() {
         <div
           className={`rounded-2xl border p-5 shadow-sm transition-shadow ${
             unviewedCount > 0
-              ? 'border-blue-200/80 bg-gradient-to-br from-blue-50/90 to-white ring-1 ring-blue-100'
+              ? 'ring-1'
               : 'border-slate-200/80 bg-white'
           }`}
+          style={
+            unviewedCount > 0
+              ? {
+                  borderColor: 'var(--dashboard-line)',
+                  background: 'linear-gradient(135deg, var(--dashboard-soft-strong), rgb(255 255 255 / 0.98))',
+                }
+              : undefined
+          }
         >
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Unviewed</p>
           <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{unviewedCount}</p>

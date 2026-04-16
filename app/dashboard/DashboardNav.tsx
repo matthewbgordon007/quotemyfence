@@ -129,13 +129,22 @@ function NavRows({
             disabled
               ? 'cursor-not-allowed text-slate-400 opacity-50'
               : isActive
-                ? 'text-blue-600'
+                ? 'text-[var(--dashboard-ink)]'
                 : 'text-slate-500 hover:text-slate-800 active:bg-slate-100'
           }`;
           const content = (
             <>
               <span
-                className={`flex h-10 w-10 items-center justify-center rounded-xl ${isActive ? 'bg-blue-50 shadow-sm ring-1 ring-blue-100' : 'bg-transparent'}`}
+                className="flex h-10 w-10 items-center justify-center rounded-xl"
+                style={
+                  isActive
+                    ? {
+                        background: 'var(--dashboard-soft)',
+                        boxShadow: '0 1px 2px rgb(var(--dashboard-brand-rgb) / 0.12)',
+                        border: '1px solid var(--dashboard-line)',
+                      }
+                    : undefined
+                }
               >
                 <svg
                   className={`h-6 w-6 ${isActive ? 'stroke-[2.25px]' : 'stroke-[1.5px]'}`}
@@ -167,13 +176,14 @@ function NavRows({
           disabled
             ? 'cursor-not-allowed text-slate-400 opacity-60'
             : isActive
-              ? 'bg-blue-50 text-blue-800 shadow-sm ring-1 ring-blue-100/80'
+              ? 'shadow-sm'
               : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
         }`;
         const content = (
           <>
             <svg
-              className={`h-5 w-5 shrink-0 ${isActive ? 'stroke-[2.25px] text-blue-600' : 'stroke-2 text-slate-500'}`}
+              className={`h-5 w-5 shrink-0 ${isActive ? 'stroke-[2.25px]' : 'stroke-2 text-slate-500'}`}
+              style={isActive ? { color: 'var(--dashboard-ink)' } : undefined}
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -188,7 +198,21 @@ function NavRows({
             {content}
           </span>
         ) : (
-          <Link key={link.href} href={link.href} className={baseClass}>
+          <Link
+            key={link.href}
+            href={link.href}
+            className={baseClass}
+            style={
+              isActive
+                ? {
+                    background: 'var(--dashboard-soft)',
+                    color: 'var(--dashboard-ink)',
+                    boxShadow: '0 1px 2px rgb(var(--dashboard-brand-rgb) / 0.10)',
+                    border: '1px solid var(--dashboard-line)',
+                  }
+                : undefined
+            }
+          >
             {content}
           </Link>
         );
@@ -253,7 +277,13 @@ export function DashboardNav({
           <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-indigo-500">
             Supplier workspace
           </p>
-          <div className="flex flex-col gap-0.5 rounded-xl border border-indigo-100/80 bg-indigo-50/40 p-1.5">
+          <div
+            className="flex flex-col gap-0.5 rounded-xl p-1.5"
+            style={{
+              border: '1px solid var(--dashboard-line)',
+              background: 'linear-gradient(135deg, rgb(var(--dashboard-brand-rgb) / 0.08), rgb(99 102 241 / 0.06))',
+            }}
+          >
             <NavRows links={supplierNavLinks as NavLink[]} pathname={pathname} isMobile={false} />
           </div>
         </div>

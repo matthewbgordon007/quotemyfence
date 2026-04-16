@@ -621,9 +621,19 @@ export default function ProductsPage() {
           company admin to change products or prices.
         </div>
       )}
-      <div className="flex flex-col gap-4 border-b border-slate-200/90 pb-8 sm:flex-row sm:items-end sm:justify-between">
+      <div
+        className="relative overflow-hidden rounded-[2rem] border p-6 shadow-xl shadow-slate-900/[0.05] sm:p-8"
+        style={{
+          borderColor: 'var(--dashboard-line)',
+          background:
+            'linear-gradient(135deg, rgb(var(--dashboard-brand-rgb) / 0.14), rgb(255 255 255 / 0.98) 42%, rgb(var(--dashboard-brand-rgb) / 0.05))',
+        }}
+      >
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-slate-500">Catalog</p>
+          <p className="inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--dashboard-ink)]" style={{ background: 'var(--dashboard-soft)' }}>
+            Catalog
+          </p>
           <div className="mt-1 flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Products</h1>
             {refreshing && (
@@ -643,11 +653,13 @@ export default function ProductsPage() {
           <button
             type="button"
             onClick={() => setShowAddType(true)}
-            className="shrink-0 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-500"
+            className="shrink-0 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition"
+            style={{ background: 'var(--dashboard-brand)', boxShadow: '0 10px 24px rgb(var(--dashboard-brand-rgb) / 0.22)' }}
           >
             Add fence type
           </button>
         )}
+      </div>
       </div>
 
       {/* Stats + toolbar */}
