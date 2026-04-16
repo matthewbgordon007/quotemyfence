@@ -186,7 +186,7 @@ export const firstSheetFieldSpecs: MaterialCalculatorFieldSpec[] = [
     label: 'Post count for materials (whole panels + H terminations − 1)',
     mode: 'calculated',
     section: 'color_line',
-    notes: 'Premium Fence PVC: =D9+D6−1. Often 2 higher than a separate “Posts” row that shows only D9 when D6=3 (since D6−1=2).',
+    notes: 'Fence line =D9+D6−1, plus gate posts needed for the run. Often 2 higher than a D9-only “Posts” row when D6=3 (D6−1=2).',
   },
   {
     id: 'pvc_long_screw_sheet_final',
@@ -379,11 +379,22 @@ export function pvcWholePanelsD9(exactPanels: number): number {
 }
 
 /**
- * Galvanized / H / cap / short screw / concrete row on the PVC sheet: =D9+D6−1.
+ * Fence color line only: =D9+D6−1 (whole panels + H terminations − 1).
  * This is usually **not** the same as a separate “Posts” row that shows **D9 only** — when D6 is 3, material post count is **2 higher** than D9-only (because 3−1=2).
  */
 export function pvcLinePostsForMaterials(exactPanels: number, hPostTerminationsD6: number): number {
   const d9 = pvcWholePanelsD9(exactPanels);
   const d6 = Math.max(0, Math.round(Number(hPostTerminationsD6) || 0));
   return Math.max(0, d9 + d6 - 1);
+}
+
+/** Total structural posts for the job: fence line (D9+D6−1) plus gate posts needed (0–2). */
+export function pvcLinePostsIncludingGatePosts(
+  exactPanels: number,
+  hPostTerminationsD6: number,
+  gatePostsNeeded: number,
+): number {
+  const fence = pvcLinePostsForMaterials(exactPanels, hPostTerminationsD6);
+  const g = Math.max(0, Math.round(Number(gatePostsNeeded) || 0));
+  return fence + g;
 }

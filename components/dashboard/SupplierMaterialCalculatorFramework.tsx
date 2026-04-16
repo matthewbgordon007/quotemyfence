@@ -6,6 +6,7 @@ import {
   firstSheetFieldSpecs,
   firstSheetGateLineRecipeDefaults,
   pvcLinePostsForMaterials,
+  pvcLinePostsIncludingGatePosts,
   pvcLongScrewFinalFromSheet,
   pvcPlugFinalFromSheet,
   pvcWholePanelsD9,
@@ -38,7 +39,7 @@ const inputFieldLabels: Record<MaterialCalculatorInputField, string> = {
   line_length_ft: 'Line length',
   exact_panels: 'Exact panels',
   rounded_panels: 'Rounded panels',
-  line_posts_including_first: 'Post count (panels + H terminations − 1)',
+  line_posts_including_first: 'Post count (fence D9+D6−1 + gate posts)',
   pvc_long_screw_sheet_final: 'Long screw Final (PVC IF on U channel)',
   pvc_plug_sheet_final: 'Plug Final (PVC IF on U channel)',
   h_post_terminations: 'H post terminations',
@@ -142,10 +143,16 @@ export function SupplierMaterialCalculatorFramework() {
 
   const roundedPanels = useMemo(() => pvcWholePanelsD9(exactPanels), [exactPanels]);
 
-  /** PVC sheet galvanized/H/cap/short/concrete: =D9+D6−1 (see note under stats — not the same as a D9-only “Posts” row). */
-  const linePostsIncludingFirst = useMemo(
+  /** Fence line only (D9+D6−1) — used for gate recipe rows that multiply from “line posts” so gate extras are not double-counted. */
+  const linePostsFenceLineOnly = useMemo(
     () => pvcLinePostsForMaterials(exactPanels, sampleLine.h_post_terminations),
     [exactPanels, sampleLine.h_post_terminations],
+  );
+
+  /** Color line galvanized/H/cap/short/concrete: fence line posts + gate posts needed. */
+  const linePostsIncludingFirst = useMemo(
+    () => pvcLinePostsIncludingGatePosts(exactPanels, sampleLine.h_post_terminations, sampleGateLine.posts_needed),
+    [exactPanels, sampleGateLine.posts_needed, sampleLine.h_post_terminations],
   );
 
   const previewRows = useMemo(() => {
@@ -200,7 +207,7 @@ export function SupplierMaterialCalculatorFramework() {
                   : item.input_field === 'rounded_panels'
                     ? roundedPanels
                     : item.input_field === 'line_posts_including_first'
-                      ? linePostsIncludingFirst
+                      ? linePostsFenceLineOnly
                       : item.input_field === 'pvc_long_screw_sheet_final'
                         ? pvcLongScrewFinalFromSheet(exactPanels, sampleLine.u_channel_terminations)
                         : item.input_field === 'pvc_plug_sheet_final'
@@ -217,7 +224,7 @@ export function SupplierMaterialCalculatorFramework() {
         final: roundForMode(raw, item.rounding_mode),
       };
     });
-  }, [exactPanels, gateRecipeItems, gateTotalBoards, linePostsIncludingFirst, roundedPanels, sampleGateLine.posts_needed, sampleLine]);
+  }, [exactPanels, gateRecipeItems, gateTotalBoards, linePostsFenceLineOnly, roundedPanels, sampleGateLine.posts_needed, sampleLine]);
 
   const materialTotalsByKey = useMemo(() => {
     const map = new Map<string, number>();
@@ -351,10 +358,10 @@ export function SupplierMaterialCalculatorFramework() {
               <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{roundedPanels}</p>
             </div>
             <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/70 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Post count for materials (D9+D6−1)</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Post count for materials (fence + gate)</p>
               <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{linePostsIncludingFirst}</p>
               <p className="mt-2 text-xs leading-snug text-emerald-900/80">
-                Galvanized, H posts, caps, and short screws use this value, not D9 alone. If your sheet has a “Posts” row that shows only whole panels (D9), it is lower by (D6−1) — e.g. when fence terminated with H post (D6) is 3, that row is 2 less than galvanized.
+                Fence line: D9+D6−1 (whole panels + H terminations − 1), plus gate posts needed from the gate inputs. Galvanized, H posts, caps, and short screws multiply from this total. A D9-only “Posts” row on the sheet stays lower when D6 is 3 (by D6−1) and does not include gate posts.
               </p>
             </div>
           </div>
@@ -514,10 +521,10 @@ export function SupplierMaterialCalculatorFramework() {
             </div>
           </div>
           <p className="mt-4 text-sm text-slate-600">
-            Core math: `exact panels = length / panel length`, `D9 whole panels = ceil(exact panels)`, and **material post count** = `D9 + D6 − 1` (`=D9+D6−1` on the sheet). That count drives galvanized posts, H posts, caps, short screws, and concrete (default 2.5 per line post). It is **not** the same number as a “Posts” row that only shows D9: when D6 is 3, D9+D6−1 is **2 more** than D9-only because `3 − 1 = 2`. Gate line defaults do not add a second set of line posts; add gate-only post rows in the gate recipe if needed.
+            Core math: `exact panels = length / panel length`, `D9 whole panels = ceil(exact panels)`, fence-line material post count = `D9 + D6 − 1`, then add gate posts needed for the full total used by the color line (galvanized, H posts, caps, short screws, concrete). Gate recipe rows that use “line posts” resolve to the fence-only base so gate post counts are not applied twice. A D9-only “Posts” row is lower than D9+D6−1 when D6 is 3 (by D6−1) and does not include gate posts.
           </p>
           <p className="mt-3 text-sm text-slate-600">
-            Long screws and plugs (PVC color line): both start from `C = ceil(4 × exact panels)` (sheet column C). Final long screws use `=IF(B22=1,C+6,IF(B22=0,C,IF(B22=2,C+12)))` and plugs use `=IF(B22=1,C-2,IF(B22=0,C,IF(B22=2,C-4)))`, where **B22** is fence terminated with U channel (0, 1, or 2). Short screws still use post count for materials (`D9+D6−1`). Gate line screws add `ceil(multiplier × gate boards)` on top.
+            Long screws and plugs (PVC color line): both start from `C = ceil(4 × exact panels)` (sheet column C). Final long screws use `=IF(B22=1,C+6,IF(B22=0,C,IF(B22=2,C+12)))` and plugs use `=IF(B22=1,C-2,IF(B22=0,C,IF(B22=2,C-4)))`, where B22 is fence terminated with U channel (0, 1, or 2). Short screws use the full post count (fence D9+D6−1 plus gate posts). Gate line screws add `ceil(multiplier × gate boards)` on top.
           </p>
         </div>
       </details>

@@ -52,6 +52,7 @@ function roundNorm(n: number, decimals = 1): number {
 function computeLineMaterials(line: FenceLine, prevLine: FenceLine | null): MaterialItem[] {
   const panels = line.lengthFt / PVC_PANEL_LENGTH_FT;
   const wholePanels = roundUp(panels);
+  // Gate posts not modeled on this page; pass 0 if wiring gate later.
   const posts = pvcLinePostsForMaterials(panels, line.hPost);
 
   // If connects to previous, that end's H post and U channel already counted
