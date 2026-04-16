@@ -6,8 +6,10 @@ export type MaterialCalculatorInputField =
   | 'rounded_panels'
   /** PVC sheet post count for galvanized/H/caps/screws: ceil(panels) + H post terminations − 1 (e.g. =D9+D6−1). */
   | 'line_posts_including_first'
-  /** PVC long-screw basis: whole panels + H terminations (D9+D6), i.e. one more than line post count for materials. */
-  | 'whole_panels_plus_h_terminations'
+  /** PVC sheet Final for long screws: IF on U channel (B22) applied to ceil(4×exact panels). */
+  | 'pvc_long_screw_sheet_final'
+  /** PVC sheet Final for plugs: paired IF on U channel (B22). */
+  | 'pvc_plug_sheet_final'
   | 'h_post_terminations'
   | 'u_channel_terminations'
   | 'gate_unit'
@@ -187,11 +189,18 @@ export const firstSheetFieldSpecs: MaterialCalculatorFieldSpec[] = [
     notes: 'Matches Premium Fence PVC sheet: D9 + D6 − 1 (whole panels + fence terminated with H post − 1).',
   },
   {
-    id: 'whole_panels_plus_h_terminations',
-    label: 'Whole panels + H terminations (long screw basis)',
+    id: 'pvc_long_screw_sheet_final',
+    label: 'Long screw Final (PVC IF on U channel)',
     mode: 'calculated',
     section: 'color_line',
-    notes: 'D9 + D6 on the PVC sheet; used for long screw Final (4× this value), not 4× exact panels.',
+    notes: '=IF(B22=1,C+6,IF(B22=0,C,IF(B22=2,C+12))) with C=ceil(4×exact panels); B22 is fence terminated with U channel (0–2).',
+  },
+  {
+    id: 'pvc_plug_sheet_final',
+    label: 'Plug Final (PVC IF on U channel)',
+    mode: 'calculated',
+    section: 'color_line',
+    notes: '=IF(B22=1,C-2,IF(B22=0,C,IF(B22=2,C-4))) with same C and B22 as long screws.',
   },
   {
     id: 'posts',
@@ -279,12 +288,19 @@ export const firstSheetColorLineRecipeDefaults: MaterialCalculatorRecipeItem[] =
   {
     id: 'color-long-screw',
     name: 'Long Screw',
-    quantity_per_panel: 4,
-    input_field: 'whole_panels_plus_h_terminations',
-    rounding_mode: 'ceil',
-    notes: 'PVC sheet Final column: 4×(D9+D6) = 4×(whole panels + H terminations), not 4×exact panels. Gate line adds long screws per gate boards.',
+    quantity_per_panel: 1,
+    input_field: 'pvc_long_screw_sheet_final',
+    rounding_mode: 'none',
+    notes: 'Sheet: C=ceil(4×exact panels); Final=IF(U=1,C+6,IF(U=0,C,IF(U=2,C+12))) with U = fence terminated with U channel (0–2). Gate line still adds long screws per gate boards.',
   },
-  { id: 'color-plug', name: 'Plug', quantity_per_panel: 4, input_field: 'exact_panels', rounding_mode: 'nearest' },
+  {
+    id: 'color-plug',
+    name: 'Plug',
+    quantity_per_panel: 1,
+    input_field: 'pvc_plug_sheet_final',
+    rounding_mode: 'none',
+    notes: 'Sheet: same C as long screws; Final=IF(U=1,C-2,IF(U=0,C,IF(U=2,C-4))).',
+  },
   { id: 'color-u-channel', name: 'U Channel', quantity_per_panel: 1, input_field: 'u_channel_terminations', rounding_mode: 'ceil' },
 ];
 
@@ -324,3 +340,34 @@ export const firstSheetGateLineRecipeDefaults: MaterialCalculatorRecipeItem[] = 
     notes: 'Same count as hinges; keep qty / multiply-from in sync with Hinge Kit.',
   },
 ];
+
+/** Intermediate C20/C21 on the PVC sheet (4 × exact panels, round up). */
+export function pvcScrewPlugBaseFromExactPanels(exactPanels: number): number {
+  if (!Number.isFinite(exactPanels) || exactPanels <= 0) return 0;
+  return Math.ceil(exactPanels * 4);
+}
+
+/** B22 in the sheet: U channel termination type 0, 1, or 2. */
+export function pvcSheetUChannelBranch(uChannelTerminations: number): 0 | 1 | 2 {
+  const n = Number(uChannelTerminations);
+  if (!Number.isFinite(n)) return 0;
+  return Math.min(2, Math.max(0, Math.round(n))) as 0 | 1 | 2;
+}
+
+/** Long screw Final =IF(B22=1,C+6,IF(B22=0,C,IF(B22=2,C+12))). */
+export function pvcLongScrewFinalFromSheet(exactPanels: number, uChannelTerminations: number): number {
+  const c = pvcScrewPlugBaseFromExactPanels(exactPanels);
+  const b = pvcSheetUChannelBranch(uChannelTerminations);
+  if (b === 1) return c + 6;
+  if (b === 0) return c;
+  return c + 12;
+}
+
+/** Plug Final =IF(B22=1,C-2,IF(B22=0,C,IF(B22=2,C-4))). */
+export function pvcPlugFinalFromSheet(exactPanels: number, uChannelTerminations: number): number {
+  const c = pvcScrewPlugBaseFromExactPanels(exactPanels);
+  const b = pvcSheetUChannelBranch(uChannelTerminations);
+  if (b === 1) return c - 2;
+  if (b === 0) return c;
+  return c - 4;
+}

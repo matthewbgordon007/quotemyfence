@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { pvcLongScrewFinalFromSheet, pvcPlugFinalFromSheet } from '@/lib/material-calculator-framework';
 
 const field =
   'w-full rounded-xl border border-slate-200/90 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20';
@@ -66,8 +67,8 @@ function computeLineMaterials(line: FenceLine, prevLine: FenceLine | null): Mate
   const board = roundNorm(panels * ITEMS_PER_PANEL.board, 1);
   const boardStiffener = roundNorm(panels * ITEMS_PER_PANEL.boardStiffener, 1);
   const shortScrew = posts;
-  const longScrew = (wholePanels + line.hPost) * ITEMS_PER_PANEL.longScrew;
-  const plug = roundUp(panels * ITEMS_PER_PANEL.plug);
+  const longScrew = pvcLongScrewFinalFromSheet(panels, line.uChannel);
+  const plug = pvcPlugFinalFromSheet(panels, line.uChannel);
   const uChannel = uChannelCount;
 
   return [
