@@ -57,6 +57,7 @@ function computeLineMaterials(line: FenceLine, prevLine: FenceLine | null): Mate
   const hPostCount = line.connectsToPrevious ? Math.max(0, line.hPost - 1) : line.hPost;
   const uChannelCount = line.connectsToPrevious ? Math.max(0, line.uChannel - 1) : line.uChannel;
 
+  const concrete = roundNorm(posts * 2.5, 1);
   const galvanized = posts;
   const hPost = hPostCount;
   const cap = hPost;
@@ -70,6 +71,7 @@ function computeLineMaterials(line: FenceLine, prevLine: FenceLine | null): Mate
   const uChannel = uChannelCount;
 
   return [
+    { name: 'Concrete', qty: concrete },
     { name: 'Galvanized Post', qty: galvanized },
     { name: 'H Post', qty: hPost },
     { name: 'Cap (H Post)', qty: cap },
@@ -92,6 +94,7 @@ function aggregateMaterials(lines: { items: MaterialItem[] }[]): MaterialItem[] 
     }
   }
   const order = [
+    'Concrete',
     'Galvanized Post', 'H Post', 'Cap (H Post)', 'Rail', 'Rail Stiffener',
     'Board', 'Board Stiffener', 'Short Screw', 'Long Screw', 'Plug', 'U Channel',
   ];

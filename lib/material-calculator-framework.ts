@@ -230,6 +230,14 @@ export const firstSheetFieldSpecs: MaterialCalculatorFieldSpec[] = [
 ];
 
 export const firstSheetColorLineRecipeDefaults: MaterialCalculatorRecipeItem[] = [
+  {
+    id: 'color-concrete',
+    name: 'Concrete',
+    quantity_per_panel: 2.5,
+    input_field: 'line_posts_including_first',
+    rounding_mode: 'none',
+    notes: '2.5 per line post (e.g. bags); adjust multiplier in the recipe if your supplier uses a different spec.',
+  },
   { id: 'color-galv-post', name: 'Galvanized Post', quantity_per_panel: 1, input_field: 'line_posts_including_first', rounding_mode: 'ceil' },
   {
     id: 'color-h-post',

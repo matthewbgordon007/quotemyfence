@@ -494,7 +494,7 @@ export function SupplierMaterialCalculatorFramework() {
             </div>
           </div>
           <p className="mt-4 text-sm text-slate-600">
-            Core math: `exact panels = length / panel length`, `whole panels = ceil(exact panels)`, and `line posts = whole panels + 1` for the starter post at the beginning of the run. Galvanized posts, H posts, and post caps on the color line all multiply from that same line post count. Gate line defaults do not add a second set of line posts (avoids double-count vs a single order sheet); add gate-only post rows in the gate recipe if your supplier counts them separately.
+            Core math: `exact panels = length / panel length`, `whole panels = ceil(exact panels)`, and `line posts = whole panels + 1` for the starter post at the beginning of the run. Galvanized posts, H posts, post caps, short screws, and concrete (default 2.5 per line post) all multiply from that same line post count. Gate line defaults do not add a second set of line posts (avoids double-count vs a single order sheet); add gate-only post rows in the gate recipe if your supplier counts them separately.
           </p>
           <p className="mt-3 text-sm text-slate-600">
             Screws: line long screws are `ceil(4 × exact panels)`; line short screws are `ceil(1 × line posts)`. Gate long/short screws use `ceil(multiplier × gate boards)` — default multipliers are tuned to common D&H-style takeoffs; edit them in the recipe builder if your widths differ.
