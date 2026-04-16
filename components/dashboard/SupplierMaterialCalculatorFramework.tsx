@@ -73,8 +73,8 @@ function colorHeadingFromDescription(description: string): string {
   return head || 'Color';
 }
 
-type FenceTypeRow = { id: string; standard_height_ft?: number | null };
-type FenceStyleRow = { id: string; fence_type_id: string };
+type FenceTypeRow = { id: string; name?: string | null; standard_height_ft?: number | null };
+type FenceStyleRow = { id: string; fence_type_id: string; style_name?: string | null };
 type ColourOptionRow = { id: string; fence_style_id: string; color_name: string };
 
 type ProductHierarchyPayload = {
@@ -111,6 +111,66 @@ function colorNamesForHeight(
 ): string[] {
   const typeIds = new Set(fenceTypes.filter((t) => typeHeightFt(t) === heightFt).map((t) => t.id));
   const styleIds = new Set(fenceStyles.filter((s) => typeIds.has(s.fence_type_id)).map((s) => s.id));
+  const names = colourOptions
+    .filter((c) => styleIds.has(c.fence_style_id))
+    .map((c) => c.color_name.trim())
+    .filter(Boolean);
+  return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }));
+}
+
+function hybridHorizontalTypeRows(fenceTypes: FenceTypeRow[]): FenceTypeRow[] {
+  return fenceTypes.filter((t) => (t.name || '').toLowerCase().includes('hybrid horizontal'));
+}
+
+function hybridHorizontalStyleNames(fenceTypes: FenceTypeRow[], fenceStyles: FenceStyleRow[]): string[] {
+  const typeIds = new Set(hybridHorizontalTypeRows(fenceTypes).map((t) => t.id));
+  const preferredOrder = ['Standard', 'Triple Top Standard', 'Premium', 'Triple Top Premium'];
+  const names = Array.from(
+    new Set(
+      fenceStyles
+        .filter((s) => typeIds.has(s.fence_type_id))
+        .map((s) => (s.style_name || '').trim())
+        .filter(Boolean),
+    ),
+  );
+  return names.sort((a, b) => {
+    const ai = preferredOrder.indexOf(a);
+    const bi = preferredOrder.indexOf(b);
+    if (ai !== -1 || bi !== -1) return (ai === -1 ? Number.MAX_SAFE_INTEGER : ai) - (bi === -1 ? Number.MAX_SAFE_INTEGER : bi);
+    return a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true });
+  });
+}
+
+function hybridHorizontalHeightsForStyle(styleName: string, fenceTypes: FenceTypeRow[], fenceStyles: FenceStyleRow[]): number[] {
+  const matchingStyleTypeIds = new Set(
+    fenceStyles
+      .filter((s) => (s.style_name || '').trim() === styleName)
+      .map((s) => s.fence_type_id),
+  );
+  const heights = hybridHorizontalTypeRows(fenceTypes)
+    .filter((t) => matchingStyleTypeIds.has(t.id))
+    .map(typeHeightFt)
+    .filter(Number.isFinite);
+  return Array.from(new Set(heights)).sort((a, b) => a - b);
+}
+
+function hybridHorizontalColoursForStyleAndHeight(
+  styleName: string,
+  heightFt: number,
+  fenceTypes: FenceTypeRow[],
+  fenceStyles: FenceStyleRow[],
+  colourOptions: ColourOptionRow[],
+): string[] {
+  const typeIds = new Set(
+    hybridHorizontalTypeRows(fenceTypes)
+      .filter((t) => typeHeightFt(t) === heightFt)
+      .map((t) => t.id),
+  );
+  const styleIds = new Set(
+    fenceStyles
+      .filter((s) => typeIds.has(s.fence_type_id) && (s.style_name || '').trim() === styleName)
+      .map((s) => s.id),
+  );
   const names = colourOptions
     .filter((c) => styleIds.has(c.fence_style_id))
     .map((c) => c.color_name.trim())
@@ -193,6 +253,7 @@ export function SupplierMaterialCalculatorFramework() {
     posts_needed: 2,
   });
   const [masterSheetCellEdits, setMasterSheetCellEdits] = useState<Record<string, string>>({});
+  const [hybridHorizontalSelections, setHybridHorizontalSelections] = useState<Record<string, { heightFt: number | null; colorName: string }>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -219,6 +280,31 @@ export function SupplierMaterialCalculatorFramework() {
           setSelectedHeightFt(h);
           setSelectedColorName(c);
         }
+
+        const hybridStyles = hybridHorizontalStyleNames(fenceTypes, fenceStyles);
+        setHybridHorizontalSelections((prev) => {
+          const next: Record<string, { heightFt: number | null; colorName: string }> = {};
+          for (const styleName of hybridStyles) {
+            const heightsForStyle = hybridHorizontalHeightsForStyle(styleName, fenceTypes, fenceStyles);
+            const prevSelection = prev[styleName];
+            const heightFt =
+              prevSelection?.heightFt != null && heightsForStyle.includes(prevSelection.heightFt)
+                ? prevSelection.heightFt
+                : (heightsForStyle[0] ?? null);
+            const coloursForStyle =
+              heightFt != null
+                ? hybridHorizontalColoursForStyleAndHeight(styleName, heightFt, fenceTypes, fenceStyles, colourOptions)
+                : [];
+            next[styleName] = {
+              heightFt,
+              colorName:
+                prevSelection?.colorName && coloursForStyle.includes(prevSelection.colorName)
+                  ? prevSelection.colorName
+                  : (coloursForStyle[0] ?? ''),
+            };
+          }
+          return next;
+        });
       } catch (e) {
         if (!cancelled) setProductHierarchyError(e instanceof Error ? e.message : 'Could not load products');
       } finally {
@@ -262,6 +348,39 @@ export function SupplierMaterialCalculatorFramework() {
       productHierarchy.colourOptions,
     );
     setSelectedColorName((prev) => (nextColours.includes(prev) ? prev : nextColours[0] ?? ''));
+  }
+
+  const hybridHorizontalStyleOptions = useMemo(() => {
+    if (!productHierarchy) return [];
+    return hybridHorizontalStyleNames(productHierarchy.fenceTypes, productHierarchy.fenceStyles);
+  }, [productHierarchy]);
+
+  function updateHybridHorizontalHeight(styleName: string, heightFt: number) {
+    if (!productHierarchy) return;
+    const coloursForStyle = hybridHorizontalColoursForStyleAndHeight(
+      styleName,
+      heightFt,
+      productHierarchy.fenceTypes,
+      productHierarchy.fenceStyles,
+      productHierarchy.colourOptions,
+    );
+    setHybridHorizontalSelections((prev) => ({
+      ...prev,
+      [styleName]: {
+        heightFt,
+        colorName: coloursForStyle.includes(prev[styleName]?.colorName || '') ? prev[styleName]?.colorName || '' : (coloursForStyle[0] ?? ''),
+      },
+    }));
+  }
+
+  function updateHybridHorizontalColour(styleName: string, colorName: string) {
+    setHybridHorizontalSelections((prev) => ({
+      ...prev,
+      [styleName]: {
+        heightFt: prev[styleName]?.heightFt ?? null,
+        colorName,
+      },
+    }));
   }
 
   const exactPanels = useMemo(() => {
@@ -751,6 +870,110 @@ export function SupplierMaterialCalculatorFramework() {
           <p className="mt-3 text-sm text-slate-600">
             Long screws and plugs (PVC color line): both start from `C = ceil(4 × exact panels)` (sheet column C), then sheet IFs on U channel (B22). After that, long screws include 10 extras and plugs include 10 extras (hole caps). Color-line short screws use `ceil(line post count × qty)` then add 1 spare. Gate line screws add `ceil(multiplier × gate boards)` on top of line long/short totals.
           </p>
+        </div>
+      </details>
+
+      <details className="group rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 sm:px-6">
+          <span>
+            <span className="block text-base font-semibold text-slate-900">Hybrid horizontal calculator</span>
+            <span className="mt-0.5 block text-xs font-normal text-slate-500">Separate dropdowns for each Hybrid Horizontal style in your catalog</span>
+          </span>
+          <span className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 group-open:border-emerald-200 group-open:bg-emerald-50 group-open:text-emerald-800">
+            <span className="group-open:hidden">Open</span>
+            <span className="hidden group-open:inline">Close</span>
+          </span>
+        </summary>
+        <div className="space-y-6 border-t border-slate-100 px-5 py-6 sm:px-6">
+          <section className={cardShell}>
+            <div className={cardHeader}>
+              <h2 className="font-semibold text-slate-900">Hybrid Horizontal style selectors</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Each style gets its own height and colour dropdown pulled from your current products so the next calculator can stay separated by style.
+              </p>
+            </div>
+            <div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6 xl:grid-cols-4">
+              {hybridHorizontalStyleOptions.length === 0 ? (
+                <div className="sm:col-span-2 xl:col-span-4">
+                  <p className="text-sm text-slate-600">
+                    {productHierarchyLoading
+                      ? 'Loading Hybrid Horizontal styles from your catalog...'
+                      : 'No Hybrid Horizontal styles were found in your company products yet.'}
+                  </p>
+                  {productHierarchyError ? <p className="mt-2 text-sm font-medium text-red-600">{productHierarchyError}</p> : null}
+                </div>
+              ) : (
+                hybridHorizontalStyleOptions.map((styleName) => {
+                  const selection = hybridHorizontalSelections[styleName] ?? { heightFt: null, colorName: '' };
+                  const heightsForStyle = productHierarchy
+                    ? hybridHorizontalHeightsForStyle(styleName, productHierarchy.fenceTypes, productHierarchy.fenceStyles)
+                    : [];
+                  const coloursForStyle =
+                    productHierarchy && selection.heightFt != null
+                      ? hybridHorizontalColoursForStyleAndHeight(
+                          styleName,
+                          selection.heightFt,
+                          productHierarchy.fenceTypes,
+                          productHierarchy.fenceStyles,
+                          productHierarchy.colourOptions,
+                        )
+                      : [];
+                  return (
+                    <div key={styleName} className="rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4">
+                      <h3 className="text-sm font-semibold text-slate-900">{styleName}</h3>
+                      <div className="mt-3 space-y-3">
+                        <div>
+                          <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Height</label>
+                          <select
+                            className={`mt-1.5 ${field}`}
+                            value={selection.heightFt != null && heightsForStyle.includes(selection.heightFt) ? String(selection.heightFt) : ''}
+                            disabled={productHierarchyLoading || heightsForStyle.length === 0}
+                            onChange={(e) => {
+                              const v = Number(e.target.value);
+                              if (Number.isFinite(v)) updateHybridHorizontalHeight(styleName, v);
+                            }}
+                          >
+                            {productHierarchyLoading ? (
+                              <option value="">Loading catalog...</option>
+                            ) : heightsForStyle.length === 0 ? (
+                              <option value="">No heights</option>
+                            ) : (
+                              heightsForStyle.map((h) => (
+                                <option key={`${styleName}-${h}`} value={h}>
+                                  {Math.abs(h - Math.round(h)) < 1e-6 ? String(Math.round(h)) : String(h)} ft
+                                </option>
+                              ))
+                            )}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Colour</label>
+                          <select
+                            className={`mt-1.5 ${field}`}
+                            value={coloursForStyle.includes(selection.colorName) ? selection.colorName : ''}
+                            disabled={productHierarchyLoading || coloursForStyle.length === 0}
+                            onChange={(e) => updateHybridHorizontalColour(styleName, e.target.value)}
+                          >
+                            {productHierarchyLoading ? (
+                              <option value="">Loading catalog...</option>
+                            ) : coloursForStyle.length === 0 ? (
+                              <option value="">No colours</option>
+                            ) : (
+                              coloursForStyle.map((name) => (
+                                <option key={`${styleName}-${name}`} value={name}>
+                                  {name}
+                                </option>
+                              ))
+                            )}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </section>
         </div>
       </details>
 
