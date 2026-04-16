@@ -19,6 +19,7 @@ type MaterialReq = {
     total_length_ft?: number | null;
     design_summary?: string | null;
     has_removal?: boolean | null;
+    image_data_url?: string | null;
     drawing_data?: {
       points: { x: number; y: number }[];
       segments: { length_ft: number }[];
@@ -273,6 +274,15 @@ export function ContractorQuotesClient() {
                 {selectedRequest.project?.drawing_data && (
                   <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Customer drawing</p>
+                    {selectedRequest.project?.image_data_url ? (
+                      <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-white">
+                        <img
+                          src={selectedRequest.project.image_data_url}
+                          alt="Customer layout"
+                          className="max-h-[420px] w-full object-contain"
+                        />
+                      </div>
+                    ) : null}
                     <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-white">
                       <LayoutDrawCanvas initialDrawing={selectedRequest.project.drawing_data} readOnly />
                     </div>

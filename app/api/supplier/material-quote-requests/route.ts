@@ -84,9 +84,12 @@ export async function GET() {
     companyById = new Map((cos || []).map((c) => [c.id, c]));
   }
 
-  let layoutById = new Map<string, { id: string; drawing_data: unknown }>();
+  let layoutById = new Map<string, { id: string; drawing_data: unknown; image_data_url?: string | null }>();
   if (layoutIds.length > 0) {
-    const { data: layouts } = await supabase.from('layout_drawings').select('id, drawing_data').in('id', layoutIds);
+    const { data: layouts } = await supabase
+      .from('layout_drawings')
+      .select('id, drawing_data, image_data_url')
+      .in('id', layoutIds);
     layoutById = new Map((layouts || []).map((l) => [l.id, l]));
   }
 
@@ -119,6 +122,7 @@ export async function GET() {
           total_length_ft: fence?.total_length_ft ?? null,
           design_summary: designSummary,
           has_removal: fence?.has_removal ?? false,
+          image_data_url: layout?.image_data_url ?? null,
           drawing_data: (layout?.drawing_data as {
             points?: { x: number; y: number }[];
             segments?: { length_ft: number }[];
