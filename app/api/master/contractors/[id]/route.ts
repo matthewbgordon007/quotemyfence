@@ -46,6 +46,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   const body = await request.json();
   const allowed = [
+    'account_type',
     'company_name',
     'slug',
     'email',
@@ -70,6 +71,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
   for (const k of allowed) {
     if (body[k] !== undefined) updates[k] = body[k];
+  }
+
+  if (updates.account_type !== undefined) {
+    const nextType = String(updates.account_type || '').trim().toLowerCase();
+    if (nextType !== 'contractor' && nextType !== 'supplier') {
+      return NextResponse.json({ error: 'account_type must be contractor or supplier' }, { status: 400 });
+    }
+    updates.account_type = nextType;
   }
 
   if (updates.email !== undefined) {

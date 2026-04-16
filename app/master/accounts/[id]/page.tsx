@@ -42,6 +42,7 @@ const field =
 
 function buildPatchBody(c: ContractorRow) {
   return {
+    account_type: c.account_type === 'supplier' ? 'supplier' : 'contractor',
     company_name: c.company_name,
     slug: (c.slug || '').trim().toLowerCase(),
     email: String(c.email || '').trim().toLowerCase(),
@@ -248,6 +249,25 @@ export default function MasterAccountDetailPage() {
         <h2 className="text-lg font-semibold">Company &amp; account</h2>
         <p className="mt-1 text-xs text-[var(--muted)]">Changes save automatically.</p>
         <div className="mt-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium">Account type</label>
+            <select
+              value={contractor.account_type === 'supplier' ? 'supplier' : 'contractor'}
+              onChange={(e) =>
+                setContractor({
+                  ...contractor,
+                  account_type: e.target.value === 'supplier' ? 'supplier' : 'contractor',
+                })
+              }
+              className={field}
+            >
+              <option value="contractor">Contractor account</option>
+              <option value="supplier">Supplier account</option>
+            </select>
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              Switching account type keeps company data and team users, but changes dashboard access and navigation.
+            </p>
+          </div>
           <div>
             <label className="block text-sm font-medium">Company name</label>
             <input
