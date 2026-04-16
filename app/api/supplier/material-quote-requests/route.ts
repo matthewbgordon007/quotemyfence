@@ -175,16 +175,14 @@ export async function GET() {
     { start_lat: number; start_lng: number; end_lat: number; end_lng: number; length_ft?: number }[]
   >();
   let gatesByFenceId = new Map<string, { gate_type: string; quantity: number; lat?: number | null; lng?: number | null }[]>();
-  let quoteTotalsBySessionId = new Map<string, { total_low: number; total_high: number }>();
   if (fenceIds.length > 0) {
-    const [{ data: segmentRows }, { data: gateRows }, { data: totalsRows }] = await Promise.all([
+    const [{ data: segmentRows }, { data: gateRows }] = await Promise.all([
       supabase
         .from('fence_segments')
         .select('fence_id, start_lat, start_lng, end_lat, end_lng, length_ft, sort_order')
         .in('fence_id', fenceIds)
         .order('sort_order', { ascending: true }),
       supabase.from('gates').select('fence_id, gate_type, quantity, lat, lng').in('fence_id', fenceIds),
-      supabase.from('quote_totals').select('quote_session_id, total_low, total_high').in('quote_session_id', quoteSessionIds),
     ]);
 
     for (const row of segmentRows || []) {
@@ -208,9 +206,6 @@ export async function GET() {
       });
       gatesByFenceId.set(row.fence_id, list);
     }
-    quoteTotalsBySessionId = new Map(
-      (totalsRows || []).map((t) => [t.quote_session_id, { total_low: t.total_low, total_high: t.total_high }])
-    );
   }
 
   const requests = await Promise.all(
@@ -233,7 +228,6 @@ export async function GET() {
           design_summary: designSummary,
           design_option: designOption,
           has_removal: fence?.has_removal ?? false,
-          quote_totals: r.quote_session_id ? quoteTotalsBySessionId?.get(r.quote_session_id) || null : null,
           segments: fenceId ? segmentsByFenceId.get(fenceId) || [] : [],
           gates: fenceId ? gatesByFenceId.get(fenceId) || [] : [],
           image_data_url: layout?.image_data_url ?? null,

@@ -26,7 +26,6 @@ type MaterialReq = {
     design_summary?: string | null;
     design_option?: { height_ft?: number; type?: string; style?: string; colour?: string } | null;
     has_removal?: boolean | null;
-    quote_totals?: { total_low: number; total_high: number } | null;
     segments?: { start_lat: number; start_lng: number; end_lat: number; end_lng: number; length_ft?: number }[];
     gates?: { gate_type: string; quantity: number; lat?: number | null; lng?: number | null }[];
     image_data_url?: string | null;
@@ -358,14 +357,6 @@ export function ContractorQuotesClient() {
                             <><dt className="text-slate-500">Colour</dt><dd>{selectedRequest.project.design_option.colour}</dd></>
                           )}
                         </dl>
-                      )}
-                      {selectedRequest.project.quote_totals && (
-                        <div className="mt-4 rounded-xl bg-white p-4">
-                          <p className="text-sm font-semibold text-slate-500">Estimated range</p>
-                          <p className="mt-1 text-2xl font-bold text-slate-900">
-                            ${Number(selectedRequest.project.quote_totals.total_low).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} - ${Number(selectedRequest.project.quote_totals.total_high).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} CAD
-                          </p>
-                        </div>
                       )}
                     </>
                   ) : (
