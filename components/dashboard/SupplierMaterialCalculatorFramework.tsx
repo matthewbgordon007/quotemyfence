@@ -987,6 +987,8 @@ export function SupplierMaterialCalculatorFramework() {
           </p>
         </div>
       </details>
+        </div>
+      </details>
 
       <details className="group rounded-2xl border border-slate-200/80 bg-white shadow-sm">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 sm:px-6">
@@ -1578,8 +1580,6 @@ export function SupplierMaterialCalculatorFramework() {
               ))}
             </div>
           </section>
-        </div>
-      </details>
         </div>
       </details>
     </div>
