@@ -8,9 +8,11 @@ const SCHEDULE_CALL_URL = 'https://calendar.app.google/vuWD6xi7CfNptAon9';
 
 /** Homepage section anchors — matches ids in app/page.tsx */
 const SECTION_LINKS = [
+  { id: 'setup', label: 'How it works' },
   { id: 'demo', label: 'Demo video' },
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'features', label: 'Features' },
+  { id: 'get-started', label: 'Get started' },
   { id: 'testimonials', label: 'Testimonials' },
   { id: 'pricing', label: 'Pricing' },
   { id: 'faq', label: 'FAQ' },
