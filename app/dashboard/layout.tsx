@@ -168,7 +168,7 @@ export default async function DashboardLayout({
       {/* Main Content Area */}
       <main
         id="main-content"
-        className="relative flex-1 overflow-y-auto p-4 pb-32 [-webkit-overflow-scrolling:touch] md:p-8 md:pb-8"
+        className="relative flex-1 overflow-y-auto overscroll-y-contain p-4 pb-32 [-webkit-overflow-scrolling:touch] md:p-8 md:pb-8"
         style={{
           background:
             'radial-gradient(circle at top right, rgb(var(--dashboard-brand-rgb) / 0.14), transparent 28%), radial-gradient(circle at top left, rgb(var(--dashboard-brand-rgb) / 0.08), transparent 22%), linear-gradient(180deg, rgb(248 250 252 / 0.96), rgb(255 255 255 / 0.98) 42%, rgb(var(--dashboard-brand-rgb) / 0.04) 100%)',

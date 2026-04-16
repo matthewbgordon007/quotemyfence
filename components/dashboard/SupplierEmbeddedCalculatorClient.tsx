@@ -316,17 +316,19 @@ export function SupplierEmbeddedCalculatorClient() {
               : 'If the frame is blank, regenerate the embed link from OneDrive/SharePoint and ensure the file allows embedding for your org.'}
           </p>
         </div>
-        <div className="relative min-h-[70vh] w-full bg-slate-50/50">
+        <div className="relative min-h-[70vh] w-full bg-slate-50/50 overscroll-contain">
           {!hydrated ? (
             <p className="p-8 text-sm text-slate-500">Loading…</p>
           ) : iframeSrc ? (
-            <iframe
-              title={active === 'google' ? 'Embedded Google Sheet' : 'Embedded Excel workbook'}
-              src={iframeSrc}
-              className="h-[min(85vh,900px)] w-full border-0"
-              allow="clipboard-write; clipboard-read; fullscreen"
-              referrerPolicy="strict-origin-when-cross-origin"
-            />
+            <div className="relative isolate mx-auto h-[min(85vh,900px)] w-full max-w-full overflow-hidden overscroll-contain">
+              <iframe
+                title={active === 'google' ? 'Embedded Google Sheet' : 'Embedded Excel workbook'}
+                src={iframeSrc}
+                className="absolute inset-0 h-full w-full border-0 overscroll-contain"
+                allow="clipboard-write; clipboard-read; fullscreen"
+                referrerPolicy="strict-origin-when-cross-origin"
+              />
+            </div>
           ) : (
             <div className="flex flex-col items-center justify-center gap-3 px-6 py-24 text-center">
               <p className="max-w-md text-sm text-slate-600">
