@@ -94,6 +94,7 @@ export default function ProductsPage() {
   const [search, setSearch] = useState('');
   const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
   const [expandedStyles, setExpandedStyles] = useState<Set<string>>(new Set());
+  const [collapsedSupplierGroups, setCollapsedSupplierGroups] = useState<Set<string>>(new Set());
   const didAutoExpand = useRef(false);
 
   const [showAddType, setShowAddType] = useState(false);
@@ -254,6 +255,24 @@ export default function ProductsPage() {
       return a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true });
     });
   }, [filteredTypes]);
+
+  const groupedDisplayTypes = useMemo(() => {
+    const groups: { supplierName: string | null; types: FenceType[] }[] = [];
+    for (const t of displayTypes) {
+      const supplierName = extractSupplierFromTypeName(t.name).supplierName;
+      if (!supplierName) {
+        groups.push({ supplierName: null, types: [t] });
+        continue;
+      }
+      const prev = groups[groups.length - 1];
+      if (prev?.supplierName === supplierName) {
+        prev.types.push(t);
+      } else {
+        groups.push({ supplierName, types: [t] });
+      }
+    }
+    return groups;
+  }, [displayTypes]);
 
   const stats = useMemo(() => {
     const typeCount = types.length;
@@ -691,6 +710,14 @@ export default function ProductsPage() {
               type="button"
               onClick={() => {
                 document.getElementById(`product-type-${t.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                const supplierName = extractSupplierFromTypeName(t.name).supplierName;
+                if (supplierName) {
+                  setCollapsedSupplierGroups((prev) => {
+                    const next = new Set(prev);
+                    next.delete(supplierName);
+                    return next;
+                  });
+                }
                 setExpandedTypes((prev) => new Set(prev).add(t.id));
               }}
               className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50/50 hover:text-blue-800"
@@ -786,18 +813,34 @@ export default function ProductsPage() {
           </div>
         )}
 
-        {displayTypes.map((t, idx) => {
-          const supplierName = extractSupplierFromTypeName(t.name).supplierName;
-          const prevSupplier = idx > 0 ? extractSupplierFromTypeName(displayTypes[idx - 1].name).supplierName : null;
-          const showSupplierHeader = supplierName && supplierName !== prevSupplier;
+        {groupedDisplayTypes.map((group) => {
+          const isSupplierGroup = !!group.supplierName;
+          const isCollapsed = isSupplierGroup && collapsedSupplierGroups.has(group.supplierName as string);
           return (
-            <div key={t.id} className="space-y-3">
-              {showSupplierHeader ? (
-                <div className="rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-2.5 text-sm font-semibold text-blue-900">
-                  Imported from {supplierName}
-                </div>
+            <div key={group.supplierName ? `supplier-${group.supplierName}` : `type-${group.types[0].id}`} className="space-y-3">
+              {group.supplierName ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCollapsedSupplierGroups((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(group.supplierName as string)) next.delete(group.supplierName as string);
+                      else next.add(group.supplierName as string);
+                      return next;
+                    })
+                  }
+                  className="flex w-full items-center gap-2 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-2.5 text-left text-sm font-semibold text-blue-900 hover:bg-blue-100/70"
+                >
+                  <Chevron open={!isCollapsed} />
+                  <span>
+                    Imported from {group.supplierName} ({group.types.length} type{group.types.length === 1 ? '' : 's'})
+                  </span>
+                </button>
               ) : null}
+              {!isCollapsed &&
+                group.types.map((t) => (
               <section
+                key={t.id}
                 id={`product-type-${t.id}`}
                 className="scroll-mt-24 overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm"
               >
@@ -1199,6 +1242,7 @@ export default function ProductsPage() {
               </div>
             )}
               </section>
+                ))}
             </div>
           );
         })}
