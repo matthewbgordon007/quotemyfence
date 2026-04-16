@@ -8,6 +8,10 @@ import { excelCeiling, excelRound, excelRoundUp } from '@/lib/excel-math';
 /** Divisor in C8: `=C5/8.20833333` */
 export const FMS_PVC_PANEL_LENGTH_DIVISOR = 8.20833333;
 
+/** Always added to color-line Long Screw and Plug totals so jobs carry spares (not on the raw workbook D20/D21 cells). */
+export const FMS_PVC_COLOR_LINE_EXTRA_LONG_SCREWS = 10;
+export const FMS_PVC_COLOR_LINE_EXTRA_PLUGS = 10;
+
 export type FmsPvcLineInputs = {
   lengthFt: number;
   hPostTerminations: number;
@@ -80,8 +84,8 @@ export function fmsPvcColorLineMaterialFinals(line: FmsPvcLineInputs): { rows: F
   const shortScrewFinal = postBase;
   const c20 = d9 * 4;
   const c21 = d9 * 4;
-  const longFinal = fmsPvcLongPlugAdjusted(c20, b22, true);
-  const plugFinal = fmsPvcLongPlugAdjusted(c21, b22, false);
+  const longFinal = fmsPvcLongPlugAdjusted(c20, b22, true) + FMS_PVC_COLOR_LINE_EXTRA_LONG_SCREWS;
+  const plugFinal = fmsPvcLongPlugAdjusted(c21, b22, false) + FMS_PVC_COLOR_LINE_EXTRA_PLUGS;
   const uChannelFinal = d7;
 
   const rows: FmsPvcMaterialLineRow[] = [

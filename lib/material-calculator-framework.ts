@@ -1,5 +1,10 @@
 import { excelRound, excelRoundUp } from '@/lib/excel-math';
-import { FMS_PVC_PANEL_LENGTH_DIVISOR, fmsPvcLongPlugAdjusted } from '@/lib/fms-pvc-calculator';
+import {
+  FMS_PVC_COLOR_LINE_EXTRA_LONG_SCREWS,
+  FMS_PVC_COLOR_LINE_EXTRA_PLUGS,
+  FMS_PVC_PANEL_LENGTH_DIVISOR,
+  fmsPvcLongPlugAdjusted,
+} from '@/lib/fms-pvc-calculator';
 
 export type MaterialCalculatorRoundingMode = 'none' | 'ceil' | 'nearest';
 
@@ -199,14 +204,14 @@ export const firstSheetFieldSpecs: MaterialCalculatorFieldSpec[] = [
     label: 'Long screw Final (PVC IF on U channel)',
     mode: 'calculated',
     section: 'color_line',
-    notes: 'D20 on PVC tab: IF on B22 (=D7) applied to C20=D9×4 (whole panels, not exact C8).',
+    notes: 'Sheet D20 IF on B22 on C20=D9×4, plus 10 extra long screws on every job (app default).',
   },
   {
     id: 'pvc_plug_sheet_final',
     label: 'Plug Final (PVC IF on U channel)',
     mode: 'calculated',
     section: 'color_line',
-    notes: 'D21 on PVC tab: IF on B22 applied to C21=D9×4.',
+    notes: 'Sheet D21 IF on B22 on C21=D9×4, plus 10 extra plugs (hole caps) on every job (app default).',
   },
   {
     id: 'posts',
@@ -297,7 +302,7 @@ export const firstSheetColorLineRecipeDefaults: MaterialCalculatorRecipeItem[] =
     quantity_per_panel: 1,
     input_field: 'pvc_long_screw_sheet_final',
     rounding_mode: 'none',
-    notes: 'Sheet Final plus 10 extra long screws job-wide. Gate line still adds long screws per gate boards.',
+    notes: 'Multiply-from value already includes sheet D20 logic plus 10 extra long screws. Gate line still adds long screws per gate boards.',
   },
   {
     id: 'color-plug',
@@ -305,7 +310,7 @@ export const firstSheetColorLineRecipeDefaults: MaterialCalculatorRecipeItem[] =
     quantity_per_panel: 1,
     input_field: 'pvc_plug_sheet_final',
     rounding_mode: 'none',
-    notes: 'Sheet Final plus 10 extra plugs (hole caps) job-wide.',
+    notes: 'Multiply-from value already includes sheet D21 logic plus 10 extra plugs (hole caps).',
   },
   { id: 'color-u-channel', name: 'U Channel', quantity_per_panel: 1, input_field: 'u_channel_terminations', rounding_mode: 'ceil' },
 ];
@@ -363,18 +368,18 @@ export function pvcSheetUChannelBranch(uChannelTerminations: number): 0 | 1 | 2 
   return Math.min(2, Math.max(0, Math.round(n))) as 0 | 1 | 2;
 }
 
-/** Long screw D20 on the PVC calculator tab (no master-tab extras). */
+/** Long screw: sheet D20 IF on U channel, plus fixed job extras (`FMS_PVC_COLOR_LINE_EXTRA_LONG_SCREWS`). */
 export function pvcLongScrewFinalFromSheet(exactPanels: number, uChannelTerminations: number): number {
   const c = pvcScrewPlugBaseFromExactPanels(exactPanels);
   const b = pvcSheetUChannelBranch(uChannelTerminations);
-  return fmsPvcLongPlugAdjusted(c, b, true);
+  return fmsPvcLongPlugAdjusted(c, b, true) + FMS_PVC_COLOR_LINE_EXTRA_LONG_SCREWS;
 }
 
-/** Plug D21 on the PVC calculator tab (no master-tab extras). */
+/** Plug (hole caps): sheet D21 IF on U channel, plus fixed job extras (`FMS_PVC_COLOR_LINE_EXTRA_PLUGS`). */
 export function pvcPlugFinalFromSheet(exactPanels: number, uChannelTerminations: number): number {
   const c = pvcScrewPlugBaseFromExactPanels(exactPanels);
   const b = pvcSheetUChannelBranch(uChannelTerminations);
-  return fmsPvcLongPlugAdjusted(c, b, false);
+  return fmsPvcLongPlugAdjusted(c, b, false) + FMS_PVC_COLOR_LINE_EXTRA_PLUGS;
 }
 
 /** Sheet D9: `=ROUNDUP(ROUND(C8,4),0)` on the PVC tab. */

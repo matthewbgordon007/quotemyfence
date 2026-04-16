@@ -1133,7 +1133,7 @@ export function SupplierMaterialCalculatorFramework() {
             Core math: `exact panels = length / panel length`, `D9 whole panels = ceil(exact panels)`, fence-line material post count = `D9 + D6 − 1`, then add gate posts needed for the full total used by the color line (galvanized, H posts, caps, short screws, concrete). Gate recipe rows that use “line posts” resolve to the fence-only base so gate post counts are not applied twice. A D9-only “Posts” row is lower than D9+D6−1 when D6 is 3 (by D6−1) and does not include gate posts.
           </p>
           <p className="mt-3 text-sm text-slate-600">
-            Long screws and plugs (PVC color line): both start from `C = ceil(4 × exact panels)` (sheet column C), then sheet IFs on U channel (B22). After that, long screws include 10 extras and plugs include 10 extras (hole caps). Color-line short screws use `ceil(line post count × qty)` then add 1 spare. Gate line screws add `ceil(multiplier × gate boards)` on top of line long/short totals.
+            Long screws and plugs (PVC color line): both start from `C = ceil(4 × exact panels)` (sheet column C), then sheet IFs on U channel (B22). The color-line totals then add 10 extra long screws and 10 extra plugs (hole caps) on every job. Color-line short screws use `ceil(line post count × qty)` then add 1 spare. Gate line screws add `ceil(multiplier × gate boards)` on top of line long/short totals.
           </p>
         </div>
       </details>
