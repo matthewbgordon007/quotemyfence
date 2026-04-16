@@ -15,8 +15,25 @@ import {
   type MaterialCalculatorRecipeItem,
 } from '@/lib/material-calculator-framework';
 import { fmsPvcColorLineMaterialFinals, fmsPvcConcreteBags, fmsPvcGateMaterialFinals } from '@/lib/fms-pvc-calculator';
-import { fmsHybridVeHhPvcColorLineFinals, fmsHybridVeHhPvcGateFinals } from '@/lib/fms-hybrid-ve-horizontal-pvc';
+import {
+  fmsHybridVeHhPvcColorLineFinals,
+  fmsHybridVeHhPvcGateAdjacentFinals,
+  fmsHybridVeHhPvcGateDoubleFinals,
+  fmsHybridVeHhPvcGateSimpleFinals,
+} from '@/lib/fms-hybrid-ve-horizontal-pvc';
+import {
+  fmsHybridHoAdjacentGateFinals,
+  fmsHybridHoDoubleGateFinals,
+  fmsHybridHoLineFinals,
+  fmsHybridHoSimpleGateFinals,
+  type FmsHybridHoFamily,
+} from '@/lib/fms-hybrid-ho-calculator';
 import { fmsVerticalHybridColorLineFinals } from '@/lib/fms-hybrid-ve-vertical-line';
+import {
+  fmsVerticalHybridGateAdjacentFinals,
+  fmsVerticalHybridGateDoubleFinals,
+  fmsVerticalHybridGateSimpleFinals,
+} from '@/lib/fms-hybrid-ve-vertical-gates';
 
 const field =
   'w-full rounded-xl border border-slate-200/90 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20';
@@ -43,7 +60,18 @@ type HybridVeHorizontalGateInputs = {
   gatePostsNeeded: number;
   sideLayoutWidthInches: number;
   adjoiningMode: number;
+  doubleGateWidthInches: number;
+  doubleGatePostsNeeded: number;
+  verticalSimpleWidthIn: number;
+  verticalSimplePosts: number;
+  verticalJlWidthIn: number;
+  verticalJlPosts: number;
+  verticalNpWidthIn: number;
+  verticalNpPosts: number;
 };
+
+type HybridVePvcWorkbookMode = 'line' | 'gate-fh' | 'gate-jl' | 'gate-np';
+type HybridVeVerticalWorkbookMode = 'line' | 'gate-fh' | 'gate-jl' | 'gate-np';
 
 type VerticalHybridInputs = {
   lineLengthFt: number;
@@ -234,6 +262,13 @@ function defaultHybridHorizontalInputs(): HybridHorizontalInputs {
   };
 }
 
+function hybridHoFamilyFromStyleName(styleName: string): FmsHybridHoFamily | null {
+  if (styleName === 'Wood Grain WPC') return 'woodGrain';
+  if (styleName === 'Slatted WPC + PVC') return 'slatted';
+  if (styleName === 'Aluminum') return 'aluminum';
+  return null;
+}
+
 function hybridHorizontalFamilyConfig(styleName: string, heightFt: number | null): HybridHorizontalFamilyConfig | null {
   if (heightFt == null) return null;
   const roundedHeight = Math.round(heightFt);
@@ -365,12 +400,25 @@ export function SupplierMaterialCalculatorFramework() {
     line_width_inches: 60,
     posts_needed: 2,
   });
+  const [hybridVePvcHeightFt, setHybridVePvcHeightFt] = useState<6 | 7>(6);
+  const [hybridVePvcWorkbookMode, setHybridVePvcWorkbookMode] = useState<HybridVePvcWorkbookMode>('line');
+  const [hybridVeVerticalWorkbookMode, setHybridVeVerticalWorkbookMode] = useState<HybridVeVerticalWorkbookMode>('line');
   const [hybridVeGate, setHybridVeGate] = useState<HybridVeHorizontalGateInputs>({
     gateLineWidthInches: 48,
     gatePostsNeeded: 1,
     sideLayoutWidthInches: 92,
     adjoiningMode: 0,
+    doubleGateWidthInches: 108,
+    doubleGatePostsNeeded: 0,
+    verticalSimpleWidthIn: 61.92,
+    verticalSimplePosts: 1,
+    verticalJlWidthIn: 61.92,
+    verticalJlPosts: 0,
+    verticalNpWidthIn: 61.92,
+    verticalNpPosts: 0,
   });
+  const [hybridHoAdjacent, setHybridHoAdjacent] = useState({ totalWidthIn: 92, adjoiningMode: 0 });
+  const [hybridHoDouble, setHybridHoDouble] = useState({ totalWidthIn: 108, adjoiningFence: 0 });
   const [verticalHybrid, setVerticalHybrid] = useState<VerticalHybridInputs>({
     lineLengthFt: 21,
     hPostTerminations: 2,
@@ -551,24 +599,51 @@ export function SupplierMaterialCalculatorFramework() {
 
   const hybridVeHorizontalLine = useMemo(
     () =>
-      fmsHybridVeHhPvcColorLineFinals({
-        lengthFt: sampleLine.length_ft,
-        hPostTerminations: sampleLine.h_post_terminations,
-        uChannelTerminations: sampleLine.u_channel_terminations,
-      }),
-    [sampleLine],
+      fmsHybridVeHhPvcColorLineFinals(
+        {
+          lengthFt: sampleLine.length_ft,
+          hPostTerminations: sampleLine.h_post_terminations,
+          uChannelTerminations: sampleLine.u_channel_terminations,
+        },
+        hybridVePvcHeightFt,
+      ),
+    [sampleLine, hybridVePvcHeightFt],
   );
 
-  const hybridVeHorizontalGate = useMemo(
+  const hybridVePvcGateFh = useMemo(
     () =>
-      fmsHybridVeHhPvcGateFinals({
-        gateLineWidthInches: hybridVeGate.gateLineWidthInches,
-        gatePostsNeeded: hybridVeGate.gatePostsNeeded,
-        l6Inches: hybridVeGate.sideLayoutWidthInches,
-        l7: hybridVeGate.adjoiningMode,
-        lineUChannelD7: sampleLine.u_channel_terminations,
-      }),
-    [hybridVeGate, sampleLine.u_channel_terminations],
+      fmsHybridVeHhPvcGateSimpleFinals(
+        {
+          gateLineWidthInches: hybridVeGate.gateLineWidthInches,
+          gatePostsNeeded: hybridVeGate.gatePostsNeeded,
+        },
+        hybridVePvcHeightFt,
+      ),
+    [hybridVeGate.gateLineWidthInches, hybridVeGate.gatePostsNeeded, hybridVePvcHeightFt],
+  );
+
+  const hybridVePvcGateJl = useMemo(
+    () =>
+      fmsHybridVeHhPvcGateAdjacentFinals(
+        {
+          totalGateLineWidthInches: hybridVeGate.sideLayoutWidthInches,
+          adjoiningMode: hybridVeGate.adjoiningMode,
+        },
+        hybridVePvcHeightFt,
+      ),
+    [hybridVeGate.sideLayoutWidthInches, hybridVeGate.adjoiningMode, hybridVePvcHeightFt],
+  );
+
+  const hybridVePvcGateNp = useMemo(
+    () =>
+      fmsHybridVeHhPvcGateDoubleFinals(
+        {
+          gateLineWidthInches: hybridVeGate.doubleGateWidthInches,
+          gatePostsNeeded: hybridVeGate.doubleGatePostsNeeded,
+        },
+        hybridVePvcHeightFt,
+      ),
+    [hybridVeGate.doubleGateWidthInches, hybridVeGate.doubleGatePostsNeeded, hybridVePvcHeightFt],
   );
 
   const verticalHybridLine = useMemo(
@@ -579,6 +654,51 @@ export function SupplierMaterialCalculatorFramework() {
         uChannelTerminations: verticalHybrid.uChannelTerminations,
       }),
     [verticalHybrid],
+  );
+
+  const verticalHybridGateFh = useMemo(
+    () =>
+      fmsVerticalHybridGateSimpleFinals({
+        totalGateLineWidthInches: hybridVeGate.verticalSimpleWidthIn,
+        gatePostsNeeded: hybridVeGate.verticalSimplePosts,
+      }),
+    [hybridVeGate.verticalSimpleWidthIn, hybridVeGate.verticalSimplePosts],
+  );
+
+  const verticalHybridGateJl = useMemo(
+    () =>
+      fmsVerticalHybridGateAdjacentFinals({
+        totalGateLineWidthInches: hybridVeGate.verticalJlWidthIn,
+        gatePostsNeeded: hybridVeGate.verticalJlPosts,
+      }),
+    [hybridVeGate.verticalJlWidthIn, hybridVeGate.verticalJlPosts],
+  );
+
+  const verticalHybridGateNp = useMemo(
+    () =>
+      fmsVerticalHybridGateDoubleFinals({
+        totalGateLineWidthInches: hybridVeGate.verticalNpWidthIn,
+        gatePostsNeeded: hybridVeGate.verticalNpPosts,
+      }),
+    [hybridVeGate.verticalNpWidthIn, hybridVeGate.verticalNpPosts],
+  );
+
+  const hybridHoAdjacentPreview = useMemo(
+    () =>
+      fmsHybridHoAdjacentGateFinals({
+        totalGateLineWidthInches: hybridHoAdjacent.totalWidthIn,
+        adjoiningMode: hybridHoAdjacent.adjoiningMode,
+      }),
+    [hybridHoAdjacent],
+  );
+
+  const hybridHoDoublePreview = useMemo(
+    () =>
+      fmsHybridHoDoubleGateFinals({
+        totalGateLineWidthInches: hybridHoDouble.totalWidthIn,
+        adjoiningFence: hybridHoDouble.adjoiningFence,
+      }),
+    [hybridHoDouble],
   );
 
   const roundedPanels = useMemo(() => pvcWholePanelsD9(exactPanels), [exactPanels]);
@@ -1044,10 +1164,36 @@ export function SupplierMaterialCalculatorFramework() {
               </span>
             </summary>
             <div className="space-y-4 border-t border-slate-200/70 px-4 py-4 sm:px-5 sm:py-5">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700">PVC workbook block height</label>
+                  <select
+                    className={`mt-1.5 ${field}`}
+                    value={hybridVePvcHeightFt}
+                    onChange={(e) => setHybridVePvcHeightFt(Number(e.target.value) === 7 ? 7 : 6)}
+                  >
+                    <option value={6}>6′ (rows 5–26 / F–H / J–L / N–P)</option>
+                    <option value={7}>7′ (rows 28–52)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700">Calculator on this tab</label>
+                  <select
+                    className={`mt-1.5 ${field}`}
+                    value={hybridVePvcWorkbookMode}
+                    onChange={(e) => setHybridVePvcWorkbookMode(e.target.value as HybridVePvcWorkbookMode)}
+                  >
+                    <option value="line">Fence color line (cols A–D)</option>
+                    <option value="gate-fh">Gate &lt;56″ (cols F–H)</option>
+                    <option value="gate-jl">Gate + adjacent 56–125″ (cols J–L)</option>
+                    <option value="gate-np">Double gate (cols N–P)</option>
+                  </select>
+                </div>
+              </div>
               <div className="grid gap-4 lg:grid-cols-2">
                 <section className={cardShell}>
                   <div className={cardHeader}>
-                    <h4 className="font-semibold text-slate-900">Line inputs</h4>
+                    <h4 className="font-semibold text-slate-900">Fence line inputs (A–D)</h4>
                   </div>
                   <div className="grid gap-4 p-5 sm:grid-cols-2">
                     <div>
@@ -1066,29 +1212,52 @@ export function SupplierMaterialCalculatorFramework() {
                 </section>
                 <section className={cardShell}>
                   <div className={cardHeader}>
-                    <h4 className="font-semibold text-slate-900">Gate inputs</h4>
+                    <h4 className="font-semibold text-slate-900">Gate inputs (workbook)</h4>
                   </div>
                   <div className="grid gap-4 p-5 sm:grid-cols-2">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700">Gate line width (H6, inches)</label>
-                      <input type="number" min={0} step={0.01} value={hybridVeGate.gateLineWidthInches} onChange={(e) => setHybridVeGate((prev) => ({ ...prev, gateLineWidthInches: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700">Gate posts needed (H7, 0–2)</label>
-                      <input type="number" min={0} step={1} value={hybridVeGate.gatePostsNeeded} onChange={(e) => setHybridVeGate((prev) => ({ ...prev, gatePostsNeeded: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700">Side layout width (L6, inches)</label>
-                      <input type="number" min={0} step={0.01} value={hybridVeGate.sideLayoutWidthInches} onChange={(e) => setHybridVeGate((prev) => ({ ...prev, sideLayoutWidthInches: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700">Adjoining mode (L7: 0 / 1 / 2)</label>
-                      <input type="number" min={0} step={1} value={hybridVeGate.adjoiningMode} onChange={(e) => setHybridVeGate((prev) => ({ ...prev, adjoiningMode: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
-                    </div>
+                    {hybridVePvcWorkbookMode === 'gate-fh' ? (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700">Gate line width (H6 / H32, inches)</label>
+                          <input type="number" min={0} step={0.01} value={hybridVeGate.gateLineWidthInches} onChange={(e) => setHybridVeGate((prev) => ({ ...prev, gateLineWidthInches: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700">Gate posts needed (H7 / H33, 0–2)</label>
+                          <input type="number" min={0} step={1} value={hybridVeGate.gatePostsNeeded} onChange={(e) => setHybridVeGate((prev) => ({ ...prev, gatePostsNeeded: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+                        </div>
+                      </>
+                    ) : null}
+                    {hybridVePvcWorkbookMode === 'gate-jl' ? (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700">Total gate line width (L6 / L32, inches)</label>
+                          <input type="number" min={0} step={0.01} value={hybridVeGate.sideLayoutWidthInches} onChange={(e) => setHybridVeGate((prev) => ({ ...prev, sideLayoutWidthInches: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700">Adjoining mode (L7 / L33: 0 / 1 / 2)</label>
+                          <input type="number" min={0} step={1} value={hybridVeGate.adjoiningMode} onChange={(e) => setHybridVeGate((prev) => ({ ...prev, adjoiningMode: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+                        </div>
+                      </>
+                    ) : null}
+                    {hybridVePvcWorkbookMode === 'gate-np' ? (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700">Total gate line width (P6 / P32 numeric, inches)</label>
+                          <input type="number" min={0} step={0.01} value={hybridVeGate.doubleGateWidthInches} onChange={(e) => setHybridVeGate((prev) => ({ ...prev, doubleGateWidthInches: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700">Posts needed (P7 / P33, 0–2)</label>
+                          <input type="number" min={0} step={1} value={hybridVeGate.doubleGatePostsNeeded} onChange={(e) => setHybridVeGate((prev) => ({ ...prev, doubleGatePostsNeeded: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+                        </div>
+                      </>
+                    ) : null}
+                    {hybridVePvcWorkbookMode === 'line' ? (
+                      <p className="sm:col-span-2 text-xs text-slate-500">Switch the calculator dropdown to preview each gate block; line mode uses only the fence line inputs.</p>
+                    ) : null}
                   </div>
                 </section>
               </div>
-              <div className="grid gap-4 lg:grid-cols-2">
+              {hybridVePvcWorkbookMode === 'line' ? (
                 <section className={cardShell}>
                   <div className={cardHeader}>
                     <h4 className="font-semibold text-slate-900">Line material totals</h4>
@@ -1109,7 +1278,12 @@ export function SupplierMaterialCalculatorFramework() {
                       </div>
                     </div>
                     <table className="min-w-full text-sm">
-                      <thead><tr className="border-b border-slate-200 text-left"><th className="py-3 font-semibold text-slate-700">Item</th><th className="py-3 text-right font-semibold text-slate-700">Final</th></tr></thead>
+                      <thead>
+                        <tr className="border-b border-slate-200 text-left">
+                          <th className="py-3 font-semibold text-slate-700">Item</th>
+                          <th className="py-3 text-right font-semibold text-slate-700">Final</th>
+                        </tr>
+                      </thead>
                       <tbody>
                         {hybridVeHorizontalLine.rows.map((row) => (
                           <tr key={`hybrid-ve-line-${row.item}`} className="border-b border-slate-100 last:border-0">
@@ -1121,30 +1295,28 @@ export function SupplierMaterialCalculatorFramework() {
                     </table>
                   </div>
                 </section>
+              ) : hybridVePvcWorkbookMode === 'gate-fh' ? (
                 <section className={cardShell}>
                   <div className={cardHeader}>
-                    <h4 className="font-semibold text-slate-900">Gate material totals</h4>
+                    <h4 className="font-semibold text-slate-900">Gate &lt;56″ material totals (F–H)</h4>
                   </div>
                   <div className="p-5 sm:p-6">
-                    <div className="mb-4 grid gap-3 sm:grid-cols-3">
-                      <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">L8 side panel length</p>
-                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(hybridVeHorizontalGate.z.l8)}</p>
-                      </div>
-                      <div className="rounded-2xl border border-indigo-200/80 bg-indigo-50/70 p-4">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">L12 rounded side fraction</p>
-                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(hybridVeHorizontalGate.z.l12)}</p>
-                      </div>
+                    <div className="mb-4 grid gap-3 sm:grid-cols-2">
                       <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/70 p-4">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Gate boards</p>
-                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(hybridVeHorizontalGate.z.h19)}</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Board Final</p>
+                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(hybridVePvcGateFh.z.boardFinal)}</p>
                       </div>
                     </div>
                     <table className="min-w-full text-sm">
-                      <thead><tr className="border-b border-slate-200 text-left"><th className="py-3 font-semibold text-slate-700">Item</th><th className="py-3 text-right font-semibold text-slate-700">Final</th></tr></thead>
+                      <thead>
+                        <tr className="border-b border-slate-200 text-left">
+                          <th className="py-3 font-semibold text-slate-700">Item</th>
+                          <th className="py-3 text-right font-semibold text-slate-700">Final</th>
+                        </tr>
+                      </thead>
                       <tbody>
-                        {hybridVeHorizontalGate.rows.map((row) => (
-                          <tr key={`hybrid-ve-gate-${row.item}`} className="border-b border-slate-100 last:border-0">
+                        {hybridVePvcGateFh.rows.map((row) => (
+                          <tr key={`hybrid-ve-fh-${row.item}`} className="border-b border-slate-100 last:border-0">
                             <td className="py-2.5 font-medium text-slate-900">{row.item}</td>
                             <td className="py-2.5 text-right font-semibold tabular-nums text-slate-900">{formatQty(row.final)}</td>
                           </tr>
@@ -1153,7 +1325,75 @@ export function SupplierMaterialCalculatorFramework() {
                     </table>
                   </div>
                 </section>
-              </div>
+              ) : hybridVePvcWorkbookMode === 'gate-jl' ? (
+                <section className={cardShell}>
+                  <div className={cardHeader}>
+                    <h4 className="font-semibold text-slate-900">Gate + adjacent material totals (J–L)</h4>
+                  </div>
+                  <div className="p-5 sm:p-6">
+                    <div className="mb-4 grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">L8 side panel length</p>
+                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(hybridVePvcGateJl.z.l8)}</p>
+                      </div>
+                      <div className="rounded-2xl border border-indigo-200/80 bg-indigo-50/70 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">L12 rounded side fraction</p>
+                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(hybridVePvcGateJl.z.l12)}</p>
+                      </div>
+                      <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/70 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Board Final (L19)</p>
+                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(hybridVePvcGateJl.z.l19)}</p>
+                      </div>
+                    </div>
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-left">
+                          <th className="py-3 font-semibold text-slate-700">Item</th>
+                          <th className="py-3 text-right font-semibold text-slate-700">Final</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {hybridVePvcGateJl.rows.map((row) => (
+                          <tr key={`hybrid-ve-jl-${row.item}`} className="border-b border-slate-100 last:border-0">
+                            <td className="py-2.5 font-medium text-slate-900">{row.item}</td>
+                            <td className="py-2.5 text-right font-semibold tabular-nums text-slate-900">{formatQty(row.final)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              ) : (
+                <section className={cardShell}>
+                  <div className={cardHeader}>
+                    <h4 className="font-semibold text-slate-900">Double gate material totals (N–P)</h4>
+                  </div>
+                  <div className="p-5 sm:p-6">
+                    <div className="mb-4 grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/70 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Board Final</p>
+                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(hybridVePvcGateNp.z.boardFinal)}</p>
+                      </div>
+                    </div>
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-left">
+                          <th className="py-3 font-semibold text-slate-700">Item</th>
+                          <th className="py-3 text-right font-semibold text-slate-700">Final</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {hybridVePvcGateNp.rows.map((row) => (
+                          <tr key={`hybrid-ve-np-${row.item}`} className="border-b border-slate-100 last:border-0">
+                            <td className="py-2.5 font-medium text-slate-900">{row.item}</td>
+                            <td className="py-2.5 text-right font-semibold tabular-nums text-slate-900">{formatQty(row.final)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              )}
             </div>
           </details>
 
@@ -1169,57 +1409,235 @@ export function SupplierMaterialCalculatorFramework() {
               </span>
             </summary>
             <div className="space-y-4 border-t border-slate-200/70 px-4 py-4 sm:px-5 sm:py-5">
-              <section className={cardShell}>
-                <div className={cardHeader}>
-                  <h4 className="font-semibold text-slate-900">Line inputs</h4>
-                </div>
-                <div className="grid gap-4 p-5 sm:grid-cols-3">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">Total fence line length (ft)</label>
-                    <input type="number" min={0} step={0.01} value={verticalHybrid.lineLengthFt} onChange={(e) => setVerticalHybrid((prev) => ({ ...prev, lineLengthFt: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Calculator on this tab</label>
+                <select
+                  className={`mt-1.5 max-w-xl ${field}`}
+                  value={hybridVeVerticalWorkbookMode}
+                  onChange={(e) => setHybridVeVerticalWorkbookMode(e.target.value as HybridVeVerticalWorkbookMode)}
+                >
+                  <option value="line">Fence color line (rows 57–73)</option>
+                  <option value="gate-fh">Vertical gate &lt;56″ (cols F–H)</option>
+                  <option value="gate-jl">Vertical gate 59.5–151.5″ (cols J–L)</option>
+                  <option value="gate-np">Vertical double gate (cols N–P)</option>
+                </select>
+              </div>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <section className={cardShell}>
+                  <div className={cardHeader}>
+                    <h4 className="font-semibold text-slate-900">Fence line inputs (A–D)</h4>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">Fence terminated with H post (0, 1, 2)</label>
-                    <input type="number" min={0} step={1} value={verticalHybrid.hPostTerminations} onChange={(e) => setVerticalHybrid((prev) => ({ ...prev, hPostTerminations: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">Fence terminated with U channel (0, 1, 2)</label>
-                    <input type="number" min={0} step={1} value={verticalHybrid.uChannelTerminations} onChange={(e) => setVerticalHybrid((prev) => ({ ...prev, uChannelTerminations: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
-                  </div>
-                </div>
-              </section>
-              <section className={cardShell}>
-                <div className={cardHeader}>
-                  <h4 className="font-semibold text-slate-900">Line material totals</h4>
-                </div>
-                <div className="p-5 sm:p-6">
-                  <div className="mb-4 grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">C60 exact panels</p>
-                      <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(verticalHybridLine.z.c60)}</p>
+                  <div className="grid gap-4 p-5 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700">Total fence line length (ft)</label>
+                      <input type="number" min={0} step={0.01} value={verticalHybrid.lineLengthFt} onChange={(e) => setVerticalHybrid((prev) => ({ ...prev, lineLengthFt: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
                     </div>
-                    <div className="rounded-2xl border border-indigo-200/80 bg-indigo-50/70 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">C61 rounded</p>
-                      <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(verticalHybridLine.z.c61)}</p>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700">Fence terminated with H post (0, 1, 2)</label>
+                      <input type="number" min={0} step={1} value={verticalHybrid.hPostTerminations} onChange={(e) => setVerticalHybrid((prev) => ({ ...prev, hPostTerminations: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
                     </div>
-                    <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/70 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">D61 whole panels</p>
-                      <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(verticalHybridLine.z.d61)}</p>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700">Fence terminated with U channel (0, 1, 2)</label>
+                      <input type="number" min={0} step={1} value={verticalHybrid.uChannelTerminations} onChange={(e) => setVerticalHybrid((prev) => ({ ...prev, uChannelTerminations: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
                     </div>
                   </div>
-                  <table className="min-w-full text-sm">
-                    <thead><tr className="border-b border-slate-200 text-left"><th className="py-3 font-semibold text-slate-700">Item</th><th className="py-3 text-right font-semibold text-slate-700">Final</th></tr></thead>
-                    <tbody>
-                      {verticalHybridLine.rows.map((row) => (
-                        <tr key={`vertical-hybrid-${row.item}`} className="border-b border-slate-100 last:border-0">
-                          <td className="py-2.5 font-medium text-slate-900">{row.item}</td>
-                          <td className="py-2.5 text-right font-semibold tabular-nums text-slate-900">{formatQty(row.final)}</td>
+                </section>
+                <section className={cardShell}>
+                  <div className={cardHeader}>
+                    <h4 className="font-semibold text-slate-900">Gate inputs</h4>
+                  </div>
+                  <div className="grid gap-4 p-5 sm:grid-cols-2">
+                    {hybridVeVerticalWorkbookMode === 'gate-fh' ? (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700">Total gate line width (H57, inches)</label>
+                          <input type="number" min={0} step={0.01} value={hybridVeGate.verticalSimpleWidthIn} onChange={(e) => setHybridVeGate((prev) => ({ ...prev, verticalSimpleWidthIn: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700">Posts needed (H58, 0–2)</label>
+                          <input type="number" min={0} step={1} value={hybridVeGate.verticalSimplePosts} onChange={(e) => setHybridVeGate((prev) => ({ ...prev, verticalSimplePosts: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+                        </div>
+                      </>
+                    ) : null}
+                    {hybridVeVerticalWorkbookMode === 'gate-jl' ? (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700">Total gate line width (L57, inches)</label>
+                          <input type="number" min={0} step={0.01} value={hybridVeGate.verticalJlWidthIn} onChange={(e) => setHybridVeGate((prev) => ({ ...prev, verticalJlWidthIn: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700">Posts needed (L58, 0–2)</label>
+                          <input type="number" min={0} step={1} value={hybridVeGate.verticalJlPosts} onChange={(e) => setHybridVeGate((prev) => ({ ...prev, verticalJlPosts: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+                        </div>
+                      </>
+                    ) : null}
+                    {hybridVeVerticalWorkbookMode === 'gate-np' ? (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700">Total gate line width (P57, inches)</label>
+                          <input type="number" min={0} step={0.01} value={hybridVeGate.verticalNpWidthIn} onChange={(e) => setHybridVeGate((prev) => ({ ...prev, verticalNpWidthIn: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700">Posts needed (P58, 0–2)</label>
+                          <input type="number" min={0} step={1} value={hybridVeGate.verticalNpPosts} onChange={(e) => setHybridVeGate((prev) => ({ ...prev, verticalNpPosts: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+                        </div>
+                      </>
+                    ) : null}
+                    {hybridVeVerticalWorkbookMode === 'line' ? (
+                      <p className="text-xs text-slate-500 sm:col-span-2">Gate blocks use the inputs on the right when you switch the calculator dropdown.</p>
+                    ) : null}
+                  </div>
+                </section>
+              </div>
+              {hybridVeVerticalWorkbookMode === 'line' ? (
+                <section className={cardShell}>
+                  <div className={cardHeader}>
+                    <h4 className="font-semibold text-slate-900">Line material totals</h4>
+                  </div>
+                  <div className="p-5 sm:p-6">
+                    <div className="mb-4 grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">C60 exact panels</p>
+                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(verticalHybridLine.z.c60)}</p>
+                      </div>
+                      <div className="rounded-2xl border border-indigo-200/80 bg-indigo-50/70 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">C61 rounded</p>
+                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(verticalHybridLine.z.c61)}</p>
+                      </div>
+                      <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/70 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">D61 whole panels</p>
+                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(verticalHybridLine.z.d61)}</p>
+                      </div>
+                    </div>
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-left">
+                          <th className="py-3 font-semibold text-slate-700">Item</th>
+                          <th className="py-3 text-right font-semibold text-slate-700">Final</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
+                      </thead>
+                      <tbody>
+                        {verticalHybridLine.rows.map((row) => (
+                          <tr key={`vertical-hybrid-${row.item}`} className="border-b border-slate-100 last:border-0">
+                            <td className="py-2.5 font-medium text-slate-900">{row.item}</td>
+                            <td className="py-2.5 text-right font-semibold tabular-nums text-slate-900">{formatQty(row.final)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              ) : hybridVeVerticalWorkbookMode === 'gate-fh' ? (
+                <section className={cardShell}>
+                  <div className={cardHeader}>
+                    <h4 className="font-semibold text-slate-900">Vertical gate &lt;56″ (F–H)</h4>
+                  </div>
+                  <div className="p-5 sm:p-6">
+                    <div className="mb-4 grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">H61 gate door width</p>
+                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(verticalHybridGateFh.z.h61)}</p>
+                      </div>
+                      <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/70 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">72″ boards (rounded)</p>
+                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(verticalHybridGateFh.z.board)}</p>
+                      </div>
+                    </div>
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-left">
+                          <th className="py-3 font-semibold text-slate-700">Item</th>
+                          <th className="py-3 text-right font-semibold text-slate-700">Final</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {verticalHybridGateFh.rows.map((row) => (
+                          <tr key={`vh-fh-${row.item}`} className="border-b border-slate-100 last:border-0">
+                            <td className="py-2.5 font-medium text-slate-900">{row.item}</td>
+                            <td className="py-2.5 text-right font-semibold tabular-nums text-slate-900">{formatQty(row.final)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              ) : hybridVeVerticalWorkbookMode === 'gate-jl' ? (
+                <section className={cardShell}>
+                  <div className={cardHeader}>
+                    <h4 className="font-semibold text-slate-900">Vertical gate 59.5–151.5″ (J–L)</h4>
+                  </div>
+                  <div className="p-5 sm:p-6">
+                    <div className="mb-4 grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">L59 side panel</p>
+                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(verticalHybridGateJl.z.l59)}</p>
+                      </div>
+                      <div className="rounded-2xl border border-indigo-200/80 bg-indigo-50/70 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">L64 side rails</p>
+                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(verticalHybridGateJl.z.l64)}</p>
+                      </div>
+                      <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/70 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Board (rounded)</p>
+                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(verticalHybridGateJl.z.l71)}</p>
+                      </div>
+                    </div>
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-left">
+                          <th className="py-3 font-semibold text-slate-700">Item</th>
+                          <th className="py-3 text-right font-semibold text-slate-700">Final</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {verticalHybridGateJl.rows.map((row) => (
+                          <tr key={`vh-jl-${row.item}`} className="border-b border-slate-100 last:border-0">
+                            <td className="py-2.5 font-medium text-slate-900">{row.item}</td>
+                            <td className="py-2.5 text-right font-semibold tabular-nums text-slate-900">{formatQty(row.final)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              ) : (
+                <section className={cardShell}>
+                  <div className={cardHeader}>
+                    <h4 className="font-semibold text-slate-900">Vertical double gate (N–P)</h4>
+                  </div>
+                  <div className="p-5 sm:p-6">
+                    <div className="mb-4 grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">P59 side panel</p>
+                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(verticalHybridGateNp.z.p59)}</p>
+                      </div>
+                      <div className="rounded-2xl border border-indigo-200/80 bg-indigo-50/70 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">P64 side rails</p>
+                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(verticalHybridGateNp.z.p64)}</p>
+                      </div>
+                      <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/70 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">72″ boards (rounded)</p>
+                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(verticalHybridGateNp.z.p71)}</p>
+                      </div>
+                    </div>
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-left">
+                          <th className="py-3 font-semibold text-slate-700">Item</th>
+                          <th className="py-3 text-right font-semibold text-slate-700">Final</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {verticalHybridGateNp.rows.map((row) => (
+                          <tr key={`vh-np-${row.item}`} className="border-b border-slate-100 last:border-0">
+                            <td className="py-2.5 font-medium text-slate-900">{row.item}</td>
+                            <td className="py-2.5 text-right font-semibold tabular-nums text-slate-900">{formatQty(row.final)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              )}
             </div>
           </details>
         </div>
@@ -1237,6 +1655,106 @@ export function SupplierMaterialCalculatorFramework() {
           </span>
         </summary>
         <div className="space-y-6 border-t border-slate-100 px-5 py-6 sm:px-6">
+          <section className={cardShell}>
+            <div className={cardHeader}>
+              <h2 className="font-semibold text-slate-900">Hybrid Ho — shared gate calculators</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                From `Material Calculator - Hybrid Ho`: one adjacent gate template (56–125″) and one double gate template (106–202″), shared across families on that tab.
+              </p>
+            </div>
+            <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-2">
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-slate-800">Gate line + adjacent (F124–H147)</h3>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600">Total gate line width (H127, inches)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={hybridHoAdjacent.totalWidthIn}
+                      onChange={(e) => setHybridHoAdjacent((prev) => ({ ...prev, totalWidthIn: Number(e.target.value) || 0 }))}
+                      className={`mt-1 ${field}`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600">Adjoining mode (H128: 0 / 1 / 2)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={hybridHoAdjacent.adjoiningMode}
+                      onChange={(e) => setHybridHoAdjacent((prev) => ({ ...prev, adjoiningMode: Number(e.target.value) || 0 }))}
+                      className={`mt-1 ${field}`}
+                    />
+                  </div>
+                </div>
+                <div className="overflow-x-auto rounded-xl border border-slate-200/80">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50 text-left">
+                        <th className="px-3 py-2 font-semibold text-slate-700">Item</th>
+                        <th className="px-3 py-2 text-right font-semibold text-slate-700">Final</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {hybridHoAdjacentPreview.rows.map((row) => (
+                        <tr key={`ho-adj-${row.item}`} className="border-b border-slate-100 last:border-0">
+                          <td className="px-3 py-2 font-medium text-slate-900">{row.item}</td>
+                          <td className="px-3 py-2 text-right font-semibold tabular-nums text-slate-900">{formatQty(row.final)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-slate-800">Double gate line (F151–H172)</h3>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600">Total gate line width (H154, inches)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={hybridHoDouble.totalWidthIn}
+                      onChange={(e) => setHybridHoDouble((prev) => ({ ...prev, totalWidthIn: Number(e.target.value) || 0 }))}
+                      className={`mt-1 ${field}`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600">Adjoining fence (H155: 0 = yes, 1 = no)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={hybridHoDouble.adjoiningFence}
+                      onChange={(e) => setHybridHoDouble((prev) => ({ ...prev, adjoiningFence: Number(e.target.value) || 0 }))}
+                      className={`mt-1 ${field}`}
+                    />
+                  </div>
+                </div>
+                <div className="overflow-x-auto rounded-xl border border-slate-200/80">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50 text-left">
+                        <th className="px-3 py-2 font-semibold text-slate-700">Item</th>
+                        <th className="px-3 py-2 text-right font-semibold text-slate-700">Final</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {hybridHoDoublePreview.rows.map((row) => (
+                        <tr key={`ho-dbl-${row.item}`} className="border-b border-slate-100 last:border-0">
+                          <td className="px-3 py-2 font-medium text-slate-900">{row.item}</td>
+                          <td className="px-3 py-2 text-right font-semibold tabular-nums text-slate-900">{formatQty(row.final)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
           <section className={cardShell}>
             <div className={cardHeader}>
               <h2 className="font-semibold text-slate-900">Hybrid Horizontal families</h2>
@@ -1272,52 +1790,41 @@ export function SupplierMaterialCalculatorFramework() {
                         )
                       : [];
                   const config = hybridHorizontalFamilyConfig(styleName, selection.heightFt);
+                  const hoFamily = hybridHoFamilyFromStyleName(styleName);
+                  const hoHeightFt: 6 | 7 = selection.heightFt != null && Math.round(selection.heightFt) >= 7 ? 7 : 6;
+                  const hoLinePack =
+                    hoFamily != null
+                      ? fmsHybridHoLineFinals(
+                          {
+                            lengthFt: inputs.lineLengthFt,
+                            hPostTerminations: inputs.hPostTerminations,
+                            uChannelTerminations: inputs.uChannelTerminations,
+                          },
+                          hoFamily,
+                          hoHeightFt,
+                        )
+                      : null;
                   const exactPanels = inputs.lineLengthFt > 0 ? inputs.lineLengthFt / HYBRID_HORIZONTAL_PANEL_LENGTH_FT : 0;
-                  const halfPanelCeil = hybridHalfPanelCeiling(exactPanels);
-                  const roundedWholePanels = hybridRoundedWholePanels(halfPanelCeil);
-                  const linePostCount = Math.max(0, roundedWholePanels + Math.round(inputs.hPostTerminations) - 1);
-                  const lineRows: HybridHorizontalMaterialRow[] = config
-                    ? [
-                        { name: 'Aluminum H Post', qty: linePostCount },
-                        { name: 'Cap (H Post)', qty: linePostCount },
-                        { name: `6' Rail`, qty: halfPanelCeil * 2 },
-                        { name: 'Board', qty: roundedWholePanels * config.boardQtyPerRoundedPanel },
-                        {
-                          name: 'Long Black Screw (2.5)',
-                          qty:
-                            roundedWholePanels * 4 -
-                            (inputs.uChannelTerminations === 1
-                              ? 2
-                              : inputs.uChannelTerminations === 2
-                                ? 4
-                                : 0),
-                        },
-                        { name: 'U Channel', qty: Math.max(0, Math.round(inputs.uChannelTerminations)) },
-                        { name: 'Small Black Screw (3/4)', qty: Math.max(0, Math.round(inputs.uChannelTerminations)) * 6 },
-                      ]
+                  const halfPanelCeil = hoLinePack ? hoLinePack.z.cCeilHalfPanel : hybridHalfPanelCeiling(exactPanels);
+                  const roundedWholePanels = hoLinePack ? hoLinePack.z.dWholePanels : hybridRoundedWholePanels(halfPanelCeil);
+                  const lineRows: HybridHorizontalMaterialRow[] = hoLinePack
+                    ? hoLinePack.rows.map((r) => ({ name: r.item, qty: r.final }))
                     : [];
                   const gateIsActive = inputs.gateWidthInches > 0;
-                  const gateBoardQty =
-                    gateIsActive && config
-                      ? inputs.gateWidthInches > 37
-                        ? config.gateBoardQtyFullWidth
-                        : config.gateBoardQtyFullWidth / 2
-                      : 0;
-                  const gateRows: HybridHorizontalMaterialRow[] = gateIsActive
-                    ? [
-                        { name: 'Gate Side Frame', qty: 2 },
-                        { name: 'H Post', qty: Math.max(0, Math.round(inputs.gatePostsNeeded)) },
-                        { name: 'Cap (H post)', qty: Math.max(0, Math.round(inputs.gatePostsNeeded)) },
-                        { name: 'Small Cap (Gate Side Frame Cap)', qty: 2 },
-                        { name: '6 Foot Rail/Overhead Brace', qty: 3 },
-                        { name: 'Board', qty: gateBoardQty },
-                        { name: 'Long Black Screw (2.5)', qty: 2 },
-                        { name: 'Medium Black screw (1.5)', qty: 8 },
-                        { name: 'Gate Cross Brace', qty: 1 },
-                        { name: 'Latch kit', qty: 1 },
-                        { name: 'Hinge Kit', qty: 1 },
-                      ]
-                    : [];
+                  const hoGatePack =
+                    gateIsActive && hoFamily != null && (hoFamily === 'slatted' || hoFamily === 'aluminum')
+                      ? fmsHybridHoSimpleGateFinals(
+                          { gateWidthInches: inputs.gateWidthInches, gatePostsNeeded: inputs.gatePostsNeeded },
+                          hoFamily === 'slatted' ? 'slatted' : 'aluminum',
+                          hoHeightFt,
+                        )
+                      : null;
+                  const gateBoardQty = hoGatePack?.z.boardFinal ?? 0;
+                  const gateRows: HybridHorizontalMaterialRow[] = hoGatePack
+                    ? hoGatePack.rows.map((r) => ({ name: r.item, qty: r.final }))
+                    : gateIsActive && hoFamily === 'woodGrain'
+                      ? []
+                      : [];
                   const longBlackTotal =
                     (lineRows.find((row) => row.name === 'Long Black Screw (2.5)')?.qty ?? 0) +
                     (gateRows.find((row) => row.name === 'Long Black Screw (2.5)')?.qty ?? 0);
@@ -1523,7 +2030,9 @@ export function SupplierMaterialCalculatorFramework() {
                       <div className="mt-4 grid gap-4 xl:grid-cols-3">
                         <div className="rounded-2xl border border-slate-200/80 bg-white p-4">
                           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Exact panels</p>
-                          <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{exactPanels.toFixed(2)}</p>
+                          <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">
+                            {(hoLinePack ? hoLinePack.z.cRaw : exactPanels).toFixed(hoLinePack ? 4 : 2)}
+                          </p>
                         </div>
                         <div className="rounded-2xl border border-indigo-200/80 bg-indigo-50/70 p-4">
                           <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Ceiling to 0.5 panel</p>
@@ -1579,7 +2088,11 @@ export function SupplierMaterialCalculatorFramework() {
                                 <tbody>
                                   {gateRows.length === 0 ? (
                                     <tr>
-                                      <td className="py-2.5 text-sm text-slate-500" colSpan={2}>Enter a gate width above to calculate gate materials.</td>
+                                      <td className="py-2.5 text-sm text-slate-500" colSpan={2}>
+                                        {gateIsActive && hoFamily === 'woodGrain'
+                                          ? 'The Hybrid Ho workbook tab does not include a Wood Grain gate template; use the shared adjacent and double gate calculators in this drawer for those layouts.'
+                                          : 'Enter a gate width above to calculate gate materials.'}
+                                      </td>
                                     </tr>
                                   ) : (
                                     gateRows.map((row) => (
