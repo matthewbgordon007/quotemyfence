@@ -14,6 +14,9 @@ import {
   type MaterialCalculatorInputField,
   type MaterialCalculatorRecipeItem,
 } from '@/lib/material-calculator-framework';
+import { fmsPvcColorLineMaterialFinals, fmsPvcConcreteBags, fmsPvcGateMaterialFinals } from '@/lib/fms-pvc-calculator';
+import { fmsHybridVeHhPvcColorLineFinals, fmsHybridVeHhPvcGateFinals } from '@/lib/fms-hybrid-ve-horizontal-pvc';
+import { fmsVerticalHybridColorLineFinals } from '@/lib/fms-hybrid-ve-vertical-line';
 
 const field =
   'w-full rounded-xl border border-slate-200/90 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20';
@@ -33,6 +36,19 @@ type SampleLine = {
 type SampleGateLine = {
   line_width_inches: number;
   posts_needed: number;
+};
+
+type HybridVeHorizontalGateInputs = {
+  gateLineWidthInches: number;
+  gatePostsNeeded: number;
+  sideLayoutWidthInches: number;
+  adjoiningMode: number;
+};
+
+type VerticalHybridInputs = {
+  lineLengthFt: number;
+  hPostTerminations: number;
+  uChannelTerminations: number;
 };
 
 const inputFieldLabels: Record<MaterialCalculatorInputField, string> = {
@@ -349,6 +365,17 @@ export function SupplierMaterialCalculatorFramework() {
     line_width_inches: 60,
     posts_needed: 2,
   });
+  const [hybridVeGate, setHybridVeGate] = useState<HybridVeHorizontalGateInputs>({
+    gateLineWidthInches: 48,
+    gatePostsNeeded: 1,
+    sideLayoutWidthInches: 92,
+    adjoiningMode: 0,
+  });
+  const [verticalHybrid, setVerticalHybrid] = useState<VerticalHybridInputs>({
+    lineLengthFt: 21,
+    hPostTerminations: 2,
+    uChannelTerminations: 2,
+  });
   const [masterSheetCellEdits, setMasterSheetCellEdits] = useState<Record<string, string>>({});
   const [hybridHorizontalSelections, setHybridHorizontalSelections] = useState<Record<string, HybridHorizontalSelection>>({});
   const [hybridHorizontalInputs, setHybridHorizontalInputs] = useState<Record<string, HybridHorizontalInputs>>({});
@@ -503,6 +530,57 @@ export function SupplierMaterialCalculatorFramework() {
     return sampleLine.length_ft / panelLengthFt;
   }, [panelLengthFt, sampleLine.length_ft]);
 
+  const pvcSheetLine = useMemo(
+    () =>
+      fmsPvcColorLineMaterialFinals({
+        lengthFt: sampleLine.length_ft,
+        hPostTerminations: sampleLine.h_post_terminations,
+        uChannelTerminations: sampleLine.u_channel_terminations,
+      }),
+    [sampleLine],
+  );
+
+  const pvcSheetGate = useMemo(
+    () =>
+      fmsPvcGateMaterialFinals({
+        gateLineWidthInches: sampleGateLine.line_width_inches,
+        gatePostsNeeded: sampleGateLine.posts_needed,
+      }),
+    [sampleGateLine],
+  );
+
+  const hybridVeHorizontalLine = useMemo(
+    () =>
+      fmsHybridVeHhPvcColorLineFinals({
+        lengthFt: sampleLine.length_ft,
+        hPostTerminations: sampleLine.h_post_terminations,
+        uChannelTerminations: sampleLine.u_channel_terminations,
+      }),
+    [sampleLine],
+  );
+
+  const hybridVeHorizontalGate = useMemo(
+    () =>
+      fmsHybridVeHhPvcGateFinals({
+        gateLineWidthInches: hybridVeGate.gateLineWidthInches,
+        gatePostsNeeded: hybridVeGate.gatePostsNeeded,
+        l6Inches: hybridVeGate.sideLayoutWidthInches,
+        l7: hybridVeGate.adjoiningMode,
+        lineUChannelD7: sampleLine.u_channel_terminations,
+      }),
+    [hybridVeGate, sampleLine.u_channel_terminations],
+  );
+
+  const verticalHybridLine = useMemo(
+    () =>
+      fmsVerticalHybridColorLineFinals({
+        lengthFt: verticalHybrid.lineLengthFt,
+        hPostTerminations: verticalHybrid.hPostTerminations,
+        uChannelTerminations: verticalHybrid.uChannelTerminations,
+      }),
+    [verticalHybrid],
+  );
+
   const roundedPanels = useMemo(() => pvcWholePanelsD9(exactPanels), [exactPanels]);
 
   /** Fence line only (D9+D6−1) — used for gate recipe rows that multiply from “line posts” so gate extras are not double-counted. */
@@ -517,80 +595,31 @@ export function SupplierMaterialCalculatorFramework() {
     [exactPanels, sampleGateLine.posts_needed, sampleLine.h_post_terminations],
   );
 
-  const previewRows = useMemo(() => {
-    return recipeItems.map((item) => {
-      const sourceValue =
-        item.input_field === 'line_length_ft'
-          ? sampleLine.length_ft
-          : item.input_field === 'exact_panels'
-            ? exactPanels
-            : item.input_field === 'rounded_panels'
-              ? roundedPanels
-              : item.input_field === 'line_posts_including_first'
-                ? linePostsIncludingFirst
-                : item.input_field === 'pvc_long_screw_sheet_final'
-                  ? pvcLongScrewFinalFromSheet(exactPanels, sampleLine.u_channel_terminations)
-                  : item.input_field === 'pvc_plug_sheet_final'
-                    ? pvcPlugFinalFromSheet(exactPanels, sampleLine.u_channel_terminations)
-                    : item.input_field === 'h_post_terminations'
-                      ? sampleLine.h_post_terminations
-                      : sampleLine.u_channel_terminations;
+  const previewRows = useMemo(
+    () =>
+      pvcSheetLine.rows.map((row, idx) => ({
+        id: `pvc-sheet-line-${idx}`,
+        name: row.item,
+        raw: row.final,
+        final: row.final,
+      })),
+    [pvcSheetLine],
+  );
 
-      const raw = sourceValue * item.quantity_per_panel;
-      let final = roundForMode(raw, item.rounding_mode);
-      if (item.id === 'color-short-screw') {
-        final = Math.ceil(raw) + 1;
-      }
-      return {
-        ...item,
-        raw,
-        final,
-      };
-    });
-  }, [exactPanels, linePostsIncludingFirst, recipeItems, roundedPanels, sampleLine]);
+  const gateDoorWidth = useMemo(() => pvcSheetGate.z.c31, [pvcSheetGate]);
 
-  const gateDoorWidth = useMemo(() => {
-    return Math.max(0, sampleGateLine.line_width_inches - 10.5);
-  }, [sampleGateLine.line_width_inches]);
+  const gateTotalBoards = useMemo(() => pvcSheetGate.z.c32, [pvcSheetGate]);
 
-  const gateTotalBoards = useMemo(() => {
-    return gateDoorWidth / 6.125;
-  }, [gateDoorWidth]);
-
-  const gatePreviewRows = useMemo(() => {
-    return gateRecipeItems.map((item) => {
-      const sourceValue =
-        item.input_field === 'gate_posts_needed'
-          ? sampleGateLine.posts_needed
-          : item.input_field === 'gate_total_boards'
-            ? gateTotalBoards
-            : item.input_field === 'gate_unit'
-              ? 1
-              : item.input_field === 'line_length_ft'
-                ? sampleLine.length_ft
-                : item.input_field === 'exact_panels'
-                  ? exactPanels
-                  : item.input_field === 'rounded_panels'
-                    ? roundedPanels
-                    : item.input_field === 'line_posts_including_first'
-                      ? linePostsFenceLineOnly
-                      : item.input_field === 'pvc_long_screw_sheet_final'
-                        ? pvcLongScrewFinalFromSheet(exactPanels, sampleLine.u_channel_terminations)
-                        : item.input_field === 'pvc_plug_sheet_final'
-                          ? pvcPlugFinalFromSheet(exactPanels, sampleLine.u_channel_terminations)
-                          : item.input_field === 'h_post_terminations'
-                            ? sampleLine.h_post_terminations
-                            : item.input_field === 'u_channel_terminations'
-                              ? sampleLine.u_channel_terminations
-                              : 0;
-      const raw = sourceValue * item.quantity_per_panel;
-      return {
-        ...item,
-        raw,
-        final: roundForMode(raw, item.rounding_mode),
-      };
-    });
-  }, [exactPanels, gateRecipeItems, gateTotalBoards, linePostsFenceLineOnly, roundedPanels, sampleGateLine.posts_needed, sampleLine]);
+  const gatePreviewRows = useMemo(
+    () =>
+      pvcSheetGate.rows.map((row, idx) => ({
+        id: `pvc-sheet-gate-${idx}`,
+        name: row.item,
+        raw: row.final,
+        final: row.final,
+      })),
+    [pvcSheetGate],
+  );
 
   const materialTotalsByKey = useMemo(() => {
     const map = new Map<string, number>();
@@ -599,10 +628,11 @@ export function SupplierMaterialCalculatorFramework() {
       const key = materialKey(label);
       map.set(key, (map.get(key) ?? 0) + qty);
     };
+    add('Concrete', fmsPvcConcreteBags(linePostsIncludingFirst));
     for (const row of previewRows) add(row.name || '', Number(row.final) || 0);
     for (const row of gatePreviewRows) add(row.name || '', Number(row.final) || 0);
     return map;
-  }, [previewRows, gatePreviewRows]);
+  }, [gatePreviewRows, linePostsIncludingFirst, previewRows]);
 
   const masterListColorHeading = useMemo(() => colorHeadingFromDescription(description), [description]);
 
@@ -987,6 +1017,211 @@ export function SupplierMaterialCalculatorFramework() {
           </p>
         </div>
       </details>
+        </div>
+      </details>
+
+      <details className="group rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 sm:px-6">
+          <span>
+            <span className="block text-base font-semibold text-slate-900">Hybrid Ve calculators</span>
+            <span className="mt-0.5 block text-xs font-normal text-slate-500">Horizontal Hybrid PVC and Vertical Hybrid, exactly from the workbook tab</span>
+          </span>
+          <span className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 group-open:border-emerald-200 group-open:bg-emerald-50 group-open:text-emerald-800">
+            <span className="group-open:hidden">Open</span>
+            <span className="hidden group-open:inline">Close</span>
+          </span>
+        </summary>
+        <div className="space-y-6 border-t border-slate-100 px-5 py-6 sm:px-6">
+          <details className="group rounded-2xl border border-slate-200/80 bg-slate-50/60 shadow-sm">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4 sm:px-5">
+              <span>
+                <span className="block text-lg font-semibold text-slate-900">Horizontal Hybrid PVC</span>
+                <span className="mt-1 block text-sm text-slate-600">Workbook basis: `length / 6.0833`, `CEILING(..., 0.5)`, then `ROUNDUP(...)`.</span>
+              </span>
+              <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 group-open:border-emerald-200 group-open:bg-emerald-50 group-open:text-emerald-800">
+                <span className="group-open:hidden">Open</span>
+                <span className="hidden group-open:inline">Close</span>
+              </span>
+            </summary>
+            <div className="space-y-4 border-t border-slate-200/70 px-4 py-4 sm:px-5 sm:py-5">
+              <div className="grid gap-4 lg:grid-cols-2">
+                <section className={cardShell}>
+                  <div className={cardHeader}>
+                    <h4 className="font-semibold text-slate-900">Line inputs</h4>
+                  </div>
+                  <div className="grid gap-4 p-5 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700">Total fence line length (ft)</label>
+                      <input type="number" min={0} step={0.01} value={sampleLine.length_ft} onChange={(e) => setSampleLine((prev) => ({ ...prev, length_ft: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700">Fence terminated with H post (0, 1, 2)</label>
+                      <input type="number" min={0} step={1} value={sampleLine.h_post_terminations} onChange={(e) => setSampleLine((prev) => ({ ...prev, h_post_terminations: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700">Fence terminated with U channel (0, 1, 2)</label>
+                      <input type="number" min={0} step={1} value={sampleLine.u_channel_terminations} onChange={(e) => setSampleLine((prev) => ({ ...prev, u_channel_terminations: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+                    </div>
+                  </div>
+                </section>
+                <section className={cardShell}>
+                  <div className={cardHeader}>
+                    <h4 className="font-semibold text-slate-900">Gate inputs</h4>
+                  </div>
+                  <div className="grid gap-4 p-5 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700">Gate line width (H6, inches)</label>
+                      <input type="number" min={0} step={0.01} value={hybridVeGate.gateLineWidthInches} onChange={(e) => setHybridVeGate((prev) => ({ ...prev, gateLineWidthInches: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700">Gate posts needed (H7, 0–2)</label>
+                      <input type="number" min={0} step={1} value={hybridVeGate.gatePostsNeeded} onChange={(e) => setHybridVeGate((prev) => ({ ...prev, gatePostsNeeded: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700">Side layout width (L6, inches)</label>
+                      <input type="number" min={0} step={0.01} value={hybridVeGate.sideLayoutWidthInches} onChange={(e) => setHybridVeGate((prev) => ({ ...prev, sideLayoutWidthInches: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700">Adjoining mode (L7: 0 / 1 / 2)</label>
+                      <input type="number" min={0} step={1} value={hybridVeGate.adjoiningMode} onChange={(e) => setHybridVeGate((prev) => ({ ...prev, adjoiningMode: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+                    </div>
+                  </div>
+                </section>
+              </div>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <section className={cardShell}>
+                  <div className={cardHeader}>
+                    <h4 className="font-semibold text-slate-900">Line material totals</h4>
+                  </div>
+                  <div className="p-5 sm:p-6">
+                    <div className="mb-4 grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">C8 exact panels</p>
+                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{hybridVeHorizontalLine.z.c8.toFixed(4)}</p>
+                      </div>
+                      <div className="rounded-2xl border border-indigo-200/80 bg-indigo-50/70 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">C9 ceiling 0.5</p>
+                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(hybridVeHorizontalLine.z.c9)}</p>
+                      </div>
+                      <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/70 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">D9 whole panels</p>
+                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(hybridVeHorizontalLine.z.d9)}</p>
+                      </div>
+                    </div>
+                    <table className="min-w-full text-sm">
+                      <thead><tr className="border-b border-slate-200 text-left"><th className="py-3 font-semibold text-slate-700">Item</th><th className="py-3 text-right font-semibold text-slate-700">Final</th></tr></thead>
+                      <tbody>
+                        {hybridVeHorizontalLine.rows.map((row) => (
+                          <tr key={`hybrid-ve-line-${row.item}`} className="border-b border-slate-100 last:border-0">
+                            <td className="py-2.5 font-medium text-slate-900">{row.item}</td>
+                            <td className="py-2.5 text-right font-semibold tabular-nums text-slate-900">{formatQty(row.final)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+                <section className={cardShell}>
+                  <div className={cardHeader}>
+                    <h4 className="font-semibold text-slate-900">Gate material totals</h4>
+                  </div>
+                  <div className="p-5 sm:p-6">
+                    <div className="mb-4 grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">L8 side panel length</p>
+                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(hybridVeHorizontalGate.z.l8)}</p>
+                      </div>
+                      <div className="rounded-2xl border border-indigo-200/80 bg-indigo-50/70 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">L12 rounded side fraction</p>
+                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(hybridVeHorizontalGate.z.l12)}</p>
+                      </div>
+                      <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/70 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Gate boards</p>
+                        <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(hybridVeHorizontalGate.z.h19)}</p>
+                      </div>
+                    </div>
+                    <table className="min-w-full text-sm">
+                      <thead><tr className="border-b border-slate-200 text-left"><th className="py-3 font-semibold text-slate-700">Item</th><th className="py-3 text-right font-semibold text-slate-700">Final</th></tr></thead>
+                      <tbody>
+                        {hybridVeHorizontalGate.rows.map((row) => (
+                          <tr key={`hybrid-ve-gate-${row.item}`} className="border-b border-slate-100 last:border-0">
+                            <td className="py-2.5 font-medium text-slate-900">{row.item}</td>
+                            <td className="py-2.5 text-right font-semibold tabular-nums text-slate-900">{formatQty(row.final)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </details>
+
+          <details className="group rounded-2xl border border-slate-200/80 bg-slate-50/60 shadow-sm">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4 sm:px-5">
+              <span>
+                <span className="block text-lg font-semibold text-slate-900">Vertical Hybrid</span>
+                <span className="mt-1 block text-sm text-slate-600">Workbook basis: `length / 8`, `ROUND(C60,4)`, then `ROUNDUP(C61,0)`.</span>
+              </span>
+              <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 group-open:border-emerald-200 group-open:bg-emerald-50 group-open:text-emerald-800">
+                <span className="group-open:hidden">Open</span>
+                <span className="hidden group-open:inline">Close</span>
+              </span>
+            </summary>
+            <div className="space-y-4 border-t border-slate-200/70 px-4 py-4 sm:px-5 sm:py-5">
+              <section className={cardShell}>
+                <div className={cardHeader}>
+                  <h4 className="font-semibold text-slate-900">Line inputs</h4>
+                </div>
+                <div className="grid gap-4 p-5 sm:grid-cols-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700">Total fence line length (ft)</label>
+                    <input type="number" min={0} step={0.01} value={verticalHybrid.lineLengthFt} onChange={(e) => setVerticalHybrid((prev) => ({ ...prev, lineLengthFt: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700">Fence terminated with H post (0, 1, 2)</label>
+                    <input type="number" min={0} step={1} value={verticalHybrid.hPostTerminations} onChange={(e) => setVerticalHybrid((prev) => ({ ...prev, hPostTerminations: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700">Fence terminated with U channel (0, 1, 2)</label>
+                    <input type="number" min={0} step={1} value={verticalHybrid.uChannelTerminations} onChange={(e) => setVerticalHybrid((prev) => ({ ...prev, uChannelTerminations: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+                  </div>
+                </div>
+              </section>
+              <section className={cardShell}>
+                <div className={cardHeader}>
+                  <h4 className="font-semibold text-slate-900">Line material totals</h4>
+                </div>
+                <div className="p-5 sm:p-6">
+                  <div className="mb-4 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">C60 exact panels</p>
+                      <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(verticalHybridLine.z.c60)}</p>
+                    </div>
+                    <div className="rounded-2xl border border-indigo-200/80 bg-indigo-50/70 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">C61 rounded</p>
+                      <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(verticalHybridLine.z.c61)}</p>
+                    </div>
+                    <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/70 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">D61 whole panels</p>
+                      <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{formatQty(verticalHybridLine.z.d61)}</p>
+                    </div>
+                  </div>
+                  <table className="min-w-full text-sm">
+                    <thead><tr className="border-b border-slate-200 text-left"><th className="py-3 font-semibold text-slate-700">Item</th><th className="py-3 text-right font-semibold text-slate-700">Final</th></tr></thead>
+                    <tbody>
+                      {verticalHybridLine.rows.map((row) => (
+                        <tr key={`vertical-hybrid-${row.item}`} className="border-b border-slate-100 last:border-0">
+                          <td className="py-2.5 font-medium text-slate-900">{row.item}</td>
+                          <td className="py-2.5 text-right font-semibold tabular-nums text-slate-900">{formatQty(row.final)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </div>
+          </details>
         </div>
       </details>
 

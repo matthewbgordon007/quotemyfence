@@ -1,3 +1,6 @@
+import { excelRound, excelRoundUp } from '@/lib/excel-math';
+import { FMS_PVC_PANEL_LENGTH_DIVISOR, fmsPvcLongPlugAdjusted } from '@/lib/fms-pvc-calculator';
+
 export type MaterialCalculatorRoundingMode = 'none' | 'ceil' | 'nearest';
 
 export type MaterialCalculatorInputField =
@@ -51,11 +54,14 @@ export interface MaterialCalculatorFieldSpec {
   notes?: string;
 }
 
+/** Panel length divisor from `Material Calculator - PVC` cell C8 (`=C5/8.20833333`). */
+export const PVC_PANEL_LENGTH_DIVISOR_SHEET = FMS_PVC_PANEL_LENGTH_DIVISOR;
+
 export const starterMaterialCalculatorTemplate: MaterialCalculatorTemplate = {
   id: 'starter-premium-fence',
   title: '',
   description: 'Adobe, 6ft',
-  panel_length_ft: 8.21,
+  panel_length_ft: FMS_PVC_PANEL_LENGTH_DIVISOR,
   sections: [
     {
       id: 'job-info',
@@ -172,14 +178,14 @@ export const firstSheetFieldSpecs: MaterialCalculatorFieldSpec[] = [
     label: 'Total Fence Line Panels',
     mode: 'calculated',
     section: 'color_line',
-    notes: 'length_ft / panel_length_ft',
+    notes: 'length_ft / 8.20833333 (PVC tab C8)',
   },
   {
     id: 'total_whole_panels',
     label: 'Total Whole Number of Fence line Panels',
     mode: 'calculated',
     section: 'color_line',
-    notes: 'ceil(total_fence_line_panels)',
+    notes: 'D9 = ROUNDUP(ROUND(C8,4),0)',
   },
   {
     id: 'line_posts_including_first',
@@ -193,14 +199,14 @@ export const firstSheetFieldSpecs: MaterialCalculatorFieldSpec[] = [
     label: 'Long screw Final (PVC IF on U channel)',
     mode: 'calculated',
     section: 'color_line',
-    notes: '=IF(B22=1,C+6,IF(B22=0,C,IF(B22=2,C+12))) with C=ceil(4×exact panels); B22 is fence terminated with U channel (0–2).',
+    notes: 'D20 on PVC tab: IF on B22 (=D7) applied to C20=D9×4 (whole panels, not exact C8).',
   },
   {
     id: 'pvc_plug_sheet_final',
     label: 'Plug Final (PVC IF on U channel)',
     mode: 'calculated',
     section: 'color_line',
-    notes: '=IF(B22=1,C-2,IF(B22=0,C,IF(B22=2,C-4))) with same C and B22 as long screws.',
+    notes: 'D21 on PVC tab: IF on B22 applied to C21=D9×4.',
   },
   {
     id: 'posts',
@@ -341,10 +347,13 @@ export const firstSheetGateLineRecipeDefaults: MaterialCalculatorRecipeItem[] = 
   },
 ];
 
-/** Intermediate C20/C21 on the PVC sheet (4 × exact panels, round up). */
-export function pvcScrewPlugBaseFromExactPanels(exactPanels: number): number {
-  if (!Number.isFinite(exactPanels) || exactPanels <= 0) return 0;
-  return Math.ceil(exactPanels * 4);
+/**
+ * C20 / C21 base on the PVC tab before U-channel IFs: `=D9*B20` with B20=B21=4 → **4 × whole panels (D9)**.
+ * Pass **C8** (unrounded length ÷ 8.20833333), same as `exact_panels` from the sheet.
+ */
+export function pvcScrewPlugBaseFromExactPanels(exactPanelsC8: number): number {
+  const d9 = pvcWholePanelsD9(exactPanelsC8);
+  return d9 * 4;
 }
 
 /** B22 in the sheet: U channel termination type 0, 1, or 2. */
@@ -354,46 +363,34 @@ export function pvcSheetUChannelBranch(uChannelTerminations: number): 0 | 1 | 2 
   return Math.min(2, Math.max(0, Math.round(n))) as 0 | 1 | 2;
 }
 
-/** Job-wide spare long screws added after sheet Final. */
-export const PVC_JOB_EXTRA_LONG_SCREWS = 10;
-
-/** Job-wide spare plugs / hole caps added after sheet Final. */
-export const PVC_JOB_EXTRA_PLUGS = 10;
-
-/** Long screw Final =IF(B22=1,C+6,IF(B22=0,C,IF(B22=2,C+12))) plus job extras. */
+/** Long screw D20 on the PVC calculator tab (no master-tab extras). */
 export function pvcLongScrewFinalFromSheet(exactPanels: number, uChannelTerminations: number): number {
   const c = pvcScrewPlugBaseFromExactPanels(exactPanels);
   const b = pvcSheetUChannelBranch(uChannelTerminations);
-  let base: number;
-  if (b === 1) base = c + 6;
-  else if (b === 0) base = c;
-  else base = c + 12;
-  return base + PVC_JOB_EXTRA_LONG_SCREWS;
+  return fmsPvcLongPlugAdjusted(c, b, true);
 }
 
-/** Plug Final =IF(B22=1,C-2,IF(B22=0,C,IF(B22=2,C-4))) plus job extras (hole caps). */
+/** Plug D21 on the PVC calculator tab (no master-tab extras). */
 export function pvcPlugFinalFromSheet(exactPanels: number, uChannelTerminations: number): number {
   const c = pvcScrewPlugBaseFromExactPanels(exactPanels);
   const b = pvcSheetUChannelBranch(uChannelTerminations);
-  let base: number;
-  if (b === 1) base = c - 2;
-  else if (b === 0) base = c;
-  else base = c - 4;
-  return base + PVC_JOB_EXTRA_PLUGS;
+  return fmsPvcLongPlugAdjusted(c, b, false);
 }
 
-/** Sheet cell D9: whole panel count = ceil(exact panels). */
-export function pvcWholePanelsD9(exactPanels: number): number {
-  if (!Number.isFinite(exactPanels) || exactPanels <= 0) return 0;
-  return Math.ceil(exactPanels);
+/** Sheet D9: `=ROUNDUP(ROUND(C8,4),0)` on the PVC tab. */
+export function pvcWholePanelsD9(exactPanelsC8: number): number {
+  if (!Number.isFinite(exactPanelsC8) || exactPanelsC8 <= 0) return 0;
+  const c9 = excelRound(exactPanelsC8, 4);
+  if (c9 <= 0) return 0;
+  return excelRoundUp(c9, 0);
 }
 
 /**
  * Fence color line only: =D9+D6−1 (whole panels + H terminations − 1).
  * This is usually **not** the same as a separate “Posts” row that shows **D9 only** — when D6 is 3, material post count is **2 higher** than D9-only (because 3−1=2).
  */
-export function pvcLinePostsForMaterials(exactPanels: number, hPostTerminationsD6: number): number {
-  const d9 = pvcWholePanelsD9(exactPanels);
+export function pvcLinePostsForMaterials(exactPanelsC8: number, hPostTerminationsD6: number): number {
+  const d9 = pvcWholePanelsD9(exactPanelsC8);
   const d6 = Math.max(0, Math.round(Number(hPostTerminationsD6) || 0));
   return Math.max(0, d9 + d6 - 1);
 }
