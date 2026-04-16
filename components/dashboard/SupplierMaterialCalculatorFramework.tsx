@@ -119,22 +119,10 @@ export function SupplierMaterialCalculatorFramework() {
     });
   }, [gateRecipeItems, gateTotalBoards, sampleGateLine.posts_needed]);
 
-  const colorLineInputs = useMemo(
-    () => firstSheetFieldSpecs.filter((f) => f.section === 'color_line' && f.mode === 'input'),
-    []
-  );
-  const colorLineCalculated = useMemo(
-    () => firstSheetFieldSpecs.filter((f) => f.section === 'color_line' && f.mode === 'calculated'),
-    []
-  );
-  const gateLineInputs = useMemo(
-    () => firstSheetFieldSpecs.filter((f) => f.section === 'gate_line' && f.mode === 'input'),
-    []
-  );
-  const gateLineCalculated = useMemo(
-    () => firstSheetFieldSpecs.filter((f) => f.section === 'gate_line' && f.mode === 'calculated'),
-    []
-  );
+  const colorLineInputs = useMemo(() => firstSheetFieldSpecs.filter((f) => f.section === 'color_line' && f.mode === 'input'), []);
+  const colorLineCalculated = useMemo(() => firstSheetFieldSpecs.filter((f) => f.section === 'color_line' && f.mode === 'calculated'), []);
+  const gateLineInputs = useMemo(() => firstSheetFieldSpecs.filter((f) => f.section === 'gate_line' && f.mode === 'input'), []);
+  const gateLineCalculated = useMemo(() => firstSheetFieldSpecs.filter((f) => f.section === 'gate_line' && f.mode === 'calculated'), []);
 
   function updateRecipeItem(id: string, patch: Partial<MaterialCalculatorRecipeItem>) {
     setRecipeItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
@@ -181,7 +169,7 @@ export function SupplierMaterialCalculatorFramework() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8 pb-8">
+    <div className="mx-auto max-w-6xl space-y-6 pb-8">
       <div
         className="relative overflow-hidden rounded-[2rem] border p-6 shadow-xl shadow-slate-900/[0.05] sm:p-8"
         style={{
@@ -193,108 +181,162 @@ export function SupplierMaterialCalculatorFramework() {
         <p className="inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--dashboard-ink)]" style={{ background: 'var(--dashboard-soft)' }}>
           Supplier Pages
         </p>
-        <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Material calculator framework</h1>
-        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
-          This first pass sets up the framework so suppliers can define how their calculator works without us hardcoding
-          one company&apos;s math. Exact panel count is length divided by panel length, then whole panels round up so
-          contractors always have enough material.
-        </p>
-        <div className="mt-4 rounded-2xl border border-indigo-100 bg-white/85 p-4 text-sm text-slate-700 shadow-sm">
-          This is a builder scaffold for now. The sections and panel recipe are editable here, and we can plug in your
-          supplier-specific formulas next.
-        </div>
+        <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Material calculator</h1>
+        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">Quick workflow: enter the manual inputs first, then review the material totals right below.</p>
       </div>
 
-      <div className="grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
-        <div className="space-y-6">
-          <section className={cardShell}>
-            <div className={cardHeader}>
-              <h2 className="font-semibold text-slate-900">Framework details</h2>
-              <p className="mt-1 text-sm text-slate-600">Name the calculator and define the shared panel basis.</p>
-            </div>
-            <div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6">
-              <div className="sm:col-span-2">
-                <label className="block text-sm font-medium text-slate-700">Calculator title</label>
-                <input value={title} onChange={(e) => setTitle(e.target.value)} className={`mt-1.5 ${field}`} />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="block text-sm font-medium text-slate-700">Description</label>
-                <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className={`mt-1.5 ${field}`} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Panel length (ft)</label>
-                <input
-                  type="number"
-                  min={0.01}
-                  step={0.01}
-                  value={panelLengthFt}
-                  onChange={(e) => setPanelLengthFt(Number(e.target.value) || 0)}
-                  className={`mt-1.5 ${field}`}
-                />
-              </div>
-              <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Core rule</p>
-                <p className="mt-2 text-sm text-slate-700">
-                  `exact panels = total length / panel length`
-                </p>
-                <p className="mt-1 text-sm text-slate-700">
-                  `whole panels = round up exact panels`
-                </p>
-              </div>
-            </div>
-          </section>
+      <section className={cardShell}>
+        <div className={cardHeader}>
+          <h2 className="font-semibold text-slate-900">Premium Fence Color Line - Manual inputs</h2>
+        </div>
+        <div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6">
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Address / line label</label>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} className={`mt-1.5 ${field}`} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Color and height</label>
+            <input value={description} onChange={(e) => setDescription(e.target.value)} className={`mt-1.5 ${field}`} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Total fence line length (ft)</label>
+            <input type="number" min={0} step={0.01} value={sampleLine.length_ft} onChange={(e) => setSampleLine((prev) => ({ ...prev, length_ft: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Fence terminated with H post (0, 1, 2)</label>
+            <input type="number" min={0} step={1} value={sampleLine.h_post_terminations} onChange={(e) => setSampleLine((prev) => ({ ...prev, h_post_terminations: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Fence terminated with U channel (0, 1, 2)</label>
+            <input type="number" min={0} step={1} value={sampleLine.u_channel_terminations} onChange={(e) => setSampleLine((prev) => ({ ...prev, u_channel_terminations: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Panel length basis (ft)</label>
+            <input type="number" min={0.01} step={0.01} value={panelLengthFt} onChange={(e) => setPanelLengthFt(Number(e.target.value) || 0)} className={`mt-1.5 ${field}`} />
+          </div>
+        </div>
+      </section>
 
-          <section className={cardShell}>
-            <div className={cardHeader}>
-              <h2 className="font-semibold text-slate-900">First sheet field map</h2>
-              <p className="mt-1 text-sm text-slate-600">Direct mapping of what contractors enter vs what auto-calculates.</p>
+      <section className={cardShell}>
+        <div className={cardHeader}>
+          <h2 className="font-semibold text-slate-900">Premium Fence Color Line - Material totals</h2>
+        </div>
+        <div className="space-y-4 p-5 sm:p-6">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total fence line panels</p>
+              <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{exactPanels.toFixed(2)}</p>
             </div>
-            <div className="space-y-3 p-5 sm:p-6">
-              <div className="rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4">
-                <p className="font-semibold text-slate-900">Premium Fence Color Line Calculator</p>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Contractor inputs</p>
-                    <ul className="mt-2 space-y-1.5 text-sm text-slate-700">
-                      {colorLineInputs.map((f) => (
-                        <li key={f.id}>- {f.label}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Auto calculated</p>
-                    <ul className="mt-2 space-y-1.5 text-sm text-slate-700">
-                      {colorLineCalculated.map((f) => (
-                        <li key={f.id}>- {f.label}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </div>
-              <div className="rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4">
-                <p className="font-semibold text-slate-900">Gate Line Calculator</p>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Contractor inputs</p>
-                    <ul className="mt-2 space-y-1.5 text-sm text-slate-700">
-                      {gateLineInputs.map((f) => (
-                        <li key={f.id}>- {f.label}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Auto calculated</p>
-                    <ul className="mt-2 space-y-1.5 text-sm text-slate-700">
-                      {gateLineCalculated.map((f) => (
-                        <li key={f.id}>- {f.label}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </div>
+            <div className="rounded-2xl border border-indigo-200/80 bg-indigo-50/70 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Total whole panels</p>
+              <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{roundedPanels}</p>
             </div>
-          </section>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left">
+                  <th className="py-3 font-semibold text-slate-700">Item</th>
+                  <th className="py-3 text-right font-semibold text-slate-700">Final</th>
+                </tr>
+              </thead>
+              <tbody>
+                {previewRows.map((row) => (
+                  <tr key={row.id} className="border-b border-slate-100 last:border-0">
+                    <td className="py-2.5 font-medium text-slate-900">{row.name || 'Untitled item'}</td>
+                    <td className="py-2.5 text-right font-semibold tabular-nums text-slate-900">{row.final}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
 
+      <section className={cardShell}>
+        <div className={cardHeader}>
+          <h2 className="font-semibold text-slate-900">Gate Line - Manual inputs</h2>
+        </div>
+        <div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6">
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Total gate line width (inches)</label>
+            <input type="number" min={0} step={0.01} value={sampleGateLine.line_width_inches} onChange={(e) => setSampleGateLine((prev) => ({ ...prev, line_width_inches: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Post needed (0, 1, or 2)</label>
+            <input type="number" min={0} step={1} value={sampleGateLine.posts_needed} onChange={(e) => setSampleGateLine((prev) => ({ ...prev, posts_needed: Number(e.target.value) || 0 }))} className={`mt-1.5 ${field}`} />
+          </div>
+        </div>
+      </section>
+
+      <section className={cardShell}>
+        <div className={cardHeader}>
+          <h2 className="font-semibold text-slate-900">Gate Line - Material totals</h2>
+        </div>
+        <div className="space-y-4 p-5 sm:p-6">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total gate door width</p>
+              <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{gateDoorWidth.toFixed(2)}</p>
+            </div>
+            <div className="rounded-2xl border border-indigo-200/80 bg-indigo-50/70 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Total gate boards</p>
+              <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{gateTotalBoards.toFixed(2)}</p>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left">
+                  <th className="py-3 font-semibold text-slate-700">Item</th>
+                  <th className="py-3 text-right font-semibold text-slate-700">Final</th>
+                </tr>
+              </thead>
+              <tbody>
+                {gatePreviewRows.map((row) => (
+                  <tr key={row.id} className="border-b border-slate-100 last:border-0">
+                    <td className="py-2.5 font-medium text-slate-900">{row.name || 'Untitled item'}</td>
+                    <td className="py-2.5 text-right font-semibold tabular-nums text-slate-900">{row.final}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <details className="group rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+        <summary className="cursor-pointer list-none px-5 py-4 text-sm font-semibold text-slate-800 sm:px-6">
+          Show math + framework details
+        </summary>
+        <div className="border-t border-slate-100 p-5 sm:p-6">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Color line - contractor inputs</p>
+              <ul className="mt-2 space-y-1.5 text-sm text-slate-700">{colorLineInputs.map((f) => <li key={f.id}>- {f.label}</li>)}</ul>
+            </div>
+            <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Color line - auto calculated</p>
+              <ul className="mt-2 space-y-1.5 text-sm text-slate-700">{colorLineCalculated.map((f) => <li key={f.id}>- {f.label}</li>)}</ul>
+            </div>
+            <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Gate line - contractor inputs</p>
+              <ul className="mt-2 space-y-1.5 text-sm text-slate-700">{gateLineInputs.map((f) => <li key={f.id}>- {f.label}</li>)}</ul>
+            </div>
+            <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Gate line - auto calculated</p>
+              <ul className="mt-2 space-y-1.5 text-sm text-slate-700">{gateLineCalculated.map((f) => <li key={f.id}>- {f.label}</li>)}</ul>
+            </div>
+          </div>
+          <p className="mt-4 text-sm text-slate-600">Core math: `exact panels = length / panel length`, `whole panels = ceil(exact panels)`.</p>
+        </div>
+      </details>
+
+      <details className="group rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+        <summary className="cursor-pointer list-none px-5 py-4 text-sm font-semibold text-slate-800 sm:px-6">
+          Show recipe builders
+        </summary>
+        <div className="space-y-6 border-t border-slate-100 p-5 sm:p-6">
           <section className={cardShell}>
             <div className={cardHeader}>
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -384,7 +426,6 @@ export function SupplierMaterialCalculatorFramework() {
               ))}
             </div>
           </section>
-
           <section className={cardShell}>
             <div className={cardHeader}>
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -471,180 +512,7 @@ export function SupplierMaterialCalculatorFramework() {
             </div>
           </section>
         </div>
-
-        <div className="space-y-6">
-          <section className={cardShell}>
-            <div className={cardHeader}>
-              <h2 className="font-semibold text-slate-900">Sample line preview</h2>
-              <p className="mt-1 text-sm text-slate-600">This lets us test the framework without locking in final math yet.</p>
-            </div>
-            <div className="grid gap-4 p-5 sm:p-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Line length (ft)</label>
-                <input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={sampleLine.length_ft}
-                  onChange={(e) => setSampleLine((prev) => ({ ...prev, length_ft: Number(e.target.value) || 0 }))}
-                  className={`mt-1.5 ${field}`}
-                />
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700">H post terminations</label>
-                  <input
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={sampleLine.h_post_terminations}
-                    onChange={(e) =>
-                      setSampleLine((prev) => ({ ...prev, h_post_terminations: Number(e.target.value) || 0 }))
-                    }
-                    className={`mt-1.5 ${field}`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700">U channel terminations</label>
-                  <input
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={sampleLine.u_channel_terminations}
-                    onChange={(e) =>
-                      setSampleLine((prev) => ({ ...prev, u_channel_terminations: Number(e.target.value) || 0 }))
-                    }
-                    className={`mt-1.5 ${field}`}
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Exact panels</p>
-                  <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{exactPanels.toFixed(2)}</p>
-                  <p className="mt-1 text-sm text-slate-600">Length divided by panel length.</p>
-                </div>
-                <div className="rounded-2xl border border-indigo-200/80 bg-indigo-50/70 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Whole panels</p>
-                  <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{roundedPanels}</p>
-                  <p className="mt-1 text-sm text-slate-600">Always rounded up to avoid under-ordering material.</p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className={cardShell}>
-            <div className={cardHeader}>
-              <h2 className="font-semibold text-slate-900">Sample gate line preview</h2>
-              <p className="mt-1 text-sm text-slate-600">Gate calculator inputs and auto-calculated values from the first sheet.</p>
-            </div>
-            <div className="grid gap-4 p-5 sm:p-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Total gate line width (inches)</label>
-                <input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={sampleGateLine.line_width_inches}
-                  onChange={(e) => setSampleGateLine((prev) => ({ ...prev, line_width_inches: Number(e.target.value) || 0 }))}
-                  className={`mt-1.5 ${field}`}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Post needed (0, 1, or 2)</label>
-                <input
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={sampleGateLine.posts_needed}
-                  onChange={(e) => setSampleGateLine((prev) => ({ ...prev, posts_needed: Number(e.target.value) || 0 }))}
-                  className={`mt-1.5 ${field}`}
-                />
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total gate door width</p>
-                  <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{gateDoorWidth.toFixed(2)}</p>
-                </div>
-                <div className="rounded-2xl border border-indigo-200/80 bg-indigo-50/70 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Total gate boards</p>
-                  <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{gateTotalBoards.toFixed(2)}</p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className={cardShell}>
-            <div className={cardHeader}>
-              <h2 className="font-semibold text-slate-900">Output preview</h2>
-              <p className="mt-1 text-sm text-slate-600">A starter version of the final material summary table from your screenshot.</p>
-            </div>
-            <div className="overflow-x-auto p-5 sm:p-6">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 text-left">
-                    <th className="py-3 font-semibold text-slate-700">Item</th>
-                    <th className="py-3 font-semibold text-slate-700">Source</th>
-                    <th className="py-3 text-right font-semibold text-slate-700">Raw</th>
-                    <th className="py-3 text-right font-semibold text-slate-700">Final</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {previewRows.map((row) => (
-                    <tr key={row.id} className="border-b border-slate-100 last:border-0">
-                      <td className="py-2.5 font-medium text-slate-900">{row.name || 'Untitled item'}</td>
-                      <td className="py-2.5 text-slate-600">{inputFieldLabels[row.input_field]}</td>
-                      <td className="py-2.5 text-right tabular-nums text-slate-700">{row.raw.toFixed(2)}</td>
-                      <td className="py-2.5 text-right font-semibold tabular-nums text-slate-900">{row.final}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <section className={cardShell}>
-            <div className={cardHeader}>
-              <h2 className="font-semibold text-slate-900">Gate output preview</h2>
-              <p className="mt-1 text-sm text-slate-600">Live gate material totals, built from the gate recipe block.</p>
-            </div>
-            <div className="overflow-x-auto p-5 sm:p-6">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 text-left">
-                    <th className="py-3 font-semibold text-slate-700">Item</th>
-                    <th className="py-3 font-semibold text-slate-700">Source</th>
-                    <th className="py-3 text-right font-semibold text-slate-700">Raw</th>
-                    <th className="py-3 text-right font-semibold text-slate-700">Final</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {gatePreviewRows.map((row) => (
-                    <tr key={row.id} className="border-b border-slate-100 last:border-0">
-                      <td className="py-2.5 font-medium text-slate-900">{row.name || 'Untitled item'}</td>
-                      <td className="py-2.5 text-slate-600">{inputFieldLabels[row.input_field]}</td>
-                      <td className="py-2.5 text-right tabular-nums text-slate-700">{row.raw.toFixed(2)}</td>
-                      <td className="py-2.5 text-right font-semibold tabular-nums text-slate-900">{row.final}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <section className={cardShell}>
-            <div className={cardHeader}>
-              <h2 className="font-semibold text-slate-900">What this gives us next</h2>
-            </div>
-            <div className="space-y-3 p-5 text-sm text-slate-600 sm:p-6">
-              <p>Suppliers can define what belongs in a panel without us forcing one universal formula.</p>
-              <p>We can later add custom math for half-panels, corner logic, posts, hardware, and product-specific overrides.</p>
-              <p>The next backend step will be saving these templates per supplier so contractor quote requests can run against the chosen calculator.</p>
-            </div>
-          </section>
-        </div>
-      </div>
+      </details>
     </div>
   );
 }
