@@ -3,6 +3,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { LayoutDrawCanvas } from '@/components/LayoutDrawCanvas';
+import dynamic from 'next/dynamic';
+
+const FenceDrawingMap = dynamic(
+  () => import('@/components/FenceDrawingMap').then((m) => ({ default: m.FenceDrawingMap })),
+  { ssr: false, loading: () => <div className="min-h-[300px] animate-pulse rounded-lg border border-slate-200 bg-slate-50" /> }
+);
 
 type MaterialReq = {
   id: string;
@@ -18,7 +24,11 @@ type MaterialReq = {
   project?: {
     total_length_ft?: number | null;
     design_summary?: string | null;
+    design_option?: { height_ft?: number; type?: string; style?: string; colour?: string } | null;
     has_removal?: boolean | null;
+    quote_totals?: { total_low: number; total_high: number } | null;
+    segments?: { start_lat: number; start_lng: number; end_lat: number; end_lng: number; length_ft?: number }[];
+    gates?: { gate_type: string; quantity: number; lat?: number | null; lng?: number | null }[];
     image_data_url?: string | null;
     drawing_data?: {
       points: { x: number; y: number }[];
@@ -271,9 +281,12 @@ export function ContractorQuotesClient() {
                   <p className="mt-2 text-sm text-slate-800">{selectedRequest.description}</p>
                 </div>
 
-                {selectedRequest.project?.drawing_data && (
+                {((selectedRequest.project?.segments?.length ?? 0) > 0 || selectedRequest.project?.drawing_data) && (
                   <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Customer drawing</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Fence drawing</p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {selectedRequest.project?.image_data_url ? 'Layout drawing (from Draw).' : 'The outline they drew on the map.'}
+                    </p>
                     {selectedRequest.project?.image_data_url ? (
                       <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-white">
                         <img
@@ -283,11 +296,82 @@ export function ContractorQuotesClient() {
                         />
                       </div>
                     ) : null}
-                    <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-white">
-                      <LayoutDrawCanvas initialDrawing={selectedRequest.project.drawing_data} readOnly />
-                    </div>
+                    {(selectedRequest.project?.segments?.length ?? 0) > 0 ? (
+                      <div className="mt-2">
+                        <p className="mb-2 text-sm font-medium text-slate-600">
+                          {selectedRequest.project?.image_data_url ? 'Map view' : 'Fence outline'}
+                        </p>
+                        <FenceDrawingMap
+                          segments={selectedRequest.project?.segments || []}
+                          gates={selectedRequest.project?.gates || []}
+                          className="min-h-[300px]"
+                        />
+                      </div>
+                    ) : selectedRequest.project?.drawing_data ? (
+                      <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-white">
+                        <LayoutDrawCanvas initialDrawing={selectedRequest.project.drawing_data} readOnly />
+                      </div>
+                    ) : null}
+                    {((selectedRequest.project?.segments?.length ?? 0) > 0 || selectedRequest.project?.total_length_ft) && (
+                      <div className="mt-4 space-y-2">
+                        {(selectedRequest.project?.segments?.length ?? 0) > 0 && (
+                          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
+                            <span className="font-medium">Segment lengths:</span>
+                            {(selectedRequest.project?.segments || []).map((seg, i) => (
+                              <span key={i} className="text-slate-600">
+                                Line {i + 1}: {seg.length_ft != null ? `${Number(seg.length_ft).toFixed(1)} ft` : '—'}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex flex-wrap gap-4 text-sm">
+                          <span><strong>Total length:</strong> {Number(selectedRequest.project?.total_length_ft || 0).toFixed(1)} ft</span>
+                          {selectedRequest.project?.has_removal && <span className="text-slate-600">Removal included</span>}
+                          {(selectedRequest.project?.gates?.length ?? 0) > 0 && (
+                            <span>
+                              <strong>Gates:</strong> {(selectedRequest.project?.gates || []).map((g) => `${g.quantity} ${g.gate_type}`).join(', ')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
+
+                <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Design choice</p>
+                  {selectedRequest.project?.design_summary ? (
+                    <>
+                      <p className="mt-2 font-medium text-slate-900">{selectedRequest.project.design_summary}</p>
+                      {selectedRequest.project.design_option && (
+                        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                          {selectedRequest.project.design_option.height_ft != null && (
+                            <><dt className="text-slate-500">Height</dt><dd>{selectedRequest.project.design_option.height_ft} ft</dd></>
+                          )}
+                          {selectedRequest.project.design_option.type && (
+                            <><dt className="text-slate-500">Material / type</dt><dd>{selectedRequest.project.design_option.type}</dd></>
+                          )}
+                          {selectedRequest.project.design_option.style && (
+                            <><dt className="text-slate-500">Style</dt><dd>{selectedRequest.project.design_option.style}</dd></>
+                          )}
+                          {selectedRequest.project.design_option.colour && (
+                            <><dt className="text-slate-500">Colour</dt><dd>{selectedRequest.project.design_option.colour}</dd></>
+                          )}
+                        </dl>
+                      )}
+                      {selectedRequest.project.quote_totals && (
+                        <div className="mt-4 rounded-xl bg-white p-4">
+                          <p className="text-sm font-semibold text-slate-500">Estimated range</p>
+                          <p className="mt-1 text-2xl font-bold text-slate-900">
+                            ${Number(selectedRequest.project.quote_totals.total_low).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} - ${Number(selectedRequest.project.quote_totals.total_high).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} CAD
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="mt-2 text-sm text-slate-600">No design selection saved.</p>
+                  )}
+                  </div>
 
                 {selectedRequest.supplier_response && editingId !== selectedRequest.id && (
                   <div className="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">

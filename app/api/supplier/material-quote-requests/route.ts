@@ -55,6 +55,61 @@ async function getDesignSummary(
   }
 }
 
+async function getDesignOption(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  fence: { selected_colour_option_id?: string | null; selected_product_option_id?: string | null } | null
+): Promise<{ height_ft?: number; type?: string; style?: string; colour?: string } | null> {
+  try {
+    if (!fence) return null;
+    if (fence.selected_colour_option_id) {
+      const { data: colour } = await supabase
+        .from('colour_options')
+        .select('color_name, fence_style_id')
+        .eq('id', fence.selected_colour_option_id)
+        .single();
+      if (colour?.fence_style_id) {
+        const { data: style } = await supabase
+          .from('fence_styles')
+          .select('style_name, fence_type_id')
+          .eq('id', colour.fence_style_id)
+          .single();
+        if (style?.fence_type_id) {
+          const { data: ft } = await supabase
+            .from('fence_types')
+            .select('name, standard_height_ft')
+            .eq('id', style.fence_type_id)
+            .single();
+          return {
+            height_ft: ft?.standard_height_ft != null ? Number(ft.standard_height_ft) : undefined,
+            type: ft?.name ? stripSupplierFromTypeName(ft.name) : undefined,
+            style: style.style_name ?? undefined,
+            colour: colour.color_name ?? undefined,
+          };
+        }
+      }
+    }
+    if (fence.selected_product_option_id) {
+      const { data: opt } = await supabase
+        .from('product_options')
+        .select('height_ft, color, style_name, product_id')
+        .eq('id', fence.selected_product_option_id)
+        .single();
+      if (opt?.product_id) {
+        const { data: prod } = await supabase.from('products').select('name').eq('id', opt.product_id).single();
+        return {
+          height_ft: opt.height_ft != null ? Number(opt.height_ft) : undefined,
+          type: prod?.name ?? undefined,
+          style: opt.style_name ?? undefined,
+          colour: opt.color ?? undefined,
+        };
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 /** Layout + material quote requests assigned to this supplier. */
 export async function GET() {
   const supabase = await createClient();
@@ -105,11 +160,66 @@ export async function GET() {
     fenceBySessionId = new Map((fences || []).map((f) => [f.quote_session_id, f]));
   }
 
+  let fenceIdBySessionId = new Map<string, string>();
+  if (quoteSessionIds.length > 0) {
+    const { data: fenceRows } = await supabase
+      .from('fences')
+      .select('id, quote_session_id')
+      .in('quote_session_id', quoteSessionIds);
+    fenceIdBySessionId = new Map((fenceRows || []).map((f) => [f.quote_session_id, f.id]));
+  }
+
+  const fenceIds = Array.from(new Set(Array.from(fenceIdBySessionId.values()).filter(Boolean)));
+  let segmentsByFenceId = new Map<
+    string,
+    { start_lat: number; start_lng: number; end_lat: number; end_lng: number; length_ft?: number }[]
+  >();
+  let gatesByFenceId = new Map<string, { gate_type: string; quantity: number; lat?: number | null; lng?: number | null }[]>();
+  let quoteTotalsBySessionId = new Map<string, { total_low: number; total_high: number }>();
+  if (fenceIds.length > 0) {
+    const [{ data: segmentRows }, { data: gateRows }, { data: totalsRows }] = await Promise.all([
+      supabase
+        .from('fence_segments')
+        .select('fence_id, start_lat, start_lng, end_lat, end_lng, length_ft, sort_order')
+        .in('fence_id', fenceIds)
+        .order('sort_order', { ascending: true }),
+      supabase.from('gates').select('fence_id, gate_type, quantity, lat, lng').in('fence_id', fenceIds),
+      supabase.from('quote_totals').select('quote_session_id, total_low, total_high').in('quote_session_id', quoteSessionIds),
+    ]);
+
+    for (const row of segmentRows || []) {
+      const list = segmentsByFenceId.get(row.fence_id) || [];
+      list.push({
+        start_lat: row.start_lat,
+        start_lng: row.start_lng,
+        end_lat: row.end_lat,
+        end_lng: row.end_lng,
+        length_ft: row.length_ft ?? undefined,
+      });
+      segmentsByFenceId.set(row.fence_id, list);
+    }
+    for (const row of gateRows || []) {
+      const list = gatesByFenceId.get(row.fence_id) || [];
+      list.push({
+        gate_type: row.gate_type,
+        quantity: row.quantity,
+        lat: row.lat,
+        lng: row.lng,
+      });
+      gatesByFenceId.set(row.fence_id, list);
+    }
+    quoteTotalsBySessionId = new Map(
+      (totalsRows || []).map((t) => [t.quote_session_id, { total_low: t.total_low, total_high: t.total_high }])
+    );
+  }
+
   const requests = await Promise.all(
     (rows || []).map(async (r) => {
       const fence = r.quote_session_id ? fenceBySessionId.get(r.quote_session_id) || null : null;
       const designSummary = await getDesignSummary(supabase, fence);
+      const designOption = await getDesignOption(supabase, fence);
       const layout = r.layout_drawing_id ? layoutById.get(r.layout_drawing_id) || null : null;
+      const fenceId = r.quote_session_id ? fenceIdBySessionId.get(r.quote_session_id) || null : null;
       return {
         ...r,
         contractor: companyById.get(r.contractor_id) || {
@@ -121,7 +231,11 @@ export async function GET() {
         project: {
           total_length_ft: fence?.total_length_ft ?? null,
           design_summary: designSummary,
+          design_option: designOption,
           has_removal: fence?.has_removal ?? false,
+          quote_totals: r.quote_session_id ? quoteTotalsBySessionId?.get(r.quote_session_id) || null : null,
+          segments: fenceId ? segmentsByFenceId.get(fenceId) || [] : [],
+          gates: fenceId ? gatesByFenceId.get(fenceId) || [] : [],
           image_data_url: layout?.image_data_url ?? null,
           drawing_data: (layout?.drawing_data as {
             points?: { x: number; y: number }[];
