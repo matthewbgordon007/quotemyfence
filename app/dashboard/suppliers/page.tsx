@@ -305,6 +305,10 @@ export default function SuppliersPage() {
             'linear-gradient(135deg, rgb(var(--dashboard-brand-rgb) / 0.14), rgb(255 255 255 / 0.98) 42%, rgb(var(--dashboard-brand-rgb) / 0.05))',
         }}
       >
+        <div
+          className="pointer-events-none absolute inset-x-10 top-0 h-px"
+          style={{ background: 'linear-gradient(90deg, transparent, rgb(var(--dashboard-brand-rgb) / 0.38), transparent)' }}
+        />
         <p className="inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--dashboard-ink)]" style={{ background: 'var(--dashboard-soft)' }}>
           Workspace
         </p>
@@ -320,7 +324,13 @@ export default function SuppliersPage() {
         <p className="mt-1 text-sm text-slate-600">
           Search for a supplier you already know. Results appear after 3 characters so contractors cannot browse the full supplier network.
         </p>
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div
+          className="mt-4 rounded-2xl border bg-white p-4 shadow-sm"
+          style={{
+            borderColor: 'var(--dashboard-line)',
+            background: 'linear-gradient(180deg, rgb(var(--dashboard-brand-rgb) / 0.04), rgb(255 255 255 / 0.98) 46%)',
+          }}
+        >
           <input
             type="search"
             value={supplierSearch}
@@ -377,7 +387,13 @@ export default function SuppliersPage() {
       <section className="mt-10">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Linked suppliers</h2>
         <p className="mt-1 text-sm text-slate-600">Only linked suppliers can be browsed or receive layout requests.</p>
-        <ul className="mt-4 divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <ul
+          className="mt-4 divide-y divide-slate-100 rounded-2xl border bg-white shadow-sm"
+          style={{
+            borderColor: 'var(--dashboard-line)',
+            background: 'linear-gradient(180deg, rgb(var(--dashboard-brand-rgb) / 0.04), rgb(255 255 255 / 0.98) 46%)',
+          }}
+        >
           {linkedSuppliers.length === 0 ? (
             <li className="px-4 py-8 text-center text-sm text-slate-500">No linked suppliers yet.</li>
           ) : (
@@ -447,7 +463,13 @@ export default function SuppliersPage() {
           </p>
 
           {selectedSupplierId && linkedIds.has(selectedSupplierId) && (
-            <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/50 p-5">
+            <div
+              className="mt-6 rounded-2xl border p-5"
+              style={{
+                borderColor: 'var(--dashboard-line)',
+                background: 'linear-gradient(180deg, rgb(var(--dashboard-brand-rgb) / 0.06), rgb(248 250 252 / 0.92))',
+              }}
+            >
               <p className="text-sm font-semibold text-slate-800">
                 {supplierMeta?.company_name || 'Supplier'} — catalog preview
               </p>

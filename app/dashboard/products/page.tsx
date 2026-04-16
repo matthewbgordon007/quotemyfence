@@ -629,6 +629,10 @@ export default function ProductsPage() {
             'linear-gradient(135deg, rgb(var(--dashboard-brand-rgb) / 0.14), rgb(255 255 255 / 0.98) 42%, rgb(var(--dashboard-brand-rgb) / 0.05))',
         }}
       >
+      <div
+        className="pointer-events-none absolute inset-x-10 top-0 h-px"
+        style={{ background: 'linear-gradient(90deg, transparent, rgb(var(--dashboard-brand-rgb) / 0.38), transparent)' }}
+      />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--dashboard-ink)]" style={{ background: 'var(--dashboard-soft)' }}>
@@ -672,7 +676,11 @@ export default function ProductsPage() {
           ].map((s) => (
             <div
               key={s.label}
-              className="rounded-xl border border-slate-200/90 bg-white px-4 py-2.5 shadow-sm"
+              className="rounded-xl border bg-white px-4 py-2.5 shadow-sm"
+              style={{
+                borderColor: 'var(--dashboard-line)',
+                background: 'linear-gradient(180deg, rgb(var(--dashboard-brand-rgb) / 0.05), rgb(255 255 255 / 0.98))',
+              }}
             >
               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{s.label}</p>
               <p className="text-lg font-bold tabular-nums text-slate-900">{s.value}</p>

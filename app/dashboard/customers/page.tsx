@@ -292,6 +292,10 @@ export default function CustomersPage() {
             'linear-gradient(135deg, rgb(var(--dashboard-brand-rgb) / 0.14), rgb(255 255 255 / 0.98) 42%, rgb(var(--dashboard-brand-rgb) / 0.05))',
         }}
       >
+      <div
+        className="pointer-events-none absolute inset-x-10 top-0 h-px"
+        style={{ background: 'linear-gradient(90deg, transparent, rgb(var(--dashboard-brand-rgb) / 0.38), transparent)' }}
+      />
       {/* Header */}
       <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
@@ -370,7 +374,13 @@ export default function CustomersPage() {
           <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{unviewedCount}</p>
           <p className="mt-1 text-sm text-slate-600">New since you last opened them</p>
         </div>
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
+        <div
+          className="rounded-2xl border bg-white p-5 shadow-sm"
+          style={{
+            borderColor: 'var(--dashboard-line)',
+            background: 'linear-gradient(180deg, rgb(var(--dashboard-brand-rgb) / 0.05), rgb(255 255 255 / 0.98) 42%)',
+          }}
+        >
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">In this list</p>
           <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{filteredCustomers.length}</p>
           <p className="mt-1 text-sm text-slate-600">
@@ -383,7 +393,13 @@ export default function CustomersPage() {
             )}
           </p>
         </div>
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
+        <div
+          className="rounded-2xl border bg-white p-5 shadow-sm"
+          style={{
+            borderColor: 'var(--dashboard-line)',
+            background: 'linear-gradient(180deg, rgb(var(--dashboard-brand-rgb) / 0.05), rgb(255 255 255 / 0.98) 42%)',
+          }}
+        >
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total leads</p>
           <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{counts.all ?? '—'}</p>
           <p className="mt-1 text-sm text-slate-600">All time in your account</p>
@@ -391,7 +407,11 @@ export default function CustomersPage() {
       </div>
 
       {/* Filters */}
-      <div className="mt-8 flex flex-col gap-4">
+      <div
+        className="mt-8 rounded-2xl border bg-white/80 p-4 shadow-sm backdrop-blur-sm"
+        style={{ borderColor: 'var(--dashboard-line)' }}
+      >
+      <div className="flex flex-col gap-4">
         <div className="relative min-w-0">
           <div
             className="-mx-1 flex gap-2 overflow-x-auto pb-1 pt-0.5 [scrollbar-width:thin] sm:mx-0"
@@ -483,6 +503,7 @@ export default function CustomersPage() {
             </button>
           </div>
         </div>
+      </div>
       </div>
 
       {/* List */}

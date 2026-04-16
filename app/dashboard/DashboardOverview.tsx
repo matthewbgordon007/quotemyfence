@@ -268,7 +268,13 @@ export function DashboardOverview() {
           )}
           <p className="mt-1 text-sm text-slate-600">New or unviewed leads</p>
         </Link>
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm" style={{ borderColor: 'var(--dashboard-line)' }}>
+        <div
+          className="rounded-2xl border bg-white p-5 shadow-sm"
+          style={{
+            borderColor: 'var(--dashboard-line)',
+            background: 'linear-gradient(180deg, rgb(var(--dashboard-brand-rgb) / 0.05), rgb(255 255 255 / 0.98) 42%)',
+          }}
+        >
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Leads ({analyticsPeriod})</p>
           {analyticsLoading ? (
             <Skeleton className="mt-3 h-9 w-20" />
@@ -277,7 +283,13 @@ export function DashboardOverview() {
           )}
           <p className="mt-1 text-sm text-slate-600">In selected period</p>
         </div>
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm" style={{ borderColor: 'var(--dashboard-line)' }}>
+        <div
+          className="rounded-2xl border bg-white p-5 shadow-sm"
+          style={{
+            borderColor: 'var(--dashboard-line)',
+            background: 'linear-gradient(180deg, rgb(var(--dashboard-brand-rgb) / 0.05), rgb(255 255 255 / 0.98) 42%)',
+          }}
+        >
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Pipeline (est.)</p>
           {analyticsLoading ? (
             <Skeleton className="mt-3 h-9 w-32" />
@@ -291,7 +303,14 @@ export function DashboardOverview() {
       <div className="mt-8 grid gap-8 lg:grid-cols-12 lg:items-start">
         {/* Analytics */}
         <section className="lg:col-span-7 xl:col-span-8">
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm sm:p-8">
+          <div
+            className="rounded-2xl border bg-white p-6 shadow-sm sm:p-8"
+            style={{
+              borderColor: 'var(--dashboard-line)',
+              background:
+                'linear-gradient(180deg, rgb(var(--dashboard-brand-rgb) / 0.05), rgb(255 255 255 / 0.98) 16%, rgb(255 255 255 / 0.98))',
+            }}
+          >
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">Performance</h2>
@@ -329,11 +348,23 @@ export function DashboardOverview() {
             ) : analytics ? (
               <div className="mt-8 space-y-8">
                 <div className="grid gap-6 sm:grid-cols-2">
-                  <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-5 py-4">
+                  <div
+                    className="rounded-xl border px-5 py-4"
+                    style={{
+                      borderColor: 'rgb(var(--dashboard-brand-rgb) / 0.10)',
+                      background: 'rgb(var(--dashboard-brand-rgb) / 0.05)',
+                    }}
+                  >
                     <p className="text-sm font-medium text-slate-500">Leads received</p>
                     <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{analytics.lead_count}</p>
                   </div>
-                  <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-5 py-4">
+                  <div
+                    className="rounded-xl border px-5 py-4"
+                    style={{
+                      borderColor: 'rgb(var(--dashboard-brand-rgb) / 0.10)',
+                      background: 'rgb(var(--dashboard-brand-rgb) / 0.05)',
+                    }}
+                  >
                     <p className="text-sm font-medium text-slate-500">Total value (CAD)</p>
                     <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{valueLabel}</p>
                   </div>
@@ -356,7 +387,14 @@ export function DashboardOverview() {
 
         {/* Recent + shortcuts column */}
         <div className="flex flex-col gap-8 lg:col-span-5 xl:col-span-4">
-          <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm sm:p-8">
+          <section
+            className="rounded-2xl border bg-white p-6 shadow-sm sm:p-8"
+            style={{
+              borderColor: 'var(--dashboard-line)',
+              background:
+                'linear-gradient(180deg, rgb(255 255 255 / 0.96), rgb(var(--dashboard-brand-rgb) / 0.04) 100%)',
+            }}
+          >
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-semibold text-slate-900">Recent leads</h2>
