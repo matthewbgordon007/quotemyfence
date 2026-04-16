@@ -112,14 +112,6 @@ export async function PATCH(request: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  if (body.email !== undefined) {
-    const raw = String(body.email).trim().toLowerCase();
-    if (!raw || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) {
-      return NextResponse.json({ error: 'Enter a valid email address.' }, { status: 400 });
-    }
-    updates.email = raw;
-  }
-
   if (updates.slug !== undefined && typeof updates.slug === 'string') {
     const newSlug = updates.slug.trim().toLowerCase();
     if (newSlug) {
@@ -141,7 +133,7 @@ export async function PATCH(request: NextRequest) {
 
   const { data: currentContractor } = await admin
     .from('contractors')
-    .select('company_name, phone, website, email')
+    .select('company_name, phone, website')
     .eq('id', userRow.contractor_id)
     .single();
 
@@ -169,19 +161,9 @@ export async function PATCH(request: NextRequest) {
     updates.website = canonical;
   }
 
-  const nextEmailForConflict =
-    updates.email !== undefined && typeof updates.email === 'string'
-      ? updates.email.trim().toLowerCase()
-      : String(currentContractor.email || '').trim().toLowerCase();
-
-  if (
-    updates.company_name !== undefined ||
-    updates.phone !== undefined ||
-    body.website !== undefined ||
-    updates.email !== undefined
-  ) {
+  if (updates.company_name !== undefined || updates.phone !== undefined || body.website !== undefined) {
     const conflicts = await getContractorFieldConflicts(admin, {
-      email: nextEmailForConflict,
+      email: '',
       companyName: nextCompany,
       phone: nextPhone,
       website: websiteForConflict,
@@ -197,33 +179,6 @@ export async function PATCH(request: NextRequest) {
     updates.quote_range_pct = Number.isFinite(n) ? Math.max(0, Math.min(50, n)) : 5;
   }
 
-  const oldCompanyEmail = String(currentContractor.email || '').trim().toLowerCase();
-  const sessionEmail = (user.email || '').trim().toLowerCase();
-  const newEmail =
-    updates.email !== undefined && typeof updates.email === 'string'
-      ? updates.email.trim().toLowerCase()
-      : oldCompanyEmail;
-  const emailChanged = updates.email !== undefined && newEmail !== oldCompanyEmail;
-  const syncAuthEmail = emailChanged && sessionEmail !== '' && sessionEmail === oldCompanyEmail;
-
-  let authEmailUpdated = false;
-  const previousAuthEmail = user.email || undefined;
-
-  if (syncAuthEmail) {
-    const { error: authErr } = await admin.auth.admin.updateUserById(user.id, { email: newEmail });
-    if (authErr) {
-      return NextResponse.json(
-        {
-          error:
-            authErr.message ||
-            'Could not update login email. It may already be registered to another account.',
-        },
-        { status: 400 }
-      );
-    }
-    authEmailUpdated = true;
-  }
-
   const { data: contractor, error } = await supabase
     .from('contractors')
     .update(updates)
@@ -232,28 +187,7 @@ export async function PATCH(request: NextRequest) {
     .single();
 
   if (error) {
-    if (authEmailUpdated && previousAuthEmail) {
-      await admin.auth.admin.updateUserById(user.id, { email: previousAuthEmail });
-    }
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
-
-  if (syncAuthEmail) {
-    const { error: userEmailErr } = await admin
-      .from('users')
-      .update({ email: newEmail })
-      .eq('auth_id', user.id);
-    if (userEmailErr) {
-      await admin.from('contractors').update({ email: oldCompanyEmail }).eq('id', userRow.contractor_id);
-      if (authEmailUpdated && previousAuthEmail) {
-        await admin.auth.admin.updateUserById(user.id, { email: previousAuthEmail });
-      }
-      return NextResponse.json(
-        { error: userEmailErr.message || 'Could not sync team profile email.' },
-        { status: 400 }
-      );
-    }
-  }
-
   return NextResponse.json(contractor);
 }
