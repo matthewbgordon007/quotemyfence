@@ -32,6 +32,7 @@ export function ContractorQuotesClient() {
   const [requests, setRequests] = useState<MaterialReq[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [draftResponse, setDraftResponse] = useState('');
   const [saving, setSaving] = useState(false);
   const unreadCount = requests.filter((r) => !r.supplier_seen_at).length;
@@ -60,6 +61,16 @@ export function ContractorQuotesClient() {
     };
   }, [load]);
 
+  useEffect(() => {
+    if (requests.length === 0) {
+      setSelectedRequestId(null);
+      return;
+    }
+    if (!selectedRequestId || !requests.some((r) => r.id === selectedRequestId)) {
+      setSelectedRequestId(requests[0].id);
+    }
+  }, [requests, selectedRequestId]);
+
   async function saveResponse(id: string) {
     setSaving(true);
     try {
@@ -84,6 +95,8 @@ export function ContractorQuotesClient() {
       setSaving(false);
     }
   }
+
+  const selectedRequest = requests.find((r) => r.id === selectedRequestId) || null;
 
   if (loading) {
     return (
@@ -114,70 +127,64 @@ export function ContractorQuotesClient() {
       <section className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Material layout requests</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Contractors send fence layouts from a lead or the Draw page. Add your quote notes and mark as quoted when done.
+          Contractors send fence layouts from a lead or the Draw page. Open a request to review the drawing, footage,
+          and selected fence details before responding.
         </p>
         {requests.length === 0 ? (
           <p className="mt-6 text-sm text-slate-600">No requests assigned to you yet.</p>
         ) : (
-          <ul className="mt-4 space-y-4">
-            {requests.map((req) => (
-              <li key={req.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <p className="text-xs font-semibold uppercase text-slate-500">{req.contractor.company_name}</p>
-                    <p className="mt-1 text-xs text-slate-500">{new Date(req.created_at).toLocaleString()}</p>
-                    {(req.contractor.email || req.contractor.phone) && (
-                      <div className="mt-2 space-y-0.5 text-xs text-slate-500">
-                        {req.contractor.email && <p>Contractor email: {req.contractor.email}</p>}
-                        {req.contractor.phone && <p>Contractor phone: {req.contractor.phone}</p>}
-                      </div>
-                    )}
-                    <p className="mt-2 text-sm text-slate-800">{req.description}</p>
-                    <div className="mt-3 grid gap-3 md:grid-cols-2">
-                      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Project details</p>
-                        <p className="mt-2 text-sm text-slate-800">
-                          Material selection: {req.project?.design_summary || 'Not selected'}
+          <div className="mt-4 grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
+            <div className="space-y-3">
+              {requests.map((req) => {
+                const isSelected = req.id === selectedRequestId;
+                return (
+                  <button
+                    key={req.id}
+                    type="button"
+                    onClick={() => setSelectedRequestId(req.id)}
+                    className={`w-full rounded-xl border p-4 text-left shadow-sm transition ${
+                      isSelected
+                        ? 'border-indigo-300 bg-white ring-2 ring-indigo-200'
+                        : 'border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/30'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold uppercase text-slate-500">{req.contractor.company_name}</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-900">
+                          {req.project?.design_summary || 'Material request'}
                         </p>
-                        <p className="mt-1 text-sm text-slate-800">
-                          Total footage: {Math.round(Number(req.project?.total_length_ft || 0))} ft
-                        </p>
-                        {req.project?.has_removal ? (
-                          <p className="mt-1 text-sm text-slate-600">Removal included</p>
-                        ) : null}
+                        <p className="mt-1 text-xs text-slate-500">{new Date(req.created_at).toLocaleString()}</p>
                       </div>
-                      {req.project?.drawing_data ? (
-                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Customer drawing</p>
-                          <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-white">
-                            <LayoutDrawCanvas initialDrawing={req.project.drawing_data} readOnly />
-                          </div>
-                        </div>
+                      {!req.supplier_seen_at ? (
+                        <span className="mt-1 inline-flex h-2.5 w-2.5 shrink-0 rounded-full bg-indigo-500" />
                       ) : null}
                     </div>
-                    {req.attachment_url && (
-                      <p className="mt-2 text-xs">
-                        <a
-                          href={req.attachment_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-semibold text-indigo-700 hover:underline"
-                        >
-                          Attachment: {req.attachment_name || 'Open file'}
-                        </a>
-                      </p>
-                    )}
-                    <p className="mt-2 text-xs font-medium text-slate-500">
-                      Status: <span className="text-slate-800">{req.status}</span>
+                    <p className="mt-2 text-xs text-slate-600">Status: {req.status}</p>
+                    <p className="mt-1 text-xs text-slate-600">
+                      {Math.round(Number(req.project?.total_length_ft || 0))} ft
+                      {req.project?.has_removal ? ' • Removal included' : ''}
                     </p>
-                    {req.supplier_response && editingId !== req.id && (
-                      <p className="mt-2 rounded-lg bg-slate-50 p-2 text-sm text-slate-700">
-                        <span className="font-medium">Your notes: </span>
-                        {req.supplier_response}
-                      </p>
-                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {selectedRequest && (
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase text-slate-500">
+                      Material request from {selectedRequest.contractor.company_name}
+                    </p>
+                    <h3 className="mt-1 text-xl font-semibold text-slate-900">
+                      {selectedRequest.project?.design_summary || 'Material request'}
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Sent {new Date(selectedRequest.created_at).toLocaleString()}
+                    </p>
                   </div>
-                  {editingId === req.id ? (
+                  {editingId === selectedRequest.id ? (
                     <div className="w-full min-w-[240px] max-w-md space-y-2">
                       <textarea
                         value={draftResponse}
@@ -190,7 +197,7 @@ export function ContractorQuotesClient() {
                         <button
                           type="button"
                           disabled={saving}
-                          onClick={() => void saveResponse(req.id)}
+                          onClick={() => void saveResponse(selectedRequest.id)}
                           className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
                         >
                           {saving ? 'Saving…' : 'Save & mark quoted'}
@@ -209,18 +216,78 @@ export function ContractorQuotesClient() {
                     <button
                       type="button"
                       onClick={() => {
-                        setEditingId(req.id);
-                        setDraftResponse(req.supplier_response || '');
+                        setEditingId(selectedRequest.id);
+                        setDraftResponse(selectedRequest.supplier_response || '');
                       }}
                       className="shrink-0 rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-50"
                     >
-                      {req.supplier_response ? 'Edit response' : 'Respond'}
+                      {selectedRequest.supplier_response ? 'Edit response' : 'Respond'}
                     </button>
                   )}
                 </div>
-              </li>
-            ))}
-          </ul>
+
+                {(selectedRequest.contractor.email || selectedRequest.contractor.phone) && (
+                  <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Contractor details</p>
+                    {selectedRequest.contractor.email && <p className="mt-2">Email: {selectedRequest.contractor.email}</p>}
+                    {selectedRequest.contractor.phone && <p className="mt-1">Phone: {selectedRequest.contractor.phone}</p>}
+                  </div>
+                )}
+
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Fence information</p>
+                    <p className="mt-2 text-sm text-slate-800">
+                      Material selection: {selectedRequest.project?.design_summary || 'Not selected'}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-800">
+                      Total footage: {Math.round(Number(selectedRequest.project?.total_length_ft || 0))} ft
+                    </p>
+                    {selectedRequest.project?.has_removal ? (
+                      <p className="mt-1 text-sm text-slate-600">Removal included</p>
+                    ) : null}
+                    <p className="mt-2 text-xs font-medium text-slate-500">
+                      Status: <span className="text-slate-800">{selectedRequest.status}</span>
+                    </p>
+                  </div>
+                  {selectedRequest.attachment_url && (
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Attachment</p>
+                      <a
+                        href={selectedRequest.attachment_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 inline-block text-sm font-semibold text-indigo-700 hover:underline"
+                      >
+                        {selectedRequest.attachment_name || 'Open file'}
+                      </a>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Request notes</p>
+                  <p className="mt-2 text-sm text-slate-800">{selectedRequest.description}</p>
+                </div>
+
+                {selectedRequest.project?.drawing_data && (
+                  <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Customer drawing</p>
+                    <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-white">
+                      <LayoutDrawCanvas initialDrawing={selectedRequest.project.drawing_data} readOnly />
+                    </div>
+                  </div>
+                )}
+
+                {selectedRequest.supplier_response && editingId !== selectedRequest.id && (
+                  <div className="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+                    <span className="font-medium">Your notes: </span>
+                    {selectedRequest.supplier_response}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </section>
     </div>
