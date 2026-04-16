@@ -4,8 +4,6 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { LeadStatusPieChart } from '@/components/LeadStatusPieChart';
 
-export type DashboardOverviewMode = 'contractor' | 'supplier_combined';
-
 type AnalyticsPeriod = 'day' | 'week' | 'month' | 'year';
 
 interface AnalyticsData {
@@ -68,27 +66,7 @@ function Skeleton({ className }: { className?: string }) {
   return <div className={`animate-pulse rounded-xl bg-slate-200/70 ${className ?? ''}`} />;
 }
 
-const supplierWorkspaceShortcuts: { href: string; title: string; description: string }[] = [
-  {
-    href: '/dashboard/supplier/contractor-quotes',
-    title: 'Contractor quotes',
-    description: 'Quote intake, status, and responses from contractors.',
-  },
-  {
-    href: '/dashboard/supplier/contractor-management',
-    title: 'Contractor management',
-    description: 'Relationships, onboarding, and permissions.',
-  },
-  {
-    href: '/dashboard/supplier/material-calculator',
-    title: 'Material calculator',
-    description: 'SKUs, bundles, and quote-to-material workflows.',
-  },
-];
-
-export function DashboardOverview({ mode }: { mode: DashboardOverviewMode }) {
-  const isSupplierCombined = mode === 'supplier_combined';
-
+export function DashboardOverview() {
   const [recent, setRecent] = useState<CustomerRow[]>([]);
   const [unviewedCount, setUnviewedCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -163,12 +141,7 @@ export function DashboardOverview({ mode }: { mode: DashboardOverviewMode }) {
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-medium text-slate-500">Overview</p>
-            {isSupplierCombined && (
-              <span className="rounded-md bg-indigo-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-indigo-800">
-                Supplier home
-              </span>
-            )}
-            {isSupplierAccount && !isSupplierCombined && (
+            {isSupplierAccount && (
               <Link
                 href="/dashboard/supplier"
                 className="rounded-md bg-indigo-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-indigo-800 hover:bg-indigo-200/80"
@@ -188,16 +161,7 @@ export function DashboardOverview({ mode }: { mode: DashboardOverviewMode }) {
             )}
           </h1>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-600">
-            {isSupplierCombined ? (
-              <>
-                Same layout as the main overview — leads, pipeline, performance, and shortcuts — with supplier-only
-                tools in the section below. For a shorter page, use{' '}
-                <Link href="/dashboard" className="font-semibold text-blue-600 hover:text-blue-500">
-                  Overview
-                </Link>{' '}
-                in the sidebar (contractor workspace).
-              </>
-            ) : isSupplierAccount ? (
+            {isSupplierAccount ? (
               <>
                 Contractor-style leads, pipeline, and quote tools. Supplier-only shortcuts live on{' '}
                 <Link href="/dashboard/supplier" className="font-semibold text-blue-600 hover:text-blue-500">
@@ -500,34 +464,6 @@ export function DashboardOverview({ mode }: { mode: DashboardOverviewMode }) {
           </section>
         </div>
       </div>
-
-      {isSupplierCombined && (
-        <section className="mt-12 border-t border-slate-200/80 pt-10">
-          <h2 className="px-1 text-sm font-semibold uppercase tracking-wide text-indigo-600">Supplier workspace</h2>
-          <p className="mt-1 max-w-2xl px-1 text-sm text-slate-600">
-            Tools for working with contractors and materials — same entries as the indigo block in the sidebar.
-          </p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {supplierWorkspaceShortcuts.map((s) => (
-              <Link
-                key={s.href}
-                href={s.href}
-                className="group flex h-full flex-col items-start gap-3 rounded-2xl border border-indigo-100/90 bg-indigo-50/50 p-4 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50/90 hover:shadow-md"
-              >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-indigo-600 shadow-sm ring-1 ring-indigo-100 transition group-hover:bg-indigo-600 group-hover:text-white group-hover:ring-indigo-500">
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-                  </svg>
-                </span>
-                <div>
-                  <p className="font-semibold text-slate-900">{s.title}</p>
-                  <p className="mt-0.5 text-sm text-slate-600">{s.description}</p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   );
 }
