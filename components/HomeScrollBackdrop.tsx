@@ -52,27 +52,22 @@ export function HomeScrollBackdrop() {
   // Diagonal: slightly shallower angle reads more “designed” on wide screens
   const angle = 122;
   const feather = 1.15;
-  const split = Math.max(0, 54 * (1 - progress));
+  /** Light-side coverage along the gradient axis: ~70% at top of page → ~20% at bottom (never full blue). */
+  const split = 70 * (1 - progress) + 20 * progress;
+  const tail1 = split + (100 - split) * 0.22;
+  const tail2 = split + (100 - split) * 0.52;
 
   const lightTop = 'rgb(252 253 255)';
   const lightMid = 'rgb(241 245 249)';
 
-  const mainGradient =
-    split <= feather
-      ? `linear-gradient(${angle}deg,
-          rgb(30 64 175) 0%,
-          rgb(37 99 235) 32%,
-          rgb(67 56 202) 58%,
-          rgb(30 27 75) 82%,
-          rgb(15 23 42) 100%)`
-      : `linear-gradient(${angle}deg,
+  const mainGradient = `linear-gradient(${angle}deg,
           ${lightTop} 0%,
           ${lightMid} calc(${split - feather * 1.2}%),
           rgb(219 234 254) calc(${split - feather * 0.35}%),
           rgb(96 165 250) calc(${split - 0.15}%),
           rgb(59 130 246) ${split}%,
-          rgb(37 99 235) calc(${split + 18}%),
-          rgb(49 46 129) 78%,
+          rgb(37 99 235) ${tail1}%,
+          rgb(49 46 129) ${tail2}%,
           rgb(15 23 42) 100%)`;
 
   const vignetteOpacity = 0.35 + progress * 0.35;
