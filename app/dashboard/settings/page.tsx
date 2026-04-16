@@ -26,6 +26,7 @@ function slugifySlug(s: string) {
 function buildContractorProfileBody(c: {
   company_name: string;
   slug: string;
+  email: string;
   phone: string | null;
   website: string | null;
   address_line_1: string | null;
@@ -39,6 +40,7 @@ function buildContractorProfileBody(c: {
   return {
     company_name: c.company_name,
     slug: c.slug || slugifySlug(c.company_name),
+    email: c.email?.trim() || '',
     phone: c.phone || null,
     website: c.website || null,
     address_line_1: c.address_line_1 || null,
@@ -526,15 +528,20 @@ export default function SettingsPage() {
               <ContractorQuoteLinkShare slug={contractor.slug || slugifySlug(contractor.company_name)} className="mt-4" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700">Email</label>
+              <label className="block text-sm font-medium text-slate-700">Account email</label>
               <input
                 type="email"
                 value={contractor.email}
-                readOnly
-                disabled
-                className={`${field} cursor-not-allowed bg-slate-50 text-slate-600 opacity-90`}
+                onChange={(e) => setContractor({ ...contractor, email: e.target.value })}
+                autoComplete="email"
+                className={field}
               />
-              <p className="mt-1.5 text-xs text-slate-500">Set at signup. Contact support to change.</p>
+              <p className="mt-1.5 text-xs text-slate-500">
+                Your company&apos;s primary email on file. It is used as the fallback for new lead notifications when
+                quote notification email is blank, and as the CC / reply-to fallback when you email a quote from a lead
+                if no other address applies. When it matches the address you use to sign in, saving a new address here
+                also updates your dashboard login; you may need to sign in again afterward.
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Quote notification email</label>
@@ -551,7 +558,7 @@ export default function SettingsPage() {
                 className={field}
               />
               <p className="mt-1.5 text-xs text-slate-500">
-                New submissions go here. Leave blank to use your login email.
+                New submissions go here. Leave blank to use the account email above.
               </p>
             </div>
             <div>
