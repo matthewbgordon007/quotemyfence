@@ -126,51 +126,58 @@ export default function HomePage() {
       <JsonLd data={faqJsonLd} />
       <SiteNav />
 
-      <main
-        id="main-content"
-        className="relative z-10 mx-auto w-full max-w-6xl space-y-16 px-4 pb-20 pt-24 sm:space-y-20 sm:px-6 sm:pb-24 sm:pt-28 lg:px-8"
-      >
-        <section id="hero" className="scroll-mt-28 pt-4 text-center sm:pt-6">
-          <div className="mx-auto max-w-4xl rounded-[2rem] border border-white/70 bg-white/80 px-6 py-10 shadow-2xl shadow-blue-900/10 ring-1 ring-blue-100/80 backdrop-blur-md sm:px-10 sm:py-12">
-            <p className="mx-auto inline-flex rounded-full border border-blue-200/90 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-blue-800 shadow-sm">
-              Built for fence contractors
-            </p>
-            <h1 className="mx-auto mt-6 max-w-4xl text-balance text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
-              Instant fence estimates. <span className="text-blue-600">Qualified leads.</span>
-            </h1>
-            <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-600">
-              A clean, branded quote experience that helps homeowners self-serve and helps your team close faster.
-            </p>
-            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <a
-                href={DEMO_URL}
-                className="inline-flex min-h-[46px] items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/25 transition hover:from-blue-500 hover:to-indigo-500"
-              >
-                Try live demo
-              </a>
-              <a
-                href={SCHEDULE_CALL_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex min-h-[46px] items-center justify-center rounded-xl border-2 border-blue-200/90 bg-white px-6 py-3 text-sm font-semibold text-blue-900 transition hover:bg-blue-50/90"
-              >
-                Book a call
-              </a>
+      <main id="main-content" className="relative z-10 w-full pb-20 pt-24 sm:pb-24 sm:pt-28">
+        <section
+          id="hero"
+          className="scroll-mt-28 border-b border-slate-900/10 bg-gradient-to-b from-white/85 via-white/55 to-slate-50/40 backdrop-blur-[2px]"
+        >
+          <div className="mx-auto w-full max-w-6xl px-4 pb-14 pt-6 text-center sm:px-6 sm:pb-16 sm:pt-8 lg:px-8">
+            <div className="mx-auto max-w-4xl pb-12 sm:pb-14">
+              <p className="mx-auto inline-flex rounded-full border border-blue-200/90 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-blue-800 shadow-sm">
+                Built for fence contractors
+              </p>
+              <h1 className="mx-auto mt-6 max-w-4xl text-balance text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
+                Instant fence estimates. <span className="text-blue-600">Qualified leads.</span>
+              </h1>
+              <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-600">
+                A clean, branded quote experience that helps homeowners self-serve and helps your team close faster.
+              </p>
+              <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                <a
+                  href={DEMO_URL}
+                  className="inline-flex min-h-[46px] items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/25 transition hover:from-blue-500 hover:to-indigo-500"
+                >
+                  Try live demo
+                </a>
+                <a
+                  href={SCHEDULE_CALL_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-[46px] items-center justify-center rounded-xl border-2 border-blue-200/90 bg-white px-6 py-3 text-sm font-semibold text-blue-900 transition hover:bg-blue-50/90"
+                >
+                  Book a call
+                </a>
+              </div>
             </div>
           </div>
         </section>
 
-        <section id="demo" className="scroll-mt-28">
-          <p className="mb-3 text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-900/70">See it in action</p>
-          <div className="overflow-hidden rounded-3xl border border-blue-200/60 bg-white/90 shadow-xl shadow-blue-900/15 ring-1 ring-white/80 backdrop-blur-sm">
+        <section id="demo" className="scroll-mt-28 border-b border-slate-900/10 bg-slate-200/50">
+          <div className="mx-auto w-full max-w-6xl px-4 pb-4 pt-12 text-center sm:px-6 sm:pt-14 lg:px-8">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-900/70">See it in action</p>
+          </div>
+          <div className="border-y border-slate-300/40 bg-slate-900/[0.06] shadow-inner shadow-slate-900/10">
             <AutoplayOnViewVideo src="/videos/QuoteProcess.mp4" className="w-full" />
           </div>
         </section>
 
-        <section id="dashboard" className="scroll-mt-28">
-          <p className="mb-3 text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-900/70">Inside the app</p>
-          <div className="rounded-[2rem] border border-blue-200/50 bg-white/85 p-8 shadow-xl shadow-blue-900/10 ring-1 ring-blue-100/60 backdrop-blur-md sm:p-10">
-            <h2 className="text-center text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+        <section
+          id="dashboard"
+          className="scroll-mt-28 border-b border-slate-900/10 bg-gradient-to-b from-blue-50/70 via-white to-slate-50/80"
+        >
+          <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
+            <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-900/70">Inside the app</p>
+            <h2 className="mt-2 text-center text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
               Real dashboard screenshots
             </h2>
             <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600">
@@ -230,20 +237,23 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="features" className="scroll-mt-28">
-          <div className="rounded-[2rem] border border-blue-200/50 bg-white/85 p-8 shadow-xl shadow-blue-900/10 ring-1 ring-blue-100/60 backdrop-blur-md sm:p-10">
+        <section
+          id="features"
+          className="scroll-mt-28 border-b border-slate-900/10 bg-gradient-to-br from-indigo-50/90 via-white to-sky-50/60"
+        >
+          <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
             <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-800/80">Why teams switch</p>
             <h2 className="mt-2 text-center text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Built for real fence sales</h2>
             <div className="mt-10 grid gap-4 sm:grid-cols-3">
-              <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/80 p-6 shadow-sm transition hover:border-blue-200 hover:shadow-md">
+              <div className="rounded-2xl border border-slate-200/90 bg-white/90 p-6 shadow-sm transition hover:border-blue-200 hover:shadow-md">
                 <h3 className="text-base font-semibold text-slate-900">Satellite draw flow</h3>
                 <p className="mt-2 text-sm text-slate-600">Homeowners draw real fence lines on their own property.</p>
               </div>
-              <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/80 p-6 shadow-sm transition hover:border-blue-200 hover:shadow-md">
+              <div className="rounded-2xl border border-slate-200/90 bg-white/90 p-6 shadow-sm transition hover:border-blue-200 hover:shadow-md">
                 <h3 className="text-base font-semibold text-slate-900">Branded instant estimate</h3>
                 <p className="mt-2 text-sm text-slate-600">Your pricing rules and your visual identity, end to end.</p>
               </div>
-              <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/80 p-6 shadow-sm transition hover:border-blue-200 hover:shadow-md">
+              <div className="rounded-2xl border border-slate-200/90 bg-white/90 p-6 shadow-sm transition hover:border-blue-200 hover:shadow-md">
                 <h3 className="text-base font-semibold text-slate-900">Higher-intent leads</h3>
                 <p className="mt-2 text-sm text-slate-600">You get contact info with measurements, not vague inquiries.</p>
               </div>
@@ -251,22 +261,26 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="testimonials" className="scroll-mt-28">
-          <div className="rounded-[2rem] border border-indigo-300/40 bg-gradient-to-br from-blue-600/25 via-indigo-700/30 to-slate-900/40 p-1.5 shadow-2xl shadow-indigo-900/25 sm:p-2">
-            <div className="rounded-[1.65rem] border border-white/50 bg-white py-12 sm:py-14">
-              <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-800/80">Social proof</p>
-              <h2 className="mt-2 px-6 text-center text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-                Trusted by growing fence teams
-              </h2>
-              <TestimonialsCarousel items={testimonials} />
-            </div>
+        <section
+          id="testimonials"
+          className="scroll-mt-28 border-b border-slate-900/10 bg-gradient-to-r from-slate-100 via-blue-50/80 to-indigo-100/90"
+        >
+          <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
+            <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-800/80">Social proof</p>
+            <h2 className="mt-2 text-center text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+              Trusted by growing fence teams
+            </h2>
+            <TestimonialsCarousel items={testimonials} />
           </div>
         </section>
 
-        <section id="pricing" className="scroll-mt-28">
-          <p className="mb-3 text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-900/70">Pricing</p>
-          <div className="rounded-[2rem] border border-blue-300/50 bg-gradient-to-br from-white via-blue-50/50 to-indigo-50/80 p-8 text-center shadow-xl shadow-blue-900/10 ring-1 ring-blue-100/70 sm:p-10">
-            <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Simple pricing. Serious results.</h2>
+        <section
+          id="pricing"
+          className="scroll-mt-28 border-b border-slate-900/10 bg-gradient-to-b from-blue-50/80 via-white to-indigo-50/50"
+        >
+          <div className="mx-auto w-full max-w-6xl px-4 py-14 text-center sm:px-6 sm:py-16 lg:px-8">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-900/70">Pricing</p>
+            <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Simple pricing. Serious results.</h2>
             <p className="mt-3 text-slate-600">Launch your quote flow for $199.99 CAD/month. Cancel anytime.</p>
             <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
@@ -285,8 +299,8 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="faq" className="scroll-mt-28">
-          <div className="rounded-[2rem] border border-slate-200/90 bg-white/90 p-6 py-12 shadow-lg shadow-slate-900/5 ring-1 ring-slate-100 backdrop-blur-sm sm:p-8 sm:py-14">
+        <section id="faq" className="scroll-mt-28 border-b border-slate-900/10 bg-slate-50/95">
+          <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
             <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">FAQ</p>
             <h2 className="mt-2 text-center text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
               Frequently asked questions
@@ -297,8 +311,11 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="contact" className="scroll-mt-28 pb-4">
-          <div className="overflow-hidden rounded-[2rem] bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-900 px-6 py-12 text-center shadow-2xl shadow-blue-900/40 ring-1 ring-white/20 sm:px-10 sm:py-14">
+        <section
+          id="contact"
+          className="scroll-mt-28 border-b border-slate-900/20 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-950 pb-4"
+        >
+          <div className="mx-auto w-full max-w-6xl px-4 py-14 text-center sm:px-6 sm:py-16 lg:px-8">
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-100/90">Next step</p>
             <h2 className="mt-3 text-2xl font-bold tracking-tight text-white sm:text-3xl">Want help getting set up?</h2>
             <p className="mx-auto mt-3 max-w-xl text-base text-blue-100/95">
@@ -324,7 +341,7 @@ export default function HomePage() {
         </section>
       </main>
 
-      <footer className="relative z-10 border-t border-blue-900/30 bg-slate-950/50 py-10 text-blue-100/90 backdrop-blur-md">
+      <footer className="relative z-10 w-full border-t border-blue-900/30 bg-slate-950/50 py-10 text-blue-100/90 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <p>© <span suppressHydrationWarning>{new Date().getFullYear()}</span> QuoteMyFence</p>
           <div className="flex items-center gap-4">
