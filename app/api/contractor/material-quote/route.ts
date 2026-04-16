@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { Resend } from 'resend';
 
 function segmentsToDrawing(
   segments: { start_lat: number; start_lng: number; end_lat: number; end_lng: number; length_ft?: number }[],
@@ -55,7 +56,16 @@ export async function POST(request: NextRequest) {
   if (!contractorId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await request.json();
-  const { layout_drawing_id, quote_session_id, description, supplier_contractor_id: rawSupplier } = body;
+  const {
+    layout_drawing_id,
+    quote_session_id,
+    description,
+    supplier_contractor_id: rawSupplier,
+    attachment_url,
+    attachment_name,
+    attachment_content_type,
+    attachment_size_bytes,
+  } = body;
   const supplierContractorId =
     rawSupplier && String(rawSupplier).trim() && String(rawSupplier).trim() !== 'master'
       ? String(rawSupplier).trim()
@@ -157,6 +167,13 @@ export async function POST(request: NextRequest) {
       quote_session_id: sessionId || null,
       contractor_id: contractorId,
       supplier_contractor_id: supplierContractorId,
+      attachment_url: attachment_url ? String(attachment_url) : null,
+      attachment_name: attachment_name ? String(attachment_name) : null,
+      attachment_content_type: attachment_content_type ? String(attachment_content_type) : null,
+      attachment_size_bytes:
+        attachment_size_bytes != null && Number.isFinite(Number(attachment_size_bytes))
+          ? Number(attachment_size_bytes)
+          : null,
       description: descFinal,
       status: 'pending',
       updated_at: new Date().toISOString(),
@@ -165,5 +182,46 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  if (supplierContractorId && process.env.RESEND_API_KEY) {
+    try {
+      const [{ data: supplier }, { data: contractor }] = await Promise.all([
+        supabase
+          .from('contractors')
+          .select('company_name, email, quote_notification_email')
+          .eq('id', supplierContractorId)
+          .single(),
+        supabase.from('contractors').select('company_name').eq('id', contractorId).single(),
+      ]);
+      const toEmail =
+        (supplier as { quote_notification_email?: string | null })?.quote_notification_email ||
+        (supplier as { email?: string | null })?.email;
+      if (toEmail) {
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const from = process.env.EMAIL_FROM || 'quotes@quotemyfence.com';
+        const contractorName = contractor?.company_name || 'A contractor';
+        await resend.emails.send({
+          from,
+          to: [toEmail],
+          subject: `New material request from ${contractorName}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; line-height:1.5;">
+              <h2>New material request</h2>
+              <p><strong>Contractor:</strong> ${contractorName}</p>
+              <p><strong>Description:</strong> ${descFinal}</p>
+              ${
+                attachment_url
+                  ? `<p><strong>Attachment:</strong> <a href="${String(attachment_url)}">${String(attachment_name || 'Open file')}</a></p>`
+                  : ''
+              }
+              <p>Open Supplier workspace to respond.</p>
+            </div>
+          `,
+        });
+      }
+    } catch {
+      // Email is best-effort; request creation already succeeded.
+    }
+  }
   return NextResponse.json({ id: req.id, ok: true });
 }

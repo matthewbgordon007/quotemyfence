@@ -46,6 +46,7 @@ export default function CustomerDetailPage() {
   const [submittingExport, setSubmittingExport] = useState(false);
   const [linkedSuppliers, setLinkedSuppliers] = useState<{ id: string; company_name: string }[]>([]);
   const [exportSupplierId, setExportSupplierId] = useState<string>('master');
+  const [exportAttachment, setExportAttachment] = useState<File | null>(null);
   const [editForm, setEditForm] = useState({
     first_name: '',
     last_name: '',
@@ -103,6 +104,26 @@ export default function CustomerDetailPage() {
     setSubmittingExport(true);
     try {
       const supplier_contractor_id = exportSupplierId === 'master' ? null : exportSupplierId;
+      let attachmentPayload:
+        | { attachment_url: string; attachment_name: string; attachment_content_type: string; attachment_size_bytes: number }
+        | undefined;
+      if (exportAttachment) {
+        const fd = new FormData();
+        fd.set('file', exportAttachment);
+        const upRes = await fetch('/api/contractor/material-quote/attachment', {
+          method: 'POST',
+          credentials: 'include',
+          body: fd,
+        });
+        const up = await upRes.json();
+        if (!upRes.ok) throw new Error(up.error || 'Attachment upload failed');
+        attachmentPayload = {
+          attachment_url: up.url,
+          attachment_name: up.name,
+          attachment_content_type: up.content_type,
+          attachment_size_bytes: up.size_bytes,
+        };
+      }
       const res = await fetch('/api/contractor/material-quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -111,6 +132,7 @@ export default function CustomerDetailPage() {
           quote_session_id: id,
           description: exportNotes.trim() || undefined,
           supplier_contractor_id,
+          ...(attachmentPayload || {}),
         }),
       });
       if (!res.ok) {
@@ -119,6 +141,7 @@ export default function CustomerDetailPage() {
       }
       setShowExportToAdmin(false);
       setExportNotes('');
+      setExportAttachment(null);
       alert(
         supplier_contractor_id
           ? 'Fence layout and notes sent to your supplier. They can respond from their dashboard.'
@@ -603,6 +626,18 @@ export default function CustomerDetailPage() {
               rows={4}
               className="mt-4 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
             />
+            <label className="mt-4 block text-sm font-medium text-[var(--text)]">Attachment (optional)</label>
+            <input
+              type="file"
+              onChange={(e) => setExportAttachment(e.target.files?.[0] || null)}
+              className="mt-1 block w-full text-sm"
+              accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.txt,.docx,.xlsx"
+            />
+            {exportAttachment && (
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                Selected: {exportAttachment.name} ({Math.round(exportAttachment.size / 1024)} KB)
+              </p>
+            )}
             <div className="mt-4 flex gap-2">
               <button
                 type="button"

@@ -65,7 +65,24 @@ ALTER TABLE material_quote_requests
 ALTER TABLE material_quote_requests
   ADD COLUMN IF NOT EXISTS supplier_response TEXT;
 
+ALTER TABLE material_quote_requests
+  ADD COLUMN IF NOT EXISTS attachment_url TEXT;
+
+ALTER TABLE material_quote_requests
+  ADD COLUMN IF NOT EXISTS attachment_name TEXT;
+
+ALTER TABLE material_quote_requests
+  ADD COLUMN IF NOT EXISTS attachment_content_type TEXT;
+
+ALTER TABLE material_quote_requests
+  ADD COLUMN IF NOT EXISTS attachment_size_bytes BIGINT;
+
+ALTER TABLE material_quote_requests
+  ADD COLUMN IF NOT EXISTS supplier_seen_at TIMESTAMPTZ;
+
 CREATE INDEX IF NOT EXISTS idx_material_quote_requests_supplier ON material_quote_requests(supplier_contractor_id);
+CREATE INDEX IF NOT EXISTS idx_material_quote_requests_supplier_unread
+  ON material_quote_requests(supplier_contractor_id, supplier_seen_at);
 
 DROP POLICY IF EXISTS "Suppliers read assigned material requests" ON material_quote_requests;
 CREATE POLICY "Suppliers read assigned material requests"

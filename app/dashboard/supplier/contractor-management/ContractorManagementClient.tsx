@@ -16,6 +16,9 @@ type MaterialReq = {
   supplier_response: string | null;
   master_response: string | null;
   created_at: string;
+  attachment_url?: string | null;
+  attachment_name?: string | null;
+  supplier_seen_at?: string | null;
   contractor: { company_name: string; slug: string | null };
 };
 
@@ -26,6 +29,8 @@ export function ContractorManagementClient() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftResponse, setDraftResponse] = useState('');
   const [saving, setSaving] = useState(false);
+  const [removingLinkId, setRemovingLinkId] = useState<string | null>(null);
+  const unreadCount = requests.filter((r) => !r.supplier_seen_at).length;
 
   const load = useCallback(async () => {
     const [lr, rq] = await Promise.all([
@@ -43,6 +48,10 @@ export function ContractorManagementClient() {
     (async () => {
       try {
         await load();
+        await fetch('/api/supplier/material-quote-notifications/mark-seen', {
+          method: 'POST',
+          credentials: 'include',
+        });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -77,6 +86,26 @@ export function ContractorManagementClient() {
     }
   }
 
+  async function removeLink(linkId: string) {
+    if (!confirm('Remove this contractor from your supplier list?')) return;
+    setRemovingLinkId(linkId);
+    try {
+      const r = await fetch(`/api/supplier/linked-contractors/${linkId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!r.ok) {
+        const d = await r.json();
+        throw new Error(d.error || 'Failed');
+      }
+      await load();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed');
+    } finally {
+      setRemovingLinkId(null);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center py-20">
@@ -94,6 +123,11 @@ export function ContractorManagementClient() {
           Contractors who linked your company appear here. When they send a fence layout for a material quote, it
           appears in the requests list below.
         </p>
+        {unreadCount > 0 && (
+          <p className="mt-3 inline-flex items-center rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-800">
+            {unreadCount} new material request{unreadCount === 1 ? '' : 's'}
+          </p>
+        )}
         <Link
           href="/dashboard/supplier"
           className="mt-4 inline-flex text-sm font-semibold text-blue-600 hover:text-blue-500"
@@ -127,6 +161,14 @@ export function ContractorManagementClient() {
                     <p className="text-xs text-slate-500">Linked {new Date(row.linked_at).toLocaleDateString()}</p>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  disabled={removingLinkId === row.link_id}
+                  onClick={() => void removeLink(row.link_id)}
+                  className="rounded-lg border border-red-200 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                >
+                  {removingLinkId === row.link_id ? 'Removing…' : 'Remove contractor'}
+                </button>
               </li>
             ))}
           </ul>
@@ -150,6 +192,18 @@ export function ContractorManagementClient() {
                     <p className="text-xs font-semibold uppercase text-slate-500">{req.contractor.company_name}</p>
                     <p className="mt-1 text-xs text-slate-500">{new Date(req.created_at).toLocaleString()}</p>
                     <p className="mt-2 text-sm text-slate-800">{req.description}</p>
+                    {req.attachment_url && (
+                      <p className="mt-2 text-xs">
+                        <a
+                          href={req.attachment_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-indigo-700 hover:underline"
+                        >
+                          Attachment: {req.attachment_name || 'Open file'}
+                        </a>
+                      </p>
+                    )}
                     <p className="mt-2 text-xs font-medium text-slate-500">
                       Status: <span className="text-slate-800">{req.status}</span>
                     </p>

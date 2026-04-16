@@ -91,6 +91,7 @@ export default function LayoutPage() {
   const [submittingMaterial, setSubmittingMaterial] = useState(false);
   const [linkedSuppliers, setLinkedSuppliers] = useState<{ id: string; company_name: string }[]>([]);
   const [materialSupplierId, setMaterialSupplierId] = useState<string>('master');
+  const [materialAttachment, setMaterialAttachment] = useState<File | null>(null);
 
   useEffect(() => {
     fetch('/api/contractor/layouts', { credentials: 'include' })
@@ -246,6 +247,26 @@ export default function LayoutPage() {
     }
     setSubmittingMaterial(true);
     try {
+      let attachmentPayload:
+        | { attachment_url: string; attachment_name: string; attachment_content_type: string; attachment_size_bytes: number }
+        | undefined;
+      if (materialAttachment) {
+        const fd = new FormData();
+        fd.set('file', materialAttachment);
+        const upRes = await fetch('/api/contractor/material-quote/attachment', {
+          method: 'POST',
+          credentials: 'include',
+          body: fd,
+        });
+        const up = await upRes.json();
+        if (!upRes.ok) throw new Error(up.error || 'Attachment upload failed');
+        attachmentPayload = {
+          attachment_url: up.url,
+          attachment_name: up.name,
+          attachment_content_type: up.content_type,
+          attachment_size_bytes: up.size_bytes,
+        };
+      }
       const res = await fetch('/api/contractor/material-quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -255,6 +276,7 @@ export default function LayoutPage() {
           quote_session_id: fromId || undefined,
           description: desc,
           supplier_contractor_id: materialSupplierId === 'master' ? null : materialSupplierId,
+          ...(attachmentPayload || {}),
         }),
       });
       if (!res.ok) {
@@ -263,6 +285,7 @@ export default function LayoutPage() {
       }
       setShowMaterialModal(false);
       setMaterialDesc('');
+      setMaterialAttachment(null);
       alert(
         materialSupplierId === 'master'
           ? 'Material quote request sent to the platform team.'
@@ -404,6 +427,18 @@ export default function LayoutPage() {
               rows={4}
               className="mt-4 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
             />
+            <label className="mt-4 block text-sm font-medium text-[var(--text)]">Attachment (optional)</label>
+            <input
+              type="file"
+              onChange={(e) => setMaterialAttachment(e.target.files?.[0] || null)}
+              className="mt-1 block w-full text-sm"
+              accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.txt,.docx,.xlsx"
+            />
+            {materialAttachment && (
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                Selected: {materialAttachment.name} ({Math.round(materialAttachment.size / 1024)} KB)
+              </p>
+            )}
             <div className="mt-4 flex gap-2">
               <button
                 type="button"

@@ -39,8 +39,16 @@ export default async function SupplierDashboardHomePage() {
   const { data: contractor } = userRow?.contractor_id
     ? await supabase.from('contractors').select('company_name, slug').eq('id', userRow.contractor_id).single()
     : { data: null };
+  const unreadRequests = userRow?.contractor_id
+    ? await supabase
+        .from('material_quote_requests')
+        .select('id', { count: 'exact', head: true })
+        .eq('supplier_contractor_id', userRow.contractor_id)
+        .is('supplier_seen_at', null)
+    : { count: 0 };
 
   const quotePageUrl = contractor?.slug ? `/estimate/${contractor.slug}/contact` : null;
+  const unreadCount = unreadRequests.count ?? 0;
 
   return (
     <div className="mx-auto w-full max-w-5xl pb-8">
@@ -60,6 +68,11 @@ export default async function SupplierDashboardHomePage() {
           Supplier tools only on this page. Use <span className="font-medium text-slate-800">Contractor workspace</span>{' '}
           in the sidebar for leads, quotes, and products.
         </p>
+        {unreadCount > 0 && (
+          <p className="mt-3 inline-flex items-center rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-800">
+            {unreadCount} new material request{unreadCount === 1 ? '' : 's'}
+          </p>
+        )}
         {quotePageUrl && (
           <p className="mt-4">
             <a
@@ -84,7 +97,14 @@ export default async function SupplierDashboardHomePage() {
               href={c.href}
               className="flex h-full flex-col rounded-2xl border border-indigo-100/90 bg-indigo-50/40 p-6 shadow-sm transition hover:border-indigo-200/90 hover:bg-indigo-50/70 hover:shadow-md"
             >
-              <h2 className="text-lg font-semibold text-slate-900">{c.title}</h2>
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-lg font-semibold text-slate-900">{c.title}</h2>
+                {c.href === '/dashboard/supplier/contractor-management' && unreadCount > 0 && (
+                  <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-bold text-white">
+                    {unreadCount}
+                  </span>
+                )}
+              </div>
               <p className="mt-2 flex-1 text-sm text-slate-600">{c.description}</p>
               <span className="mt-4 text-sm font-semibold text-indigo-600">Open →</span>
             </Link>
