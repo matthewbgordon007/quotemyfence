@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { requireSupplierDashboard } from '@/lib/supplier-dashboard-guard';
 import { SupplierEmbeddedCalculatorClient } from '@/components/dashboard/SupplierEmbeddedCalculatorClient';
 
@@ -7,7 +8,13 @@ export default async function SupplierEmbeddedCalculatorPage() {
 
   return (
     <>
-      <SupplierEmbeddedCalculatorClient />
+      <Suspense
+        fallback={
+          <div className="mx-auto max-w-6xl px-4 py-16 text-center text-sm text-slate-500">Loading calculator…</div>
+        }
+      >
+        <SupplierEmbeddedCalculatorClient />
+      </Suspense>
       <div className="mx-auto mt-4 max-w-6xl pb-8">
         <Link
           href="/dashboard/supplier"

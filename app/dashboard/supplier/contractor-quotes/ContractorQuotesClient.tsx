@@ -2,41 +2,10 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { LayoutDrawCanvas } from '@/components/LayoutDrawCanvas';
-import dynamic from 'next/dynamic';
+import { MaterialQuoteRequestViewer } from '@/components/dashboard/MaterialQuoteRequestViewer';
+import type { MaterialQuoteRequestDto } from '@/lib/supplier-material-quote-requests-enrich';
 
-const FenceDrawingMap = dynamic(
-  () => import('@/components/FenceDrawingMap').then((m) => ({ default: m.FenceDrawingMap })),
-  { ssr: false, loading: () => <div className="min-h-[300px] animate-pulse rounded-lg border border-slate-200 bg-slate-50" /> }
-);
-
-type MaterialReq = {
-  id: string;
-  description: string;
-  status: string;
-  supplier_response: string | null;
-  master_response: string | null;
-  created_at: string;
-  attachment_url?: string | null;
-  attachment_name?: string | null;
-  supplier_seen_at?: string | null;
-  contractor: { company_name: string; slug: string | null; email?: string | null; phone?: string | null };
-  project?: {
-    total_length_ft?: number | null;
-    design_summary?: string | null;
-    design_option?: { height_ft?: number; type?: string; style?: string; colour?: string } | null;
-    has_removal?: boolean | null;
-    segments?: { start_lat: number; start_lng: number; end_lat: number; end_lng: number; length_ft?: number }[];
-    gates?: { gate_type: string; quantity: number; lat?: number | null; lng?: number | null }[];
-    image_data_url?: string | null;
-    drawing_data?: {
-      points: { x: number; y: number }[];
-      segments: { length_ft: number }[];
-      gates: { type: 'single' | 'double'; quantity: number }[];
-      total_length_ft: number;
-    } | null;
-  };
-};
+type MaterialReq = MaterialQuoteRequestDto;
 
 export function ContractorQuotesClient() {
   const [requests, setRequests] = useState<MaterialReq[]>([]);
@@ -138,7 +107,8 @@ export function ContractorQuotesClient() {
         <h2 className="text-lg font-semibold text-slate-900">Material layout requests</h2>
         <p className="mt-1 text-sm text-slate-600">
           Contractors send fence layouts from a lead or the Draw page. Open a request to review the drawing, footage,
-          and selected fence details before responding.
+          and selected fence details before responding. Use <span className="font-medium text-slate-800">Sheet calculator + quote</span>{' '}
+          to open the same request beside your embedded Google Sheet or Excel while you build the material quote.
         </p>
         {requests.length === 0 ? (
           <p className="mt-6 text-sm text-slate-600">No requests assigned to you yet.</p>
@@ -196,6 +166,12 @@ export function ContractorQuotesClient() {
                   </div>
                   {editingId === selectedRequest.id ? (
                     <div className="w-full min-w-[240px] max-w-md space-y-2">
+                      <Link
+                        href={`/dashboard/supplier/embedded-calculator?materialRequest=${encodeURIComponent(selectedRequest.id)}`}
+                        className="inline-flex rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500"
+                      >
+                        Sheet calculator + quote
+                      </Link>
                       <textarea
                         value={draftResponse}
                         onChange={(e) => setDraftResponse(e.target.value)}
@@ -223,146 +199,30 @@ export function ContractorQuotesClient() {
                       </div>
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingId(selectedRequest.id);
-                        setDraftResponse(selectedRequest.supplier_response || '');
-                      }}
-                      className="shrink-0 rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-50"
-                    >
-                      {selectedRequest.supplier_response ? 'Edit response' : 'Respond'}
-                    </button>
-                  )}
-                </div>
-
-                {(selectedRequest.contractor.email || selectedRequest.contractor.phone) && (
-                  <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Contractor details</p>
-                    {selectedRequest.contractor.email && <p className="mt-2">Email: {selectedRequest.contractor.email}</p>}
-                    {selectedRequest.contractor.phone && <p className="mt-1">Phone: {selectedRequest.contractor.phone}</p>}
-                  </div>
-                )}
-
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Fence information</p>
-                    <p className="mt-2 text-sm text-slate-800">
-                      Material selection: {selectedRequest.project?.design_summary || 'Not selected'}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-800">
-                      Total footage: {Math.round(Number(selectedRequest.project?.total_length_ft || 0))} ft
-                    </p>
-                    {selectedRequest.project?.has_removal ? (
-                      <p className="mt-1 text-sm text-slate-600">Removal included</p>
-                    ) : null}
-                    <p className="mt-2 text-xs font-medium text-slate-500">
-                      Status: <span className="text-slate-800">{selectedRequest.status}</span>
-                    </p>
-                  </div>
-                  {selectedRequest.attachment_url && (
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Attachment</p>
-                      <a
-                        href={selectedRequest.attachment_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-2 inline-block text-sm font-semibold text-indigo-700 hover:underline"
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link
+                        href={`/dashboard/supplier/embedded-calculator?materialRequest=${encodeURIComponent(selectedRequest.id)}`}
+                        className="shrink-0 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500"
                       >
-                        {selectedRequest.attachment_name || 'Open file'}
-                      </a>
+                        Sheet calculator + quote
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingId(selectedRequest.id);
+                          setDraftResponse(selectedRequest.supplier_response || '');
+                        }}
+                        className="shrink-0 rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-50"
+                      >
+                        {selectedRequest.supplier_response ? 'Edit response' : 'Respond'}
+                      </button>
                     </div>
                   )}
                 </div>
 
-                <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Request notes</p>
-                  <p className="mt-2 text-sm text-slate-800">{selectedRequest.description}</p>
+                <div className="mt-4">
+                  <MaterialQuoteRequestViewer request={selectedRequest} />
                 </div>
-
-                {((selectedRequest.project?.segments?.length ?? 0) > 0 || selectedRequest.project?.drawing_data) && (
-                  <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Fence drawing</p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {selectedRequest.project?.image_data_url ? 'Layout drawing (from Draw).' : 'The outline they drew on the map.'}
-                    </p>
-                    {selectedRequest.project?.image_data_url ? (
-                      <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-white">
-                        <img
-                          src={selectedRequest.project.image_data_url}
-                          alt="Customer layout"
-                          className="max-h-[420px] w-full object-contain"
-                        />
-                      </div>
-                    ) : null}
-                    {(selectedRequest.project?.segments?.length ?? 0) > 0 ? (
-                      <div className="mt-2">
-                        <p className="mb-2 text-sm font-medium text-slate-600">
-                          {selectedRequest.project?.image_data_url ? 'Map view' : 'Fence outline'}
-                        </p>
-                        <FenceDrawingMap
-                          segments={selectedRequest.project?.segments || []}
-                          gates={selectedRequest.project?.gates || []}
-                          className="min-h-[300px]"
-                        />
-                      </div>
-                    ) : selectedRequest.project?.drawing_data ? (
-                      <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-white">
-                        <LayoutDrawCanvas initialDrawing={selectedRequest.project.drawing_data} readOnly />
-                      </div>
-                    ) : null}
-                    {((selectedRequest.project?.segments?.length ?? 0) > 0 || selectedRequest.project?.total_length_ft) && (
-                      <div className="mt-4 space-y-2">
-                        {(selectedRequest.project?.segments?.length ?? 0) > 0 && (
-                          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
-                            <span className="font-medium">Segment lengths:</span>
-                            {(selectedRequest.project?.segments || []).map((seg, i) => (
-                              <span key={i} className="text-slate-600">
-                                Line {i + 1}: {seg.length_ft != null ? `${Number(seg.length_ft).toFixed(1)} ft` : '—'}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <div className="flex flex-wrap gap-4 text-sm">
-                          <span><strong>Total length:</strong> {Number(selectedRequest.project?.total_length_ft || 0).toFixed(1)} ft</span>
-                          {selectedRequest.project?.has_removal && <span className="text-slate-600">Removal included</span>}
-                          {(selectedRequest.project?.gates?.length ?? 0) > 0 && (
-                            <span>
-                              <strong>Gates:</strong> {(selectedRequest.project?.gates || []).map((g) => `${g.quantity} ${g.gate_type}`).join(', ')}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Design choice</p>
-                  {selectedRequest.project?.design_summary ? (
-                    <>
-                      <p className="mt-2 font-medium text-slate-900">{selectedRequest.project.design_summary}</p>
-                      {selectedRequest.project.design_option && (
-                        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                          {selectedRequest.project.design_option.height_ft != null && (
-                            <><dt className="text-slate-500">Height</dt><dd>{selectedRequest.project.design_option.height_ft} ft</dd></>
-                          )}
-                          {selectedRequest.project.design_option.type && (
-                            <><dt className="text-slate-500">Material / type</dt><dd>{selectedRequest.project.design_option.type}</dd></>
-                          )}
-                          {selectedRequest.project.design_option.style && (
-                            <><dt className="text-slate-500">Style</dt><dd>{selectedRequest.project.design_option.style}</dd></>
-                          )}
-                          {selectedRequest.project.design_option.colour && (
-                            <><dt className="text-slate-500">Colour</dt><dd>{selectedRequest.project.design_option.colour}</dd></>
-                          )}
-                        </dl>
-                      )}
-                    </>
-                  ) : (
-                    <p className="mt-2 text-sm text-slate-600">No design selection saved.</p>
-                  )}
-                  </div>
 
                 {selectedRequest.supplier_response && editingId !== selectedRequest.id && (
                   <div className="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">

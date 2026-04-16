@@ -1,12 +1,16 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { MaterialQuoteRequestViewer } from '@/components/dashboard/MaterialQuoteRequestViewer';
 import {
   buildGoogleSheetsEmbedUrl,
   getGoogleSheetsTopLevelEditUrl,
   sanitizeExcelOfficeEmbedUrl,
   type GoogleSheetsEmbedMode,
 } from '@/lib/supplier-embed-calculator-urls';
+import type { MaterialQuoteRequestDto } from '@/lib/supplier-material-quote-requests-enrich';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const STORAGE_KEY = 'supplier-embedded-calculator-links-v1';
 
@@ -50,6 +54,10 @@ function saveStored(s: Stored) {
 }
 
 export function SupplierEmbeddedCalculatorClient() {
+  const searchParams = useSearchParams();
+  const materialRequestId = searchParams.get('materialRequest');
+  const showQuotePanel = Boolean(materialRequestId?.trim());
+
   const [active, setActive] = useState<'google' | 'excel'>('google');
   const [googlePasted, setGooglePasted] = useState('');
   const [excelPasted, setExcelPasted] = useState('');
@@ -57,6 +65,9 @@ export function SupplierEmbeddedCalculatorClient() {
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [excelError, setExcelError] = useState<string | null>(null);
   const [googleSheetsMode, setGoogleSheetsMode] = useState<GoogleSheetsEmbedMode>('fullEdit');
+  const [sideRequest, setSideRequest] = useState<MaterialQuoteRequestDto | null>(null);
+  const [sideLoading, setSideLoading] = useState(false);
+  const [sideError, setSideError] = useState<string | null>(null);
 
   useEffect(() => {
     const s = loadStored();
@@ -66,6 +77,49 @@ export function SupplierEmbeddedCalculatorClient() {
     setGoogleSheetsMode(s.googleSheetsMode);
     setHydrated(true);
   }, []);
+
+  useEffect(() => {
+    const id = materialRequestId?.trim();
+    if (!id) {
+      setSideRequest(null);
+      setSideError(null);
+      setSideLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setSideLoading(true);
+    setSideError(null);
+    setSideRequest(null);
+    (async () => {
+      try {
+        const r = await fetch(`/api/supplier/material-quote-requests/${encodeURIComponent(id)}`, {
+          credentials: 'include',
+        });
+        const j = (await r.json()) as { error?: string; request?: MaterialQuoteRequestDto };
+        if (cancelled) return;
+        if (!r.ok) {
+          setSideError(j.error || 'Could not load this material request.');
+          setSideRequest(null);
+        } else if (j.request) {
+          setSideRequest(j.request);
+          setSideError(null);
+        } else {
+          setSideError('Request not found.');
+          setSideRequest(null);
+        }
+      } catch {
+        if (!cancelled) {
+          setSideError('Network error loading the request.');
+          setSideRequest(null);
+        }
+      } finally {
+        if (!cancelled) setSideLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [materialRequestId]);
 
   const googleEmbed = useMemo(
     () => buildGoogleSheetsEmbedUrl(googlePasted, googleSheetsMode),
@@ -99,7 +153,9 @@ export function SupplierEmbeddedCalculatorClient() {
         : null;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 pb-8">
+    <div
+      className={`mx-auto space-y-6 pb-8 ${showQuotePanel ? 'max-w-[min(96rem,calc(100%-0.5rem))]' : 'max-w-6xl'}`}
+    >
       <div
         className="relative overflow-hidden rounded-[2rem] border p-6 shadow-xl shadow-slate-900/[0.05] sm:p-8"
         style={{
@@ -118,9 +174,64 @@ export function SupplierEmbeddedCalculatorClient() {
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
           Link your own Google Sheet or Microsoft Excel embed and edit in the frame when your account has Editor access—no
           separate tab required. Links are saved in this browser only until we add per-company storage.
+          {showQuotePanel ? (
+            <>
+              {' '}
+              A contractor material request is open on the side so you can match your sheet to their layout and notes.
+            </>
+          ) : null}
         </p>
       </div>
 
+      <div
+        className={`flex flex-col gap-6 ${showQuotePanel ? 'xl:flex-row xl:items-start' : ''}`}
+      >
+        {showQuotePanel ? (
+          <aside
+            className="order-1 w-full shrink-0 space-y-3 rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm sm:p-5 xl:sticky xl:top-4 xl:order-1 xl:w-[min(420px,40vw)] xl:max-h-[calc(100dvh-5rem)] xl:overflow-y-auto xl:overscroll-contain"
+            style={{ borderColor: 'var(--dashboard-line)' }}
+          >
+            <div className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-100 pb-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">Contractor quote</p>
+                {sideRequest ? (
+                  <>
+                    <p className="mt-1 truncate text-sm font-semibold text-slate-900">{sideRequest.contractor.company_name}</p>
+                    <p className="mt-0.5 text-xs text-slate-500">{new Date(sideRequest.created_at).toLocaleString()}</p>
+                    <p className="mt-2 line-clamp-3 text-sm text-slate-700">
+                      {sideRequest.project.design_summary || 'Material request'}
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-1 text-sm text-slate-600">Loading request…</p>
+                )}
+              </div>
+              <div className="flex shrink-0 flex-col gap-1.5 text-right">
+                <Link
+                  href="/dashboard/supplier/embedded-calculator"
+                  scroll={false}
+                  className="text-xs font-semibold text-slate-500 hover:text-slate-800"
+                >
+                  Hide panel
+                </Link>
+                <Link href="/dashboard/supplier/contractor-quotes" className="text-xs font-semibold text-indigo-600 hover:text-indigo-500">
+                  All requests
+                </Link>
+              </div>
+            </div>
+            {sideLoading ? (
+              <div className="flex justify-center py-10">
+                <div className="h-7 w-7 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+              </div>
+            ) : sideError ? (
+              <p className="text-sm font-medium text-red-600">{sideError}</p>
+            ) : sideRequest ? (
+              <MaterialQuoteRequestViewer request={sideRequest} compact />
+            ) : null}
+          </aside>
+        ) : null}
+
+        <div className={`min-w-0 space-y-6 ${showQuotePanel ? 'order-2 flex-1 xl:order-2' : ''}`}>
       <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-1.5">
         <button
           type="button"
@@ -387,9 +498,16 @@ export function SupplierEmbeddedCalculatorClient() {
               Google Sheets in an iframe may not see the same Google account as a normal tab; that is a browser privacy rule,
               not a bug in your dashboard password.
             </li>
+            {showQuotePanel ? (
+              <li>
+                The contractor quote panel loads from your supplier account; only requests assigned to you can be opened.
+              </li>
+            ) : null}
           </ul>
         </div>
       </details>
+        </div>
+      </div>
     </div>
   );
 }
