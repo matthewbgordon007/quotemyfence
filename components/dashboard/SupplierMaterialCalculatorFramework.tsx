@@ -1124,22 +1124,29 @@ export function SupplierMaterialCalculatorFramework() {
                     { name: 'Drop Rod', qty: 0 },
                   ];
                   return (
-                    <section key={styleName} className="rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4 sm:p-5">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
+                    <details key={styleName} className="group rounded-2xl border border-slate-200/80 bg-slate-50/60 shadow-sm">
+                      <summary className="flex cursor-pointer list-none flex-wrap items-start justify-between gap-3 px-4 py-4 sm:px-5">
                         <div>
                           <h3 className="text-lg font-semibold text-slate-900">{styleName}</h3>
                           <p className="mt-1 text-sm text-slate-600">
                             Workbook panel basis: `length / 6.0833`, then `CEILING(..., 0.5)` and `ROUNDUP(...)` before line posts and board totals.
                           </p>
                         </div>
-                        {config ? (
-                          <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
-                            Boards per rounded panel: <span className="font-semibold text-slate-900">{config.boardQtyPerRoundedPanel}</span>
-                          </div>
-                        ) : null}
-                      </div>
+                        <div className="flex items-center gap-3">
+                          {config ? (
+                            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+                              Boards per rounded panel: <span className="font-semibold text-slate-900">{config.boardQtyPerRoundedPanel}</span>
+                            </div>
+                          ) : null}
+                          <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 group-open:border-emerald-200 group-open:bg-emerald-50 group-open:text-emerald-800">
+                            <span className="group-open:hidden">Open</span>
+                            <span className="hidden group-open:inline">Close</span>
+                          </span>
+                        </div>
+                      </summary>
 
-                      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                      <div className="space-y-4 border-t border-slate-200/70 px-4 py-4 sm:px-5 sm:py-5">
+                      <div className="grid gap-4 lg:grid-cols-2">
                         <div className={cardShell}>
                           <div className={cardHeader}>
                             <h4 className="font-semibold text-slate-900">Line calculator</h4>
@@ -1354,7 +1361,7 @@ export function SupplierMaterialCalculatorFramework() {
                         </section>
                       </div>
 
-                      <section className={`${cardShell} mt-4`}>
+                      <section className={cardShell}>
                         <div className={cardHeader}>
                           <h4 className="font-semibold text-slate-900">Hybrid Horizontal master material list</h4>
                           <p className="mt-1 text-sm text-slate-600">
@@ -1392,7 +1399,8 @@ export function SupplierMaterialCalculatorFramework() {
                           </div>
                         </div>
                       </section>
-                    </section>
+                      </div>
+                    </details>
                   );
                 })
               )}
