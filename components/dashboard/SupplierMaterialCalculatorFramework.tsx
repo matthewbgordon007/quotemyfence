@@ -35,6 +35,7 @@ const inputFieldLabels: Record<MaterialCalculatorInputField, string> = {
   exact_panels: 'Exact panels',
   rounded_panels: 'Rounded panels',
   line_posts_including_first: 'Post count (panels + H terminations − 1)',
+  whole_panels_plus_h_terminations: 'Whole panels + H terminations (D9+D6)',
   h_post_terminations: 'H post terminations',
   u_channel_terminations: 'U channel terminations',
   gate_unit: 'Gate unit',
@@ -142,6 +143,12 @@ export function SupplierMaterialCalculatorFramework() {
     [roundedPanels, sampleLine.h_post_terminations],
   );
 
+  /** PVC sheet D9+D6 — basis for long screw Final (4× this), not D9+D6−1. */
+  const wholePanelsPlusHTerminations = useMemo(
+    () => roundedPanels + sampleLine.h_post_terminations,
+    [roundedPanels, sampleLine.h_post_terminations],
+  );
+
   const previewRows = useMemo(() => {
     return recipeItems.map((item) => {
       const sourceValue =
@@ -153,9 +160,11 @@ export function SupplierMaterialCalculatorFramework() {
               ? roundedPanels
               : item.input_field === 'line_posts_including_first'
                 ? linePostsIncludingFirst
-                : item.input_field === 'h_post_terminations'
-                  ? sampleLine.h_post_terminations
-                  : sampleLine.u_channel_terminations;
+                : item.input_field === 'whole_panels_plus_h_terminations'
+                  ? wholePanelsPlusHTerminations
+                  : item.input_field === 'h_post_terminations'
+                    ? sampleLine.h_post_terminations
+                    : sampleLine.u_channel_terminations;
 
       const raw = sourceValue * item.quantity_per_panel;
       return {
@@ -164,7 +173,7 @@ export function SupplierMaterialCalculatorFramework() {
         final: roundForMode(raw, item.rounding_mode),
       };
     });
-  }, [exactPanels, linePostsIncludingFirst, recipeItems, roundedPanels, sampleLine]);
+  }, [exactPanels, linePostsIncludingFirst, recipeItems, roundedPanels, sampleLine, wholePanelsPlusHTerminations]);
 
   const gateDoorWidth = useMemo(() => {
     return Math.max(0, sampleGateLine.line_width_inches - 10.5);
@@ -191,11 +200,13 @@ export function SupplierMaterialCalculatorFramework() {
                     ? roundedPanels
                     : item.input_field === 'line_posts_including_first'
                       ? linePostsIncludingFirst
-                      : item.input_field === 'h_post_terminations'
-                        ? sampleLine.h_post_terminations
-                        : item.input_field === 'u_channel_terminations'
-                          ? sampleLine.u_channel_terminations
-                          : 0;
+                      : item.input_field === 'whole_panels_plus_h_terminations'
+                        ? wholePanelsPlusHTerminations
+                        : item.input_field === 'h_post_terminations'
+                          ? sampleLine.h_post_terminations
+                          : item.input_field === 'u_channel_terminations'
+                            ? sampleLine.u_channel_terminations
+                            : 0;
       const raw = sourceValue * item.quantity_per_panel;
       return {
         ...item,
@@ -203,7 +214,7 @@ export function SupplierMaterialCalculatorFramework() {
         final: roundForMode(raw, item.rounding_mode),
       };
     });
-  }, [exactPanels, gateRecipeItems, gateTotalBoards, linePostsIncludingFirst, roundedPanels, sampleGateLine.posts_needed, sampleLine]);
+  }, [exactPanels, gateRecipeItems, gateTotalBoards, linePostsIncludingFirst, roundedPanels, sampleGateLine.posts_needed, sampleLine, wholePanelsPlusHTerminations]);
 
   const materialTotalsByKey = useMemo(() => {
     const map = new Map<string, number>();
@@ -500,7 +511,7 @@ export function SupplierMaterialCalculatorFramework() {
             Core math: `exact panels = length / panel length`, `whole panels = ceil(exact panels)`, and post count for materials = `whole panels + (fence terminated with H post) − 1`, matching the PVC calculator (`=D9+D6−1`). Galvanized posts, H posts, post caps, short screws, and concrete (default 2.5 per line post) all multiply from that count. Gate line defaults do not add a second set of line posts (avoids double-count vs a single order sheet); add gate-only post rows in the gate recipe if your supplier counts them separately.
           </p>
           <p className="mt-3 text-sm text-slate-600">
-            Screws: line long screws are `ceil(4 × exact panels)`; line short screws are `ceil(1 × line posts)`. Gate long/short screws use `ceil(multiplier × gate boards)` — default multipliers are tuned to common D&H-style takeoffs; edit them in the recipe builder if your widths differ.
+            Screws (PVC color line): short screws use the same post count as galvanized (`D9+D6−1`). Long screws use `4 × (D9+D6)` — whole panels plus H terminations — which matches the sheet Final column (the intermediate column is often `4 × exact panels`). Gate line screws add `ceil(multiplier × gate boards)` on top of those line totals.
           </p>
         </div>
       </details>

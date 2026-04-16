@@ -6,6 +6,8 @@ export type MaterialCalculatorInputField =
   | 'rounded_panels'
   /** PVC sheet post count for galvanized/H/caps/screws: ceil(panels) + H post terminations − 1 (e.g. =D9+D6−1). */
   | 'line_posts_including_first'
+  /** PVC long-screw basis: whole panels + H terminations (D9+D6), i.e. one more than line post count for materials. */
+  | 'whole_panels_plus_h_terminations'
   | 'h_post_terminations'
   | 'u_channel_terminations'
   | 'gate_unit'
@@ -185,6 +187,13 @@ export const firstSheetFieldSpecs: MaterialCalculatorFieldSpec[] = [
     notes: 'Matches Premium Fence PVC sheet: D9 + D6 − 1 (whole panels + fence terminated with H post − 1).',
   },
   {
+    id: 'whole_panels_plus_h_terminations',
+    label: 'Whole panels + H terminations (long screw basis)',
+    mode: 'calculated',
+    section: 'color_line',
+    notes: 'D9 + D6 on the PVC sheet; used for long screw Final (4× this value), not 4× exact panels.',
+  },
+  {
     id: 'posts',
     label: 'Posts',
     mode: 'calculated',
@@ -259,14 +268,21 @@ export const firstSheetColorLineRecipeDefaults: MaterialCalculatorRecipeItem[] =
   { id: 'color-rail-stiffener', name: 'Rail Stiffener', quantity_per_panel: 2, input_field: 'exact_panels', rounding_mode: 'ceil' },
   { id: 'color-board', name: 'Board', quantity_per_panel: 16, input_field: 'exact_panels', rounding_mode: 'nearest' },
   { id: 'color-board-stiffener', name: 'Board Stiffener', quantity_per_panel: 3, input_field: 'exact_panels', rounding_mode: 'nearest' },
-  { id: 'color-short-screw', name: 'Short Screw', quantity_per_panel: 1, input_field: 'line_posts_including_first', rounding_mode: 'ceil' },
+  {
+    id: 'color-short-screw',
+    name: 'Short Screw',
+    quantity_per_panel: 1,
+    input_field: 'line_posts_including_first',
+    rounding_mode: 'ceil',
+    notes: 'PVC sheet: 1 per post count for materials (D9+D6−1).',
+  },
   {
     id: 'color-long-screw',
     name: 'Long Screw',
     quantity_per_panel: 4,
-    input_field: 'exact_panels',
+    input_field: 'whole_panels_plus_h_terminations',
     rounding_mode: 'ceil',
-    notes: 'Line: 4× exact panels (round up). Gate line adds more long screws per gate boards — see gate recipe.',
+    notes: 'PVC sheet Final column: 4×(D9+D6) = 4×(whole panels + H terminations), not 4×exact panels. Gate line adds long screws per gate boards.',
   },
   { id: 'color-plug', name: 'Plug', quantity_per_panel: 4, input_field: 'exact_panels', rounding_mode: 'nearest' },
   { id: 'color-u-channel', name: 'U Channel', quantity_per_panel: 1, input_field: 'u_channel_terminations', rounding_mode: 'ceil' },
@@ -280,18 +296,18 @@ export const firstSheetGateLineRecipeDefaults: MaterialCalculatorRecipeItem[] = 
   {
     id: 'gate-short-screw',
     name: 'Short Screw',
-    quantity_per_panel: 1.09,
+    quantity_per_panel: 1.33,
     input_field: 'gate_total_boards',
     rounding_mode: 'ceil',
-    notes: 'Tuned with line short screws (1 per line post) to match supplier takeoff sheets.',
+    notes: 'Added to line short screws; ceil after multiply by gate boards.',
   },
   {
     id: 'gate-long-screw',
     name: 'Long Screw',
-    quantity_per_panel: 3.7,
+    quantity_per_panel: 1.25,
     input_field: 'gate_total_boards',
     rounding_mode: 'ceil',
-    notes: 'Tuned vs line long screws (4× exact panels, round up) for typical single-gate board counts.',
+    notes: 'Added to line long screws; ceil after multiply by gate boards.',
   },
   { id: 'gate-plug', name: 'Plug', quantity_per_panel: 2.25, input_field: 'gate_total_boards', rounding_mode: 'ceil' },
   { id: 'gate-u-channel', name: 'U Channel', quantity_per_panel: 1, input_field: 'gate_posts_needed', rounding_mode: 'ceil' },

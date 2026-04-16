@@ -66,7 +66,7 @@ function computeLineMaterials(line: FenceLine, prevLine: FenceLine | null): Mate
   const board = roundNorm(panels * ITEMS_PER_PANEL.board, 1);
   const boardStiffener = roundNorm(panels * ITEMS_PER_PANEL.boardStiffener, 1);
   const shortScrew = posts;
-  const longScrew = roundUp(panels * ITEMS_PER_PANEL.longScrew);
+  const longScrew = (wholePanels + line.hPost) * ITEMS_PER_PANEL.longScrew;
   const plug = roundUp(panels * ITEMS_PER_PANEL.plug);
   const uChannel = uChannelCount;
 
