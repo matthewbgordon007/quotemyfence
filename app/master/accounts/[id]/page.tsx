@@ -265,7 +265,9 @@ export default function MasterAccountDetailPage() {
               <option value="supplier">Supplier account</option>
             </select>
             <p className="mt-1 text-xs text-[var(--muted)]">
-              Switching account type keeps company data and team users, but changes dashboard access and navigation.
+              Switching account type does not delete or move data. This company keeps the same account id, so customers,
+              leads, quotes, layouts, products, pricing rules, supplier links, material requests, and team users all
+              remain attached. Only dashboard access/navigation changes.
             </p>
           </div>
           <div>
