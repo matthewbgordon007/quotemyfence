@@ -555,7 +555,15 @@ export function SupplierEmbeddedCalculatorClient() {
           {!hydrated ? (
             <p className="p-8 text-sm text-slate-500">Loading…</p>
           ) : iframeSrc ? (
-            <div className="relative isolate mx-auto h-[min(85vh,900px)] w-full max-w-full overflow-hidden overscroll-contain">
+            <div
+              className="relative isolate mx-auto h-[min(85vh,900px)] w-full max-w-full overflow-hidden overscroll-contain"
+              onWheel={(e) => {
+                /* Wheel over cross-origin iframe retargets to the iframe node; bubbling would hit #main-content and scroll it too. */
+                if (e.target instanceof HTMLIFrameElement) {
+                  e.stopPropagation();
+                }
+              }}
+            >
               <iframe
                 title={active === 'google' ? 'Embedded Google Sheet' : 'Embedded Excel workbook'}
                 src={iframeSrc}

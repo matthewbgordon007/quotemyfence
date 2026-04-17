@@ -95,7 +95,7 @@ export default async function DashboardLayout({
 
       {/* Desktop Sidebar */}
       <aside
-        className="hidden w-[17rem] shrink-0 flex-col shadow-[4px_0_32px_-12px_rgba(15,23,42,0.08)] md:flex"
+        className="hidden min-h-0 w-[17rem] shrink-0 flex-col shadow-[4px_0_32px_-12px_rgba(15,23,42,0.08)] md:flex"
         style={{
           borderRight: '1px solid var(--dashboard-line)',
           background:
@@ -143,7 +143,7 @@ export default async function DashboardLayout({
             <div className="truncate font-mono text-[11px] text-slate-500">/{c?.slug}</div>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <DashboardNav
             slug={c?.slug ?? ''}
             userRole={userRow?.role ?? null}
@@ -168,7 +168,7 @@ export default async function DashboardLayout({
       {/* Main Content Area */}
       <main
         id="main-content"
-        className="relative flex-1 overflow-y-auto overscroll-y-contain p-4 pb-32 [-webkit-overflow-scrolling:touch] md:p-8 md:pb-8"
+        className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-32 [-webkit-overflow-scrolling:touch] md:p-8 md:pb-8"
         style={{
           background:
             'radial-gradient(circle at top right, rgb(var(--dashboard-brand-rgb) / 0.14), transparent 28%), radial-gradient(circle at top left, rgb(var(--dashboard-brand-rgb) / 0.08), transparent 22%), linear-gradient(180deg, rgb(248 250 252 / 0.96), rgb(255 255 255 / 0.98) 42%, rgb(var(--dashboard-brand-rgb) / 0.04) 100%)',
