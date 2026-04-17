@@ -1,3 +1,4 @@
+import { normalizeMaterialListJson, type MaterialQuoteLine } from '@/lib/material-quote-lines';
 import { stripSupplierFromTypeName } from '@/lib/supplier-import-label';
 
 export type MaterialQuoteRequestContractor = {
@@ -32,6 +33,7 @@ export type MaterialQuoteRequestDto = {
   created_at: string;
   updated_at: string;
   contractor_id: string;
+  supplier_contractor_id?: string | null;
   quote_session_id: string | null;
   layout_drawing_id: string | null;
   attachment_url?: string | null;
@@ -39,6 +41,8 @@ export type MaterialQuoteRequestDto = {
   attachment_content_type?: string | null;
   attachment_size_bytes?: number | null;
   supplier_seen_at?: string | null;
+  supplier_material_list?: MaterialQuoteLine[] | null;
+  supplier_quoted_emailed_at?: string | null;
   contractor: MaterialQuoteRequestContractor;
   project: MaterialQuoteRequestProject;
 };
@@ -59,6 +63,7 @@ type RawMaterialQuoteRow = {
   created_at: string;
   updated_at: string;
   contractor_id: string;
+  supplier_contractor_id?: string | null;
   quote_session_id: string | null;
   layout_drawing_id: string | null;
   attachment_url?: string | null;
@@ -66,6 +71,8 @@ type RawMaterialQuoteRow = {
   attachment_content_type?: string | null;
   attachment_size_bytes?: number | null;
   supplier_seen_at?: string | null;
+  supplier_material_list_json?: unknown;
+  supplier_quoted_emailed_at?: string | null;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -272,8 +279,10 @@ export async function enrichMaterialQuoteRequests(supabase: any, rows: RawMateri
       const designOption = await getDesignOption(supabase, fence);
       const layout = r.layout_drawing_id ? layoutById.get(r.layout_drawing_id) || null : null;
       const fenceId = r.quote_session_id ? fenceIdBySessionId.get(r.quote_session_id) || null : null;
+      const { supplier_material_list_json, ...rest } = r;
       return {
-        ...r,
+        ...rest,
+        supplier_material_list: normalizeMaterialListJson(supplier_material_list_json),
         contractor: companyById.get(r.contractor_id) || {
           company_name: 'Contractor',
           slug: null,

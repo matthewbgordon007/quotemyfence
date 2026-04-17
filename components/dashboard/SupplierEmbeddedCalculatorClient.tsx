@@ -12,6 +12,7 @@ import {
   EMBED_CALC_CONFIG_VERSION,
   parseEmbedCalculatorConfig,
 } from '@/lib/supplier-embed-calculator-config';
+import { materialLinesToTsv, parseMaterialListFromPaste } from '@/lib/material-quote-lines';
 import type { MaterialQuoteRequestDto } from '@/lib/supplier-material-quote-requests-enrich';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -66,6 +67,8 @@ export function SupplierEmbeddedCalculatorClient() {
   const [sideRequest, setSideRequest] = useState<MaterialQuoteRequestDto | null>(null);
   const [sideLoading, setSideLoading] = useState(false);
   const [sideError, setSideError] = useState<string | null>(null);
+  const [materialDraftTsv, setMaterialDraftTsv] = useState('');
+  const [materialSaving, setMaterialSaving] = useState(false);
   const [syncState, setSyncState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
@@ -132,6 +135,7 @@ export function SupplierEmbeddedCalculatorClient() {
       setSideRequest(null);
       setSideError(null);
       setSideLoading(false);
+      setMaterialDraftTsv('');
       return;
     }
     let cancelled = false;
@@ -150,6 +154,7 @@ export function SupplierEmbeddedCalculatorClient() {
           setSideRequest(null);
         } else if (j.request) {
           setSideRequest(j.request);
+          setMaterialDraftTsv(materialLinesToTsv(j.request.supplier_material_list || []));
           setSideError(null);
         } else {
           setSideError('Request not found.');
@@ -321,7 +326,65 @@ export function SupplierEmbeddedCalculatorClient() {
             ) : sideError ? (
               <p className="text-sm font-medium text-red-600">{sideError}</p>
             ) : sideRequest ? (
-              <MaterialQuoteRequestViewer request={sideRequest} compact />
+              <div className="space-y-4">
+                <MaterialQuoteRequestViewer request={sideRequest} compact />
+                <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Final material list</p>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                    Browsers cannot read cells from the embedded sheet. Copy rows from Google Sheets / Excel and paste
+                    here (tab-separated). When you mark the request quoted, the contractor is emailed and can open their
+                    calculator with supplier material rates when the style is linked via catalog import.
+                  </p>
+                  <textarea
+                    value={materialDraftTsv}
+                    onChange={(e) => setMaterialDraftTsv(e.target.value)}
+                    rows={5}
+                    className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 font-mono text-xs text-slate-900"
+                    placeholder="Description&#9;Qty&#9;Unit&#9;Unit $&#9;Line $"
+                  />
+                  <button
+                    type="button"
+                    disabled={materialSaving}
+                    onClick={async () => {
+                      if (!materialRequestId?.trim()) return;
+                      setMaterialSaving(true);
+                      try {
+                        const rows = parseMaterialListFromPaste(materialDraftTsv);
+                        const r = await fetch(
+                          `/api/supplier/material-quote-requests/${encodeURIComponent(materialRequestId)}`,
+                          {
+                            method: 'PATCH',
+                            credentials: 'include',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              supplier_material_list_json: rows.length ? rows : null,
+                            }),
+                          }
+                        );
+                        const j = (await r.json()) as { error?: string };
+                        if (!r.ok) throw new Error(j.error || 'Save failed');
+                        const refetch = await fetch(
+                          `/api/supplier/material-quote-requests/${encodeURIComponent(materialRequestId)}`,
+                          { credentials: 'include' }
+                        );
+                        const jj = (await refetch.json()) as { request?: MaterialQuoteRequestDto };
+                        if (jj.request) {
+                          setSideRequest(jj.request);
+                          setMaterialDraftTsv(materialLinesToTsv(jj.request.supplier_material_list || []));
+                        }
+                        alert('Material list saved.');
+                      } catch (e) {
+                        alert(e instanceof Error ? e.message : 'Save failed');
+                      } finally {
+                        setMaterialSaving(false);
+                      }
+                    }}
+                    className="mt-2 w-full rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+                  >
+                    {materialSaving ? 'Saving…' : 'Save material list'}
+                  </button>
+                </div>
+              </div>
             ) : null}
           </aside>
         ) : null}

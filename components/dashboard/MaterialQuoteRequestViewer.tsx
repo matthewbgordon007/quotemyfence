@@ -172,6 +172,36 @@ export function MaterialQuoteRequestViewer({ request: selectedRequest, compact }
           <p className="mt-2 text-slate-600">No design selection saved.</p>
         )}
       </div>
+
+      {selectedRequest.supplier_material_list && selectedRequest.supplier_material_list.length > 0 ? (
+        <div className={`${gap} rounded-lg border border-slate-200 bg-white ${pad}`}>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Final material list</p>
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full min-w-[320px] border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="py-2 pr-3">Item</th>
+                  <th className="py-2 pr-3">Qty</th>
+                  <th className="py-2 pr-3">Unit</th>
+                  <th className="py-2 pr-3">Unit $</th>
+                  <th className="py-2">Line $</th>
+                </tr>
+              </thead>
+              <tbody>
+                {selectedRequest.supplier_material_list.map((row, i) => (
+                  <tr key={i} className="border-b border-slate-100 text-slate-800">
+                    <td className="py-2 pr-3">{row.description}</td>
+                    <td className="py-2 pr-3 tabular-nums">{row.qty ?? '—'}</td>
+                    <td className="py-2 pr-3">{row.unit ?? '—'}</td>
+                    <td className="py-2 pr-3 tabular-nums">{row.unitPrice != null ? row.unitPrice : '—'}</td>
+                    <td className="py-2 tabular-nums">{row.lineTotal != null ? row.lineTotal : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

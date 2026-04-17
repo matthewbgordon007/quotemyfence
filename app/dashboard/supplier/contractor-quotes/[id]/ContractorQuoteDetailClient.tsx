@@ -1,6 +1,7 @@
 'use client';
 
 import { MaterialQuoteRequestViewer } from '@/components/dashboard/MaterialQuoteRequestViewer';
+import { materialLinesToTsv, parseMaterialListFromPaste } from '@/lib/material-quote-lines';
 import type { MaterialQuoteRequestDto } from '@/lib/supplier-material-quote-requests-enrich';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -16,6 +17,7 @@ export function ContractorQuoteDetailClient() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [draftResponse, setDraftResponse] = useState('');
+  const [draftMaterialTsv, setDraftMaterialTsv] = useState('');
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -39,6 +41,7 @@ export function ContractorQuoteDetailClient() {
       }
       setRequest(j.request);
       setDraftResponse(j.request.supplier_response || '');
+      setDraftMaterialTsv(materialLinesToTsv(j.request.supplier_material_list || []));
       await fetch(`/api/supplier/material-quote-requests/${encodeURIComponent(id)}/seen`, {
         method: 'POST',
         credentials: 'include',
@@ -66,6 +69,10 @@ export function ContractorQuoteDetailClient() {
         body: JSON.stringify({
           supplier_response: draftResponse,
           status: 'quoted',
+          supplier_material_list_json: (() => {
+            const rows = parseMaterialListFromPaste(draftMaterialTsv);
+            return rows.length ? rows : null;
+          })(),
         }),
       });
       if (!r.ok) {
@@ -146,6 +153,16 @@ export function ContractorQuoteDetailClient() {
               >
                 Sheet calculator + quote
               </Link>
+              <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Final material list (paste from Sheets — tab-separated rows)
+              </label>
+              <textarea
+                value={draftMaterialTsv}
+                onChange={(e) => setDraftMaterialTsv(e.target.value)}
+                rows={6}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-xs"
+                placeholder={'Example:\nPost 6x6 x8\t12\tEA\t24.00\t288.00\nRails 2x3 x16\t8\tEA'}
+              />
               <textarea
                 value={draftResponse}
                 onChange={(e) => setDraftResponse(e.target.value)}
@@ -168,6 +185,7 @@ export function ContractorQuoteDetailClient() {
                   onClick={() => {
                     setEditing(false);
                     setDraftResponse(request.supplier_response || '');
+                    setDraftMaterialTsv(materialLinesToTsv(request.supplier_material_list || []));
                   }}
                   className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium"
                 >
@@ -188,6 +206,7 @@ export function ContractorQuoteDetailClient() {
                 onClick={() => {
                   setEditing(true);
                   setDraftResponse(request.supplier_response || '');
+                  setDraftMaterialTsv(materialLinesToTsv(request.supplier_material_list || []));
                 }}
                 className="shrink-0 rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-50"
               >

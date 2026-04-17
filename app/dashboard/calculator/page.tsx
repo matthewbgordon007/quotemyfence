@@ -191,6 +191,11 @@ export default function CalculatorPage() {
   const [hasRemoval, setHasRemoval] = useState(false);
   const [removalLengthFt, setRemovalLengthFt] = useState(0);
   const [removalPricePerFtOverride, setRemovalPricePerFtOverride] = useState<number | null>(null);
+  /** When set (e.g. material quote from supplier), override catalogue gate / minimum pricing. */
+  const [singleGatePriceOverride, setSingleGatePriceOverride] = useState<number | null>(null);
+  const [doubleGatePriceOverride, setDoubleGatePriceOverride] = useState<number | null>(null);
+  const [minJobOverride, setMinJobOverride] = useState<number | null>(null);
+  const [materialQuoteCustomerId, setMaterialQuoteCustomerId] = useState<string | null>(null);
   const [taxRate, setTaxRate] = useState(13);
   const [applyTax, setApplyTax] = useState(true);
   /** One segment key per single gate (same order as quantity). */
@@ -210,6 +215,8 @@ export default function CalculatorPage() {
   const router = useRouter();
   const fromCustomerId = searchParams.get('from');
   const quoteId = searchParams.get('quote_id');
+  const materialQuoteId = searchParams.get('material_quote_id');
+  const effectiveCustomerId = fromCustomerId || materialQuoteCustomerId;
 
   useEffect(() => {
     fetch('/api/contractor/me', { cache: 'no-store' })
@@ -345,6 +352,9 @@ export default function CalculatorPage() {
             if (st.selectedStyleId) setSelectedStyleId(st.selectedStyleId);
             if (st.selectedColourId) setSelectedColourId(st.selectedColourId);
             if (st.pricePerFtOverride != null) setPricePerFtOverride(st.pricePerFtOverride);
+            if (st.singleGatePriceOverride != null) setSingleGatePriceOverride(st.singleGatePriceOverride);
+            if (st.doubleGatePriceOverride != null) setDoubleGatePriceOverride(st.doubleGatePriceOverride);
+            if (st.minJobOverride != null) setMinJobOverride(st.minJobOverride);
             if (st.segments) setSegments(st.segments);
             if (st.extendAdd) setExtendAdd(st.extendAdd);
             if (st.singleGateQty != null) setSingleGateQty(st.singleGateQty);
@@ -404,6 +414,73 @@ export default function CalculatorPage() {
           })
           .catch(() => {});
       }
+    } else if (materialQuoteId && !quoteId) {
+      fetch(`/api/contractor/material-quote-requests/${encodeURIComponent(materialQuoteId)}/for-calculator`, {
+        cache: 'no-store',
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (!data) return;
+          if (data.homeownerName) setHomeownerName(data.homeownerName);
+          if (data.quoteAddress) setQuoteAddress(data.quoteAddress);
+          if (data.customerId) setMaterialQuoteCustomerId(data.customerId);
+          else setMaterialQuoteCustomerId(null);
+          if (data.segments?.length) {
+            setCustomerSegments(data.segments);
+            if (data.mapCenter?.length === 2) {
+              setCustomerMapCenter([Number(data.mapCenter[0]), Number(data.mapCenter[1])]);
+            }
+            setSegmentAssignments({ lhs_adj: null, lhs: null, back: null, rhs: null, rhs_adj: null });
+          }
+          if (data.gates?.length) {
+            setCustomerGates(data.gates);
+            const singleG = data.gates.find((g: { gate_type: string }) => g.gate_type === 'single');
+            const doubleG = data.gates.find((g: { gate_type: string }) => g.gate_type === 'double');
+            if (singleG?.quantity) setSingleGateQty(singleG.quantity);
+            if (doubleG?.quantity) setDoubleGateQty(doubleG.quantity);
+          }
+          if (data.selectedColourOptionId) {
+            const cid = data.selectedColourOptionId as string;
+            setSelectedColourId(cid);
+            fetch('/api/contractor/product-hierarchy')
+              .then((r) => (r.ok ? r.json() : null))
+              .then((h) => {
+                if (!h?.colourOptions?.length) return;
+                const colour = h.colourOptions.find((c: ColourOption) => c.id === cid);
+                if (!colour) return;
+                const style = (h.fenceStyles || []).find((s: FenceStyle) => s.id === colour.fence_style_id);
+                if (!style) return;
+                const type = (h.fenceTypes || []).find((t: FenceType) => t.id === style.fence_type_id);
+                if (type) {
+                  setSelectedTypeId(type.id);
+                  setSelectedStyleId(style.id);
+                }
+              })
+              .catch(() => {});
+          }
+          const mp = data.materialPricing as {
+            pricePerFtOverride?: number | null;
+            singleGateOverride?: number | null;
+            doubleGateOverride?: number | null;
+            minJobOverride?: number | null;
+          } | null;
+          if (mp) {
+            if (mp.pricePerFtOverride != null && mp.pricePerFtOverride > 0) setPricePerFtOverride(mp.pricePerFtOverride);
+            else setPricePerFtOverride(null);
+            if (mp.singleGateOverride != null && mp.singleGateOverride > 0) setSingleGatePriceOverride(mp.singleGateOverride);
+            else setSingleGatePriceOverride(null);
+            if (mp.doubleGateOverride != null && mp.doubleGateOverride > 0) setDoubleGatePriceOverride(mp.doubleGateOverride);
+            else setDoubleGatePriceOverride(null);
+            if (mp.minJobOverride != null && mp.minJobOverride > 0) setMinJobOverride(mp.minJobOverride);
+            else setMinJobOverride(null);
+          } else {
+            setPricePerFtOverride(null);
+            setSingleGatePriceOverride(null);
+            setDoubleGatePriceOverride(null);
+            setMinJobOverride(null);
+          }
+        })
+        .catch(() => {});
     } else if (fromCustomerId) {
       // If no saved quote, but we have a customer, populate from their lead data
       fetch(`/api/contractor/customers/${fromCustomerId}`)
@@ -460,7 +537,7 @@ export default function CalculatorPage() {
         })
         .catch(() => {});
     }
-  }, [fromCustomerId, quoteId, loading]);
+  }, [fromCustomerId, quoteId, materialQuoteId, loading]);
 
   const stylesForType = selectedTypeId ? styles.filter((s) => s.fence_type_id === selectedTypeId) : [];
   const coloursForStyle = selectedStyleId ? colours.filter((c) => c.fence_style_id === selectedStyleId) : [];
@@ -536,16 +613,27 @@ export default function CalculatorPage() {
     ? (safeNum(rule.base_price_per_ft_low) + safeNum(rule.base_price_per_ft_high)) / 2 || 0
     : 0;
   const pricePerFt = pricePerFtOverride != null ? pricePerFtOverride : cataloguePricePerFt;
-  const singleGatePrice = rule
-    ? (safeNum(rule.single_gate_low) + safeNum(rule.single_gate_high)) / 2 || 0
-    : 0;
-  const doubleGatePrice = rule
-    ? (safeNum(rule.double_gate_low) + safeNum(rule.double_gate_high)) / 2 || 0
-    : 0;
+  const singleGatePrice =
+    singleGatePriceOverride != null && singleGatePriceOverride > 0
+      ? singleGatePriceOverride
+      : rule
+        ? (safeNum(rule.single_gate_low) + safeNum(rule.single_gate_high)) / 2 || 0
+        : 0;
+  const doubleGatePrice =
+    doubleGatePriceOverride != null && doubleGatePriceOverride > 0
+      ? doubleGatePriceOverride
+      : rule
+        ? (safeNum(rule.double_gate_low) + safeNum(rule.double_gate_high)) / 2 || 0
+        : 0;
   const removalPerFt = rule ? safeNum(rule.removal_price_per_ft_low) : 0;
   const effectiveRemovalPricePerFt =
     removalPricePerFtOverride != null ? removalPricePerFtOverride : removalPerFt;
-  const minJob = rule ? (safeNum(rule.minimum_job_low) + safeNum(rule.minimum_job_high)) / 2 || 0 : 0;
+  const minJob =
+    minJobOverride != null && minJobOverride > 0
+      ? minJobOverride
+      : rule
+        ? (safeNum(rule.minimum_job_low) + safeNum(rule.minimum_job_high)) / 2 || 0
+        : 0;
 
   const selectedStyle = styles.find((s) => s.id === (effectiveStyleId ?? selectedStyleId));
   const inferredHeight = (() => {
@@ -767,6 +855,9 @@ export default function CalculatorPage() {
       selectedStyleId,
       selectedColourId,
       pricePerFtOverride,
+      singleGatePriceOverride,
+      doubleGatePriceOverride,
+      minJobOverride,
       segments,
       extendAdd,
       singleGateQty,
@@ -783,10 +874,10 @@ export default function CalculatorPage() {
   }
 
   async function saveToCustomer() {
-    if (!fromCustomerId) return;
+    if (!effectiveCustomerId) return;
     setSavingToCustomer(true);
     try {
-      const res = await fetch(`/api/contractor/customers/${fromCustomerId}/quote`, {
+      const res = await fetch(`/api/contractor/customers/${effectiveCustomerId}/quote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -797,7 +888,7 @@ export default function CalculatorPage() {
       });
       if (res.ok) {
         alert('Quote saved to customer.');
-        router.push(`/dashboard/customers/${fromCustomerId}`);
+        router.push(`/dashboard/customers/${effectiveCustomerId}`);
       } else {
         const err = await res.json();
         alert(err.error || 'Failed to save quote.');
@@ -908,9 +999,9 @@ export default function CalculatorPage() {
               Build quotes from your catalog. Enter lengths in meters or feet, map customer drawing lines to sides when
               available, then copy or save.
             </p>
-            {fromCustomerId && (
+            {effectiveCustomerId && (
               <Link
-                href={`/dashboard/customers/${fromCustomerId}`}
+                href={`/dashboard/customers/${effectiveCustomerId}`}
                 className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-blue-600 transition hover:text-blue-500"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -919,6 +1010,13 @@ export default function CalculatorPage() {
                 Back to this lead
               </Link>
             )}
+            {materialQuoteId ? (
+              <p className="mt-3 max-w-2xl rounded-xl border border-emerald-200/80 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-950">
+                Loaded from a supplier material request. Per-foot, gate, and minimum pricing use your linked supplier’s{' '}
+                <span className="font-semibold">contractor material</span> rates when that style is imported from them;
+                otherwise your normal catalogue prices apply.
+              </p>
+            ) : null}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -1677,7 +1775,7 @@ export default function CalculatorPage() {
               )}
             </div>
             <div className="space-y-3 border-t border-slate-100 bg-gradient-to-b from-slate-50/80 to-white p-5">
-              {fromCustomerId ? (
+              {effectiveCustomerId ? (
                 <button
                   type="button"
                   onClick={saveToCustomer}
@@ -1718,7 +1816,7 @@ export default function CalculatorPage() {
                 type="button"
                 onClick={copyQuote}
                 className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold shadow-sm transition active:scale-[0.98] ${
-                  fromCustomerId
+                  effectiveCustomerId
                     ? 'border border-slate-200/90 bg-white text-slate-900 hover:border-slate-300 hover:bg-slate-50'
                     : 'border border-blue-200 bg-white text-blue-700 hover:bg-blue-50/90'
                 }`}
