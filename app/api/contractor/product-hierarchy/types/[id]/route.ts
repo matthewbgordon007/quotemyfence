@@ -24,14 +24,30 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (!(await assertOwnership(supabase, id, contractorId))) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const body = await request.json();
-  const { standard_height_ft } = body;
-  if (standard_height_ft === undefined) return NextResponse.json({ error: 'standard_height_ft required' }, { status: 400 });
-  const val = Number(standard_height_ft);
-  if (Number.isNaN(val) || val < 1 || val > 20) return NextResponse.json({ error: 'standard_height_ft must be between 1 and 20' }, { status: 400 });
+  const updates: Record<string, unknown> = {};
 
-  const { error } = await supabase.from('fence_types').update({ standard_height_ft: val }).eq('id', id);
+  if (body.standard_height_ft !== undefined) {
+    const val = Number(body.standard_height_ft);
+    if (Number.isNaN(val) || val < 1 || val > 20) {
+      return NextResponse.json({ error: 'standard_height_ft must be between 1 and 20' }, { status: 400 });
+    }
+    updates.standard_height_ft = val;
+  }
+
+  if (body.name !== undefined) {
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    if (!name) return NextResponse.json({ error: 'Name cannot be empty' }, { status: 400 });
+    if (name.length > 200) return NextResponse.json({ error: 'Name is too long (max 200 characters)' }, { status: 400 });
+    updates.name = name;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: 'Provide name and/or standard_height_ft' }, { status: 400 });
+  }
+
+  const { data, error } = await supabase.from('fence_types').update(updates).eq('id', id).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json(data);
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

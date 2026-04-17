@@ -29,7 +29,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   const body = await request.json();
   const updates: Record<string, unknown> = {};
-  if (body.style_name !== undefined) updates.style_name = body.style_name;
+  if (body.style_name !== undefined) {
+    const n = String(body.style_name).trim();
+    if (!n) return NextResponse.json({ error: 'Style name cannot be empty' }, { status: 400 });
+    if (n.length > 200) return NextResponse.json({ error: 'Style name is too long' }, { status: 400 });
+    updates.style_name = n;
+  }
   if (body.photo_url !== undefined) updates.photo_url = body.photo_url;
   if (body.is_hidden !== undefined) updates.is_hidden = !!body.is_hidden;
   if (body.visibility_target !== undefined) {

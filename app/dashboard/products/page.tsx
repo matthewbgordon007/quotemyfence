@@ -118,6 +118,12 @@ export default function ProductsPage() {
   } | null>(null);
   const [editingHeightTypeId, setEditingHeightTypeId] = useState<string | null>(null);
   const [editHeightValue, setEditHeightValue] = useState('');
+  const [renameTypeId, setRenameTypeId] = useState<string | null>(null);
+  const [renameTypeValue, setRenameTypeValue] = useState('');
+  const [renameStyleId, setRenameStyleId] = useState<string | null>(null);
+  const [renameStyleValue, setRenameStyleValue] = useState('');
+  const [renameColourId, setRenameColourId] = useState<string | null>(null);
+  const [renameColourValue, setRenameColourValue] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState<string | null>(null);
 
   const applyHierarchyData = useCallback((data: Record<string, unknown>) => {
@@ -464,10 +470,90 @@ export default function ProductsPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ standard_height_ft }),
     });
-    if (res.ok) {
-      setTypes((prev) => prev.map((t) => (t.id === typeId ? { ...t, standard_height_ft } : t)));
-      setEditingHeightTypeId(null);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(typeof data?.error === 'string' ? data.error : 'Could not update height.');
+      return;
     }
+    setTypes((prev) =>
+      prev.map((t) =>
+        t.id === typeId
+          ? {
+              ...t,
+              standard_height_ft:
+                data.standard_height_ft != null ? Number(data.standard_height_ft) : standard_height_ft,
+              ...(typeof data.name === 'string' ? { name: data.name } : {}),
+            }
+          : t
+      )
+    );
+    setEditingHeightTypeId(null);
+  }
+
+  async function updateTypeName(typeId: string) {
+    const trimmed = renameTypeValue.trim();
+    if (!trimmed) return;
+    const res = await fetch(`/api/contractor/product-hierarchy/types/${typeId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: trimmed }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(typeof data?.error === 'string' ? data.error : 'Could not rename type.');
+      return;
+    }
+    setTypes((prev) =>
+      prev.map((t) =>
+        t.id === typeId
+          ? {
+              ...t,
+              name: typeof data.name === 'string' ? data.name : trimmed,
+              ...(data.standard_height_ft != null ? { standard_height_ft: Number(data.standard_height_ft) } : {}),
+            }
+          : t
+      )
+    );
+    setRenameTypeId(null);
+    setRenameTypeValue('');
+  }
+
+  async function updateStyleNameField(styleId: string) {
+    const trimmed = renameStyleValue.trim();
+    if (!trimmed) return;
+    const res = await fetch(`/api/contractor/product-hierarchy/styles/${styleId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ style_name: trimmed }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(typeof data?.error === 'string' ? data.error : 'Could not rename style.');
+      return;
+    }
+    const nextName = typeof data.style_name === 'string' ? data.style_name : trimmed;
+    setStyles((prev) => prev.map((s) => (s.id === styleId ? { ...s, style_name: nextName } : s)));
+    setRenameStyleId(null);
+    setRenameStyleValue('');
+  }
+
+  async function updateColourNameField(colourId: string) {
+    const trimmed = renameColourValue.trim();
+    if (!trimmed) return;
+    const res = await fetch(`/api/contractor/product-hierarchy/colours/${colourId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ color_name: trimmed }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(typeof data?.error === 'string' ? data.error : 'Could not rename colour.');
+      return;
+    }
+    const nextName = typeof data.color_name === 'string' ? data.color_name : trimmed;
+    setColours((prev) => prev.map((c) => (c.id === colourId ? { ...c, color_name: nextName } : c)));
+    setRenameColourId(null);
+    setRenameColourValue('');
   }
 
   async function updateStylePricing(styleId: string, updates: Partial<StylePricingRule>) {
@@ -926,10 +1012,57 @@ export default function ProductsPage() {
                       onClick={() => {
                         setEditingHeightTypeId(t.id);
                         setEditHeightValue(String(t.standard_height_ft ?? 6));
+                        if (renameTypeId === t.id) {
+                          setRenameTypeId(null);
+                          setRenameTypeValue('');
+                        }
                       }}
                       className="rounded-lg px-2 py-1 text-sm font-medium text-slate-600 hover:bg-white hover:text-slate-900"
                     >
                       Height
+                    </button>
+                  )}
+                  {renameTypeId === t.id ? (
+                    <div className="flex min-w-[200px] flex-1 basis-full flex-wrap items-center gap-2 sm:basis-auto">
+                      <input
+                        type="text"
+                        value={renameTypeValue}
+                        onChange={(e) => setRenameTypeValue(e.target.value)}
+                        aria-label="Fence type name"
+                        className="min-w-[140px] flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => updateTypeName(t.id)}
+                        className="text-sm font-semibold text-blue-600 hover:text-blue-500"
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRenameTypeId(null);
+                          setRenameTypeValue('');
+                        }}
+                        className="text-sm text-slate-500 hover:text-slate-800"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRenameTypeId(t.id);
+                        setRenameTypeValue(t.name);
+                        if (editingHeightTypeId === t.id) {
+                          setEditingHeightTypeId(null);
+                          setEditHeightValue('');
+                        }
+                      }}
+                      className="rounded-lg px-2 py-1 text-sm font-medium text-slate-600 hover:bg-white hover:text-slate-900"
+                    >
+                      Rename
                     </button>
                   )}
                   <button
@@ -1101,6 +1234,45 @@ export default function ProductsPage() {
                                     />
                                     Hidden
                                   </label>
+                                  {renameStyleId === s.id ? (
+                                    <>
+                                      <input
+                                        type="text"
+                                        value={renameStyleValue}
+                                        onChange={(e) => setRenameStyleValue(e.target.value)}
+                                        aria-label="Style name"
+                                        className="min-w-[120px] max-w-[200px] rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-900"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => updateStyleNameField(s.id)}
+                                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50"
+                                      >
+                                        Save
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setRenameStyleId(null);
+                                          setRenameStyleValue('');
+                                        }}
+                                        className="rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setRenameStyleId(s.id);
+                                        setRenameStyleValue(s.style_name);
+                                      }}
+                                      className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                                    >
+                                      Rename
+                                    </button>
+                                  )}
                                   <label
                                     className={
                                       uploadingPhoto === `style-${s.id}`
@@ -1228,7 +1400,46 @@ export default function ProductsPage() {
                                       )}
                                     </div>
                                     {isAdmin && (
-                                      <div className="flex shrink-0 gap-2">
+                                      <div className="flex shrink-0 flex-wrap items-center gap-2">
+                                        {renameColourId === c.id ? (
+                                          <>
+                                            <input
+                                              type="text"
+                                              value={renameColourValue}
+                                              onChange={(e) => setRenameColourValue(e.target.value)}
+                                              aria-label="Colour name"
+                                              className="min-w-[100px] max-w-[180px] rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-900"
+                                            />
+                                            <button
+                                              type="button"
+                                              onClick={() => updateColourNameField(c.id)}
+                                              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50"
+                                            >
+                                              Save
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setRenameColourId(null);
+                                                setRenameColourValue('');
+                                              }}
+                                              className="rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                                            >
+                                              Cancel
+                                            </button>
+                                          </>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setRenameColourId(c.id);
+                                              setRenameColourValue(c.color_name);
+                                            }}
+                                            className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold hover:bg-slate-50"
+                                          >
+                                            Rename
+                                          </button>
+                                        )}
                                         <label
                                           className={
                                             uploadingPhoto === `colour-${c.id}`
