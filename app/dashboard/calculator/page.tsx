@@ -18,6 +18,7 @@ import {
   quoteTemplateScopedStorageKey,
   quoteTemplateStorageKey,
 } from '@/lib/quote-template';
+import { materialLinesToTsv, normalizeMaterialListJson } from '@/lib/material-quote-lines';
 
 const field =
   'rounded-xl border border-slate-200/90 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20';
@@ -196,6 +197,8 @@ export default function CalculatorPage() {
   const [doubleGatePriceOverride, setDoubleGatePriceOverride] = useState<number | null>(null);
   const [minJobOverride, setMinJobOverride] = useState<number | null>(null);
   const [materialQuoteCustomerId, setMaterialQuoteCustomerId] = useState<string | null>(null);
+  /** Supplier BOM / notes pasted on calculator (saved with quote / customer). */
+  const [materialBomTsv, setMaterialBomTsv] = useState('');
   const [taxRate, setTaxRate] = useState(13);
   const [applyTax, setApplyTax] = useState(true);
   /** One segment key per single gate (same order as quantity). */
@@ -388,6 +391,7 @@ export default function CalculatorPage() {
               setDoubleGateSides(Array.from({ length: st.doubleGateQty }, () => k));
             }
             if (st.segmentAssignments) setSegmentAssignments(st.segmentAssignments);
+            if (typeof st.materialBomTsv === 'string') setMaterialBomTsv(st.materialBomTsv);
           }
         })
         .catch(() => {});
@@ -479,6 +483,8 @@ export default function CalculatorPage() {
             setDoubleGatePriceOverride(null);
             setMinJobOverride(null);
           }
+          const bomList = normalizeMaterialListJson(data.supplierMaterialList);
+          setMaterialBomTsv(bomList?.length ? materialLinesToTsv(bomList) : '');
         })
         .catch(() => {});
     } else if (fromCustomerId) {
@@ -870,6 +876,7 @@ export default function CalculatorPage() {
       singleGateSides,
       doubleGateSides,
       segmentAssignments,
+      ...(materialQuoteId || materialBomTsv.trim() ? { materialBomTsv } : {}),
     };
   }
 
@@ -1051,6 +1058,31 @@ export default function CalculatorPage() {
 
       <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(300px,400px)] lg:items-start">
         <div className="space-y-6">
+          {materialQuoteId ? (
+            <div className={cardShell}>
+              <div className={cardHeader}>
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/40" aria-hidden />
+                  <h2 className="text-base font-semibold text-slate-900">Material list (from supplier sheet)</h2>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">
+                  Paste tab-separated rows from the supplier&apos;s sheet or email. This text is stored when you use{' '}
+                  <span className="font-medium">Save to customer</span> or <span className="font-medium">Save quote</span>{' '}
+                  below.
+                </p>
+              </div>
+              <div className="p-5 sm:p-6">
+                <textarea
+                  value={materialBomTsv}
+                  onChange={(e) => setMaterialBomTsv(e.target.value)}
+                  rows={8}
+                  className={`${field} min-h-[10rem] font-mono text-xs`}
+                  placeholder="Description&#9;Qty&#9;Unit&#9;Unit $&#9;Line $"
+                  spellCheck={false}
+                />
+              </div>
+            </div>
+          ) : null}
           <div className={cardShell}>
             <div className={`${cardHeader} flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between`}>
               <div className="min-w-0">

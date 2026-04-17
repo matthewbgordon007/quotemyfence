@@ -69,6 +69,8 @@ export function SupplierEmbeddedCalculatorClient() {
   const [sideError, setSideError] = useState<string | null>(null);
   const [materialDraftTsv, setMaterialDraftTsv] = useState('');
   const [materialSaving, setMaterialSaving] = useState(false);
+  const [quotedNotesDraft, setQuotedNotesDraft] = useState('');
+  const [quotedSaving, setQuotedSaving] = useState(false);
   const [syncState, setSyncState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
@@ -155,6 +157,7 @@ export function SupplierEmbeddedCalculatorClient() {
         } else if (j.request) {
           setSideRequest(j.request);
           setMaterialDraftTsv(materialLinesToTsv(j.request.supplier_material_list || []));
+          setQuotedNotesDraft(j.request.supplier_response?.trim() ? j.request.supplier_response : '');
           setSideError(null);
         } else {
           setSideError('Request not found.');
@@ -172,6 +175,20 @@ export function SupplierEmbeddedCalculatorClient() {
     return () => {
       cancelled = true;
     };
+  }, [materialRequestId]);
+
+  const refetchMaterialRequest = useCallback(async () => {
+    const id = materialRequestId?.trim();
+    if (!id) return;
+    const refetch = await fetch(`/api/supplier/material-quote-requests/${encodeURIComponent(id)}`, {
+      credentials: 'include',
+    });
+    const jj = (await refetch.json()) as { request?: MaterialQuoteRequestDto };
+    if (jj.request) {
+      setSideRequest(jj.request);
+      setMaterialDraftTsv(materialLinesToTsv(jj.request.supplier_material_list || []));
+      setQuotedNotesDraft(jj.request.supplier_response?.trim() ? jj.request.supplier_response : '');
+    }
   }, [materialRequestId]);
 
   const googleEmbed = useMemo(
@@ -326,65 +343,7 @@ export function SupplierEmbeddedCalculatorClient() {
             ) : sideError ? (
               <p className="text-sm font-medium text-red-600">{sideError}</p>
             ) : sideRequest ? (
-              <div className="space-y-4">
-                <MaterialQuoteRequestViewer request={sideRequest} compact />
-                <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Final material list</p>
-                  <p className="mt-1 text-xs leading-relaxed text-slate-600">
-                    Browsers cannot read cells from the embedded sheet. Copy rows from Google Sheets / Excel and paste
-                    here (tab-separated). When you mark the request quoted, the contractor is emailed and can open their
-                    calculator with supplier material rates when the style is linked via catalog import.
-                  </p>
-                  <textarea
-                    value={materialDraftTsv}
-                    onChange={(e) => setMaterialDraftTsv(e.target.value)}
-                    rows={5}
-                    className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 font-mono text-xs text-slate-900"
-                    placeholder="Description&#9;Qty&#9;Unit&#9;Unit $&#9;Line $"
-                  />
-                  <button
-                    type="button"
-                    disabled={materialSaving}
-                    onClick={async () => {
-                      if (!materialRequestId?.trim()) return;
-                      setMaterialSaving(true);
-                      try {
-                        const rows = parseMaterialListFromPaste(materialDraftTsv);
-                        const r = await fetch(
-                          `/api/supplier/material-quote-requests/${encodeURIComponent(materialRequestId)}`,
-                          {
-                            method: 'PATCH',
-                            credentials: 'include',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              supplier_material_list_json: rows.length ? rows : null,
-                            }),
-                          }
-                        );
-                        const j = (await r.json()) as { error?: string };
-                        if (!r.ok) throw new Error(j.error || 'Save failed');
-                        const refetch = await fetch(
-                          `/api/supplier/material-quote-requests/${encodeURIComponent(materialRequestId)}`,
-                          { credentials: 'include' }
-                        );
-                        const jj = (await refetch.json()) as { request?: MaterialQuoteRequestDto };
-                        if (jj.request) {
-                          setSideRequest(jj.request);
-                          setMaterialDraftTsv(materialLinesToTsv(jj.request.supplier_material_list || []));
-                        }
-                        alert('Material list saved.');
-                      } catch (e) {
-                        alert(e instanceof Error ? e.message : 'Save failed');
-                      } finally {
-                        setMaterialSaving(false);
-                      }
-                    }}
-                    className="mt-2 w-full rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
-                  >
-                    {materialSaving ? 'Saving…' : 'Save material list'}
-                  </button>
-                </div>
-              </div>
+              <MaterialQuoteRequestViewer request={sideRequest} compact />
             ) : null}
           </aside>
         ) : null}
@@ -646,6 +605,132 @@ export function SupplierEmbeddedCalculatorClient() {
           )}
         </div>
       </section>
+
+      {showQuotePanel && materialRequestId?.trim() ? (
+        <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+          <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-amber-50/30 px-5 py-4 sm:px-6">
+            <h2 className="font-semibold text-slate-900">Material list for this contractor request</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Copy rows from your embedded sheet (or Excel) and paste below as <span className="font-medium">tab-separated</span>{' '}
+              text. Use <span className="font-medium">Save to contractor quote</span> to store the list only, or{' '}
+              <span className="font-medium">Save &amp; mark quoted</span> when you are ready to notify the contractor.
+            </p>
+          </div>
+          <div className="space-y-4 p-5 sm:p-6">
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Material lines (TSV)</label>
+              <textarea
+                value={materialDraftTsv}
+                onChange={(e) => setMaterialDraftTsv(e.target.value)}
+                rows={10}
+                className={`mt-1.5 min-h-[12rem] ${field} font-mono text-xs`}
+                placeholder="Description&#9;Qty&#9;Unit&#9;Unit $&#9;Line $"
+                spellCheck={false}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Supplier notes (optional, sent with “quoted”)</label>
+              <textarea
+                value={quotedNotesDraft}
+                onChange={(e) => setQuotedNotesDraft(e.target.value)}
+                rows={3}
+                className={`mt-1.5 ${field}`}
+                placeholder="SKUs, lead time, pickup instructions…"
+              />
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              <button
+                type="button"
+                disabled={materialSaving || quotedSaving}
+                onClick={async () => {
+                  const id = materialRequestId?.trim();
+                  if (!id) return;
+                  setMaterialSaving(true);
+                  try {
+                    const rows = parseMaterialListFromPaste(materialDraftTsv);
+                    const r = await fetch(`/api/supplier/material-quote-requests/${encodeURIComponent(id)}`, {
+                      method: 'PATCH',
+                      credentials: 'include',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        supplier_material_list_json: rows.length ? rows : null,
+                      }),
+                    });
+                    const j = (await r.json()) as { error?: string };
+                    if (!r.ok) throw new Error(j.error || 'Save failed');
+                    await refetchMaterialRequest();
+                    alert('Saved to contractor quote.');
+                  } catch (e) {
+                    alert(e instanceof Error ? e.message : 'Save failed');
+                  } finally {
+                    setMaterialSaving(false);
+                  }
+                }}
+                className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:opacity-50"
+              >
+                {materialSaving ? 'Saving…' : 'Save to contractor quote'}
+              </button>
+              <button
+                type="button"
+                disabled={materialSaving || quotedSaving}
+                onClick={async () => {
+                  const id = materialRequestId?.trim();
+                  if (!id) return;
+                  if (!confirm('Mark this request as quoted and email the contractor?')) return;
+                  setQuotedSaving(true);
+                  try {
+                    const rows = parseMaterialListFromPaste(materialDraftTsv);
+                    const r = await fetch(`/api/supplier/material-quote-requests/${encodeURIComponent(id)}`, {
+                      method: 'PATCH',
+                      credentials: 'include',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        supplier_material_list_json: rows.length ? rows : null,
+                        supplier_response: quotedNotesDraft.trim() || null,
+                        status: 'quoted',
+                      }),
+                    });
+                    const j = (await r.json()) as { error?: string };
+                    if (!r.ok) throw new Error(j.error || 'Save failed');
+                    await refetchMaterialRequest();
+                    alert('Marked quoted. The contractor receives an email when mail is configured.');
+                  } catch (e) {
+                    alert(e instanceof Error ? e.message : 'Save failed');
+                  } finally {
+                    setQuotedSaving(false);
+                  }
+                }}
+                className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:opacity-50"
+              >
+                {quotedSaving ? 'Saving…' : 'Save & mark quoted'}
+              </button>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50/90 px-4 py-3 text-sm text-slate-700">
+              <p className="font-medium text-slate-900">Contractor: installed quote (new lead or existing customer)</p>
+              <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                They build the full installed quote in <span className="font-medium">Quote calculator</span> using the link
+                below. There they can <span className="font-medium">Save to customer</span> or <span className="font-medium">Save quote</span> (new lead) — the pasted material list appears on that page when opened from this request.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50"
+                  onClick={() => {
+                    const path = `/dashboard/calculator?material_quote_id=${encodeURIComponent(materialRequestId.trim())}`;
+                    const url = typeof window !== 'undefined' ? `${window.location.origin}${path}` : path;
+                    void navigator.clipboard.writeText(url).then(
+                      () => alert('Calculator link copied. Send it to your contractor.'),
+                      () => prompt('Copy this link:', url)
+                    );
+                  }}
+                >
+                  Copy contractor calculator link
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <details className="group rounded-2xl border border-slate-200/80 bg-white shadow-sm">
         <summary className="cursor-pointer list-none px-5 py-4 text-sm font-semibold text-slate-800 sm:px-6">
