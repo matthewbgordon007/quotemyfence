@@ -12,11 +12,15 @@ import {
   EMBED_CALC_CONFIG_VERSION,
   parseEmbedCalculatorConfig,
 } from '@/lib/supplier-embed-calculator-config';
-import { materialLinesToTsv, parseMaterialListFromPaste } from '@/lib/material-quote-lines';
+import {
+  materialLinesToTsv,
+  normalizeMaterialListClipboardPaste,
+  parseMaterialListFromPaste,
+} from '@/lib/material-quote-lines';
 import type { MaterialQuoteRequestDto } from '@/lib/supplier-material-quote-requests-enrich';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ClipboardEvent } from 'react';
 
 /** Legacy browser-only storage; migrated once to company settings when server config is empty. */
 const STORAGE_KEY = 'supplier-embedded-calculator-links-v1';
@@ -190,6 +194,22 @@ export function SupplierEmbeddedCalculatorClient() {
       setQuotedNotesDraft(jj.request.supplier_response?.trim() ? jj.request.supplier_response : '');
     }
   }, [materialRequestId]);
+
+  const onMaterialTsvPaste = useCallback((e: ClipboardEvent<HTMLTextAreaElement>) => {
+    const chunk = normalizeMaterialListClipboardPaste(e.clipboardData);
+    if (chunk == null) return;
+    e.preventDefault();
+    const el = e.currentTarget;
+    const start = el.selectionStart ?? 0;
+    const end = el.selectionEnd ?? 0;
+    setMaterialDraftTsv((prev) => {
+      const next = prev.slice(0, start) + chunk + prev.slice(end);
+      queueMicrotask(() => {
+        el.selectionStart = el.selectionEnd = start + chunk.length;
+      });
+      return next;
+    });
+  }, []);
 
   const googleEmbed = useMemo(
     () => buildGoogleSheetsEmbedUrl(googlePasted, googleSheetsMode),
@@ -622,6 +642,7 @@ export function SupplierEmbeddedCalculatorClient() {
               <textarea
                 value={materialDraftTsv}
                 onChange={(e) => setMaterialDraftTsv(e.target.value)}
+                onPaste={onMaterialTsvPaste}
                 rows={10}
                 className={`mt-1.5 min-h-[12rem] ${field} font-mono text-xs`}
                 placeholder="Description&#9;Qty&#9;Unit&#9;Unit $&#9;Line $"

@@ -1,11 +1,15 @@
 'use client';
 
 import { MaterialQuoteRequestViewer } from '@/components/dashboard/MaterialQuoteRequestViewer';
-import { materialLinesToTsv, parseMaterialListFromPaste } from '@/lib/material-quote-lines';
+import {
+  materialLinesToTsv,
+  normalizeMaterialListClipboardPaste,
+  parseMaterialListFromPaste,
+} from '@/lib/material-quote-lines';
 import type { MaterialQuoteRequestDto } from '@/lib/supplier-material-quote-requests-enrich';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ClipboardEvent } from 'react';
 
 export function ContractorQuoteDetailClient() {
   const params = useParams();
@@ -53,6 +57,22 @@ export function ContractorQuoteDetailClient() {
       setLoading(false);
     }
   }, [id]);
+
+  const onMaterialTsvPaste = useCallback((e: ClipboardEvent<HTMLTextAreaElement>) => {
+    const chunk = normalizeMaterialListClipboardPaste(e.clipboardData);
+    if (chunk == null) return;
+    e.preventDefault();
+    const el = e.currentTarget;
+    const start = el.selectionStart ?? 0;
+    const end = el.selectionEnd ?? 0;
+    setDraftMaterialTsv((prev) => {
+      const next = prev.slice(0, start) + chunk + prev.slice(end);
+      queueMicrotask(() => {
+        el.selectionStart = el.selectionEnd = start + chunk.length;
+      });
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     void load();
@@ -159,9 +179,11 @@ export function ContractorQuoteDetailClient() {
               <textarea
                 value={draftMaterialTsv}
                 onChange={(e) => setDraftMaterialTsv(e.target.value)}
+                onPaste={onMaterialTsvPaste}
                 rows={6}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-xs"
                 placeholder={'Example:\nPost 6x6 x8\t12\tEA\t24.00\t288.00\nRails 2x3 x16\t8\tEA'}
+                spellCheck={false}
               />
               <textarea
                 value={draftResponse}
