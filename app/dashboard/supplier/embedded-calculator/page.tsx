@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { Suspense } from 'react';
 import { EmbeddedCalculatorScrollLock } from '@/components/dashboard/EmbeddedCalculatorScrollLock';
 import { requireSupplierDashboard } from '@/lib/supplier-dashboard-guard';
@@ -16,14 +15,6 @@ export default async function SupplierEmbeddedCalculatorPage() {
       >
         <SupplierEmbeddedCalculatorClient />
       </Suspense>
-      <div className="mx-auto mt-4 max-w-6xl pb-8">
-        <Link
-          href="/dashboard/supplier"
-          className="inline-flex items-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
-        >
-          Back to supplier home
-        </Link>
-      </div>
     </EmbeddedCalculatorScrollLock>
   );
 }
