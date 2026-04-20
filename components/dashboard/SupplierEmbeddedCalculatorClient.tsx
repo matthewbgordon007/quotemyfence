@@ -259,7 +259,7 @@ export function SupplierEmbeddedCalculatorClient() {
 
   return (
     <div
-      className={`mx-auto space-y-6 pb-8 ${showQuotePanel ? 'max-w-[min(96rem,calc(100%-0.5rem))]' : 'max-w-6xl'}`}
+      className={`mx-auto min-h-0 space-y-6 pb-8 ${showQuotePanel ? 'max-w-[min(96rem,calc(100%-0.5rem))]' : 'max-w-6xl'}`}
     >
       <div
         className="relative overflow-hidden rounded-[2rem] border p-6 shadow-xl shadow-slate-900/[0.05] sm:p-8"
@@ -573,12 +573,12 @@ export function SupplierEmbeddedCalculatorClient() {
             </div>
           ) : null}
         </div>
-        <div className="relative min-h-[70vh] w-full bg-slate-50/50 overscroll-contain">
+        <div className="relative min-h-[70vh] w-full bg-slate-50/50 overscroll-none">
           {!hydrated ? (
             <p className="p-8 text-sm text-slate-500">Loading…</p>
           ) : iframeSrc ? (
             <div
-              className="relative isolate mx-auto h-[min(85vh,900px)] w-full max-w-full overflow-hidden overscroll-contain"
+              className="relative isolate mx-auto h-[min(85vh,900px)] w-full max-w-full overflow-hidden overscroll-none"
               onWheel={(e) => {
                 /* Wheel over cross-origin iframe retargets to the iframe node; bubbling would hit #main-content and scroll it too. */
                 if (e.target instanceof HTMLIFrameElement) {
@@ -589,7 +589,7 @@ export function SupplierEmbeddedCalculatorClient() {
               <iframe
                 title={active === 'google' ? 'Embedded Google Sheet' : 'Embedded Excel workbook'}
                 src={iframeSrc}
-                className="absolute inset-0 h-full w-full border-0 overscroll-contain"
+                className="absolute inset-0 h-full w-full border-0 overscroll-none"
                 allow="clipboard-write; clipboard-read; fullscreen"
                 referrerPolicy="strict-origin-when-cross-origin"
               />
