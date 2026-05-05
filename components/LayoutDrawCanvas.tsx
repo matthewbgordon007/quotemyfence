@@ -55,6 +55,46 @@ function pointToSegmentDist(p: { x: number; y: number }, a: { x: number; y: numb
   return dist(p, np);
 }
 
+/**
+ * Saved `points` from this canvas are flattened segment pairs: [a0,b0, a1,b1, …] (length === 2 × segmentCount).
+ * Imports from the map use a polyline: [v0,v1,…,vn] (length === segmentCount + 1).
+ */
+function segmentsFromSavedPoints(
+  pts: { x: number; y: number }[],
+  segMeta: { length_ft?: number }[]
+): { x: number; y: number }[][] {
+  const out: { x: number; y: number }[][] = [];
+  if (pts.length < 2) return out;
+  const m = segMeta.length;
+
+  if (m > 0 && pts.length === 2 * m) {
+    for (let i = 0; i < m; i++) {
+      out.push([pts[i * 2], pts[i * 2 + 1]]);
+    }
+    return out;
+  }
+
+  if (m > 0 && pts.length === m + 1) {
+    for (let i = 0; i < m; i++) {
+      out.push([pts[i], pts[i + 1]]);
+    }
+    return out;
+  }
+
+  const pairN = Math.floor(pts.length / 2);
+  if (pairN >= 1 && m === pairN) {
+    for (let i = 0; i < pairN; i++) {
+      out.push([pts[i * 2], pts[i * 2 + 1]]);
+    }
+    return out;
+  }
+
+  for (let i = 0; i < pts.length - 1; i++) {
+    out.push([pts[i], pts[i + 1]]);
+  }
+  return out;
+}
+
 function strokeForLineMode(mode: LineHighlightMode | undefined): string {
   if (mode === 'private') return '#16a34a';
   if (mode === 'shared') return '#dc2626';
@@ -69,12 +109,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
     const [segments, setSegments] = useState<{ x: number; y: number }[][]>(() => {
       const pts = initialDrawing?.points ?? [];
       const segLens = initialDrawing?.segments ?? [];
-      if (pts.length < 2) return [];
-      const out: { x: number; y: number }[][] = [];
-      for (let i = 0; i < pts.length - 1; i++) {
-        out.push([pts[i], pts[i + 1]]);
-      }
-      return out;
+      return segmentsFromSavedPoints(pts, segLens);
     });
     /** At most one point = start of current line; second click (or End line) finishes the segment. */
     const [currentPath, setCurrentPath] = useState<{ x: number; y: number }[]>([]);
@@ -86,8 +121,15 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
     const [placedGates, setPlacedGates] = useState<{ type: 'single' | 'double'; x: number; y: number }[]>(() => {
       const gates = initialDrawing?.gates ?? [];
       const pts = initialDrawing?.points ?? [];
+      const segLens = initialDrawing?.segments ?? [];
+      const initSegs = segmentsFromSavedPoints(pts, segLens);
       const result: { type: 'single' | 'double'; x: number; y: number }[] = [];
-      const anchor = pts.length >= 1 ? pts[pts.length - 1] : { x: 0, y: 0 };
+      const anchor =
+        initSegs.length > 0 && initSegs[initSegs.length - 1].length >= 2
+          ? initSegs[initSegs.length - 1][1]
+          : pts.length >= 1
+            ? pts[pts.length - 1]
+            : { x: 0, y: 0 };
       let i = 0;
       for (const g of gates) {
         for (let q = 0; q < (g.quantity || 0); q++) {
@@ -107,13 +149,14 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
     const [lineLengths, setLineLengths] = useState<string[]>(() => {
       const pts = initialDrawing?.points ?? [];
       const segLens = initialDrawing?.segments ?? [];
-      if (pts.length < 2) return [];
-      const n = pts.length - 1;
+      const initSegs = segmentsFromSavedPoints(pts, segLens);
+      const n = initSegs.length;
+      if (n === 0) return [];
       return Array.from({ length: n }, (_, i) => {
         if (segLens[i]?.length_ft != null) return String(segLens[i].length_ft);
-        const a = pts[i];
-        const b = pts[i + 1];
-        return a && b ? dist(a, b).toFixed(1) : '';
+        const seg = initSegs[i];
+        if (seg.length < 2) return '';
+        return dist(seg[0], seg[1]).toFixed(1);
       });
     });
     const [zoom, setZoom] = useState(1);
