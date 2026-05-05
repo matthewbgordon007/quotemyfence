@@ -5,6 +5,16 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { NewLeadModal } from '@/components/dashboard/NewLeadModal';
 import { NewProjectModal } from '@/components/dashboard/NewProjectModal';
+import { LeadSearchModal } from '@/components/dashboard/LeadSearchModal';
+
+interface LayoutListRow {
+  id: string;
+  title: string;
+  total_length_ft: number | null;
+  quote_session_id: string | null;
+  linked_lead_name: string | null;
+  updated_at: string;
+}
 
 interface CustomerRow {
   id: string;
@@ -174,21 +184,26 @@ export default function CustomersPage() {
   const [showNewLead, setShowNewLead] = useState(false);
   const [showNewProject, setShowNewProject] = useState(false);
   const [workspaceMain, setWorkspaceMain] = useState<'leads' | 'layouts' | 'projects'>('leads');
-  const [layoutRows, setLayoutRows] = useState<
-    {
-      id: string;
-      title: string;
-      total_length_ft: number | null;
-      quote_session_id: string | null;
-      linked_lead_name: string | null;
-      updated_at: string;
-    }[]
-  >([]);
+  const [layoutRows, setLayoutRows] = useState<LayoutListRow[]>([]);
   const [layoutTabLoading, setLayoutTabLoading] = useState(false);
   const [projectRows, setProjectRows] = useState<{ id: string; name: string; address: string | null; updated_at: string }[]>([]);
   const [projectTabLoading, setProjectTabLoading] = useState(false);
   const [contractor, setContractor] = useState<MeResponse | null>(null);
   const firstLoadDone = useRef(false);
+  const [layoutLinkModal, setLayoutLinkModal] = useState<{
+    id: string;
+    title: string;
+    quote_session_id: string | null;
+  } | null>(null);
+
+  const reloadLayouts = useCallback(() => {
+    fetch('/api/contractor/layouts', { credentials: 'include', cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d: { layouts?: LayoutListRow[] }) => {
+        setLayoutRows(Array.isArray(d.layouts) ? d.layouts : []);
+      })
+      .catch(() => {});
+  }, []);
 
   const customersUrl = useCallback((filter: LeadFilter) => {
     const params = new URLSearchParams();
@@ -345,6 +360,36 @@ export default function CustomersPage() {
         onClose={() => setShowNewProject(false)}
         onCreated={(pid) => router.push(`/dashboard/projects/${pid}`)}
       />
+      <LeadSearchModal
+        open={!!layoutLinkModal}
+        title={layoutLinkModal ? `Link “${layoutLinkModal.title}” to a lead` : ''}
+        onClose={() => setLayoutLinkModal(null)}
+        showUnlink={Boolean(layoutLinkModal?.quote_session_id)}
+        onUnlink={async () => {
+          if (!layoutLinkModal) return;
+          const res = await fetch(`/api/contractor/layouts/${layoutLinkModal.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ quote_session_id: null }),
+          });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error((d as { error?: string }).error || 'Unlink failed');
+          reloadLayouts();
+        }}
+        onPick={async (quoteSessionId) => {
+          if (!layoutLinkModal) return;
+          const res = await fetch(`/api/contractor/layouts/${layoutLinkModal.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ quote_session_id: quoteSessionId }),
+          });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error((d as { error?: string }).error || 'Could not link layout');
+          reloadLayouts();
+        }}
+      />
 
       <div
         className="relative overflow-hidden rounded-[2rem] border p-6 shadow-xl shadow-slate-900/[0.05] sm:p-8"
@@ -448,8 +493,7 @@ export default function CustomersPage() {
       {workspaceMain === 'layouts' && (
         <div className="mt-8 space-y-4">
           <p className="text-sm text-slate-600">
-            Standalone drawings from the Draw tool. Open one to edit, export to the calculator, or link to a lead from
-            the layout page after saving.
+            Drawings from the layout tool. Open to edit or export to the calculator; use <strong className="font-medium text-slate-800">Link to lead</strong> to attach or reassign a layout to any lead without leaving this list.
           </p>
           {layoutTabLoading ? (
             <Skeleton className="h-32 w-full rounded-2xl" />
@@ -460,20 +504,40 @@ export default function CustomersPage() {
           ) : (
             <div className="space-y-3">
               {layoutRows.map((row) => (
-                <Link
+                <div
                   key={row.id}
-                  href={`/dashboard/layout?layout=${row.id}`}
-                  className="flex flex-col gap-1 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition hover:border-blue-200 hover:shadow-md sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition hover:border-blue-200 hover:shadow-md sm:flex-row sm:items-center sm:justify-between"
                 >
-                  <div>
+                  <Link href={`/dashboard/layout?layout=${row.id}`} className="min-w-0 flex-1">
                     <p className="font-semibold text-slate-900">{row.title}</p>
                     <p className="text-xs text-slate-500">
                       {row.total_length_ft != null ? `${Number(row.total_length_ft).toFixed(1)} ft total` : '—'}
                       {row.linked_lead_name ? ` · Linked: ${row.linked_lead_name}` : ' · Not linked to a lead'}
                     </p>
+                  </Link>
+                  <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+                    <span className="text-xs text-slate-400">{formatDateShort(row.updated_at)}</span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setLayoutLinkModal({
+                          id: row.id,
+                          title: row.title,
+                          quote_session_id: row.quote_session_id,
+                        })
+                      }
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+                    >
+                      {row.quote_session_id ? 'Reassign lead' : 'Link to lead'}
+                    </button>
+                    <Link
+                      href={`/dashboard/layout?layout=${row.id}`}
+                      className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-slate-800"
+                    >
+                      Open
+                    </Link>
                   </div>
-                  <span className="text-xs text-slate-400">{formatDateShort(row.updated_at)}</span>
-                </Link>
+                </div>
               ))}
             </div>
           )}

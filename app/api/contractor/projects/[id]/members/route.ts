@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { applyProjectFenceDefaultsToSessions } from '@/lib/contractor-project-fence-sync';
 
 async function getContractorId(supabase: Awaited<ReturnType<typeof createClient>>) {
   const {
@@ -53,6 +54,20 @@ export async function POST(
   if (mErr) return NextResponse.json({ error: mErr.message }, { status: 500 });
 
   await supabase.from('customers').update({ project_id: projectId }).eq('quote_session_id', quoteSessionId).eq('contractor_id', contractorId);
+
+  const { data: proj } = await supabase
+    .from('contractor_projects')
+    .select('colour_option_id, fence_style_id, fence_type_id')
+    .eq('id', projectId)
+    .eq('contractor_id', contractorId)
+    .single();
+  if (proj) {
+    await applyProjectFenceDefaultsToSessions(supabase, [quoteSessionId], {
+      colour_option_id: (proj as { colour_option_id?: string | null }).colour_option_id ?? null,
+      fence_style_id: (proj as { fence_style_id?: string | null }).fence_style_id ?? null,
+      fence_type_id: (proj as { fence_type_id?: string | null }).fence_type_id ?? null,
+    });
+  }
 
   return NextResponse.json({ ok: true });
 }

@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { LeadSearchModal } from '@/components/dashboard/LeadSearchModal';
 
 type Project = {
   id: string;
@@ -25,6 +26,21 @@ export default function ProjectDetailPage() {
   const [types, setTypes] = useState<{ id: string; name: string }[]>([]);
   const [styles, setStyles] = useState<{ id: string; fence_type_id: string; style_name: string }[]>([]);
   const [colours, setColours] = useState<{ id: string; fence_style_id: string; color_name: string }[]>([]);
+  const [showAddLead, setShowAddLead] = useState(false);
+
+  const loadProject = useCallback(() => {
+    if (!id) return;
+    fetch(`/api/contractor/projects/${id}`, { credentials: 'include', cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.project) {
+          setProject(d.project);
+          setMembers(d.members || []);
+        } else {
+          setProject(null);
+        }
+      });
+  }, [id]);
 
   useEffect(() => {
     fetch('/api/contractor/product-hierarchy', { cache: 'no-store' })
@@ -39,6 +55,7 @@ export default function ProjectDetailPage() {
 
   useEffect(() => {
     if (!id) return;
+    setLoading(true);
     fetch(`/api/contractor/projects/${id}`, { credentials: 'include', cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
@@ -99,6 +116,23 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="mx-auto max-w-3xl pb-10">
+      <LeadSearchModal
+        open={showAddLead}
+        title="Add homeowner to project"
+        excludeSessionIds={members.map((m) => m.quote_session_id)}
+        onClose={() => setShowAddLead(false)}
+        onPick={async (quoteSessionId) => {
+          const res = await fetch(`/api/contractor/projects/${id}/members`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ quote_session_id: quoteSessionId }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error((data as { error?: string }).error || 'Could not add lead');
+          loadProject();
+        }}
+      />
       <Link href="/dashboard/customers" className="text-sm font-medium text-blue-600 hover:underline">
         ← Leads &amp; projects
       </Link>
@@ -211,7 +245,20 @@ export default function ProjectDetailPage() {
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">Homeowners in this project</h2>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <h2 className="text-lg font-semibold text-slate-900">Homeowners in this project</h2>
+            <button
+              type="button"
+              onClick={() => setShowAddLead(true)}
+              className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
+            >
+              Add homeowner
+            </button>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            Search your existing leads. Their calculator quote will pick up this project&apos;s default fence options
+            (and update if you change those defaults).
+          </p>
           <ul className="mt-3 divide-y divide-slate-100">
             {members.map((m) => (
               <li key={m.quote_session_id} className="flex flex-wrap items-center justify-between gap-2 py-3">
@@ -239,7 +286,12 @@ export default function ProjectDetailPage() {
                 </button>
               </li>
             ))}
-            {members.length === 0 && <li className="py-6 text-sm text-slate-500">No leads linked yet. Assign a project from a lead profile, or add members here later.</li>}
+            {members.length === 0 && (
+              <li className="py-6 text-sm text-slate-500">
+                No leads linked yet. Use <strong className="text-slate-700">Add homeowner</strong> above, or assign this
+                project from a lead profile.
+              </li>
+            )}
           </ul>
         </section>
       </div>

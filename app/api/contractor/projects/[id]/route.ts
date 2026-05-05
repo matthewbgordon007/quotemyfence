@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import {
+  applyProjectFenceDefaultsToSessions,
+  memberSessionIdsForProject,
+} from '@/lib/contractor-project-fence-sync';
 
 async function getContractorId(supabase: Awaited<ReturnType<typeof createClient>>) {
   const {
@@ -81,5 +85,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const fenceFieldsTouched =
+    body.fence_type_id !== undefined ||
+    body.fence_style_id !== undefined ||
+    body.colour_option_id !== undefined;
+  if (fenceFieldsTouched) {
+    const sessionIds = await memberSessionIdsForProject(supabase, id);
+    await applyProjectFenceDefaultsToSessions(supabase, sessionIds, {
+      colour_option_id: (data as { colour_option_id?: string | null }).colour_option_id ?? null,
+      fence_style_id: (data as { fence_style_id?: string | null }).fence_style_id ?? null,
+      fence_type_id: (data as { fence_type_id?: string | null }).fence_type_id ?? null,
+    });
+  }
+
   return NextResponse.json(data);
 }

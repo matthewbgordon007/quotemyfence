@@ -21,6 +21,129 @@ export async function GET(request: NextRequest) {
   const limit = searchParams.get('limit');
   const needUnviewedCount = searchParams.get('unviewed_count') === '1';
   const leadFilter = searchParams.get('lead_filter'); // 'new' | 'contacted' | 'quoted' | 'won' | 'lost' | null (all)
+  const searchQ = (searchParams.get('q') || '').trim();
+  const searchLimit = Math.min(Math.max(parseInt(searchParams.get('limit') || '24', 10), 1), 50);
+
+  /** Lightweight search for linking layouts / adding project members (not the main pipeline list). */
+  if (searchQ.length >= 2) {
+    const cid = userRow.contractor_id;
+    const safe = searchQ.replace(/%/g, '').replace(/,/g, ' ').replace(/[()]/g, ' ').replace(/"/g, ' ').slice(0, 64);
+    const p = `%${safe}%`;
+    const orIlike = `first_name.ilike."${p}",last_name.ilike."${p}",email.ilike."${p}",phone.ilike."${p}"`;
+
+    const { data: custNameHits } = await supabase
+      .from('customers')
+      .select('quote_session_id, first_name, last_name, email, phone')
+      .eq('contractor_id', cid)
+      .or(orIlike)
+      .limit(searchLimit);
+
+    type CustHit = {
+      quote_session_id: string;
+      first_name: string;
+      last_name: string;
+      email: string;
+      phone: string | null;
+    };
+    const hitMap = new Map<string, CustHit>();
+    for (const c of (custNameHits || []) as CustHit[]) {
+      hitMap.set(c.quote_session_id, c);
+    }
+
+    const { data: propHits } = await supabase
+      .from('properties')
+      .select('quote_session_id')
+      .ilike('formatted_address', p)
+      .limit(40);
+    const propSids = Array.from(
+      new Set((propHits || []).map((x: { quote_session_id: string }) => x.quote_session_id)),
+    );
+    if (propSids.length) {
+      const { data: addrCustomers } = await supabase
+        .from('customers')
+        .select('quote_session_id, first_name, last_name, email, phone')
+        .eq('contractor_id', cid)
+        .in('quote_session_id', propSids);
+      for (const c of (addrCustomers || []) as CustHit[]) {
+        if (!hitMap.has(c.quote_session_id)) hitMap.set(c.quote_session_id, c);
+      }
+    }
+
+    const sessionIdsFound = Array.from(hitMap.keys());
+    if (sessionIdsFound.length === 0) {
+      return NextResponse.json({ customers: [], unviewed_count: 0, counts: {} });
+    }
+
+    const { data: sessions } = await supabase
+      .from('quote_sessions')
+      .select('id, status, current_step, started_at, last_active_at, completed_at, contractor_viewed_at, lead_status')
+      .eq('contractor_id', cid)
+      .in('id', sessionIdsFound)
+      .order('last_active_at', { ascending: false })
+      .limit(searchLimit);
+
+    const { data: properties } = await supabase
+      .from('properties')
+      .select('quote_session_id, formatted_address')
+      .in('quote_session_id', sessionIdsFound);
+
+    let fences:
+      | {
+          quote_session_id: string;
+          total_length_ft: number | null;
+          has_removal: boolean | null;
+          subtotal_low: number | null;
+          subtotal_high: number | null;
+          total_low?: number | null;
+          total_high?: number | null;
+        }[]
+      | null = null;
+    const { data: fencesWithTotals, error: fencesWithTotalsError } = await supabase
+      .from('fences')
+      .select('quote_session_id, total_length_ft, has_removal, subtotal_low, subtotal_high, total_low, total_high')
+      .in('quote_session_id', sessionIdsFound);
+    if (!fencesWithTotalsError && fencesWithTotals) {
+      fences = fencesWithTotals;
+    } else {
+      const { data: fencesWithoutTotals } = await supabase
+        .from('fences')
+        .select('quote_session_id, total_length_ft, has_removal, subtotal_low, subtotal_high')
+        .in('quote_session_id', sessionIdsFound);
+      fences = fencesWithoutTotals;
+    }
+
+    const propertyBySession = new Map((properties || []).map((pr) => [pr.quote_session_id, pr]));
+    const fenceBySession = new Map((fences || []).map((f) => [f.quote_session_id, f]));
+
+    const customersList = (sessions || []).map((s) => {
+      const customer = hitMap.get(s.id);
+      const property = propertyBySession.get(s.id);
+      const fence = fenceBySession.get(s.id);
+      return {
+        id: s.id,
+        status: s.status,
+        current_step: s.current_step,
+        started_at: s.started_at,
+        last_active_at: s.last_active_at,
+        completed_at: s.completed_at,
+        contractor_viewed_at: (s as { contractor_viewed_at?: string | null }).contractor_viewed_at ?? null,
+        lead_status: (s as { lead_status?: string }).lead_status ?? 'new',
+        first_name: customer?.first_name ?? '—',
+        last_name: customer?.last_name ?? '—',
+        email: customer?.email ?? '',
+        phone: customer?.phone ?? null,
+        address: property?.formatted_address ?? null,
+        total_length_ft: fence?.total_length_ft ?? null,
+        has_removal: fence?.has_removal ?? null,
+        subtotal_low: fence?.subtotal_low ?? null,
+        subtotal_high: fence?.subtotal_high ?? null,
+        total_low: fence?.total_low ?? null,
+        total_high: fence?.total_high ?? null,
+      };
+    });
+
+    return NextResponse.json({ customers: customersList, unviewed_count: 0, counts: {} });
+  }
 
   let query = supabase
     .from('quote_sessions')
