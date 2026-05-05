@@ -76,6 +76,27 @@ export async function GET(
   ]);
 
   const fence = fences?.[0];
+  type ProjectRow = {
+    id: string;
+    name: string;
+    notes: string | null;
+    address: string | null;
+    fence_type_id: string | null;
+    fence_style_id: string | null;
+    colour_option_id: string | null;
+  };
+  let project: ProjectRow | null = null;
+  const custProjectId = (customer as { project_id?: string | null } | null)?.project_id;
+  if (custProjectId) {
+    const { data: p } = await supabase
+      .from('contractor_projects')
+      .select('id, name, notes, address, fence_type_id, fence_style_id, colour_option_id')
+      .eq('id', custProjectId)
+      .eq('contractor_id', contractorId)
+      .maybeSingle();
+    if (p) project = p as ProjectRow;
+  }
+
   let layoutDrawing: { drawing_data: unknown; image_data_url?: string | null } | null = null;
   const layoutDrawingId = (session as { layout_drawing_id?: string }).layout_drawing_id;
   if (layoutDrawingId) {
@@ -165,6 +186,7 @@ export async function GET(
     designOption,
     savedQuotes: savedQuotes ?? [],
     layoutDrawing,
+    project,
   });
 }
 
@@ -193,6 +215,33 @@ export async function PATCH(
   if (body.email != null) customerUpdates.email = String(body.email).trim();
   if (body.phone != null) customerUpdates.phone = body.phone ? String(body.phone).trim() : null;
   if (body.lead_source != null) customerUpdates.lead_source = body.lead_source ? String(body.lead_source).trim() : null;
+  if (body.notes !== undefined) {
+    customerUpdates.notes = body.notes === null ? null : String(body.notes);
+  }
+
+  if (body.project_id !== undefined) {
+    const raw = body.project_id;
+    const pid = raw === null || raw === '' ? null : String(raw);
+    if (pid) {
+      const { data: proj, error: prErr } = await supabase
+        .from('contractor_projects')
+        .select('id')
+        .eq('id', pid)
+        .eq('contractor_id', contractorId)
+        .single();
+      if (prErr || !proj) return NextResponse.json({ error: 'Invalid project' }, { status: 400 });
+      customerUpdates.project_id = pid;
+      await supabase.from('contractor_project_members').delete().eq('quote_session_id', sessionId);
+      const { error: memErr } = await supabase.from('contractor_project_members').insert({
+        project_id: pid,
+        quote_session_id: sessionId,
+      });
+      if (memErr) return NextResponse.json({ error: memErr.message }, { status: 500 });
+    } else {
+      customerUpdates.project_id = null;
+      await supabase.from('contractor_project_members').delete().eq('quote_session_id', sessionId);
+    }
+  }
 
   const propertyUpdates: Record<string, unknown> = {};
   if (body.formatted_address != null) propertyUpdates.formatted_address = String(body.formatted_address).trim() || '—';

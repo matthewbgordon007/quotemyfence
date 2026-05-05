@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { NewLeadModal } from '@/components/dashboard/NewLeadModal';
+import { NewProjectModal } from '@/components/dashboard/NewProjectModal';
 
 interface CustomerRow {
   id: string;
@@ -171,6 +172,21 @@ export default function CustomersPage() {
   const [sortKey, setSortKey] = useState<SortKey>('date_submitted');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [showNewLead, setShowNewLead] = useState(false);
+  const [showNewProject, setShowNewProject] = useState(false);
+  const [workspaceMain, setWorkspaceMain] = useState<'leads' | 'layouts' | 'projects'>('leads');
+  const [layoutRows, setLayoutRows] = useState<
+    {
+      id: string;
+      title: string;
+      total_length_ft: number | null;
+      quote_session_id: string | null;
+      linked_lead_name: string | null;
+      updated_at: string;
+    }[]
+  >([]);
+  const [layoutTabLoading, setLayoutTabLoading] = useState(false);
+  const [projectRows, setProjectRows] = useState<{ id: string; name: string; address: string | null; updated_at: string }[]>([]);
+  const [projectTabLoading, setProjectTabLoading] = useState(false);
   const [contractor, setContractor] = useState<MeResponse | null>(null);
   const firstLoadDone = useRef(false);
 
@@ -197,6 +213,7 @@ export default function CustomersPage() {
   }, []);
 
   useEffect(() => {
+    if (workspaceMain !== 'leads') return;
     let cancelled = false;
     const isFirst = !firstLoadDone.current;
     if (isFirst) setLoading(true);
@@ -225,7 +242,47 @@ export default function CustomersPage() {
     return () => {
       cancelled = true;
     };
-  }, [leadFilter, customersUrl]);
+  }, [leadFilter, customersUrl, workspaceMain]);
+
+  useEffect(() => {
+    if (workspaceMain !== 'layouts') return;
+    let cancelled = false;
+    setLayoutTabLoading(true);
+    fetch('/api/contractor/layouts', { credentials: 'include', cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled) setLayoutRows(d.layouts || []);
+      })
+      .catch(() => {
+        if (!cancelled) setLayoutRows([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLayoutTabLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceMain]);
+
+  useEffect(() => {
+    if (workspaceMain !== 'projects') return;
+    let cancelled = false;
+    setProjectTabLoading(true);
+    fetch('/api/contractor/projects', { credentials: 'include', cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled) setProjectRows(d.projects || []);
+      })
+      .catch(() => {
+        if (!cancelled) setProjectRows([]);
+      })
+      .finally(() => {
+        if (!cancelled) setProjectTabLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceMain]);
 
   const filteredCustomers = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -256,7 +313,7 @@ export default function CustomersPage() {
   const quotePageUrl = contractor?.slug ? `/estimate/${contractor.slug}/contact` : null;
   const newInView = useMemo(() => filteredCustomers.filter((c) => !c.contractor_viewed_at).length, [filteredCustomers]);
 
-  if (loading) {
+  if (loading && workspaceMain === 'leads') {
     return (
       <div className="mx-auto flex max-w-6xl flex-col gap-6 pb-8">
         <div className="h-8 w-56 animate-pulse rounded-lg bg-slate-200/80" />
@@ -282,6 +339,11 @@ export default function CustomersPage() {
         open={showNewLead}
         onClose={() => setShowNewLead(false)}
         onCreated={(id) => router.push(`/dashboard/customers/${id}`)}
+      />
+      <NewProjectModal
+        open={showNewProject}
+        onClose={() => setShowNewProject(false)}
+        onCreated={(pid) => router.push(`/dashboard/projects/${pid}`)}
       />
 
       <div
@@ -328,6 +390,13 @@ export default function CustomersPage() {
             </svg>
             New lead
           </button>
+          <button
+            type="button"
+            onClick={() => setShowNewProject(true)}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200/90 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50 active:scale-[0.98]"
+          >
+            New project
+          </button>
           {quotePageUrl && (
             <a
               href={quotePageUrl}
@@ -353,6 +422,98 @@ export default function CustomersPage() {
       </div>
       </div>
 
+      <div className="mt-6 flex flex-wrap gap-2 border-b border-slate-200/90 pb-3">
+        {(
+          [
+            { id: 'leads' as const, label: 'Leads' },
+            { id: 'layouts' as const, label: 'Layouts' },
+            { id: 'projects' as const, label: 'Projects' },
+          ] as const
+        ).map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setWorkspaceMain(tab.id)}
+            className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+              workspaceMain === tab.id
+                ? 'bg-slate-900 text-white shadow-sm'
+                : 'border border-slate-200/90 bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {workspaceMain === 'layouts' && (
+        <div className="mt-8 space-y-4">
+          <p className="text-sm text-slate-600">
+            Standalone drawings from the Draw tool. Open one to edit, export to the calculator, or link to a lead from
+            the layout page after saving.
+          </p>
+          {layoutTabLoading ? (
+            <Skeleton className="h-32 w-full rounded-2xl" />
+          ) : layoutRows.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-6 py-12 text-center text-sm text-slate-600">
+              No saved layouts yet. Use <strong className="text-slate-800">Draw</strong> in the sidebar to create one.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {layoutRows.map((row) => (
+                <Link
+                  key={row.id}
+                  href={`/dashboard/layout?layout=${row.id}`}
+                  className="flex flex-col gap-1 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition hover:border-blue-200 hover:shadow-md sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <p className="font-semibold text-slate-900">{row.title}</p>
+                    <p className="text-xs text-slate-500">
+                      {row.total_length_ft != null ? `${Number(row.total_length_ft).toFixed(1)} ft total` : '—'}
+                      {row.linked_lead_name ? ` · Linked: ${row.linked_lead_name}` : ' · Not linked to a lead'}
+                    </p>
+                  </div>
+                  <span className="text-xs text-slate-400">{formatDateShort(row.updated_at)}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {workspaceMain === 'projects' && (
+        <div className="mt-8 space-y-4">
+          <p className="text-sm text-slate-600">
+            Group homeowners for multi-property or street-wide jobs. Set default fence options on each project; leads
+            assigned here pick those up in the calculator.
+          </p>
+          {projectTabLoading ? (
+            <Skeleton className="h-32 w-full rounded-2xl" />
+          ) : projectRows.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-6 py-12 text-center text-sm text-slate-600">
+              No projects yet. Click <strong className="text-slate-800">New project</strong> above to create one.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {projectRows.map((p) => (
+                <Link
+                  key={p.id}
+                  href={`/dashboard/projects/${p.id}`}
+                  className="flex flex-col gap-1 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition hover:border-blue-200 hover:shadow-md sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <p className="font-semibold text-slate-900">{p.name}</p>
+                    {p.address && <p className="text-xs text-slate-500">{p.address}</p>}
+                  </div>
+                  <span className="text-xs text-slate-400">{formatDateShort(p.updated_at)}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {workspaceMain === 'leads' && (
+      <>
       {/* KPI strip */}
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
         <div
@@ -596,6 +757,8 @@ export default function CustomersPage() {
           })
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

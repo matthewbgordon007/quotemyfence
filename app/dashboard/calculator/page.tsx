@@ -228,6 +228,7 @@ export default function CalculatorPage() {
   const fromCustomerId = searchParams.get('from');
   const quoteId = searchParams.get('quote_id');
   const materialQuoteId = searchParams.get('material_quote_id');
+  const fromLayoutId = searchParams.get('from_layout');
   const effectiveCustomerId = fromCustomerId || materialQuoteCustomerId;
 
   useEffect(() => {
@@ -528,13 +529,19 @@ export default function CalculatorPage() {
             setCustomerGates(gateList);
           }
 
-          if (fence?.selected_colour_option_id) {
-            setSelectedColourId(fence.selected_colour_option_id);
+          const proj = data.project as {
+            colour_option_id?: string | null;
+            fence_style_id?: string | null;
+            fence_type_id?: string | null;
+          } | null;
+          const colourToUse = fence?.selected_colour_option_id || proj?.colour_option_id || null;
+          if (colourToUse) {
+            setSelectedColourId(colourToUse);
             fetch('/api/contractor/product-hierarchy')
-              .then((r) => r.ok ? r.json() : null)
+              .then((r) => (r.ok ? r.json() : null))
               .then((h) => {
                 if (!h?.colourOptions?.length) return;
-                const colour = h.colourOptions.find((c: ColourOption) => c.id === fence.selected_colour_option_id);
+                const colour = h.colourOptions.find((c: ColourOption) => c.id === colourToUse);
                 if (!colour) return;
                 const style = (h.fenceStyles || []).find((s: FenceStyle) => s.id === colour.fence_style_id);
                 if (!style) return;
@@ -545,6 +552,9 @@ export default function CalculatorPage() {
                 }
               })
               .catch(() => {});
+          } else if (proj?.fence_type_id && proj?.fence_style_id) {
+            setSelectedTypeId(proj.fence_type_id);
+            setSelectedStyleId(proj.fence_style_id);
           }
         })
         .catch(() => {});
@@ -554,7 +564,7 @@ export default function CalculatorPage() {
   useEffect(() => {
     if (loading || !contractorId) return;
 
-    if (quoteId || materialQuoteId || fromCustomerId) {
+    if (quoteId || materialQuoteId || fromCustomerId || fromLayoutId) {
       draftHandledRef.current = true;
       return;
     }
@@ -607,10 +617,60 @@ export default function CalculatorPage() {
     } catch {
       // ignore bad draft
     }
-  }, [loading, contractorId, quoteId, materialQuoteId, fromCustomerId]);
+  }, [loading, contractorId, quoteId, materialQuoteId, fromCustomerId, fromLayoutId]);
 
   useEffect(() => {
-    if (!contractorId || loading || quoteId || materialQuoteId || fromCustomerId || !draftHandledRef.current) return;
+    if (loading || !fromLayoutId) return;
+    let cancelled = false;
+    draftHandledRef.current = true;
+    fetch(`/api/contractor/layouts/${encodeURIComponent(fromLayoutId)}`, { credentials: 'include', cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((layout) => {
+        if (cancelled || !layout?.drawing_data) return;
+        const dd = layout.drawing_data as {
+          segments?: { length_ft: number }[];
+          gates?: { type: string; quantity: number }[];
+        };
+        const lens = (dd.segments || []).map((s) => Number(s.length_ft)).filter((n) => Number.isFinite(n) && n > 0);
+        const baseLat = 43.653226;
+        const baseLng = -79.3831843;
+        let acc = 0;
+        const segs: { start_lat: number; start_lng: number; end_lat: number; end_lng: number; length_ft: number }[] =
+          [];
+        for (const ft of lens) {
+          const start_lat = baseLat + acc * 0.00002;
+          acc += ft;
+          const end_lat = baseLat + acc * 0.00002;
+          segs.push({ start_lat, start_lng: baseLng, end_lat, end_lng: baseLng, length_ft: ft });
+        }
+        if (segs.length === 0) return;
+        setCustomerSegments(segs);
+        const midLat = (segs[0].start_lat + segs[segs.length - 1].end_lat) / 2;
+        setCustomerMapCenter([midLat, baseLng]);
+        setSegmentAssignments({ lhs_adj: null, lhs: null, back: null, rhs: null, rhs_adj: null });
+
+        let single = 0;
+        let double = 0;
+        for (const g of dd.gates || []) {
+          if (g.type === 'single') single += Number(g.quantity) || 0;
+          if (g.type === 'double') double += Number(g.quantity) || 0;
+        }
+        setSingleGateQty(single);
+        setDoubleGateQty(double);
+        const segCopy = JSON.parse(JSON.stringify(SEGMENTS)) as Segment[];
+        const dk = defaultSegmentKey(segCopy);
+        setSingleGateSides(Array.from({ length: single }, () => dk));
+        setDoubleGateSides(Array.from({ length: double }, () => dk));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, fromLayoutId]);
+
+  useEffect(() => {
+    if (!contractorId || loading || quoteId || materialQuoteId || fromCustomerId || fromLayoutId || !draftHandledRef.current)
+      return;
 
     clearTimeout(draftSaveTimerRef.current);
     draftSaveTimerRef.current = setTimeout(() => {
@@ -652,6 +712,7 @@ export default function CalculatorPage() {
     quoteId,
     materialQuoteId,
     fromCustomerId,
+    fromLayoutId,
     homeownerName,
     quoteAddress,
     selectedTypeId,

@@ -1,12 +1,22 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import html2canvas from 'html2canvas';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { LayoutDrawCanvas, LayoutDrawCanvasRef } from '@/components/LayoutDrawCanvas';
 
-type SavedLayout = { id: string; title: string; created_at: string; updated_at: string };
+type SavedLayout = {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  quote_session_id?: string | null;
+  linked_lead_name?: string | null;
+  total_length_ft?: number | null;
+};
+
+type LeadSearchRow = { id: string; first_name: string; last_name: string; email: string; address: string | null };
 
 type ApiSegment = { start_lat: number; start_lng: number; end_lat: number; end_lng: number; length_ft?: number };
 
@@ -92,6 +102,10 @@ export default function LayoutPage() {
   const [linkedSuppliers, setLinkedSuppliers] = useState<{ id: string; company_name: string }[]>([]);
   const [materialSupplierId, setMaterialSupplierId] = useState<string>('master');
   const [materialAttachment, setMaterialAttachment] = useState<File | null>(null);
+  const [showLinkLeadModal, setShowLinkLeadModal] = useState(false);
+  const [linkSearch, setLinkSearch] = useState('');
+  const [linkSearchResults, setLinkSearchResults] = useState<LeadSearchRow[]>([]);
+  const [linkingLeadId, setLinkingLeadId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/contractor/layouts', { credentials: 'include' })
@@ -163,6 +177,62 @@ export default function LayoutPage() {
       .finally(() => setLoading(false));
   }, [fromId, layoutId]);
 
+  const searchLeads = useCallback(async (q: string) => {
+    const t = q.trim();
+    if (t.length < 2) {
+      setLinkSearchResults([]);
+      return;
+    }
+    try {
+      const res = await fetch('/api/contractor/customers', { credentials: 'include', cache: 'no-store' });
+      const data = await res.json();
+      const list = (data.customers || []) as LeadSearchRow[];
+      const lower = t.toLowerCase();
+      setLinkSearchResults(
+        list
+          .filter((c) => {
+            const name = `${c.first_name} ${c.last_name}`.toLowerCase();
+            const em = (c.email || '').toLowerCase();
+            const ad = (c.address || '').toLowerCase();
+            return name.includes(lower) || em.includes(lower) || ad.includes(lower);
+          })
+          .slice(0, 12)
+      );
+    } catch {
+      setLinkSearchResults([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!showLinkLeadModal) return;
+    const tm = setTimeout(() => searchLeads(linkSearch), 250);
+    return () => clearTimeout(tm);
+  }, [linkSearch, showLinkLeadModal, searchLeads]);
+
+  async function attachLayoutToLead(sessionId: string) {
+    const lid = layoutId || window.location.search.match(/layout=([^&]+)/)?.[1];
+    if (!lid) return;
+    setLinkingLeadId(sessionId);
+    try {
+      const res = await fetch(`/api/contractor/layouts/${lid}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ quote_session_id: sessionId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to link');
+      }
+      setShowLinkLeadModal(false);
+      window.location.href = `/dashboard/customers/${sessionId}`;
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to link');
+    } finally {
+      setLinkingLeadId(null);
+    }
+  }
+
   function handleReset() {
     setInitialDrawing(null);
     setResetKey((k) => k + 1);
@@ -189,14 +259,18 @@ export default function LayoutPage() {
         });
         imageDataUrl = canvas.toDataURL('image/png');
       }
-      const res = await fetch('/api/contractor/layouts', {
-        method: 'POST',
+      const isUpdate = !!layoutId;
+      const url = isUpdate ? `/api/contractor/layouts/${layoutId}` : '/api/contractor/layouts';
+      const method = isUpdate ? 'PATCH' : 'POST';
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
           title: title.trim(),
           drawing_data: drawingData,
           quote_session_id: fromId || undefined,
+          standalone: !isUpdate && !fromId,
           image_data_url: imageDataUrl,
         }),
       });
@@ -212,6 +286,9 @@ export default function LayoutPage() {
       if (saved.lead_id) {
         window.location.href = `/dashboard/customers/${saved.lead_id}`;
         return;
+      }
+      if (!isUpdate && !fromId && !saved.lead_id) {
+        setShowLinkLeadModal(true);
       }
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Failed to save');
@@ -331,6 +408,14 @@ export default function LayoutPage() {
           >
             {saving ? 'Saving…' : 'Save'}
           </button>
+          {layoutId && (
+            <Link
+              href={`/dashboard/calculator?from_layout=${encodeURIComponent(layoutId)}`}
+              className="rounded-lg border border-[var(--line)] bg-white px-4 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-50"
+            >
+              Export to calculator
+            </Link>
+          )}
           {savedLayouts.length > 0 && (
             <select
               value=""
@@ -392,6 +477,62 @@ export default function LayoutPage() {
           <p className="mt-1 text-xs text-[var(--muted)]">
             Send this layout to a linked supplier (or the platform team) for a material quote. Add a description first.
           </p>
+        </div>
+      )}
+
+      {showLinkLeadModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => !linkingLeadId && setShowLinkLeadModal(false)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl border border-[var(--line)] bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-slate-900">Save layout to a lead?</h3>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Your layout is saved. Optionally attach it to an existing lead, or close and find it later under Leads →
+              Layouts.
+            </p>
+            <input
+              type="search"
+              value={linkSearch}
+              onChange={(e) => setLinkSearch(e.target.value)}
+              placeholder="Search leads by name or email…"
+              className="mt-4 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+            />
+            <ul className="mt-3 max-h-56 overflow-y-auto divide-y divide-slate-100 rounded-lg border border-slate-100">
+              {linkSearchResults.map((c) => (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    disabled={!!linkingLeadId}
+                    onClick={() => attachLayoutToLead(c.id)}
+                    className="flex w-full flex-col items-start gap-0.5 px-3 py-2.5 text-left text-sm hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    <span className="font-medium text-slate-900">
+                      {c.first_name} {c.last_name}
+                    </span>
+                    <span className="text-xs text-slate-500">{c.email}</span>
+                    {c.address && <span className="text-xs text-slate-400">{c.address}</span>}
+                  </button>
+                </li>
+              ))}
+              {linkSearch.trim().length >= 2 && linkSearchResults.length === 0 && (
+                <li className="px-3 py-4 text-sm text-slate-500">No matches.</li>
+              )}
+            </ul>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={!!linkingLeadId}
+                onClick={() => setShowLinkLeadModal(false)}
+                className="rounded-lg border border-[var(--line)] px-4 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-50"
+              >
+                Not now
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -470,7 +611,8 @@ export default function LayoutPage() {
       </div>
 
       <p className="py-2 text-center text-xs text-[var(--muted)]">
-        Click to start line, click to end line. Double-click to start new section. Click and drag to move around.
+        Click to start a line, then click again to finish (or use End line). Esc cancels the line in progress. Drag on an
+        empty canvas to pan.
       </p>
     </div>
   );

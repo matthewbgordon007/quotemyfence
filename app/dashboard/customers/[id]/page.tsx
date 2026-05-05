@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -13,7 +13,15 @@ const FenceDrawingMap = dynamic(
 
 interface ClientDetail {
   session: { status: string; current_step: string; last_active_at: string; lead_status?: string; contractor_quote_text?: string | null; contractor_quote_saved_at?: string | null };
-  customer: { first_name: string; last_name: string; email: string; phone: string | null; lead_source: string | null } | null;
+  customer: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string | null;
+    lead_source: string | null;
+    notes?: string | null;
+    project_id?: string | null;
+  } | null;
   property: { formatted_address: string; street_address?: string | null; city: string | null; province_state: string | null; postal_zip: string | null; country?: string | null; latitude?: number | null; longitude?: number | null } | null;
   fence: {
     total_length_ft: number;
@@ -28,7 +36,18 @@ interface ClientDetail {
   designOption: { height_ft?: number; type?: string; style?: string; colour?: string } | null;
   savedQuotes?: { id: string; created_at: string; grand_total: number; calculator_state?: any }[];
   layoutDrawing?: { drawing_data: { points?: { x: number; y: number }[]; segments?: { length_ft: number }[]; gates?: { type: string; quantity: number }[]; total_length_ft?: number }; image_data_url?: string | null } | null;
+  project?: {
+    id: string;
+    name: string;
+    notes: string | null;
+    address: string | null;
+    fence_type_id: string | null;
+    fence_style_id: string | null;
+    colour_option_id: string | null;
+  } | null;
 }
+
+type ProjectListItem = { id: string; name: string };
 
 export default function CustomerDetailPage() {
   const params = useParams();
@@ -47,6 +66,11 @@ export default function CustomerDetailPage() {
   const [linkedSuppliers, setLinkedSuppliers] = useState<{ id: string; company_name: string }[]>([]);
   const [exportSupplierId, setExportSupplierId] = useState<string>('master');
   const [exportAttachment, setExportAttachment] = useState<File | null>(null);
+  const [customerNotes, setCustomerNotes] = useState('');
+  const [notesStatus, setNotesStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const notesDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [projectsList, setProjectsList] = useState<{ id: string; name: string }[]>([]);
+  const [projectSaving, setProjectSaving] = useState(false);
   const [editForm, setEditForm] = useState({
     first_name: '',
     last_name: '',
@@ -178,6 +202,15 @@ export default function CustomerDetailPage() {
   };
 
   useEffect(() => {
+    fetch('/api/contractor/projects', { credentials: 'include', cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : Promise.resolve({})))
+      .then((d: { projects?: unknown }) =>
+        setProjectsList(Array.isArray(d.projects) ? (d.projects as ProjectListItem[]) : []),
+      )
+      .catch(() => setProjectsList([]));
+  }, []);
+
+  useEffect(() => {
     fetch('/api/contractor/suppliers', { credentials: 'include' })
       .then((r) => r.json())
       .then((d) => {
@@ -201,6 +234,12 @@ export default function CustomerDetailPage() {
     if (!id || !data) return;
     fetch(`/api/contractor/customers/${id}/viewed`, { method: 'POST' }).catch(() => {});
   }, [id, data]);
+
+  useEffect(() => {
+    if (data?.customer) {
+      setCustomerNotes(data.customer.notes ?? '');
+    }
+  }, [data?.customer?.notes, id]);
 
   useEffect(() => {
     if (data?.customer || data?.property) {
@@ -287,7 +326,53 @@ export default function CustomerDetailPage() {
     );
   }
 
-  const { session, customer, property, fence, segments, gates, quoteTotals, designSummary, designOption, layoutDrawing } = data;
+  const { session, customer, property, fence, segments, gates, quoteTotals, designSummary, designOption, layoutDrawing, project } = data;
+
+  function queueNotesSave(text: string) {
+    clearTimeout(notesDebounceRef.current);
+    setNotesStatus('saving');
+    notesDebounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/contractor/customers/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notes: text.trim() ? text : null }),
+        });
+        if (res.ok) {
+          setData((prev) =>
+            prev?.customer
+              ? { ...prev, customer: { ...prev.customer, notes: text.trim() ? text : null } }
+              : prev
+          );
+          setNotesStatus('saved');
+          setTimeout(() => setNotesStatus('idle'), 1500);
+        } else {
+          setNotesStatus('idle');
+        }
+      } catch {
+        setNotesStatus('idle');
+      }
+    }, 650);
+  }
+
+  async function handleProjectChange(projectId: string) {
+    setProjectSaving(true);
+    try {
+      const res = await fetch(`/api/contractor/customers/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_id: projectId || null }),
+      });
+      const err = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(err.error || 'Failed to update');
+      const refresh = await fetch(`/api/contractor/customers/${id}`).then((r) => r.json());
+      setData(refresh);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to update project');
+    } finally {
+      setProjectSaving(false);
+    }
+  }
   const center: [number, number] | undefined =
     property?.latitude != null && property?.longitude != null
       ? [Number(property.latitude), Number(property.longitude)]
@@ -334,6 +419,58 @@ export default function CustomerDetailPage() {
       </div>
 
       <div className="mt-8 space-y-6">
+        <section className="rounded-2xl border border-[var(--line)] bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold">Internal notes</h2>
+            {notesStatus === 'saving' && <span className="text-xs text-slate-500">Saving…</span>}
+            {notesStatus === 'saved' && <span className="text-xs font-medium text-emerald-600">Saved</span>}
+          </div>
+          <p className="mt-1 text-xs text-[var(--muted)]">Call notes and details stay on this lead only. Changes save automatically.</p>
+          <textarea
+            value={customerNotes}
+            onChange={(e) => {
+              const v = e.target.value;
+              setCustomerNotes(v);
+              queueNotesSave(v);
+            }}
+            rows={5}
+            placeholder="Notes from calls, site visit reminders, preferences…"
+            className="mt-3 w-full rounded-xl border border-[var(--line)] bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-[var(--accent)]"
+          />
+        </section>
+
+        <section className="rounded-2xl border border-[var(--line)] bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold">Neighbourhood project</h2>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            Group this lead with others for the same job. Project defaults (material / style / colour) load in the
+            calculator when you open a quote for any lead in the project.
+          </p>
+          {project && (
+            <p className="mt-2 text-sm text-slate-700">
+              Currently: <span className="font-semibold">{project.name}</span>{' '}
+              <Link href={`/dashboard/projects/${project.id}`} className="text-[var(--accent)] hover:underline">
+                Open project
+              </Link>
+            </p>
+          )}
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <select
+              value={customer?.project_id || ''}
+              onChange={(e) => handleProjectChange(e.target.value)}
+              disabled={projectSaving}
+              className="min-w-[14rem] rounded-xl border border-[var(--line)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--accent)] disabled:opacity-50"
+            >
+              <option value="">No project</option>
+              {projectsList.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            {projectSaving && <span className="text-xs text-slate-500">Updating…</span>}
+          </div>
+        </section>
+
         <section className="rounded-2xl border border-[var(--line)] bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Contact</h2>

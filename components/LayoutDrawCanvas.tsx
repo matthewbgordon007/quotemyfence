@@ -66,8 +66,8 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       }
       return out;
     });
+    /** At most one point = start of current line; second click (or End line) finishes the segment. */
     const [currentPath, setCurrentPath] = useState<{ x: number; y: number }[]>([]);
-    const lastClickTime = useRef(0);
     const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
     const pointerDownPan = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
     const pointerDownTime = useRef(0);
@@ -210,22 +210,22 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
 
       if (pointerDownPos.current) {
         const d = dist(pointerDownPos.current, pt);
-        if (!isPanning.current && d > 2) {
-          isPanning.current = true;
+        // Pan only when not placing the end of a line (two-click draw).
+        if (currentPath.length === 0) {
+          if (!isPanning.current && d > 2) {
+            isPanning.current = true;
+          }
+          if (isPanning.current) {
+            const dx = pt.x - pointerDownPos.current.x;
+            const dy = pt.y - pointerDownPos.current.y;
+            setPan({
+              x: pointerDownPan.current.x + dx,
+              y: pointerDownPan.current.y + dy,
+            });
+          }
         }
-
-        if (isPanning.current) {
-          const dx = pt.x - pointerDownPos.current.x;
-          const dy = pt.y - pointerDownPos.current.y;
-          setPan({
-            x: pointerDownPan.current.x + dx,
-            y: pointerDownPan.current.y + dy,
-          });
-        }
-      } else {
-        if (currentPath.length > 0) {
-          setHoverPt(pt);
-        }
+      } else if (currentPath.length > 0) {
+        setHoverPt(pt);
       }
     }
 
@@ -264,33 +264,47 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         return;
       }
 
-      const now = Date.now();
-      if (now - lastClickTime.current < 350) {
-        lastClickTime.current = 0;
-        setCurrentPath([]);
-        setHoverPt(null);
-        return;
-      }
-      lastClickTime.current = now;
-
       if (currentPath.length === 0) {
         setCurrentPath([{ x, y }]);
       } else {
-        const last = currentPath[currentPath.length - 1];
-        setSegments((prev) => [...prev, [last, { x, y }]]);
+        const start = currentPath[0];
+        setSegments((prev) => [...prev, [start, { x, y }]]);
         setLineLengths((prev) => [...prev, '']);
-        setCurrentPath((prev) => [...prev, { x, y }]);
+        setCurrentPath([]);
       }
       setHoverPt(null);
     }
 
+    function finishLineAt(hover: { x: number; y: number } | null) {
+      if (currentPath.length !== 1 || !hover) return;
+      const start = currentPath[0];
+      const end = hover;
+      setSegments((prev) => [...prev, [start, end]]);
+      setLineLengths((prev) => [...prev, '']);
+      setCurrentPath([]);
+      setHoverPt(null);
+    }
+
+    function cancelCurrentLine() {
+      setCurrentPath([]);
+      setHoverPt(null);
+    }
+
+    useEffect(() => {
+      function onKey(ev: KeyboardEvent) {
+        if (readOnly) return;
+        if (ev.key === 'Escape') {
+          cancelCurrentLine();
+        }
+      }
+      window.addEventListener('keydown', onKey);
+      return () => window.removeEventListener('keydown', onKey);
+    }, [readOnly]);
+
     function undo() {
-      if (currentPath.length > 1) {
-        setCurrentPath((prev) => prev.slice(0, -1));
-        setSegments((prev) => prev.slice(0, -1));
-        setLineLengths((prev) => prev.slice(0, -1));
-      } else if (currentPath.length === 1) {
+      if (currentPath.length === 1) {
         setCurrentPath([]);
+        setHoverPt(null);
       } else if (segments.length > 0) {
         setSegments((prev) => prev.slice(0, -1));
         setLineLengths((prev) => prev.slice(0, -1));
@@ -302,6 +316,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       setLineLengths([]);
       setPlacedGates([]);
       setCurrentPath([]);
+      setHoverPt(null);
       setMode('draw');
       onReset?.();
     }
@@ -459,6 +474,22 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
           )}
           <button
             type="button"
+            onClick={() => finishLineAt(hoverPt)}
+            disabled={currentPath.length !== 1 || !hoverPt}
+            className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-sm font-medium text-emerald-800 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            End line
+          </button>
+          <button
+            type="button"
+            onClick={cancelCurrentLine}
+            disabled={currentPath.length !== 1}
+            className="rounded-lg border border-[var(--line)] bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Cancel line (Esc)
+          </button>
+          <button
+            type="button"
             onClick={undo}
             className="rounded-lg border border-[var(--line)] bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-50"
           >
@@ -541,11 +572,23 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
           <p className="mt-2 text-sm text-[var(--muted)]">Click on a line to place a double gate</p>
         )}
         {mode === 'draw' && (
-          <div className="mt-2 text-sm text-[var(--muted)] flex items-center gap-2 flex-wrap">
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-200 inline-flex items-center justify-center text-[8px]">1</span> Click to start line</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-200 inline-flex items-center justify-center text-[8px]">2</span> Click to end line</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-200 inline-flex items-center justify-center text-[8px]">3</span> Double-click to start new section</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-200 inline-flex items-center justify-center text-[8px]">4</span> Click and drag to move around</span>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]">
+            <span className="flex items-center gap-1">
+              <span className="inline-flex h-3 w-3 items-center justify-center rounded-full bg-gray-200 text-[8px]">1</span>
+              Click to start a line
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-flex h-3 w-3 items-center justify-center rounded-full bg-gray-200 text-[8px]">2</span>
+              Click again to end, or use <strong className="text-slate-700">End line</strong>
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-flex h-3 w-3 items-center justify-center rounded-full bg-gray-200 text-[8px]">Esc</span>
+              Cancel the line in progress
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-flex h-3 w-3 items-center justify-center rounded-full bg-gray-200 text-[8px]">Pan</span>
+              Drag on empty canvas (no line started) to pan
+            </span>
           </div>
         )}
         </>
