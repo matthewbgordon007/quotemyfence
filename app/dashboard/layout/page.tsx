@@ -4,7 +4,12 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import html2canvas from 'html2canvas';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { LayoutDrawCanvas, LayoutDrawCanvasRef, type LineHighlightMode } from '@/components/LayoutDrawCanvas';
+import {
+  LayoutDrawCanvas,
+  LayoutDrawCanvasRef,
+  type LayoutGatePlacement,
+  type LineHighlightMode,
+} from '@/components/LayoutDrawCanvas';
 import { LeadSearchModal } from '@/components/dashboard/LeadSearchModal';
 
 type SavedLayout = {
@@ -48,6 +53,7 @@ function convertSegmentsToDrawing(
   points: { x: number; y: number }[];
   segments: { length_ft: number }[];
   gates: { type: 'single' | 'double'; quantity: number }[];
+  gate_placements: LayoutGatePlacement[];
   total_length_ft: number;
 } {
   if (segments.length === 0) {
@@ -55,6 +61,7 @@ function convertSegmentsToDrawing(
       points: [],
       segments: [],
       gates: gates.map((g) => ({ type: g.gate_type as 'single' | 'double', quantity: g.quantity || 0 })),
+      gate_placements: [],
       total_length_ft: totalLengthFt,
     };
   }
@@ -86,6 +93,7 @@ function convertSegmentsToDrawing(
     points,
     segments: segLengths.length > 0 ? segLengths : points.length >= 2 ? [{ length_ft: total }] : [],
     gates: gates.map((g) => ({ type: g.gate_type as 'single' | 'double', quantity: g.quantity || 0 })),
+    gate_placements: [],
     total_length_ft: total,
   };
 }
@@ -100,12 +108,14 @@ export default function LayoutPage() {
     points: { x: number; y: number }[];
     segments: { length_ft: number }[];
     gates: { type: 'single' | 'double'; quantity: number }[];
+    gate_placements?: LayoutGatePlacement[];
     total_length_ft: number;
   } | null>(null);
   const [drawingData, setDrawingData] = useState<{
     points: { x: number; y: number }[];
     segments: { length_ft: number }[];
     gates: { type: 'single' | 'double'; quantity: number }[];
+    gate_placements?: LayoutGatePlacement[];
     total_length_ft: number;
   } | null>(null);
   const [title, setTitle] = useState('');
@@ -160,6 +170,7 @@ export default function LayoutPage() {
             total_length_ft?: number;
             homeowners?: LayoutHomeowner[];
             segment_assignments?: string[][];
+            gate_placements?: LayoutGatePlacement[];
           };
           const pts = d?.points;
           if (pts && pts.length >= 2) {
@@ -170,6 +181,7 @@ export default function LayoutPage() {
                 type: (g.type === 'double' ? 'double' : 'single') as 'single' | 'double',
                 quantity: g.quantity || 0,
               })),
+              gate_placements: Array.isArray(d.gate_placements) ? d.gate_placements : undefined,
               total_length_ft: d.total_length_ft ?? 0,
             });
             setTitle(data.title || '');
@@ -303,6 +315,7 @@ export default function LayoutPage() {
       points: { x: number; y: number }[];
       segments: { length_ft: number }[];
       gates: { type: 'single' | 'double'; quantity: number }[];
+      gate_placements?: LayoutGatePlacement[];
       total_length_ft: number;
     }) => {
       setDrawingData(geo);
@@ -526,12 +539,17 @@ export default function LayoutPage() {
               className="rounded-lg border border-[var(--line)] bg-white px-3 py-1.5 text-sm font-medium text-slate-800"
             >
               <option value="">Export to calculator…</option>
-              <option value="all">All lines</option>
-              {homeowners.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name.trim() || 'Homeowner'} — their lines only
-                </option>
-              ))}
+              <option value="all">All lines (no homeowner prefill)</option>
+              {homeowners.map((h) => {
+                const nm = h.name.trim() || 'Homeowner';
+                const ad = h.address.trim();
+                const label = ad ? `${nm} — ${ad}` : nm;
+                return (
+                  <option key={h.id} value={h.id}>
+                    {label} — lines assigned to them
+                  </option>
+                );
+              })}
             </select>
           )}
           {savedLayouts.length > 0 && (

@@ -12,12 +12,16 @@ export interface LayoutDrawCanvasRef {
 
 export type LineHighlightMode = 'none' | 'private' | 'shared';
 
+export type LayoutGatePlacement = { type: 'single' | 'double'; line_index: number };
+
 export interface LayoutDrawCanvasProps {
   initialDrawing?: {
     points: { x: number; y: number }[];
     segments: { length_ft: number }[];
     gates: { type: 'single' | 'double'; quantity: number }[];
     total_length_ft: number;
+    /** Nearest line index per placed gate (export / calculator). */
+    gate_placements?: LayoutGatePlacement[];
   } | null;
   /** When true, fit view to drawing and hide editing controls */
   readOnly?: boolean;
@@ -27,6 +31,7 @@ export interface LayoutDrawCanvasProps {
     points: { x: number; y: number }[];
     segments: { length_ft: number }[];
     gates: { type: 'single' | 'double'; quantity: number }[];
+    gate_placements: LayoutGatePlacement[];
     total_length_ft: number;
   }) => void;
   onReset?: () => void;
@@ -53,6 +58,23 @@ function nearestPointOnSegment(
 function pointToSegmentDist(p: { x: number; y: number }, a: { x: number; y: number }, b: { x: number; y: number }): number {
   const np = nearestPointOnSegment(p, a, b);
   return dist(p, np);
+}
+
+function nearestLineIndexForPoint(
+  pt: { x: number; y: number },
+  segs: { x: number; y: number }[][]
+): number {
+  let bestI = 0;
+  let bestD = Infinity;
+  segs.forEach((seg, i) => {
+    if (seg.length < 2) return;
+    const d = pointToSegmentDist(pt, seg[0], seg[1]);
+    if (d < bestD) {
+      bestD = d;
+      bestI = i;
+    }
+  });
+  return bestI;
 }
 
 /**
@@ -123,6 +145,22 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       const pts = initialDrawing?.points ?? [];
       const segLens = initialDrawing?.segments ?? [];
       const initSegs = segmentsFromSavedPoints(pts, segLens);
+      const gp = initialDrawing?.gate_placements;
+      if (Array.isArray(gp) && gp.length > 0 && initSegs.length > 0) {
+        return gp.map((row) => {
+          const li = Math.max(0, Math.min(initSegs.length - 1, Number(row.line_index) || 0));
+          const seg = initSegs[li];
+          const t = row.type === 'double' ? 'double' : 'single';
+          if (seg.length >= 2) {
+            return {
+              type: t,
+              x: (seg[0].x + seg[1].x) / 2,
+              y: (seg[0].y + seg[1].y) / 2,
+            };
+          }
+          return { type: t, x: 0, y: 0 };
+        });
+      }
       const result: { type: 'single' | 'double'; x: number; y: number }[] = [];
       const anchor =
         initSegs.length > 0 && initSegs[initSegs.length - 1].length >= 2
@@ -187,10 +225,15 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         ...(singleCount > 0 ? [{ type: 'single' as const, quantity: singleCount }] : []),
         ...(doubleCount > 0 ? [{ type: 'double' as const, quantity: doubleCount }] : []),
       ];
+      const gate_placements: LayoutGatePlacement[] = gates.map((g) => ({
+        type: g.type,
+        line_index: nearestLineIndexForPoint({ x: g.x, y: g.y }, segs),
+      }));
       return {
         points: flatPts,
         segments: segLengths,
         gates: gateList,
+        gate_placements,
         total_length_ft: Math.round(total * 100) / 100,
       };
     }

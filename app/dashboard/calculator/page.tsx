@@ -209,6 +209,51 @@ function labelForGateSideValue(
   return segments.find((s) => s.key === v)?.name ?? v;
 }
 
+type MapSeg = { start_lat: number; start_lng: number; end_lat: number; end_lng: number };
+
+function buildMapGatesFromDrawSides(
+  customerSegments: MapSeg[],
+  singleGateSides: string[],
+  doubleGateSides: string[],
+  singleQty: number,
+  doubleQty: number
+): { gate_type: string; quantity: number; lat: number; lng: number }[] {
+  const out: { gate_type: string; quantity: number; lat: number; lng: number }[] = [];
+  if (customerSegments.length === 0) return out;
+
+  function interp(seg: MapSeg, t: number) {
+    const lat = seg.start_lat + (seg.end_lat - seg.start_lat) * t;
+    const lng = seg.start_lng + (seg.end_lng - seg.start_lng) * t;
+    return { lat, lng };
+  }
+
+  const slotOnLine = new Map<number, number>();
+  const placeOnLine = (lineIdx: number): { lat: number; lng: number } | null => {
+    const seg = customerSegments[lineIdx];
+    if (!seg) return null;
+    const n = (slotOnLine.get(lineIdx) ?? 0) + 1;
+    slotOnLine.set(lineIdx, n);
+    const t = Math.min(0.88, 0.22 + (n - 1) * 0.2);
+    return interp(seg, t);
+  };
+
+  for (let i = 0; i < singleQty; i++) {
+    const v = singleGateSides[i] ?? '';
+    const li = parseDrawLineGateValue(v);
+    if (li == null || li < 0 || li >= customerSegments.length) continue;
+    const pos = placeOnLine(li);
+    if (pos) out.push({ gate_type: 'single', quantity: 1, lat: pos.lat, lng: pos.lng });
+  }
+  for (let i = 0; i < doubleQty; i++) {
+    const v = doubleGateSides[i] ?? '';
+    const li = parseDrawLineGateValue(v);
+    if (li == null || li < 0 || li >= customerSegments.length) continue;
+    const pos = placeOnLine(li);
+    if (pos) out.push({ gate_type: 'double', quantity: 1, lat: pos.lat, lng: pos.lng });
+  }
+  return out;
+}
+
 export default function CalculatorPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [pricingRules, setPricingRules] = useState<PricingRule[]>([]);
@@ -688,53 +733,106 @@ export default function CalculatorPage() {
         const dd = layout.drawing_data as {
           segments?: { length_ft: number }[];
           gates?: { type: string; quantity: number }[];
+          gate_placements?: { type: string; line_index: number }[];
           homeowners?: { id: string; name?: string; address?: string }[];
           segment_assignments?: string[][];
         };
-        const allLens = (dd.segments || []).map((s) => Number(s.length_ft)).filter((n) => Number.isFinite(n) && n > 0);
         const assign = Array.isArray(dd.segment_assignments) ? dd.segment_assignments : [];
         const hoList = Array.isArray(dd.homeowners) ? dd.homeowners : [];
         const filterId = layoutHomeownerFilter;
-        const canFilter =
-          Boolean(filterId) &&
-          hoList.some((h) => h.id === filterId) &&
-          assign.length > 0 &&
-          assign.some((row) => Array.isArray(row) && row.includes(filterId as string));
-        let lens = allLens;
-        if (canFilter && filterId) {
-          const filtered = (dd.segments || [])
-            .map((s, i) => ({ ft: Number(s.length_ft), i }))
-            .filter(({ i, ft }) => Number.isFinite(ft) && ft > 0 && (assign[i] || []).includes(filterId))
-            .map(({ ft }) => ft);
-          if (filtered.length > 0) lens = filtered;
+
+        if (!filterId) {
+          setHomeownerName('');
+          setQuoteAddress('');
         }
+
+        const ho =
+          filterId && typeof filterId === 'string' ? hoList.find((h) => h.id === filterId) : undefined;
+        if (ho) {
+          if (ho.name) setHomeownerName(String(ho.name));
+          if (ho.address) setQuoteAddress(String(ho.address));
+        }
+
+        const wantsHomeownerScope = Boolean(filterId) && hoList.some((h) => h.id === filterId);
+        const fullLineTuples = (dd.segments || [])
+          .map((s, originalIndex) => ({
+            originalIndex,
+            ft: Number(s.length_ft),
+          }))
+          .filter((x) => Number.isFinite(x.ft) && x.ft > 0);
+
+        const filteredLineTuples = wantsHomeownerScope
+          ? fullLineTuples.filter((x) => (assign[x.originalIndex] || []).includes(filterId as string))
+          : fullLineTuples;
+
+        const lens = filteredLineTuples.map((x) => x.ft);
+        const oldToNew = new Map<number, number>();
+        filteredLineTuples.forEach((t, newIdx) => oldToNew.set(t.originalIndex, newIdx));
+
         const baseLat = 43.653226;
         const baseLng = -79.3831843;
         const segs = segmentsFromLayoutLengthsFeet(lens, baseLat, baseLng);
-        if (segs.length === 0) return;
+
+        const emptyDrawingState = () => {
+          setCustomerSegments([]);
+          setCustomerMapCenter(undefined);
+          setCustomerGates([]);
+          setSegmentAssignments({ lhs_adj: null, lhs: null, back: null, rhs: null, rhs_adj: null });
+          setSingleGateQty(0);
+          setDoubleGateQty(0);
+          setSingleGateSides([]);
+          setDoubleGateSides([]);
+        };
+
+        if (segs.length === 0) {
+          emptyDrawingState();
+          return;
+        }
+
         setCustomerSegments(segs);
         const midLat = segs.reduce((a, s) => a + (s.start_lat + s.end_lat) / 2, 0) / segs.length;
         const midLng = segs.reduce((a, s) => a + (s.start_lng + s.end_lng) / 2, 0) / segs.length;
         setCustomerMapCenter([midLat, midLng]);
         setSegmentAssignments({ lhs_adj: null, lhs: null, back: null, rhs: null, rhs_adj: null });
-        const ho = hoList.find((h) => h.id === filterId);
-        if (canFilter && filterId && ho) {
-          if (ho.name) setHomeownerName(String(ho.name));
-          if (ho.address) setQuoteAddress(String(ho.address));
-        }
+
+        const rawPlacements = Array.isArray(dd.gate_placements) ? dd.gate_placements : [];
+        const normalizedPlacements = rawPlacements
+          .map((p) => ({
+            type: p.type === 'double' ? ('double' as const) : ('single' as const),
+            line_index: Number(p.line_index),
+          }))
+          .filter((p) => Number.isFinite(p.line_index) && p.line_index >= 0);
+
+        const placementsForScope = normalizedPlacements.filter((p) => oldToNew.has(p.line_index));
+        const usePlacements = normalizedPlacements.length > 0;
 
         let single = 0;
         let double = 0;
-        for (const g of dd.gates || []) {
-          if (g.type === 'single') single += Number(g.quantity) || 0;
-          if (g.type === 'double') double += Number(g.quantity) || 0;
+        let singleSides: string[] = [];
+        let doubleSides: string[] = [];
+
+        if (usePlacements) {
+          const singles = placementsForScope.filter((p) => p.type === 'single');
+          const doubles = placementsForScope.filter((p) => p.type === 'double');
+          single = singles.length;
+          double = doubles.length;
+          singleSides = singles.map((p) => `${GATE_ASSIGN_DRAW_PREFIX}${oldToNew.get(p.line_index)!}`);
+          doubleSides = doubles.map((p) => `${GATE_ASSIGN_DRAW_PREFIX}${oldToNew.get(p.line_index)!}`);
+        } else {
+          for (const g of dd.gates || []) {
+            if (g.type === 'single') single += Number(g.quantity) || 0;
+            if (g.type === 'double') double += Number(g.quantity) || 0;
+          }
+          const dk = defaultSegmentKey(JSON.parse(JSON.stringify(SEGMENTS)) as Segment[]);
+          singleSides = Array.from({ length: single }, () => dk);
+          doubleSides = Array.from({ length: double }, () => dk);
         }
+
         setSingleGateQty(single);
         setDoubleGateQty(double);
-        const segCopy = JSON.parse(JSON.stringify(SEGMENTS)) as Segment[];
-        const dk = defaultSegmentKey(segCopy);
-        setSingleGateSides(Array.from({ length: single }, () => dk));
-        setDoubleGateSides(Array.from({ length: double }, () => dk));
+        setSingleGateSides(singleSides);
+        setDoubleGateSides(doubleSides);
+        setCustomerGates(buildMapGatesFromDrawSides(segs, singleSides, doubleSides, single, double));
       })
       .catch(() => {});
     return () => {
