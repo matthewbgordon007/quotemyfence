@@ -25,11 +25,6 @@ const workspaceLinks = [
     icon: <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 7.5v9.75A2.25 2.25 0 0 1 17.25 19.5H6.75A2.25 2.25 0 0 1 4.5 17.25V6.75A2.25 2.25 0 0 1 6.75 4.5h7.5L19.5 9.75Zm-9 1.5h3m-3 3h6m-6 3h6" />,
   },
   {
-    href: '/dashboard/account',
-    label: 'Account',
-    icon: <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A18.933 18.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />,
-  },
-  {
     href: '/dashboard/layout',
     label: 'Draw',
     icon: <path strokeLinecap="round" strokeLinejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z" />,
@@ -48,6 +43,11 @@ const suppliersNavLink = {
 };
 
 const businessLinks = [
+  {
+    href: '/dashboard/account',
+    label: 'Account',
+    icon: <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A18.933 18.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />,
+  },
   {
     href: '/dashboard/billing',
     label: 'Billing',
