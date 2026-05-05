@@ -462,17 +462,37 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
               />
             )}
 
-            {placedGates.map((g, i) => (
-              <circle
-                key={i}
-                cx={g.x}
-                cy={g.y}
-                r={g.type === 'double' ? 4 : 3}
-                fill={g.type === 'double' ? '#0ea5e9' : '#22c55e'}
-                stroke="#fff"
-                strokeWidth={1}
-              />
-            ))}
+            {placedGates.map((g, i) => {
+              const isDouble = g.type === 'double';
+              const r = isDouble ? 5.2 : 2.9;
+              const label = isDouble ? 'D' : 'S';
+              const fontSize = isDouble ? 5 : 3.25;
+              return (
+                <g key={i}>
+                  <circle
+                    cx={g.x}
+                    cy={g.y}
+                    r={r}
+                    fill="#2563eb"
+                    stroke="#fff"
+                    strokeWidth={0.6}
+                  />
+                  <text
+                    x={g.x}
+                    y={g.y}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fill="#ffffff"
+                    fontSize={fontSize}
+                    fontWeight="800"
+                    fontFamily="system-ui, -apple-system, sans-serif"
+                    style={{ userSelect: 'none' }}
+                  >
+                    {label}
+                  </text>
+                </g>
+              );
+            })}
           </svg>
         </div>
 
@@ -599,10 +619,10 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
           </div>
         )}
         {mode === 'place_single_gate' && (
-          <p className="mt-2 text-sm text-[var(--muted)]">Click on a line to place a single gate (green marker).</p>
+          <p className="mt-2 text-sm text-[var(--muted)]">Click on a line to place a single gate (small blue circle with S).</p>
         )}
         {mode === 'place_double_gate' && (
-          <p className="mt-2 text-sm text-[var(--muted)]">Click on a line to place a double gate (blue marker).</p>
+          <p className="mt-2 text-sm text-[var(--muted)]">Click on a line to place a double gate (larger blue circle with D).</p>
         )}
         {mode === 'draw' && (
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]">
