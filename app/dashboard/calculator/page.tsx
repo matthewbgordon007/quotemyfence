@@ -130,6 +130,8 @@ const SEGMENTS: Segment[] = [
 const M_TO_FT = 3.28084;
 const ROUND_INC = 0.05;
 const EXTEND_ADD = 2;
+/** Gate assignment tied to a layout-drawn segment (index into `customerSegments`). */
+const GATE_ASSIGN_DRAW_PREFIX = 'draw:';
 
 function calcDraftStorageKey(contractorId: string) {
   return `qmf_calc_draft_v1_${contractorId}`;
@@ -177,6 +179,36 @@ function padDoubleGateSides(prev: string[], len: number, defaultKey: string): st
   return next;
 }
 
+function parseDrawLineGateValue(v: string): number | null {
+  if (!v.startsWith(GATE_ASSIGN_DRAW_PREFIX)) return null;
+  const n = parseInt(v.slice(GATE_ASSIGN_DRAW_PREFIX.length), 10);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+function feetForGateSideValue(
+  v: string,
+  feetFinalByKey: Record<string, number>,
+  customerSegments: { length_ft?: number }[]
+): number {
+  const lineIdx = parseDrawLineGateValue(v);
+  if (lineIdx != null && customerSegments[lineIdx]) {
+    const raw = Number(customerSegments[lineIdx].length_ft);
+    const ftRounded = roundToInc(Number.isFinite(raw) ? raw : 0, ROUND_INC);
+    return Math.max(0, Math.round(ftRounded * 100) / 100);
+  }
+  return feetFinalByKey[v] ?? 0;
+}
+
+function labelForGateSideValue(
+  v: string,
+  segments: Segment[],
+  customerSegments: { length_ft?: number }[]
+): string {
+  const lineIdx = parseDrawLineGateValue(v);
+  if (lineIdx != null && customerSegments[lineIdx]) return `Line ${lineIdx + 1}`;
+  return segments.find((s) => s.key === v)?.name ?? v;
+}
+
 export default function CalculatorPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [pricingRules, setPricingRules] = useState<PricingRule[]>([]);
@@ -209,9 +241,9 @@ export default function CalculatorPage() {
   const [materialBomTsv, setMaterialBomTsv] = useState('');
   const [taxRate, setTaxRate] = useState(13);
   const [applyTax, setApplyTax] = useState(true);
-  /** One segment key per single gate (same order as quantity). */
+  /** One segment key or `draw:N` (layout line index) per single gate (same order as quantity). */
   const [singleGateSides, setSingleGateSides] = useState<string[]>([]);
-  /** One segment key per double gate (both panels on the same line). */
+  /** One segment key or `draw:N` per double gate (both panels on the same line). */
   const [doubleGateSides, setDoubleGateSides] = useState<string[]>([]);
   const [customerSegments, setCustomerSegments] = useState<{ start_lat: number; start_lng: number; end_lat: number; end_lng: number; length_ft?: number }[]>([]);
   const [customerGates, setCustomerGates] = useState<{ gate_type: string; quantity: number; lat?: number | null; lng?: number | null }[]>([]);
@@ -347,6 +379,27 @@ export default function CalculatorPage() {
     const dk = defaultSegmentKey(segments);
     setDoubleGateSides((prev) => padDoubleGateSides(prev, doubleGateQty, dk));
   }, [doubleGateQty, segments]);
+
+  useEffect(() => {
+    const maxLine = customerSegments.length;
+    const dk = defaultSegmentKey(segments);
+    const coerce = (arr: string[], qty: number, pad: (p: string[], l: number, d: string) => string[]) => {
+      const base = pad(arr, qty, dk);
+      if (qty === 0) return arr.length > 0 ? [] : null;
+      let changed = false;
+      const out = base.map((v) => {
+        const li = parseDrawLineGateValue(v);
+        if (li != null && (maxLine === 0 || li >= maxLine)) {
+          changed = true;
+          return dk;
+        }
+        return v;
+      });
+      return changed ? out : null;
+    };
+    setSingleGateSides((prev) => coerce(prev, singleGateQty, padSingleGateSides) ?? prev);
+    setDoubleGateSides((prev) => coerce(prev, doubleGateQty, padDoubleGateSides) ?? prev);
+  }, [customerSegments.length, segments, singleGateQty, doubleGateQty]);
 
   useEffect(() => {
     if (loading) return;
@@ -1032,15 +1085,15 @@ export default function CalculatorPage() {
   const totalGateCount = Math.max(0, singleGateQty + doubleGateQty);
   const gateInstalledParts: string[] = [];
   singleGateSides.slice(0, singleGateQty).forEach((key, i) => {
-    const ft = feetFinalByKey[key] ?? 0;
-    const sideLabel = segments.find((s) => s.key === key)?.name ?? key;
+    const ft = feetForGateSideValue(key, feetFinalByKey, customerSegments);
+    const sideLabel = labelForGateSideValue(key, segments, customerSegments);
     gateInstalledParts.push(
       `Single ${i + 1}: ${sideLabel}${ft > 0 ? ` (${fmtFeet(ft)} along that side)` : ''}`
     );
   });
   doubleGateSides.slice(0, doubleGateQty).forEach((key, i) => {
-    const ft = feetFinalByKey[key] ?? 0;
-    const sideLabel = segments.find((s) => s.key === key)?.name ?? key;
+    const ft = feetForGateSideValue(key, feetFinalByKey, customerSegments);
+    const sideLabel = labelForGateSideValue(key, segments, customerSegments);
     gateInstalledParts.push(
       `Double ${i + 1}: ${sideLabel}${ft > 0 ? ` (${fmtFeet(ft)} along that side)` : ''}`
     );
@@ -1631,7 +1684,7 @@ export default function CalculatorPage() {
                 <h2 className="text-base font-semibold text-slate-900">Gates</h2>
               </div>
               <p className="mt-1 text-xs text-slate-500">
-                Add gate quantities and assign each gate to a segment.
+                Add gate quantities and assign each gate to a calculator side or a drawn fence line.
               </p>
             </div>
             <div className="space-y-3 p-4 sm:p-5">
@@ -1659,11 +1712,12 @@ export default function CalculatorPage() {
                   </div>
                 </div>
                 <p className="text-xs text-slate-500">
-                  Each gate can sit on its own side. A double gate is one unit on a single side (same line).
+                  Each gate can sit on its own side or on a numbered line from the layout map. A double gate is one
+                  unit on a single line.
                 </p>
                 {singleGateQty > 0 && (
                   <div className="space-y-2 rounded-xl border border-slate-100 bg-slate-50/80 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Single gate sides</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Single gate placement</p>
                     {Array.from({ length: singleGateQty }, (_, i) => {
                       const dk = defaultSegmentKey(segments);
                       const val = singleGateSides[i] ?? dk;
@@ -1683,11 +1737,26 @@ export default function CalculatorPage() {
                             }}
                             className={`${field} min-w-[10rem] flex-1`}
                           >
-                            {segments.map((s) => (
-                              <option key={s.key} value={s.key}>
-                                {s.name}
-                              </option>
-                            ))}
+                            <optgroup label="Calculator sides">
+                              {segments.map((s) => (
+                                <option key={s.key} value={s.key}>
+                                  {s.name}
+                                </option>
+                              ))}
+                            </optgroup>
+                            {customerSegments.length > 0 && (
+                              <optgroup label="Drawn fence lines">
+                                {customerSegments.map((cs, li) => {
+                                  const rawFt = Number(cs.length_ft);
+                                  const ftDisp = Number.isFinite(rawFt) ? fmtFeet(roundToInc(rawFt, ROUND_INC)) : '—';
+                                  return (
+                                    <option key={`draw-sg-${li}`} value={`${GATE_ASSIGN_DRAW_PREFIX}${li}`}>
+                                      Line {li + 1} ({ftDisp})
+                                    </option>
+                                  );
+                                })}
+                              </optgroup>
+                            )}
                           </select>
                         </div>
                       );
@@ -1696,7 +1765,7 @@ export default function CalculatorPage() {
                 )}
                 {doubleGateQty > 0 && (
                   <div className="space-y-2 rounded-xl border border-slate-100 bg-slate-50/80 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Double gate sides</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Double gate placement</p>
                     {Array.from({ length: doubleGateQty }, (_, i) => {
                       const dk = defaultSegmentKey(segments);
                       const val = doubleGateSides[i] ?? dk;
@@ -1716,11 +1785,26 @@ export default function CalculatorPage() {
                             }}
                             className={`${field} min-w-[10rem] flex-1`}
                           >
-                            {segments.map((s) => (
-                              <option key={s.key} value={s.key}>
-                                {s.name}
-                              </option>
-                            ))}
+                            <optgroup label="Calculator sides">
+                              {segments.map((s) => (
+                                <option key={s.key} value={s.key}>
+                                  {s.name}
+                                </option>
+                              ))}
+                            </optgroup>
+                            {customerSegments.length > 0 && (
+                              <optgroup label="Drawn fence lines">
+                                {customerSegments.map((cs, li) => {
+                                  const rawFt = Number(cs.length_ft);
+                                  const ftDisp = Number.isFinite(rawFt) ? fmtFeet(roundToInc(rawFt, ROUND_INC)) : '—';
+                                  return (
+                                    <option key={`draw-dg-${li}`} value={`${GATE_ASSIGN_DRAW_PREFIX}${li}`}>
+                                      Line {li + 1} ({ftDisp})
+                                    </option>
+                                  );
+                                })}
+                              </optgroup>
+                            )}
                           </select>
                         </div>
                       );
