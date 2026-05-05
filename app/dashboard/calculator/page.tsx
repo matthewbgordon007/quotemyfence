@@ -21,6 +21,8 @@ import {
   quoteTemplateStorageKey,
 } from '@/lib/quote-template';
 import { materialLinesToTsv, normalizeMaterialListJson } from '@/lib/material-quote-lines';
+import { segmentsFromLayoutLengthsFeet } from '@/lib/layout-segments-to-latlng';
+import { suggestCalculatorSideLineIndices, type CalculatorSideKey } from '@/lib/fence-line-auto-assign';
 
 const field =
   'rounded-xl border border-slate-200/90 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20';
@@ -215,6 +217,8 @@ export default function CalculatorPage() {
   const [customerGates, setCustomerGates] = useState<{ gate_type: string; quantity: number; lat?: number | null; lng?: number | null }[]>([]);
   const [customerMapCenter, setCustomerMapCenter] = useState<[number, number] | undefined>(undefined);
   const [segmentAssignments, setSegmentAssignments] = useState<Record<string, number | null>>({});
+  /** Optional compass bearing toward the street (0=N, 90=E). Used by “Auto-assign lines”. */
+  const [streetBearingDeg, setStreetBearingDeg] = useState('');
   const [quoteTemplate, setQuoteTemplate] = useState(DEFAULT_QUOTE_TEMPLATE_TEXT);
   const [scopedTemplates, setScopedTemplates] = useState<Record<string, string>>({});
   const [contractorId, setContractorId] = useState<string | null>(null);
@@ -653,19 +657,12 @@ export default function CalculatorPage() {
         }
         const baseLat = 43.653226;
         const baseLng = -79.3831843;
-        let acc = 0;
-        const segs: { start_lat: number; start_lng: number; end_lat: number; end_lng: number; length_ft: number }[] =
-          [];
-        for (const ft of lens) {
-          const start_lat = baseLat + acc * 0.00002;
-          acc += ft;
-          const end_lat = baseLat + acc * 0.00002;
-          segs.push({ start_lat, start_lng: baseLng, end_lat, end_lng: baseLng, length_ft: ft });
-        }
+        const segs = segmentsFromLayoutLengthsFeet(lens, baseLat, baseLng);
         if (segs.length === 0) return;
         setCustomerSegments(segs);
-        const midLat = (segs[0].start_lat + segs[segs.length - 1].end_lat) / 2;
-        setCustomerMapCenter([midLat, baseLng]);
+        const midLat = segs.reduce((a, s) => a + (s.start_lat + s.end_lat) / 2, 0) / segs.length;
+        const midLng = segs.reduce((a, s) => a + (s.start_lng + s.end_lng) / 2, 0) / segs.length;
+        setCustomerMapCenter([midLat, midLng]);
         setSegmentAssignments({ lhs_adj: null, lhs: null, back: null, rhs: null, rhs_adj: null });
         const ho = hoList.find((h) => h.id === filterId);
         if (canFilter && filterId && ho) {
@@ -930,6 +927,35 @@ export default function CalculatorPage() {
     }
   }
 
+  function applySuggestedLineAssignments() {
+    if (customerSegments.length === 0) return;
+    const raw = streetBearingDeg.trim();
+    const bearingParsed = raw === '' ? null : Number(raw);
+    const map = suggestCalculatorSideLineIndices(
+      customerSegments,
+      bearingParsed != null && Number.isFinite(bearingParsed) ? bearingParsed : null
+    );
+    setSegmentAssignments((prev) => {
+      const next = { ...prev };
+      for (const k of Object.keys(map)) {
+        const v = map[k as CalculatorSideKey];
+        if (v !== undefined) next[k] = v;
+      }
+      return next;
+    });
+    setSegments((prev) =>
+      prev.map((seg) => {
+        const lineIdx = map[seg.key as CalculatorSideKey];
+        if (lineIdx === undefined) return seg;
+        if (lineIdx === null) return { ...seg, feet: 0, meters: 0, lastEdited: 'feet' };
+        const ft = Number(customerSegments[lineIdx]?.length_ft);
+        if (!Number.isFinite(ft)) return seg;
+        const meters = ft / M_TO_FT;
+        return { ...seg, feet: ft, meters, lastEdited: 'feet' };
+      })
+    );
+  }
+
   function addSegment() {
     const newKey = `custom_${Date.now()}`;
     setSegments((prev) => [
@@ -958,6 +984,7 @@ export default function CalculatorPage() {
     setCustomerSegments([]);
     setCustomerMapCenter(undefined);
     setSegmentAssignments({});
+    setStreetBearingDeg('');
     setSegments(JSON.parse(JSON.stringify(SEGMENTS)));
     setSingleGateQty(0);
     setDoubleGateQty(0);
@@ -1725,8 +1752,36 @@ export default function CalculatorPage() {
             {customerSegments.length > 0 && customerMapCenter && (
               <div className="border-b border-slate-100 bg-slate-50/30 p-5">
                 <p className="mb-3 text-xs font-medium leading-relaxed text-slate-600">
-                  Customer drawing — assign each numbered line to the correct side (LHS, back, RHS, etc.).
+                  Customer drawing — assign each numbered line to the correct side (LHS, back, RHS, etc.). Use{' '}
+                  <strong className="text-slate-800">Auto-assign</strong> for a first pass: longest line → back; other
+                  lines by angle around the lot. If you enter the{' '}
+                  <strong className="text-slate-800">street bearing</strong> (compass°, 0=north, 90=east, toward the
+                  road), we pick the line least toward the street as the back yard run.
                 </p>
+                <div className="mb-3 flex flex-wrap items-end gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      Street bearing (optional °)
+                    </label>
+                    <input
+                      type="number"
+                      step={1}
+                      min={0}
+                      max={360}
+                      value={streetBearingDeg}
+                      onChange={(e) => setStreetBearingDeg(e.target.value)}
+                      placeholder="e.g. 90 for east"
+                      className="mt-1 w-36 rounded-lg border border-slate-200/90 bg-white px-2 py-1.5 text-sm tabular-nums outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-500/25"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={applySuggestedLineAssignments}
+                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
+                  >
+                    Auto-assign lines
+                  </button>
+                </div>
                 <FenceDrawingMap
                   segments={customerSegments}
                   gates={customerGates}

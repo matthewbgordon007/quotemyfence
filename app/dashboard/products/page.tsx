@@ -562,8 +562,8 @@ export default function ProductsPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fence_style_id: styleId, ...updates }),
     });
+    const data = await res.json().catch(() => ({}));
     if (res.ok) {
-      const data = await res.json();
       setStylePricingRules((prev) => {
         const idx = prev.findIndex((r) => r.fence_style_id === styleId);
         if (idx >= 0) {
@@ -574,6 +574,8 @@ export default function ProductsPage() {
         return [...prev, data];
       });
       setPricingModal(null);
+    } else {
+      alert(typeof data?.error === 'string' ? data.error : 'Could not save pricing. Check admin access and try again.');
     }
   }
 

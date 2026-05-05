@@ -36,7 +36,10 @@ export async function PATCH(request: NextRequest) {
   ];
   const updates: Record<string, number> = {};
   for (const k of allowed) {
-    if (body[k] !== undefined) updates[k] = Number(body[k]) ?? 0;
+    if (body[k] !== undefined) {
+      const n = Number(body[k]);
+      updates[k] = Number.isFinite(n) ? n : 0;
+    }
   }
 
   const { data: existing } = await supabase
