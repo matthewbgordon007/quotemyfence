@@ -10,6 +10,8 @@ export interface LayoutDrawCanvasRef {
   appendSegmentByLength: (lengthFt: number) => void;
 }
 
+export type LineHighlightMode = 'none' | 'private' | 'shared';
+
 export interface LayoutDrawCanvasProps {
   initialDrawing?: {
     points: { x: number; y: number }[];
@@ -19,6 +21,8 @@ export interface LayoutDrawCanvasProps {
   } | null;
   /** When true, fit view to drawing and hide editing controls */
   readOnly?: boolean;
+  /** One entry per drawn line: none = unassigned, private = one homeowner, shared = 2+ */
+  lineHighlightModes?: LineHighlightMode[];
   onDrawingChange?: (data: {
     points: { x: number; y: number }[];
     segments: { length_ft: number }[];
@@ -51,8 +55,14 @@ function pointToSegmentDist(p: { x: number; y: number }, a: { x: number; y: numb
   return dist(p, np);
 }
 
+function strokeForLineMode(mode: LineHighlightMode | undefined): string {
+  if (mode === 'private') return '#16a34a';
+  if (mode === 'shared') return '#dc2626';
+  return '#1e293b';
+}
+
 export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvasProps>(
-  function LayoutDrawCanvas({ initialDrawing, readOnly, onDrawingChange, onReset }, ref) {
+  function LayoutDrawCanvas({ initialDrawing, readOnly, lineHighlightModes, onDrawingChange, onReset }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
     const svgRef = useRef<SVGSVGElement>(null);
     // Each segment is exactly one line: [start, end]
@@ -388,14 +398,20 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                     y1={seg[0].y}
                     x2={seg[1].x}
                     y2={seg[1].y}
-                    stroke="#1e293b"
-                    strokeWidth={1.5}
+                    stroke={strokeForLineMode(lineHighlightModes?.[si])}
+                    strokeWidth={lineHighlightModes?.[si] && lineHighlightModes[si] !== 'none' ? 2.25 : 1.5}
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     style={{ filter: 'drop-shadow(0px 1px 1px rgba(0,0,0,0.1))' }}
                   />
                   {seg.map((p, pi) => (
-                    <circle key={pi} cx={p.x} cy={p.y} r={1.5} fill="#1e293b" />
+                    <circle
+                      key={pi}
+                      cx={p.x}
+                      cy={p.y}
+                      r={1.5}
+                      fill={strokeForLineMode(lineHighlightModes?.[si])}
+                    />
                   ))}
                   {segments.length <= 25 && (() => {
                     const mx = (seg[0].x + seg[1].x) / 2;
@@ -490,6 +506,28 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
           </button>
           <button
             type="button"
+            onClick={() => setMode('place_single_gate')}
+            className={`rounded-lg border px-3 py-1.5 text-sm font-semibold ${
+              mode === 'place_single_gate'
+                ? 'border-green-600 bg-green-100 text-green-900'
+                : 'border-green-200 bg-white text-green-800 hover:bg-green-50'
+            }`}
+          >
+            Single gate
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('place_double_gate')}
+            className={`rounded-lg border px-3 py-1.5 text-sm font-semibold ${
+              mode === 'place_double_gate'
+                ? 'border-sky-600 bg-sky-100 text-sky-900'
+                : 'border-sky-200 bg-white text-sky-800 hover:bg-sky-50'
+            }`}
+          >
+            Double gate
+          </button>
+          <button
+            type="button"
             onClick={undo}
             className="rounded-lg border border-[var(--line)] bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-50"
           >
@@ -516,27 +554,22 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
             <span className="text-xs text-[var(--muted)]">Zoom</span>
           </div>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium text-[var(--muted)]">Gates:</span>
-          <button
-            type="button"
-            onClick={() => setMode('place_single_gate')}
-            className={`rounded-lg border px-3 py-1.5 text-sm font-medium ${
-              mode === 'place_single_gate' ? 'border-green-500 bg-green-100' : 'border-[var(--line)] bg-white hover:bg-slate-50'
-            }`}
-          >
-            + Single gate
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode('place_double_gate')}
-            className={`rounded-lg border px-3 py-1.5 text-sm font-medium ${
-              mode === 'place_double_gate' ? 'border-blue-500 bg-blue-100' : 'border-[var(--line)] bg-white hover:bg-slate-50'
-            }`}
-          >
-            + Double gate
-          </button>
-        </div>
+        {!readOnly && segments.length > 0 && (
+          <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-600">
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2 w-6 rounded-sm bg-slate-800" />
+              Unassigned
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2 w-6 rounded-sm bg-green-600" />
+              Private (one homeowner)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2 w-6 rounded-sm bg-red-600" />
+              Shared (2+ homeowners)
+            </span>
+          </div>
+        )}
         {segments.length > 0 && (
           <div className="mt-3 space-y-3">
             <div className="flex flex-wrap items-center gap-3">
@@ -566,10 +599,10 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
           </div>
         )}
         {mode === 'place_single_gate' && (
-          <p className="mt-2 text-sm text-[var(--muted)]">Click on a line to place a single gate</p>
+          <p className="mt-2 text-sm text-[var(--muted)]">Click on a line to place a single gate (green marker).</p>
         )}
         {mode === 'place_double_gate' && (
-          <p className="mt-2 text-sm text-[var(--muted)]">Click on a line to place a double gate</p>
+          <p className="mt-2 text-sm text-[var(--muted)]">Click on a line to place a double gate (blue marker).</p>
         )}
         {mode === 'draw' && (
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]">

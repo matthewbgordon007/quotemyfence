@@ -229,6 +229,7 @@ export default function CalculatorPage() {
   const quoteId = searchParams.get('quote_id');
   const materialQuoteId = searchParams.get('material_quote_id');
   const fromLayoutId = searchParams.get('from_layout');
+  const layoutHomeownerFilter = searchParams.get('layout_homeowner');
   const effectiveCustomerId = fromCustomerId || materialQuoteCustomerId;
 
   useEffect(() => {
@@ -630,8 +631,26 @@ export default function CalculatorPage() {
         const dd = layout.drawing_data as {
           segments?: { length_ft: number }[];
           gates?: { type: string; quantity: number }[];
+          homeowners?: { id: string; name?: string; address?: string }[];
+          segment_assignments?: string[][];
         };
-        const lens = (dd.segments || []).map((s) => Number(s.length_ft)).filter((n) => Number.isFinite(n) && n > 0);
+        const allLens = (dd.segments || []).map((s) => Number(s.length_ft)).filter((n) => Number.isFinite(n) && n > 0);
+        const assign = Array.isArray(dd.segment_assignments) ? dd.segment_assignments : [];
+        const hoList = Array.isArray(dd.homeowners) ? dd.homeowners : [];
+        const filterId = layoutHomeownerFilter;
+        const canFilter =
+          Boolean(filterId) &&
+          hoList.some((h) => h.id === filterId) &&
+          assign.length > 0 &&
+          assign.some((row) => Array.isArray(row) && row.includes(filterId as string));
+        let lens = allLens;
+        if (canFilter && filterId) {
+          const filtered = (dd.segments || [])
+            .map((s, i) => ({ ft: Number(s.length_ft), i }))
+            .filter(({ i, ft }) => Number.isFinite(ft) && ft > 0 && (assign[i] || []).includes(filterId))
+            .map(({ ft }) => ft);
+          if (filtered.length > 0) lens = filtered;
+        }
         const baseLat = 43.653226;
         const baseLng = -79.3831843;
         let acc = 0;
@@ -648,6 +667,11 @@ export default function CalculatorPage() {
         const midLat = (segs[0].start_lat + segs[segs.length - 1].end_lat) / 2;
         setCustomerMapCenter([midLat, baseLng]);
         setSegmentAssignments({ lhs_adj: null, lhs: null, back: null, rhs: null, rhs_adj: null });
+        const ho = hoList.find((h) => h.id === filterId);
+        if (canFilter && filterId && ho) {
+          if (ho.name) setHomeownerName(String(ho.name));
+          if (ho.address) setQuoteAddress(String(ho.address));
+        }
 
         let single = 0;
         let double = 0;
@@ -666,7 +690,7 @@ export default function CalculatorPage() {
     return () => {
       cancelled = true;
     };
-  }, [loading, fromLayoutId]);
+  }, [loading, fromLayoutId, layoutHomeownerFilter]);
 
   useEffect(() => {
     if (!contractorId || loading || quoteId || materialQuoteId || fromCustomerId || fromLayoutId || !draftHandledRef.current)

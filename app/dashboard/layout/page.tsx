@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import html2canvas from 'html2canvas';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { LayoutDrawCanvas, LayoutDrawCanvasRef } from '@/components/LayoutDrawCanvas';
+import { LayoutDrawCanvas, LayoutDrawCanvasRef, type LineHighlightMode } from '@/components/LayoutDrawCanvas';
+import { LeadSearchModal } from '@/components/dashboard/LeadSearchModal';
 
 type SavedLayout = {
   id: string;
@@ -19,6 +20,24 @@ type SavedLayout = {
 type LeadSearchRow = { id: string; first_name: string; last_name: string; email: string; address: string | null };
 
 type ApiSegment = { start_lat: number; start_lng: number; end_lat: number; end_lng: number; length_ft?: number };
+
+type LayoutHomeowner = {
+  id: string;
+  name: string;
+  address: string;
+  quote_session_id?: string | null;
+};
+
+function newHomeownerId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return `h_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+}
+
+function syncAssignmentsLength(assignments: string[][], segmentCount: number): string[][] {
+  const next = assignments.slice(0, segmentCount);
+  while (next.length < segmentCount) next.push([]);
+  return next;
+}
 
 // Convert lat/lng segments to x,y in feet (origin at first point)
 function convertSegmentsToDrawing(
@@ -106,6 +125,9 @@ export default function LayoutPage() {
   const [linkSearch, setLinkSearch] = useState('');
   const [linkSearchResults, setLinkSearchResults] = useState<LeadSearchRow[]>([]);
   const [linkingLeadId, setLinkingLeadId] = useState<string | null>(null);
+  const [homeowners, setHomeowners] = useState<LayoutHomeowner[]>([]);
+  const [segmentAssignments, setSegmentAssignments] = useState<string[][]>([]);
+  const [linkHomeownerId, setLinkHomeownerId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/contractor/layouts', { credentials: 'include' })
@@ -131,15 +153,37 @@ export default function LayoutPage() {
           return r.json();
         })
         .then((data) => {
-          const d = data.drawing_data;
-          if (d?.points?.length >= 2) {
+          const d = data.drawing_data as {
+            points?: { x: number; y: number }[];
+            segments?: { length_ft: number }[];
+            gates?: { type: string; quantity: number }[];
+            total_length_ft?: number;
+            homeowners?: LayoutHomeowner[];
+            segment_assignments?: string[][];
+          };
+          const pts = d?.points;
+          if (pts && pts.length >= 2) {
             setInitialDrawing({
-              points: d.points,
+              points: pts,
               segments: d.segments || [],
-              gates: d.gates || [],
+              gates: (d.gates || []).map((g) => ({
+                type: (g.type === 'double' ? 'double' : 'single') as 'single' | 'double',
+                quantity: g.quantity || 0,
+              })),
               total_length_ft: d.total_length_ft ?? 0,
             });
             setTitle(data.title || '');
+            const nSeg = (d.segments || []).length;
+            const rawHo = Array.isArray(d.homeowners) ? d.homeowners : [];
+            setHomeowners(
+              rawHo.map((h) => ({
+                id: typeof h.id === 'string' ? h.id : newHomeownerId(),
+                name: String(h.name || ''),
+                address: String(h.address || ''),
+                quote_session_id: h.quote_session_id ?? null,
+              }))
+            );
+            setSegmentAssignments(syncAssignmentsLength(Array.isArray(d.segment_assignments) ? d.segment_assignments : [], nSeg));
           }
         })
         .catch(() => setLoading(false))
@@ -171,6 +215,20 @@ export default function LayoutPage() {
             c ? `${c.first_name} ${c.last_name}`.trim()
               : (p?.formatted_address && p.formatted_address !== '—' ? p.formatted_address : '') || ''
           );
+        }
+        if (fromId && c) {
+          setHomeowners([
+            {
+              id: newHomeownerId(),
+              name: `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Homeowner',
+              address: p?.formatted_address && p.formatted_address !== '—' ? p.formatted_address : '',
+              quote_session_id: fromId,
+            },
+          ]);
+          setSegmentAssignments([]);
+        } else if (!layoutId) {
+          setHomeowners([]);
+          setSegmentAssignments([]);
         }
       })
       .catch(() => setInitialDrawing(null))
@@ -235,7 +293,45 @@ export default function LayoutPage() {
 
   function handleReset() {
     setInitialDrawing(null);
+    setHomeowners([]);
+    setSegmentAssignments([]);
     setResetKey((k) => k + 1);
+  }
+
+  const handleDrawingChange = useCallback(
+    (geo: {
+      points: { x: number; y: number }[];
+      segments: { length_ft: number }[];
+      gates: { type: 'single' | 'double'; quantity: number }[];
+      total_length_ft: number;
+    }) => {
+      setDrawingData(geo);
+      setSegmentAssignments((prev) => syncAssignmentsLength(prev, geo.segments.length));
+    },
+    []
+  );
+
+  const lineHighlightModes = useMemo((): LineHighlightMode[] => {
+    const n = drawingData?.segments?.length ?? 0;
+    return Array.from({ length: n }, (_, i) => {
+      const ids = segmentAssignments[i] || [];
+      if (ids.length === 0) return 'none';
+      if (ids.length === 1) return 'private';
+      return 'shared';
+    });
+  }, [drawingData?.segments?.length, segmentAssignments]);
+
+  function toggleLineHomeowner(lineIndex: number, homeownerId: string) {
+    const n = drawingData?.segments.length ?? 0;
+    setSegmentAssignments((prev) => {
+      const next = syncAssignmentsLength(prev, n);
+      const row = [...(next[lineIndex] || [])];
+      const pos = row.indexOf(homeownerId);
+      if (pos >= 0) row.splice(pos, 1);
+      else row.push(homeownerId);
+      next[lineIndex] = row;
+      return next;
+    });
   }
 
   async function handleSave() {
@@ -247,6 +343,12 @@ export default function LayoutPage() {
       alert('Please draw at least one line before saving');
       return;
     }
+    const nSeg = drawingData.segments.length;
+    const drawingPayload = {
+      ...drawingData,
+      homeowners,
+      segment_assignments: syncAssignmentsLength(segmentAssignments, nSeg),
+    };
     setSaving(true);
     try {
       let imageDataUrl: string | undefined;
@@ -268,7 +370,7 @@ export default function LayoutPage() {
         credentials: 'include',
         body: JSON.stringify({
           title: title.trim(),
-          drawing_data: drawingData,
+          drawing_data: drawingPayload,
           quote_session_id: fromId || undefined,
           standalone: !isUpdate && !fromId,
           image_data_url: imageDataUrl,
@@ -383,7 +485,7 @@ export default function LayoutPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col">
+    <div className="flex h-[calc(100vh-4rem)] min-h-0 flex-col">
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--line)] bg-white px-4 py-3">
         <div className="flex flex-wrap items-center gap-4">
           <Link
@@ -409,12 +511,28 @@ export default function LayoutPage() {
             {saving ? 'Saving…' : 'Save'}
           </button>
           {layoutId && (
-            <Link
-              href={`/dashboard/calculator?from_layout=${encodeURIComponent(layoutId)}`}
-              className="rounded-lg border border-[var(--line)] bg-white px-4 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-50"
+            <select
+              defaultValue=""
+              onChange={(e) => {
+                const v = e.target.value;
+                e.target.value = '';
+                if (!v) return;
+                if (v === 'all') {
+                  window.location.href = `/dashboard/calculator?from_layout=${encodeURIComponent(layoutId)}`;
+                  return;
+                }
+                window.location.href = `/dashboard/calculator?from_layout=${encodeURIComponent(layoutId)}&layout_homeowner=${encodeURIComponent(v)}`;
+              }}
+              className="rounded-lg border border-[var(--line)] bg-white px-3 py-1.5 text-sm font-medium text-slate-800"
             >
-              Export to calculator
-            </Link>
+              <option value="">Export to calculator…</option>
+              <option value="all">All lines</option>
+              {homeowners.map((h) => (
+                <option key={h.id} value={h.id}>
+                  {h.name.trim() || 'Homeowner'} — their lines only
+                </option>
+              ))}
+            </select>
           )}
           {savedLayouts.length > 0 && (
             <select
@@ -536,6 +654,42 @@ export default function LayoutPage() {
         </div>
       )}
 
+      <LeadSearchModal
+        open={!!linkHomeownerId}
+        title="Link homeowner to a lead"
+        onClose={() => setLinkHomeownerId(null)}
+        onPick={async (sessionId) => {
+          const hid = linkHomeownerId;
+          if (!hid) return;
+          try {
+            const r = await fetch(`/api/contractor/customers/${sessionId}`, { credentials: 'include' });
+            if (r.ok) {
+              const d = await r.json();
+              const c = d.customer;
+              const prop = d.property;
+              const name = c ? `${c.first_name || ''} ${c.last_name || ''}`.trim() : '';
+              const addr =
+                prop?.formatted_address && prop.formatted_address !== '—' ? prop.formatted_address : '';
+              setHomeowners((hs) =>
+                hs.map((h) =>
+                  h.id === hid
+                    ? { ...h, quote_session_id: sessionId, name: name || h.name, address: addr || h.address }
+                    : h
+                )
+              );
+            } else {
+              setHomeowners((hs) =>
+                hs.map((h) => (h.id === hid ? { ...h, quote_session_id: sessionId } : h))
+              );
+            }
+          } catch {
+            setHomeowners((hs) =>
+              hs.map((h) => (h.id === hid ? { ...h, quote_session_id: sessionId } : h))
+            );
+          }
+        }}
+      />
+
       {showMaterialModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !submittingMaterial && setShowMaterialModal(false)}>
           <div className="w-full max-w-lg rounded-2xl border border-[var(--line)] bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
@@ -600,14 +754,135 @@ export default function LayoutPage() {
         </div>
       )}
 
-      <div ref={canvasContainerRef} className="relative flex-1 p-4">
-        <LayoutDrawCanvas
-          ref={drawRef}
-          key={`${resetKey}-${layoutId || 'new'}-${initialDrawing ? 'loaded' : 'init'}`}
-          initialDrawing={resetKey === 0 ? initialDrawing : null}
-          onReset={handleReset}
-          onDrawingChange={setDrawingData}
-        />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:flex-row">
+        <aside className="max-h-[min(52vh,28rem)] shrink-0 overflow-y-auto border-b border-[var(--line)] bg-[var(--bg2)] px-4 py-4 lg:max-h-none lg:w-[22rem] lg:border-b-0 lg:border-r lg:border-[var(--line)]">
+          <h2 className="text-sm font-bold text-slate-900">Homeowners &amp; lines</h2>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            Add each address, then tick which lines belong to whom. One homeowner = private (green). Several = shared
+            fence (red).
+          </p>
+          <button
+            type="button"
+            onClick={() =>
+              setHomeowners((prev) => [
+                ...prev,
+                { id: newHomeownerId(), name: '', address: '', quote_session_id: null },
+              ])
+            }
+            className="mt-3 rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+          >
+            + Add homeowner
+          </button>
+          <ul className="mt-3 space-y-3">
+            {homeowners.map((h) => (
+              <li key={h.id} className="rounded-xl border border-[var(--line)] bg-white p-3 shadow-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-xs font-semibold text-slate-500">Homeowner</span>
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-red-600 hover:underline"
+                    onClick={() => {
+                      setHomeowners((prev) => prev.filter((x) => x.id !== h.id));
+                      setSegmentAssignments((prev) =>
+                        prev.map((row) => row.filter((id) => id !== h.id))
+                      );
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  value={h.name}
+                  onChange={(e) =>
+                    setHomeowners((prev) =>
+                      prev.map((x) => (x.id === h.id ? { ...x, name: e.target.value } : x))
+                    )
+                  }
+                  placeholder="Name"
+                  className="mt-2 w-full rounded-lg border border-[var(--line)] px-2 py-1.5 text-sm"
+                />
+                <textarea
+                  value={h.address}
+                  onChange={(e) =>
+                    setHomeowners((prev) =>
+                      prev.map((x) => (x.id === h.id ? { ...x, address: e.target.value } : x))
+                    )
+                  }
+                  placeholder="Address"
+                  rows={2}
+                  className="mt-2 w-full rounded-lg border border-[var(--line)] px-2 py-1.5 text-sm"
+                />
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setLinkHomeownerId(h.id)}
+                    className="rounded-lg border border-[var(--line)] px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    Link to lead
+                  </button>
+                  {h.quote_session_id && (
+                    <span className="text-xs text-green-700">Linked</span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+          {homeowners.length === 0 && (
+            <p className="mt-2 text-xs text-[var(--muted)]">No homeowners yet — add at least one to assign lines.</p>
+          )}
+          {homeowners.length > 0 && (drawingData?.segments.length ?? 0) > 0 && (
+            <div className="mt-4">
+              <h3 className="text-xs font-bold uppercase tracking-wide text-slate-600">Assign lines</h3>
+              <div className="mt-2 max-h-64 overflow-auto rounded-lg border border-[var(--line)] bg-white">
+                <table className="w-full min-w-[200px] text-left text-xs">
+                  <thead className="sticky top-0 bg-slate-50">
+                    <tr>
+                      <th className="px-2 py-2 font-semibold text-slate-700">Line</th>
+                      <th className="px-2 py-2 font-semibold text-slate-700">ft</th>
+                      {homeowners.map((h) => (
+                        <th key={h.id} className="px-1 py-2 font-semibold text-slate-600">
+                          <span className="line-clamp-2 block max-w-[4.5rem]">{h.name.trim() || '—'}</span>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(drawingData?.segments || []).map((seg, lineIdx) => (
+                      <tr key={lineIdx} className="border-t border-slate-100">
+                        <td className="px-2 py-1.5 font-medium text-slate-800">{lineIdx + 1}</td>
+                        <td className="px-2 py-1.5 text-slate-600">
+                          {Number(seg.length_ft).toFixed(1)}
+                        </td>
+                        {homeowners.map((h) => (
+                          <td key={h.id} className="px-1 py-1.5 text-center">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-slate-300"
+                              checked={(segmentAssignments[lineIdx] || []).includes(h.id)}
+                              onChange={() => toggleLineHomeowner(lineIdx, h.id)}
+                              aria-label={`Line ${lineIdx + 1} for ${h.name || 'homeowner'}`}
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </aside>
+        <div ref={canvasContainerRef} className="relative flex min-h-[min(45vh,20rem)] flex-1 flex-col p-4 lg:min-h-0">
+          <LayoutDrawCanvas
+            ref={drawRef}
+            key={`${resetKey}-${layoutId || 'new'}-${initialDrawing ? 'loaded' : 'init'}`}
+            initialDrawing={resetKey === 0 ? initialDrawing : null}
+            lineHighlightModes={lineHighlightModes}
+            onReset={handleReset}
+            onDrawingChange={handleDrawingChange}
+          />
+        </div>
       </div>
 
       <p className="py-2 text-center text-xs text-[var(--muted)]">
