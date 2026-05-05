@@ -6,7 +6,9 @@ import {
   buildTypeScopeKey,
   buildTypeStyleScopeKey,
   DEFAULT_QUOTE_TEMPLATE_TEXT,
+  GENERIC_BASE_QUOTE_TEMPLATE_TEXT,
   getMaterialQuoteTemplate,
+  isCanadianFenceMaterialSupplyProfile,
   legacyQuoteBlocksStorageKey,
   normalizeTemplateScope,
   QUOTE_TOKEN_DEFS,
@@ -58,7 +60,37 @@ export default function QuoteTemplatePage() {
     fetch('/api/contractor/me', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (data?.id) setContractorId(data.id);
+        if (data?.id) {
+          const id = data.id as string;
+          setContractorId(id);
+          try {
+            const raw = localStorage.getItem(quoteTemplateStorageKey(id));
+            if (raw) {
+              setGlobalTemplateText(raw);
+            } else {
+              const legacyRaw = localStorage.getItem(legacyQuoteBlocksStorageKey(id));
+              if (legacyRaw) {
+                const parsed: unknown = JSON.parse(legacyRaw);
+                if (isQuoteBlocks(parsed)) {
+                  const migrated = quoteBlocksToTemplateText(parsed);
+                  setGlobalTemplateText(migrated);
+                  localStorage.setItem(quoteTemplateStorageKey(id), migrated);
+                }
+              } else if (!isCanadianFenceMaterialSupplyProfile(data.company_name, data.slug)) {
+                setGlobalTemplateText(GENERIC_BASE_QUOTE_TEMPLATE_TEXT);
+              }
+            }
+            const scopedRaw = localStorage.getItem(quoteTemplateScopedStorageKey(id));
+            if (scopedRaw) {
+              const parsedScoped = JSON.parse(scopedRaw) as unknown;
+              if (parsedScoped && typeof parsedScoped === 'object') {
+                setScopedTemplates(parsedScoped as Record<string, string>);
+              }
+            }
+          } catch {
+            // ignore malformed local payloads
+          }
+        }
       })
       .then(async () => {
         const h = await fetch('/api/contractor/product-hierarchy', { cache: 'no-store' }).then((r) =>
@@ -69,36 +101,6 @@ export default function QuoteTemplatePage() {
       })
       .catch(() => {});
   }, []);
-
-  useEffect(() => {
-    if (!contractorId) return;
-    try {
-      const raw = localStorage.getItem(quoteTemplateStorageKey(contractorId));
-      if (raw) {
-        setGlobalTemplateText(raw);
-      } else {
-        // One-time migration from old block-based template storage.
-        const legacyRaw = localStorage.getItem(legacyQuoteBlocksStorageKey(contractorId));
-        if (legacyRaw) {
-          const parsed: unknown = JSON.parse(legacyRaw);
-          if (isQuoteBlocks(parsed)) {
-            const migrated = quoteBlocksToTemplateText(parsed);
-            setGlobalTemplateText(migrated);
-            localStorage.setItem(quoteTemplateStorageKey(contractorId), migrated);
-          }
-        }
-      }
-      const scopedRaw = localStorage.getItem(quoteTemplateScopedStorageKey(contractorId));
-      if (scopedRaw) {
-        const parsedScoped = JSON.parse(scopedRaw) as unknown;
-        if (parsedScoped && typeof parsedScoped === 'object') {
-          setScopedTemplates(parsedScoped as Record<string, string>);
-        }
-      }
-    } catch {
-      // ignore malformed local payloads
-    }
-  }, [contractorId]);
 
   useEffect(() => {
     if (!selectedTypeId && types.length > 0) setSelectedTypeId(types[0].id);

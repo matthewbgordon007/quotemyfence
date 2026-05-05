@@ -68,7 +68,11 @@ function fenceLayoutEmailSection(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function getDesignSummary(
   supabase: any,
-  fence: { selected_colour_option_id?: string | null; selected_product_option_id?: string | null } | null
+  fence: {
+    selected_colour_option_id?: string | null;
+    selected_product_option_id?: string | null;
+    selected_fence_style_id?: string | null;
+  } | null
 ): Promise<string> {
   try {
   if (!fence) return '(Not selected)';
@@ -103,6 +107,31 @@ async function getDesignSummary(
           ].filter(Boolean);
           return parts.join(' • ') || '(Not selected)';
         }
+      }
+    }
+  }
+  if (fence.selected_fence_style_id && !fence.selected_colour_option_id) {
+    const sid = fence.selected_fence_style_id;
+    const { data: style } = await supabase
+      .from('fence_styles')
+      .select('style_name, fence_type_id')
+      .eq('id', sid)
+      .single();
+    const styleRow = style as { style_name: string; fence_type_id: string } | null;
+    if (styleRow) {
+      const { data: ft } = await supabase
+        .from('fence_types')
+        .select('name, standard_height_ft')
+        .eq('id', styleRow.fence_type_id)
+        .single();
+      const ftRow = ft as { name: string; standard_height_ft: number | null } | null;
+      if (ftRow) {
+        const parts = [
+          ftRow.standard_height_ft != null && `${ftRow.standard_height_ft} ft`,
+          stripSupplierFromTypeName(ftRow.name),
+          styleRow.style_name,
+        ].filter(Boolean);
+        return parts.join(' • ') || '(Not selected)';
       }
     }
   }

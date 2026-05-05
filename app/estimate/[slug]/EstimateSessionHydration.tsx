@@ -44,6 +44,7 @@ export function EstimateSessionHydration({ slug }: { slug: string }) {
           hasRemoval: !!data.hasRemoval,
           selectedProductOptionId: data.selectedProductOptionId ?? null,
           selectedColourOptionId: data.selectedColourOptionId ?? null,
+          selectedFenceStyleId: data.selectedFenceStyleId ?? null,
           totals: data.totals ?? null,
         });
         hydratedSidRef.current = sid;

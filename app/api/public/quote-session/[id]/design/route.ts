@@ -8,12 +8,21 @@ export async function POST(
   try {
     const { id: sessionId } = await params;
     const body = await request.json();
-    const { product_option_id, colour_option_id, subtotal_low, subtotal_high, total_low, total_high } = body;
+    const {
+      product_option_id,
+      colour_option_id,
+      fence_style_id: rawFenceStyleId,
+      subtotal_low,
+      subtotal_high,
+      total_low,
+      total_high,
+    } = body;
+    const fence_style_id = typeof rawFenceStyleId === 'string' ? rawFenceStyleId.trim() : '';
 
-    const optionId = colour_option_id || product_option_id;
+    const optionId = colour_option_id || product_option_id || fence_style_id;
     if (!sessionId || !optionId) {
       return NextResponse.json(
-        { error: 'Missing session id or product/colour option' },
+        { error: 'Missing session id or product/colour/style selection' },
         { status: 400 }
       );
     }
@@ -45,6 +54,20 @@ export async function POST(
       ) {
         return NextResponse.json({ error: 'Selected style is hidden' }, { status: 400 });
       }
+    } else if (fence_style_id) {
+      const { data: selectedStyle } = await supabase
+        .from('fence_styles')
+        .select('*')
+        .eq('id', fence_style_id)
+        .eq('is_active', true)
+        .single();
+      if (
+        !selectedStyle ||
+        (selectedStyle as { is_hidden?: boolean | null }).is_hidden === true ||
+        (selectedStyle as { visibility_target?: string | null }).visibility_target === 'contractors_only'
+      ) {
+        return NextResponse.json({ error: 'Selected style is hidden or invalid' }, { status: 400 });
+      }
     }
 
     const { data: fence } = await supabase
@@ -61,9 +84,15 @@ export async function POST(
     if (colour_option_id) {
       fenceUpdate.selected_colour_option_id = colour_option_id;
       fenceUpdate.selected_product_option_id = null;
+      fenceUpdate.selected_fence_style_id = null;
+    } else if (fence_style_id) {
+      fenceUpdate.selected_fence_style_id = fence_style_id;
+      fenceUpdate.selected_colour_option_id = null;
+      fenceUpdate.selected_product_option_id = null;
     } else {
       fenceUpdate.selected_product_option_id = product_option_id;
       fenceUpdate.selected_colour_option_id = null;
+      fenceUpdate.selected_fence_style_id = null;
     }
 
     if (fence) {

@@ -35,7 +35,10 @@ function buildContractorProfileBody(c: {
   quote_notification_email: string | null;
   logo_url: string | null;
   primary_color: string | null;
+  quote_deposit_pct?: number;
 }) {
+  const pct = Number(c.quote_deposit_pct);
+  const quote_deposit_pct = Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 10;
   return {
     company_name: c.company_name,
     slug: c.slug || slugifySlug(c.company_name),
@@ -50,6 +53,7 @@ function buildContractorProfileBody(c: {
     primary_color: c.primary_color || '#2563eb',
     secondary_color: c.primary_color,
     accent_color: c.primary_color,
+    quote_deposit_pct,
   };
 }
 
@@ -192,6 +196,7 @@ export default function SettingsPage() {
   logo_url: string | null;
   primary_color: string | null;
   quote_notification_email: string | null;
+  quote_deposit_pct?: number;
   user_role?: string;
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -489,6 +494,37 @@ export default function SettingsPage() {
               className="h-14 w-20 cursor-pointer rounded-xl border border-slate-200/90 shadow-sm"
             />
             <span className="font-mono text-sm text-slate-600">{contractor.primary_color || '#2563eb'}</span>
+          </div>
+        </div>
+
+        <div className={cardShell}>
+          <div className={cardHeader}>
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-sky-500 shadow-sm shadow-sky-500/40" aria-hidden />
+              <h2 className="text-base font-semibold text-slate-900">Quote defaults</h2>
+            </div>
+            <p className="mt-1 text-xs text-slate-500">Used on the quote calculator for deposit line and totals</p>
+          </div>
+          <div className="p-5 sm:p-6">
+            <label className="block text-sm font-medium text-slate-700">Deposit (% of grand total)</label>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              step={0.5}
+              value={contractor.quote_deposit_pct ?? 10}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                setContractor({
+                  ...contractor,
+                  quote_deposit_pct: Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 10,
+                });
+              }}
+              className={field}
+            />
+            <p className="mt-1.5 text-xs text-slate-500">
+              Example: 10 means the deposit line shows 10% of the grand total including tax (when tax is on).
+            </p>
           </div>
         </div>
 

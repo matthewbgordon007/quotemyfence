@@ -126,6 +126,47 @@ Additional details:
 ---------------------------------------------------------
 `;
 
+/** Default long-form quote for most contractors (Canadian Fence Material Supply keeps its own preset). */
+export const GENERIC_BASE_QUOTE_TEMPLATE_TEXT = `Fence quote — {{brand}}
+
+Prepared for: {{homeowner}}
+Location: {{location}}
+
+Product: {{product}}
+Style: {{style}}
+Colour: {{color}}
+Gates: {{gates}} (installed in {{gateInstalledLength}})
+
+Length: {{lengthExpression}}
+
+Private lengths
+{{privateLengths}}
+
+Shared lengths:
+{{sharedLengths}}
+
+Pricing
+{{pricePerLinearFt}} per linear foot (installed)
+{{gateKitPrice}} per gate conversion kit (where applicable)
+
+Subtotal: {{subtotal}}
+{{taxLine}}
+Total: {{grandTotal}}
+Deposit: {{deposit}}
+
+Additional details:
+(Customize this section for the job — options, site conditions, exclusions, timeline, etc.)
+
+Warranty:
+(Customize warranty terms for this installation.)
+`;
+
+export function isCanadianFenceMaterialSupplyProfile(companyName?: string | null, slug?: string | null): boolean {
+  const n = (companyName || '').toLowerCase();
+  const s = (slug || '').toLowerCase();
+  return n.includes('canadian fence material supply') || s.includes('canadian-fence-material-supply');
+}
+
 const WPC_MATERIAL_TEMPLATE = `Location: {{location}}
 
 Brand: {{brand}}

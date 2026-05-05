@@ -167,6 +167,7 @@ export async function GET(
       hasRemoval: !!fence?.has_removal,
       selectedProductOptionId: fence?.selected_product_option_id ?? null,
       selectedColourOptionId: fence?.selected_colour_option_id ?? null,
+      selectedFenceStyleId: (fence as { selected_fence_style_id?: string | null } | null)?.selected_fence_style_id ?? null,
       totals,
     });
   } catch (e) {

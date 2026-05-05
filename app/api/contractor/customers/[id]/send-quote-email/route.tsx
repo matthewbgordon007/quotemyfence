@@ -24,6 +24,9 @@ export async function POST(
 ) {
   const { id: sessionId } = await params;
   const supabase = await createClient();
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser();
   const contractorId = await getContractorId(supabase);
   if (!contractorId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -120,6 +123,7 @@ export async function POST(
     const cc = (leadRecipient?.email?.trim() ||
       (contractor as { quote_notification_email?: string | null })?.quote_notification_email?.trim() ||
       (contractor as { email?: string | null })?.email?.trim()) ?? undefined;
+    const replyTo = authUser?.email?.trim() || cc;
 
     const resend = new Resend(resendKey);
     const from = process.env.EMAIL_FROM || 'quotes@quotemyfence.com';
@@ -128,7 +132,7 @@ export async function POST(
       from,
       to: customer.email,
       cc: cc ? [cc] : undefined,
-      ...(cc ? { replyTo: cc } : {}),
+      ...(replyTo ? { replyTo } : {}),
       subject: `Your fence quote — ${companyName}`,
       html: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px;">

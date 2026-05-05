@@ -29,6 +29,7 @@ export interface ProductHierarchy {
   fenceStyles: { id: string; fence_type_id: string; style_name: string; photo_url?: string | null }[];
   colourOptions: { id: string; fence_style_id: string; color_name: string; photo_url: string | null }[];
   colourPricingRules: { colour_option_id: string; base_price_per_ft_low: number; base_price_per_ft_high: number }[];
+  stylePricingRules?: { fence_style_id: string }[];
 }
 
 export interface EstimateConfig {
@@ -53,6 +54,8 @@ export interface EstimateState {
   hasRemoval: boolean;
   selectedProductOptionId: string | null;
   selectedColourOptionId: string | null;
+  /** When a fence style has pricing but no colour rows, design is saved with style only. */
+  selectedFenceStyleId: string | null;
   totals: { subtotal_low: number; subtotal_high: number; total_low: number; total_high: number } | null;
 }
 
@@ -72,6 +75,7 @@ const defaultState: EstimateState = {
   hasRemoval: false,
   selectedProductOptionId: null,
   selectedColourOptionId: null,
+  selectedFenceStyleId: null,
   totals: null,
 };
 
@@ -83,6 +87,7 @@ export type EstimateHydrationPayload = {
   hasRemoval: boolean;
   selectedProductOptionId: string | null;
   selectedColourOptionId: string | null;
+  selectedFenceStyleId: string | null;
   totals: EstimateState['totals'];
 };
 
@@ -96,6 +101,7 @@ const EstimateContext = createContext<{
   setHasRemoval: (v: boolean) => void;
   setSelectedProductOptionId: (id: string | null) => void;
   setSelectedColourOptionId: (id: string | null) => void;
+  setSelectedFenceStyleId: (id: string | null) => void;
   setTotals: (t: EstimateState['totals']) => void;
   hydrateFromServer: (data: EstimateHydrationPayload) => void;
   resetState: () => void;
@@ -120,6 +126,7 @@ export function EstimateProvider({
       hasRemoval: data.hasRemoval,
       selectedProductOptionId: data.selectedProductOptionId,
       selectedColourOptionId: data.selectedColourOptionId,
+      selectedFenceStyleId: data.selectedFenceStyleId ?? null,
       totals: data.totals,
     }));
   }, []);
@@ -139,7 +146,9 @@ export function EstimateProvider({
       setSelectedProductOptionId: (selectedProductOptionId: string | null) =>
         setState((s) => ({ ...s, selectedProductOptionId })),
       setSelectedColourOptionId: (selectedColourOptionId: string | null) =>
-        setState((s) => ({ ...s, selectedColourOptionId })),
+        setState((s) => ({ ...s, selectedColourOptionId, selectedFenceStyleId: selectedColourOptionId ? null : s.selectedFenceStyleId })),
+      setSelectedFenceStyleId: (selectedFenceStyleId: string | null) =>
+        setState((s) => ({ ...s, selectedFenceStyleId, selectedColourOptionId: selectedFenceStyleId ? null : s.selectedColourOptionId })),
       setTotals: (totals: EstimateState['totals']) => setState((s) => ({ ...s, totals })),
       hydrateFromServer,
       resetState,

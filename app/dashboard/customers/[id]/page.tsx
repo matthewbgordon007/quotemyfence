@@ -181,9 +181,7 @@ export default function CustomerDetailPage() {
     fetch('/api/contractor/suppliers', { credentials: 'include' })
       .then((r) => r.json())
       .then((d) => {
-        const linkedIds: string[] = d.linkedSupplierIds || [];
-        const all: { id: string; company_name: string }[] = d.suppliers || [];
-        setLinkedSuppliers(all.filter((s) => linkedIds.includes(s.id)));
+        setLinkedSuppliers(d.linkedSuppliers || []);
       })
       .catch(() => setLinkedSuppliers([]));
   }, []);

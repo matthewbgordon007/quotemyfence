@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -9,6 +9,8 @@ import {
   buildTypeScopeKey,
   buildTypeStyleScopeKey,
   DEFAULT_QUOTE_TEMPLATE_TEXT,
+  GENERIC_BASE_QUOTE_TEMPLATE_TEXT,
+  isCanadianFenceMaterialSupplyProfile,
   QuoteTokenId,
   composeQuoteText,
   getMaterialQuoteTemplate,
@@ -127,6 +129,10 @@ const M_TO_FT = 3.28084;
 const ROUND_INC = 0.05;
 const EXTEND_ADD = 2;
 
+function calcDraftStorageKey(contractorId: string) {
+  return `qmf_calc_draft_v1_${contractorId}`;
+}
+
 function safeNum(v: unknown): number {
   return Number(v) || 0;
 }
@@ -213,6 +219,9 @@ export default function CalculatorPage() {
   const [scopedTemplates, setScopedTemplates] = useState<Record<string, string>>({});
   const [contractorId, setContractorId] = useState<string | null>(null);
   const [contractorBrand, setContractorBrand] = useState<string>('');
+  const [quoteDepositPct, setQuoteDepositPct] = useState(10);
+  const draftHandledRef = useRef(false);
+  const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -226,45 +235,42 @@ export default function CalculatorPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data?.id) {
-          setContractorId(data.id);
+          const id = data.id as string;
+          setContractorId(id);
           setContractorBrand(data.website || data.company_name || '');
+          const pct = Number(data.quote_deposit_pct);
+          setQuoteDepositPct(Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 10);
+          try {
+            const raw = localStorage.getItem(quoteTemplateStorageKey(id));
+            if (raw) {
+              setQuoteTemplate(raw);
+            } else {
+              const legacyRaw = localStorage.getItem(legacyQuoteBlocksStorageKey(id));
+              if (legacyRaw) {
+                const parsed: unknown = JSON.parse(legacyRaw);
+                if (isQuoteBlocks(parsed)) {
+                  const migrated = quoteBlocksToTemplateText(parsed);
+                  setQuoteTemplate(migrated);
+                  localStorage.setItem(quoteTemplateStorageKey(id), migrated);
+                }
+              } else if (!isCanadianFenceMaterialSupplyProfile(data.company_name, data.slug)) {
+                setQuoteTemplate(GENERIC_BASE_QUOTE_TEMPLATE_TEXT);
+              }
+            }
+            const scopedRaw = localStorage.getItem(quoteTemplateScopedStorageKey(id));
+            if (scopedRaw) {
+              const parsed = JSON.parse(scopedRaw) as unknown;
+              if (parsed && typeof parsed === 'object') {
+                setScopedTemplates(parsed as Record<string, string>);
+              }
+            }
+          } catch {
+            // ignore bad local template payloads
+          }
         }
       })
       .catch(() => {});
   }, []);
-
-  useEffect(() => {
-    if (!contractorId) return;
-    try {
-      const raw = localStorage.getItem(quoteTemplateStorageKey(contractorId));
-      if (raw) {
-        setQuoteTemplate(raw);
-        return;
-      }
-      // Backward compatibility for templates saved in the old block format.
-      const legacyRaw = localStorage.getItem(legacyQuoteBlocksStorageKey(contractorId));
-      if (!legacyRaw) return;
-      const parsed: unknown = JSON.parse(legacyRaw);
-      if (isQuoteBlocks(parsed)) {
-        const migrated = quoteBlocksToTemplateText(parsed);
-        setQuoteTemplate(migrated);
-        localStorage.setItem(quoteTemplateStorageKey(contractorId), migrated);
-      }
-    } catch {
-      // ignore bad local template payloads
-    }
-    try {
-      const scopedRaw = localStorage.getItem(quoteTemplateScopedStorageKey(contractorId));
-      if (scopedRaw) {
-        const parsed = JSON.parse(scopedRaw) as unknown;
-        if (parsed && typeof parsed === 'object') {
-          setScopedTemplates(parsed as Record<string, string>);
-        }
-      }
-    } catch {
-      // ignore malformed scoped templates
-    }
-  }, [contractorId]);
 
   useEffect(() => {
     async function load() {
@@ -545,6 +551,131 @@ export default function CalculatorPage() {
     }
   }, [fromCustomerId, quoteId, materialQuoteId, loading]);
 
+  useEffect(() => {
+    if (loading || !contractorId) return;
+
+    if (quoteId || materialQuoteId || fromCustomerId) {
+      draftHandledRef.current = true;
+      return;
+    }
+
+    if (draftHandledRef.current) return;
+    draftHandledRef.current = true;
+
+    try {
+      const raw = sessionStorage.getItem(calcDraftStorageKey(contractorId));
+      if (!raw) return;
+      const st = JSON.parse(raw) as Record<string, unknown>;
+      if (typeof st.homeownerName === 'string') setHomeownerName(st.homeownerName);
+      if (typeof st.quoteAddress === 'string') setQuoteAddress(st.quoteAddress);
+      if (typeof st.selectedTypeId === 'string') setSelectedTypeId(st.selectedTypeId);
+      if (typeof st.selectedStyleId === 'string') setSelectedStyleId(st.selectedStyleId);
+      if (typeof st.selectedColourId === 'string') setSelectedColourId(st.selectedColourId);
+      if (st.pricePerFtOverride !== undefined) {
+        setPricePerFtOverride(st.pricePerFtOverride === null ? null : safeNum(st.pricePerFtOverride));
+      }
+      if (st.singleGatePriceOverride !== undefined) {
+        setSingleGatePriceOverride(st.singleGatePriceOverride === null ? null : safeNum(st.singleGatePriceOverride));
+      }
+      if (st.doubleGatePriceOverride !== undefined) {
+        setDoubleGatePriceOverride(st.doubleGatePriceOverride === null ? null : safeNum(st.doubleGatePriceOverride));
+      }
+      if (st.minJobOverride !== undefined) {
+        setMinJobOverride(st.minJobOverride === null ? null : safeNum(st.minJobOverride));
+      }
+      if (Array.isArray(st.segments)) setSegments(st.segments as Segment[]);
+      if (st.extendAdd != null) setExtendAdd(safeNum(st.extendAdd));
+      if (st.singleGateQty != null) setSingleGateQty(safeNum(st.singleGateQty));
+      if (st.doubleGateQty != null) setDoubleGateQty(safeNum(st.doubleGateQty));
+      if (st.hasRemoval != null) setHasRemoval(Boolean(st.hasRemoval));
+      if (st.removalLengthFt != null) setRemovalLengthFt(safeNum(st.removalLengthFt));
+      if (st.removalPricePerFtOverride !== undefined) {
+        setRemovalPricePerFtOverride(st.removalPricePerFtOverride === null ? null : Number(st.removalPricePerFtOverride));
+      }
+      if (st.taxRate != null) setTaxRate(safeNum(st.taxRate));
+      if (st.applyTax != null) setApplyTax(Boolean(st.applyTax));
+      if (Array.isArray(st.singleGateSides) && st.singleGateSides.every((x) => typeof x === 'string')) {
+        setSingleGateSides(st.singleGateSides as string[]);
+      }
+      if (Array.isArray(st.doubleGateSides) && st.doubleGateSides.every((x) => typeof x === 'string')) {
+        setDoubleGateSides(st.doubleGateSides as string[]);
+      }
+      if (st.segmentAssignments && typeof st.segmentAssignments === 'object') {
+        setSegmentAssignments(st.segmentAssignments as Record<string, number | null>);
+      }
+      if (typeof st.materialBomTsv === 'string') setMaterialBomTsv(st.materialBomTsv);
+    } catch {
+      // ignore bad draft
+    }
+  }, [loading, contractorId, quoteId, materialQuoteId, fromCustomerId]);
+
+  useEffect(() => {
+    if (!contractorId || loading || quoteId || materialQuoteId || fromCustomerId || !draftHandledRef.current) return;
+
+    clearTimeout(draftSaveTimerRef.current);
+    draftSaveTimerRef.current = setTimeout(() => {
+      try {
+        const payload = {
+          homeownerName,
+          quoteAddress,
+          selectedTypeId,
+          selectedStyleId,
+          selectedColourId,
+          pricePerFtOverride,
+          singleGatePriceOverride,
+          doubleGatePriceOverride,
+          minJobOverride,
+          segments,
+          extendAdd,
+          singleGateQty,
+          doubleGateQty,
+          hasRemoval,
+          removalLengthFt,
+          removalPricePerFtOverride,
+          taxRate,
+          applyTax,
+          singleGateSides,
+          doubleGateSides,
+          segmentAssignments,
+          ...(materialQuoteId || materialBomTsv.trim() ? { materialBomTsv } : {}),
+        };
+        sessionStorage.setItem(calcDraftStorageKey(contractorId), JSON.stringify(payload));
+      } catch {
+        // ignore quota / private mode
+      }
+    }, 450);
+
+    return () => clearTimeout(draftSaveTimerRef.current);
+  }, [
+    contractorId,
+    loading,
+    quoteId,
+    materialQuoteId,
+    fromCustomerId,
+    homeownerName,
+    quoteAddress,
+    selectedTypeId,
+    selectedStyleId,
+    selectedColourId,
+    pricePerFtOverride,
+    singleGatePriceOverride,
+    doubleGatePriceOverride,
+    minJobOverride,
+    segments,
+    extendAdd,
+    singleGateQty,
+    doubleGateQty,
+    hasRemoval,
+    removalLengthFt,
+    removalPricePerFtOverride,
+    taxRate,
+    applyTax,
+    singleGateSides,
+    doubleGateSides,
+    segmentAssignments,
+    materialBomTsv,
+  ]);
+
   const stylesForType = selectedTypeId ? styles.filter((s) => s.fence_type_id === selectedTypeId) : [];
   const coloursForStyle = selectedStyleId ? colours.filter((c) => c.fence_style_id === selectedStyleId) : [];
   const styleHasPricing = (styleId: string) =>
@@ -684,7 +815,8 @@ export default function CalculatorPage() {
   );
   const taxAmount = applyTax ? subtotal * (taxRate / 100) : 0;
   const grandTotal = subtotal + taxAmount;
-  const deposit = grandTotal * 0.1;
+  const depositPct = Number.isFinite(quoteDepositPct) ? Math.max(0, Math.min(100, quoteDepositPct)) : 10;
+  const deposit = grandTotal * (depositPct / 100);
 
   function updateSegment(index: number, updates: Partial<Segment>) {
     setSegments((prev) =>
@@ -728,6 +860,13 @@ export default function CalculatorPage() {
   }
 
   function resetCalculator() {
+    if (contractorId) {
+      try {
+        sessionStorage.removeItem(calcDraftStorageKey(contractorId));
+      } catch {
+        // ignore
+      }
+    }
     setQuoteAddress('');
     setHomeownerName('');
     setPricePerFtOverride(null);
@@ -836,8 +975,8 @@ export default function CalculatorPage() {
   const baseTemplate =
     scopedTypeStyleTemplate ||
     scopedTypeTemplate ||
-    quoteTemplate ||
     materialTemplate ||
+    quoteTemplate ||
     DEFAULT_QUOTE_TEMPLATE_TEXT;
   const activeTemplate = baseTemplate.replaceAll('[[HEIGHT]]', inferredHeight);
   const quoteText = composeQuoteText(activeTemplate, quoteTokenValues);
@@ -1773,9 +1912,17 @@ export default function CalculatorPage() {
               <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10 blur-2xl" aria-hidden />
               <p className="relative text-[11px] font-semibold uppercase tracking-[0.12em] text-blue-100">Grand total</p>
               <p className="relative mt-1 text-3xl font-bold tabular-nums tracking-tight sm:text-4xl">{moneyCAD(grandTotal)}</p>
-              <div className="relative mt-4 flex items-center justify-between gap-3 border-t border-white/20 pt-4 text-sm">
-                <span className="text-blue-100">10% deposit</span>
-                <span className="font-semibold tabular-nums text-white">{moneyCAD(deposit)}</span>
+              <div className="relative mt-4 flex flex-col gap-2 border-t border-white/20 pt-4 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-blue-100">{depositPct}% deposit</span>
+                  <span className="font-semibold tabular-nums text-white">{moneyCAD(deposit)}</span>
+                </div>
+                <Link
+                  href="/dashboard/settings"
+                  className="text-[11px] font-medium text-blue-100/90 underline decoration-white/30 underline-offset-2 hover:text-white"
+                >
+                  Change deposit % in settings
+                </Link>
               </div>
             </div>
             <div className="space-y-0 divide-y divide-slate-100 p-2">

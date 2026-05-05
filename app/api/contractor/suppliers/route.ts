@@ -20,32 +20,27 @@ export async function GET(request: NextRequest) {
 
   const q = request.nextUrl.searchParams.get('q')?.trim() || '';
 
-  const [{ data: links, error: lErr }, { data: linkedSuppliers, error: linkedErr }] = await Promise.all([
-    supabase
-      .from('contractor_supplier_links')
-      .select('supplier_contractor_id')
-      .eq('contractor_id', cu.contractorId),
-    supabase
+  const { data: links, error: lErr } = await supabase
+    .from('contractor_supplier_links')
+    .select('supplier_contractor_id')
+    .eq('contractor_id', cu.contractorId);
+
+  if (lErr) return NextResponse.json({ error: lErr.message }, { status: 500 });
+
+  const linkedIds = Array.from(new Set((links || []).map((r) => r.supplier_contractor_id)));
+
+  let linkedSuppliers: { id: string; company_name: string; logo_url: string | null; slug: string }[] = [];
+  if (linkedIds.length > 0) {
+    const { data: linkedRows, error: linkedErr } = await supabase
       .from('contractors')
       .select('id, company_name, logo_url, slug')
       .eq('account_type', 'supplier')
       .eq('is_active', true)
-      .in(
-        'id',
-        (
-          await supabase
-            .from('contractor_supplier_links')
-            .select('supplier_contractor_id')
-            .eq('contractor_id', cu.contractorId)
-        ).data?.map((r) => r.supplier_contractor_id) || ['00000000-0000-0000-0000-000000000000']
-      )
-      .order('company_name', { ascending: true }),
-  ]);
-
-  if (lErr) return NextResponse.json({ error: lErr.message }, { status: 500 });
-  if (linkedErr) return NextResponse.json({ error: linkedErr.message }, { status: 500 });
-
-  const linkedIds = Array.from(new Set((links || []).map((r) => r.supplier_contractor_id)));
+      .in('id', linkedIds)
+      .order('company_name', { ascending: true });
+    if (linkedErr) return NextResponse.json({ error: linkedErr.message }, { status: 500 });
+    linkedSuppliers = linkedRows || [];
+  }
 
   let searchResults: { id: string; company_name: string; logo_url: string | null; slug: string }[] = [];
   if (q.length >= 3) {

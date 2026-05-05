@@ -29,10 +29,27 @@ function resolveReviewSelection(
   state: {
     selectedColourOptionId: string | null;
     selectedProductOptionId: string | null;
+    selectedFenceStyleId: string | null;
   }
 ): ReviewSelection | null {
   const h = config.productHierarchy;
   const hasHierarchy = !!(h && (h.fenceTypes?.length ?? 0) > 0);
+
+  if (hasHierarchy && state.selectedFenceStyleId && h && !state.selectedColourOptionId) {
+    const style = h.fenceStyles.find((s) => s.id === state.selectedFenceStyleId);
+    if (style) {
+      const fenceType = h.fenceTypes.find((t) => t.id === style.fence_type_id);
+      return {
+        mode: 'hierarchy',
+        styleName: style.style_name ?? '—',
+        colourName: '—',
+        stylePhotoUrl: style.photo_url ?? null,
+        colourPhotoUrl: null,
+        typeName: fenceType?.name ?? null,
+        heightFt: fenceType?.standard_height_ft != null ? Number(fenceType.standard_height_ft) : null,
+      };
+    }
+  }
 
   if (hasHierarchy && state.selectedColourOptionId && h) {
     const colour = h.colourOptions.find((c) => c.id === state.selectedColourOptionId);
@@ -80,7 +97,15 @@ export default function ReviewPage() {
   const totals = state.totals;
   const contractor = config.contractor;
 
-  const selection = useMemo(() => resolveReviewSelection(config, state), [config, state]);
+  const selection = useMemo(
+    () =>
+      resolveReviewSelection(config, {
+        selectedColourOptionId: state.selectedColourOptionId,
+        selectedProductOptionId: state.selectedProductOptionId,
+        selectedFenceStyleId: state.selectedFenceStyleId,
+      }),
+    [config, state.selectedColourOptionId, state.selectedProductOptionId, state.selectedFenceStyleId],
+  );
 
   async function handleSubmit() {
     setError(null);

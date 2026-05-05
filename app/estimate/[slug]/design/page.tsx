@@ -20,7 +20,8 @@ export default function DesignPage() {
   const router = useRouter();
   const params = useParams();
   const slug = params.slug as string;
-  const { config, state, setSelectedProductOptionId, setSelectedColourOptionId, setTotals } = useEstimate();
+  const { config, state, setSelectedProductOptionId, setSelectedColourOptionId, setSelectedFenceStyleId, setTotals } =
+    useEstimate();
 
   const hierarchy = config.productHierarchy;
   const hasHierarchy = hierarchy && hierarchy.fenceTypes?.length > 0;
@@ -69,7 +70,29 @@ export default function DesignPage() {
     ? hierarchy.colourOptions.filter((c) => c.fence_style_id === selectedStyleId)
     : [];
 
-  const optionId = hasHierarchy ? selectedColourId : state.selectedProductOptionId ?? selectedColourId;
+  const stylePricingRows = hierarchy?.stylePricingRules ?? [];
+  const styleHasPricingRule = (styleId: string | null) =>
+    !!styleId && stylePricingRows.some((r) => r.fence_style_id === styleId);
+
+  const coloursWithPricing = useMemo(() => {
+    const colourRules = hierarchy?.colourPricingRules ?? [];
+    return coloursForStyle.filter(
+      (c) =>
+        stylePricingRows.some((r) => r.fence_style_id === c.fence_style_id) ||
+        colourRules.some((r) => r.colour_option_id === c.id),
+    );
+  }, [coloursForStyle, hierarchy?.colourPricingRules, stylePricingRows]);
+
+  const needsColourStep = coloursWithPricing.length > 0;
+  const hierarchyPriceKey = hasHierarchy
+    ? needsColourStep
+      ? selectedColourId
+      : selectedStyleId && styleHasPricingRule(selectedStyleId)
+        ? selectedStyleId
+        : null
+    : state.selectedProductOptionId ?? selectedColourId;
+
+  const optionId = hasHierarchy ? hierarchyPriceKey : state.selectedProductOptionId ?? selectedColourId;
   const displayTotals = state.totals ?? (range
     ? {
         subtotal_low: range.low,
@@ -111,8 +134,16 @@ export default function DesignPage() {
     if (!optionId || !state.sessionId) return;
     setIsCalculating(true);
     const payload = hasHierarchy
-      ? { colour_option_id: optionId }
+      ? selectedColourId
+        ? { colour_option_id: selectedColourId }
+        : selectedStyleId && !needsColourStep && styleHasPricingRule(selectedStyleId)
+          ? { fence_style_id: selectedStyleId }
+          : {}
       : { product_option_id: optionId };
+    if (hasHierarchy && !('colour_option_id' in payload) && !('fence_style_id' in payload)) {
+      setIsCalculating(false);
+      return;
+    }
     fetch('/api/public/quote-session/calculate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -138,7 +169,18 @@ export default function DesignPage() {
       })
       .catch(() => {})
       .finally(() => setIsCalculating(false));
-  }, [optionId, totalFeet, singleGates, doubleGates, hasRemoval, state.sessionId, hasHierarchy]);
+  }, [
+    optionId,
+    selectedColourId,
+    selectedStyleId,
+    needsColourStep,
+    totalFeet,
+    singleGates,
+    doubleGates,
+    hasRemoval,
+    state.sessionId,
+    hasHierarchy,
+  ]);
 
   useEffect(() => {
     if (!hasHierarchy || availableHeights.length === 0) return;
@@ -166,21 +208,40 @@ export default function DesignPage() {
   }, [hasHierarchy, hierarchy, state.selectedColourOptionId]);
 
   useEffect(() => {
+    if (!hasHierarchy || !hierarchy || !state.selectedFenceStyleId) return;
+    const style = hierarchy.fenceStyles.find((s) => s.id === state.selectedFenceStyleId);
+    if (!style) return;
+    const type = hierarchy.fenceTypes.find((t) => t.id === style.fence_type_id);
+    if (!type) return;
+    setSelectedStyleId(style.id);
+    setSelectedTypeId(type.id);
+    setSelectedHeightFt(Number(type.standard_height_ft));
+    setSelectedColourId(null);
+  }, [hasHierarchy, hierarchy, state.selectedFenceStyleId]);
+
+  useEffect(() => {
     if (hasHierarchy) return;
     if (state.selectedProductOptionId) setSelectedColourId(state.selectedProductOptionId);
   }, [hasHierarchy, state.selectedProductOptionId]);
 
   async function handleContinue() {
     if (!optionId) {
-      setError(hasHierarchy ? 'Please select a colour to continue.' : 'Please select a fence option.');
+      setError(hasHierarchy ? 'Please finish selecting your fence to continue.' : 'Please select a fence option.');
       return;
     }
     if (hasHierarchy) {
-      setSelectedColourOptionId(optionId);
+      if (needsColourStep) {
+        setSelectedColourOptionId(selectedColourId);
+        setSelectedFenceStyleId(null);
+      } else {
+        setSelectedFenceStyleId(selectedStyleId);
+        setSelectedColourOptionId(null);
+      }
       setSelectedProductOptionId(null);
     } else {
       setSelectedProductOptionId(optionId);
       setSelectedColourOptionId(null);
+      setSelectedFenceStyleId(null);
     }
 
     if (!state.sessionId) {
@@ -192,7 +253,9 @@ export default function DesignPage() {
     setError(null);
     try {
       const payload = hasHierarchy
-        ? { colour_option_id: optionId }
+        ? selectedColourId
+          ? { colour_option_id: selectedColourId }
+          : { fence_style_id: selectedStyleId as string }
         : { product_option_id: optionId };
       const res = await fetch(`/api/public/quote-session/${state.sessionId}/design`, {
         method: 'POST',
@@ -221,7 +284,7 @@ export default function DesignPage() {
           <div className="p-8">
           <h1 className="text-2xl font-bold tracking-tight text-slate-800">Choose your fence</h1>
           <p className="mt-2 text-sm text-slate-500">
-            Select height, type, style, then colour. Based on {totalFeet.toFixed(0)} ft
+            Select height and type, then style{needsColourStep ? ', then colour' : ''}. Based on {totalFeet.toFixed(0)} ft
             {hasRemoval ? ' including removal.' : '.'}
           </p>
 
@@ -255,11 +318,16 @@ export default function DesignPage() {
                     <button
                       key={t.id}
                       type="button"
-                      onClick={() => {
-                        setSelectedTypeId(t.id);
+                    onClick={() => {
+                      setSelectedTypeId(t.id);
+                      setSelectedColourId(null);
+                      const nextStyles = hierarchy?.fenceStyles.filter((s) => s.fence_type_id === t.id) ?? [];
+                      if (nextStyles.length === 1) {
+                        setSelectedStyleId(nextStyles[0].id);
+                      } else {
                         setSelectedStyleId(null);
-                        setSelectedColourId(null);
-                      }}
+                      }
+                    }}
                       className={selectedTypeId === t.id ? 'rounded-xl px-4 py-2.5 font-medium bg-[var(--accent)] text-white shadow-md' : 'rounded-xl px-4 py-2.5 font-medium border border-[var(--line)] hover:border-[var(--accent)]/50'}
                     >
                       {t.name}
@@ -307,7 +375,7 @@ export default function DesignPage() {
               </div>
             )}
 
-            {selectedStyleId && (
+            {selectedStyleId && needsColourStep && (
               <div>
                 <h2 className={sectionLabel}>4. Colour</h2>
                 <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -365,7 +433,7 @@ export default function DesignPage() {
           <button
             type="button"
             onClick={handleContinue}
-            disabled={!selectedColourId || loading}
+            disabled={!hierarchyPriceKey || loading}
             className={btnPrimary}
             style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-secondary))' }}
           >
