@@ -524,33 +524,41 @@ export default function LayoutPage() {
             {saving ? 'Saving…' : 'Save'}
           </button>
           {layoutId && (
-            <select
-              defaultValue=""
-              onChange={(e) => {
-                const v = e.target.value;
-                e.target.value = '';
-                if (!v) return;
-                if (v === 'all') {
-                  window.location.href = `/dashboard/calculator?from_layout=${encodeURIComponent(layoutId)}`;
-                  return;
-                }
-                window.location.href = `/dashboard/calculator?from_layout=${encodeURIComponent(layoutId)}&layout_homeowner=${encodeURIComponent(v)}`;
-              }}
-              className="rounded-lg border border-[var(--line)] bg-white px-3 py-1.5 text-sm font-medium text-slate-800"
-            >
-              <option value="">Export to calculator…</option>
-              <option value="all">All lines (no homeowner prefill)</option>
-              {homeowners.map((h) => {
-                const nm = h.name.trim() || 'Homeowner';
-                const ad = h.address.trim();
-                const label = ad ? `${nm} — ${ad}` : nm;
-                return (
-                  <option key={h.id} value={h.id}>
-                    {label} — lines assigned to them
-                  </option>
-                );
-              })}
-            </select>
+            <>
+              <select
+                defaultValue=""
+                onChange={(e) => {
+                  const v = e.target.value;
+                  e.target.value = '';
+                  if (!v) return;
+                  if (v === 'all') {
+                    window.location.href = `/dashboard/calculator?from_layout=${encodeURIComponent(layoutId)}`;
+                    return;
+                  }
+                  window.location.href = `/dashboard/calculator?from_layout=${encodeURIComponent(layoutId)}&layout_homeowner=${encodeURIComponent(v)}`;
+                }}
+                className="rounded-lg border border-[var(--line)] bg-white px-3 py-1.5 text-sm font-medium text-slate-800"
+              >
+                <option value="">Export to calculator…</option>
+                <option value="all">All lines (no homeowner prefill)</option>
+                {homeowners.map((h) => {
+                  const nm = h.name.trim() || 'Homeowner';
+                  const ad = h.address.trim();
+                  const label = ad ? `${nm} — ${ad}` : nm;
+                  return (
+                    <option key={h.id} value={h.id}>
+                      {label} — lines assigned to them
+                    </option>
+                  );
+                })}
+              </select>
+              <Link
+                href={`/dashboard/material-calculator/pvc?from_layout=${encodeURIComponent(layoutId)}`}
+                className="whitespace-nowrap text-sm font-medium text-slate-600 underline decoration-slate-200 underline-offset-2 hover:text-[var(--accent)]"
+              >
+                PVC material takeoff
+              </Link>
+            </>
           )}
           {savedLayouts.length > 0 && (
             <select
