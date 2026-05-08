@@ -473,8 +473,13 @@ export default function PvcMaterialCalculatorPage() {
             </p>
           )}
           <p className="mt-3 text-xs leading-relaxed text-slate-500">
-            Panels counted as <code className="rounded bg-slate-100 px-1">ceil(line ft ÷ {profile.panel_width_ft} ft)</code>
-            . Structural pieces are directional estimates for PVC routing — confirm on site.
+            Panel-line math uses <code className="rounded bg-slate-100 px-1">line ft ÷ {profile.panel_width_ft} ft</code>{' '}
+            for pickets and other per-panel items (proportional when the last bay is partial). Rails use the same bay
+            split: full bays get your rails-per-panel count; the last partial bay uses{' '}
+            <strong className="font-medium text-slate-700">1</strong> rail if the remainder is under half a panel
+            (one cut does top and bottom), otherwise a full pair. Each counted corner adds{' '}
+            <strong className="font-medium text-slate-700">one</strong> U-channel; H-posts follow spacing along each
+            run with shared posts where runs meet.
           </p>
         </div>
       </section>

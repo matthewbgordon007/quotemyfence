@@ -178,6 +178,14 @@ export function countStructuralCorners(
   return { corners, anglesDeg };
 }
 
+/** Equivalent panel bays for a run: linear ft ÷ nominal panel width (exact). */
+export function panelBaysExact(lengthFt: number, panelWidthFt: number): number {
+  const L = Math.max(0, Number(lengthFt) || 0);
+  const W = clampPanelWidth(panelWidthFt);
+  if (L <= 0 || W <= 0) return 0;
+  return Math.round((L / W) * 100000) / 100000;
+}
+
 export function panelsOnLine(lengthFt: number, panelWidthFt: number): number {
   const L = Math.max(0, Number(lengthFt) || 0);
   const W = clampPanelWidth(panelWidthFt);
@@ -185,39 +193,77 @@ export function panelsOnLine(lengthFt: number, panelWidthFt: number): number {
   return Math.ceil(L / W);
 }
 
-/**
- * Rough H-post heuristic: bays along polyline minus shared junctions minus corners resolved with U-slot.
- */
-export function estimateHPosts(
-  lineLengthsFt: number[],
-  panelWidthFt: number,
-  structuralCorners: number
-): number {
+/** Full panel count (integer) + fractional remainder of the last incomplete bay (0–1). */
+export function splitPanelBays(lengthFt: number, panelWidthFt: number): {
+  bays_exact: number;
+  full_panels: number;
+  frac: number;
+} {
   const W = clampPanelWidth(panelWidthFt);
-  let sumEnds = 0;
-  for (const Lraw of lineLengthsFt) {
-    const L = Math.max(0, Number(Lraw) || 0);
-    const nPanels = panelsOnLine(L, W);
-    if (nPanels <= 0 && L <= 0) continue;
-    const bays = Math.max(1, nPanels);
-    sumEnds += bays + 1;
+  const bays_exact = panelBaysExact(lengthFt, W);
+  if (bays_exact <= 0) return { bays_exact: 0, full_panels: 0, frac: 0 };
+  const full_panels = Math.floor(bays_exact + 1e-9);
+  const frac = Math.min(1, Math.max(0, Math.round((bays_exact - full_panels) * 100000) / 100000));
+  return { bays_exact, full_panels, frac };
+}
+
+/** Rails: 2 per full panel bay; fractional last bay uses 1 rail if &lt; ½ panel (one cut for top+bottom), else 2. */
+export function railsForRun(
+  lengthFt: number,
+  panelWidthFt: number,
+  railsPerFullPanel: number
+): number {
+  const rpf = Math.max(0, Number(railsPerFullPanel) || 0);
+  if (rpf <= 0) return 0;
+  const { bays_exact, full_panels, frac } = splitPanelBays(lengthFt, panelWidthFt);
+  if (bays_exact <= 0) return 0;
+  let rails = full_panels * rpf;
+  if (frac > 1e-6) {
+    rails += frac < 0.5 ? 1 : rpf;
   }
-  const lines = Math.max(0, lineLengthsFt.filter((x) => (Number(x) || 0) > 0).length);
-  const sharedJoints = lines > 1 ? lines - 1 : 0;
-  let est = Math.max(0, sumEnds - sharedJoints - structuralCorners);
-  return Math.max(0, Math.round(est));
+  return rails;
+}
+
+/**
+ * H-posts along sequential runs: each run would need ceil(L/W)+1 post positions;
+ * merge shared endpoints between consecutive non-empty runs (one post per junction).
+ * Corner posts at direction changes are included; pair with U-channel via structural_corners.
+ */
+export function estimateHPostsAlongRuns(lineLengthsFt: number[], panelWidthFt: number): number {
+  const W = clampPanelWidth(panelWidthFt);
+  const lengths = lineLengthsFt.map((x) => Math.max(0, Number(x) || 0)).filter((L) => L > 0);
+  const N = lengths.length;
+  if (N === 0) return 0;
+  let sum = 0;
+  for (const L of lengths) {
+    sum += Math.ceil(L / W) + 1;
+  }
+  return Math.max(0, sum - (N - 1));
+}
+
+const RAILS_ITEM_ID = 'rails';
+
+function roundMaterialQty(n: number): number {
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  const rounded = Math.round(n * 1000) / 1000;
+  if (Math.abs(rounded - Math.round(rounded)) < 1e-6) return Math.round(rounded);
+  return rounded;
 }
 
 export interface PvcEstimateLineBreakdown {
   index: number;
   length_ft: number;
-  panel_count: number;
+  /** ceil(length / panel width) — physical panel bays to cover the run */
+  panel_bays_ceil: number;
+  /** length ÷ panel width — used for proportional pickets / rails logic */
+  panel_bays_exact: number;
 }
 
 export interface PvcEstimateResult {
   profile: PvcFenceMaterialProfileV1;
   line_breakdown: PvcEstimateLineBreakdown[];
-  total_panels_on_lines: number;
+  /** Sum of (line ft ÷ panel width) — proportional “panel equivalents” */
+  total_panel_bays_exact: number;
   structural_corners: number;
   turn_angles_deg: number[];
   u_channels_est: number;
@@ -265,41 +311,76 @@ export function estimatePvcMaterial(args: {
     }
   }
 
+  const W = profile.panel_width_ft;
   const breakdown: PvcEstimateLineBreakdown[] = lengths.map((L, i) => ({
     index: i,
     length_ft: L,
-    panel_count: L > 0 ? panelsOnLine(L, profile.panel_width_ft) : 0,
+    panel_bays_ceil: L > 0 ? panelsOnLine(L, W) : 0,
+    panel_bays_exact: L > 0 ? panelBaysExact(L, W) : 0,
   }));
-  const totalPanels = breakdown.reduce((a, x) => a + x.panel_count, 0);
+  const totalBaysExact = breakdown.reduce((a, x) => a + x.panel_bays_exact, 0);
 
   const uChannelsEst = structuralCorners;
-  const hPostsEst = estimateHPosts(lengths, profile.panel_width_ft, structuralCorners);
+  const hPostsEst = estimateHPostsAlongRuns(lengths, W);
 
   const bomRows: PvcEstimateResult['bom_rows'] = [];
   for (const pi of profile.panel_items) {
-    const qty = totalPanels * Math.max(0, pi.quantity_per_panel);
-    if (qty <= 0) continue;
-    bomRows.push({ name: pi.name, quantity: Math.ceil(qty * 10000) / 10000 });
+    const qpp = Math.max(0, pi.quantity_per_panel);
+    if (qpp <= 0) continue;
+
+    if (pi.id === RAILS_ITEM_ID) {
+      let railsSum = 0;
+      for (const L of lengths) {
+        if (L <= 0) continue;
+        railsSum += railsForRun(L, W, qpp);
+      }
+      railsSum = Math.round(railsSum);
+      if (railsSum > 0) {
+        bomRows.push({
+          name: pi.name,
+          quantity: railsSum,
+          note: `Full bays: ${qpp} rail(s) per bay. Last partial bay: 1 rail if the remainder is under half a panel, otherwise ${qpp}.`,
+        });
+      }
+      continue;
+    }
+
+    let qtyAcc = 0;
+    for (const L of lengths) {
+      if (L <= 0) continue;
+      qtyAcc += panelBaysExact(L, W) * qpp;
+    }
+    const qty = roundMaterialQty(qtyAcc);
+    if (qty > 0) {
+      bomRows.push({
+        name: pi.name,
+        quantity: qty,
+        note:
+          totalBaysExact > 0 && totalBaysExact !== Math.floor(totalBaysExact + 1e-9)
+            ? 'Scaled by linear ft ÷ panel width (proportional for partial last bay).'
+            : undefined,
+      });
+    }
   }
 
   bomRows.push({
     name: profile.h_post_display_name,
     quantity: hPostsEst,
     note:
-      lengths.filter((x) => x > 0).length < 2
+      lengths.filter((x) => x > 0).length < 1
         ? undefined
-        : 'Rough count from bays, shared joints and corners — verify in the field.',
+        : 'One H-post per spacing station along runs; shared where two runs meet in order.',
   });
 
   const uNote =
     corner_detection === 'manual'
-      ? 'Uses your manual structural corner count.'
+      ? '1 per structural corner (manual count).'
       : corner_detection === 'layout_planar'
-        ? 'From bend angles in your saved Draw layout footprint.'
+        ? '1 per bend over threshold from Draw layout.'
         : corner_detection === 'map_segments'
-          ? 'From GPS / map segment bend angles.'
+          ? '1 per bend over threshold from map segments.'
           : lengths.filter((x) => x > 0).length >= 2
-            ? 'Load a Draw layout or set structural corners manually to estimate U-channel at direction changes.'
+            ? 'Load a Draw layout or enter corners manually — 1 U-channel per direction change.'
             : undefined;
 
   bomRows.push({
@@ -311,7 +392,7 @@ export function estimatePvcMaterial(args: {
   return {
     profile,
     line_breakdown: breakdown,
-    total_panels_on_lines: Math.round(totalPanels * 1000) / 1000,
+    total_panel_bays_exact: roundMaterialQty(totalBaysExact) || totalBaysExact,
     structural_corners: structuralCorners,
     turn_angles_deg: turnAnglesDeg,
     u_channels_est: uChannelsEst,
