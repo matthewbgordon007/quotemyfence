@@ -293,6 +293,11 @@ export default function PvcMaterialCalculatorPage() {
 
           <div>
             <p className="mb-2 text-sm font-medium text-slate-800">Items per panel bay</p>
+            <p className="mb-2 text-xs text-slate-500">
+              Use item id <code className="rounded bg-slate-100 px-1">rails</code> for horizontal rails — the calculator
+              applies the half-panel rail rule on the last partial bay; other rows use{' '}
+              <code className="rounded bg-slate-100 px-1">line ft ÷ panel width</code> × qty.
+            </p>
             <div className="space-y-2">
               {profile.panel_items.map((row, i) => (
                 <div key={row.id} className="flex flex-wrap items-end gap-2">
