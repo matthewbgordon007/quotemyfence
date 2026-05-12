@@ -8,6 +8,26 @@ import {
   type FmsPvcFenceLineInput,
   type FmsPvcPanelModule,
 } from '@/lib/fms-pvc-material-calculator';
+import {
+  adobeBreakdownToRows,
+  buildPvcAdobeBreakdown,
+  computePvcMasterColumn,
+  type FmsPvcMasterExtras,
+} from '@/lib/fms-pvc-breakdown-master';
+import { sumGateAdobeRows, type FmsPvcGatePosts } from '@/lib/fms-pvc-gates-calculator';
+import {
+  computeFmsChainLinkFenceLine,
+  computeFmsChainLinkGate,
+  type FmsChainLinkFenceInput,
+} from '@/lib/fms-chain-link-calculator';
+import {
+  combineHybridMasterPreview,
+  computeHybridHorizontalWpc6ftFence,
+  computeHybridHorizontalWpc6ftGate,
+  computeHybridVerticalPvc64Fence,
+  computeHybridVerticalPvc64GateDouble,
+  computeHybridVerticalPvc64GateSingle,
+} from '@/lib/fms-hybrid-calculators';
 
 const card =
   'overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-md shadow-slate-900/[0.04] ring-1 ring-slate-900/[0.03]';
@@ -41,6 +61,12 @@ interface PvcLineRow {
   u_channel: string;
 }
 
+interface PvcGateRow {
+  id: string;
+  width_in: string;
+  posts: FmsPvcGatePosts;
+}
+
 function presetToExcel(preset: LineEndPreset, h: 0 | 1 | 2, uStr: string): { d6: 0 | 1 | 2; d7: number } {
   if (preset === 'h_continuous') return { d6: 1, d7: 0 };
   if (preset === 'u_at_end') return { d6: 1, d7: 1 };
@@ -64,6 +90,58 @@ function buildInputs(rows: PvcLineRow[]): FmsPvcFenceLineInput[] {
     .filter(Boolean) as FmsPvcFenceLineInput[];
 }
 
+function emptyGateRow(): PvcGateRow {
+  return { id: newLineId(), width_in: '', posts: 1 };
+}
+
+function parseGateRowsShort(rows: PvcGateRow[]) {
+  return rows
+    .map((r) => {
+      const w = Math.max(0, Number(String(r.width_in).replace(/,/g, '')) || 0);
+      if (w <= 0) return null;
+      return { gate_width_in: w, posts: r.posts };
+    })
+    .filter(Boolean) as { gate_width_in: number; posts: FmsPvcGatePosts }[];
+}
+
+const MASTER_EXTRA_KEYS: (keyof FmsPvcMasterExtras)[] = [
+  'm6',
+  'm7',
+  'm8',
+  'm9',
+  'm10',
+  'm11',
+  'm12',
+  'm13',
+  'm15',
+  'm16',
+  'm19',
+  'm20',
+  'm21',
+  'm22',
+  'm23',
+  'm24',
+];
+
+const MASTER_EXTRA_LABELS: Record<keyof FmsPvcMasterExtras, string> = {
+  m6: 'M6 (rail)',
+  m7: 'M7 (rail stiff.)',
+  m8: 'M8 (board)',
+  m9: 'M9 (board stiff.)',
+  m10: 'M10 (H-post)',
+  m11: 'M11 (galv.)',
+  m12: 'M12 (U-ch.)',
+  m13: 'M13 (H stiff.)',
+  m15: 'M15 (overhead)',
+  m16: 'M16 (diagonal)',
+  m19: 'M19 (post cap)',
+  m20: 'M20 (plug)',
+  m21: 'M21 (large scr.)',
+  m22: 'M22 (short scr.)',
+  m23: 'M23 (latch)',
+  m24: 'M24 (hinge)',
+};
+
 export default function MaterialCalculatorHubPage() {
   const searchParams = useSearchParams();
   const tabParam = (searchParams.get('tab') || '').toLowerCase();
@@ -82,6 +160,40 @@ export default function MaterialCalculatorHubPage() {
       u_channel: '0',
     },
   ]);
+
+  const [shortGates, setShortGates] = useState<PvcGateRow[]>([]);
+  const [singleGates, setSingleGates] = useState<PvcGateRow[]>([]);
+  const [doubleGates, setDoubleGates] = useState<PvcGateRow[]>([]);
+  const [masterExtrasOpen, setMasterExtrasOpen] = useState(false);
+  const [masterExtras, setMasterExtras] = useState<Partial<Record<keyof FmsPvcMasterExtras, string>>>({});
+
+  /** Chain link */
+  const [chainLines, setChainLines] = useState<
+    { id: string; label: string; length_ft: string; terminal_post: string }[]
+  >([{ id: newLineId(), label: 'Run 1', length_ft: '', terminal_post: '2' }]);
+  const [chainRailFt, setChainRailFt] = useState('10');
+  const [chainMeshFt, setChainMeshFt] = useState('50');
+  const [chainTiesPerBag, setChainTiesPerBag] = useState('100');
+  const [chainGates, setChainGates] = useState<
+    { id: string; width_in: string; posts: FmsPvcGatePosts; opening_in: string }[]
+  >([]);
+
+  /** Hybrid */
+  const [hybHLen, setHybHLen] = useState('');
+  const [hybHHPost, setHybHHPost] = useState<0 | 1 | 2>(1);
+  const [hybHU, setHybHU] = useState<0 | 1 | 2>(0);
+  const [hybHGateOn, setHybHGateOn] = useState(false);
+  const [hybHGateW, setHybHGateW] = useState('');
+  const [hybHGateP, setHybHGateP] = useState<FmsPvcGatePosts>(1);
+  const [hybVLen, setHybVLen] = useState('');
+  const [hybVHPost, setHybVHPost] = useState<0 | 1 | 2>(1);
+  const [hybVU, setHybVU] = useState<0 | 1 | 2>(0);
+  const [hybVSingleOn, setHybVSingleOn] = useState(false);
+  const [hybVSingleW, setHybVSingleW] = useState('');
+  const [hybVSingleP, setHybVSingleP] = useState<FmsPvcGatePosts>(1);
+  const [hybVDoubleOn, setHybVDoubleOn] = useState(false);
+  const [hybVDoubleW, setHybVDoubleW] = useState('');
+  const [hybVDoubleP, setHybVDoubleP] = useState<FmsPvcGatePosts>(1);
 
   useEffect(() => {
     if (tabParam === 'chain' || tabParam === 'hybrid' || tabParam === 'pvc') {
@@ -120,6 +232,43 @@ export default function MaterialCalculatorHubPage() {
   const pvcInputs = useMemo(() => buildInputs(lines), [lines]);
   const pvcJob = useMemo(() => aggregateFmsPvcFenceLines(pvcInputs), [pvcInputs]);
 
+  const shortParsed = useMemo(() => parseGateRowsShort(shortGates), [shortGates]);
+  const singleParsed = useMemo(() => parseGateRowsShort(singleGates), [singleGates]);
+  const doubleParsed = useMemo(() => parseGateRowsShort(doubleGates), [doubleGates]);
+
+  const gateMerge = useMemo(
+    () => sumGateAdobeRows(shortParsed, singleParsed, doubleParsed),
+    [shortParsed, singleParsed, doubleParsed]
+  );
+
+  const gateWidthInchesSum = useMemo(() => {
+    const sum = (arr: typeof shortParsed) => arr.reduce((a, g) => a + g.gate_width_in, 0);
+    return sum(shortParsed) + sum(singleParsed) + sum(doubleParsed);
+  }, [shortParsed, singleParsed, doubleParsed]);
+
+  const gateCount = shortParsed.length + singleParsed.length + doubleParsed.length;
+
+  const extrasParsed: FmsPvcMasterExtras = useMemo(() => {
+    const o: FmsPvcMasterExtras = {};
+    for (const k of MASTER_EXTRA_KEYS) {
+      const s = masterExtras[k];
+      if (s == null || s === '') continue;
+      const n = Number(String(s).replace(/,/g, ''));
+      if (Number.isFinite(n)) (o as Record<string, number>)[k] = n;
+    }
+    return o;
+  }, [masterExtras]);
+
+  const pvcAdobe = useMemo(
+    () => buildPvcAdobeBreakdown(pvcJob.lines, gateMerge.merged, gateWidthInchesSum),
+    [pvcJob.lines, gateMerge.merged, gateWidthInchesSum]
+  );
+
+  const pvcMaster = useMemo(
+    () => computePvcMasterColumn(pvcAdobe, extrasParsed, gateCount),
+    [pvcAdobe, extrasParsed, gateCount]
+  );
+
   const pvcLineDetails = useMemo(() => {
     const out: { id: string; label: string; result: (typeof pvcJob.lines)[0] }[] = [];
     let j = 0;
@@ -133,14 +282,21 @@ export default function MaterialCalculatorHubPage() {
     return out;
   }, [lines, pvcJob.lines]);
 
+  const adobeRows = useMemo(() => adobeBreakdownToRows(pvcAdobe), [pvcAdobe]);
+
   const bomTsv = useMemo(() => {
     const head = ['Job', jobAddress || '—', '', ''].join('\t');
+    const fenceHdr = ['Fence-only SKU rollup (Excel block)', '', '', ''].join('\t');
     const hdr = ['SKU', 'Qty'].join('\t');
-    const rows = pvcJob.sku_rows.map((r) => `${r.label}\t${r.quantity}`);
+    const fenceRows = pvcJob.sku_rows.map((r) => `${r.label}\t${r.quantity}`);
     const extra = [`Whole panels (sum D9)`, `${pvcJob.sum_whole_panels}`, '', ''].join('\t');
-    const conc = [`Concrete bags est. (H-post × 2.5)`, `${pvcJob.concrete_bags_est}`, '', ''].join('\t');
-    return [head, hdr, ...rows, extra, conc].join('\n');
-  }, [pvcJob, jobAddress]);
+    const concF = [`Concrete (fence H-post only × 2.5)`, `${pvcJob.concrete_bags_est}`, '', ''].join('\t');
+    const adobeH = ['Adobe-style breakdown (row → qty)', '', '', ''].join('\t');
+    const adobeBody = adobeRows.map((r) => `${r.row}\t${r.label}\t${r.qty}`);
+    const masterH = ['Master column C (with optional M adders)', '', '', ''].join('\t');
+    const masterBody = pvcMaster.map((r) => `${r.label}\t${r.qty}`);
+    return [head, '', fenceHdr, hdr, ...fenceRows, extra, concF, '', adobeH, 'Row\tItem\tQty', ...adobeBody, '', masterH, hdr, ...masterBody].join('\n');
+  }, [pvcJob, jobAddress, adobeRows, pvcMaster]);
 
   const copyBom = useCallback(async () => {
     try {
@@ -150,6 +306,142 @@ export default function MaterialCalculatorHubPage() {
       prompt('Copy:', bomTsv);
     }
   }, [bomTsv]);
+
+  /** Chain link aggregates */
+  const chainFenceInputs: FmsChainLinkFenceInput[] = useMemo(() => {
+    const d7 = Math.max(0.01, Number(chainRailFt) || 10);
+    const d8 = Math.max(0.01, Number(chainMeshFt) || 50);
+    const d9 = Math.max(0.01, Number(chainTiesPerBag) || 100);
+    return chainLines
+      .map((row) => {
+        const L = Math.max(0, Number(String(row.length_ft).replace(/,/g, '')) || 0);
+        if (L <= 0) return null;
+        const d6 = Math.max(0, Number(row.terminal_post) || 0);
+        return { length_ft: L, terminal_post_type: d6, rail_length_ft: d7, mesh_roll_ft: d8, ties_per_bag: d9 };
+      })
+      .filter(Boolean) as FmsChainLinkFenceInput[];
+  }, [chainLines, chainRailFt, chainMeshFt, chainTiesPerBag]);
+
+  const chainFenceAgg = useMemo(() => {
+    if (!chainFenceInputs.length) return null;
+    const results = chainFenceInputs.map((i) => computeFmsChainLinkFenceLine(i));
+    const keys = Object.keys(results[0]) as (keyof (typeof results)[0])[];
+    const sum: Record<string, number> = {};
+    for (const k of keys) {
+      sum[k] = results.reduce((a, r) => a + (Number(r[k]) || 0), 0);
+    }
+    return sum as unknown as ReturnType<typeof computeFmsChainLinkFenceLine>;
+  }, [chainFenceInputs]);
+
+  const chainGateResults = useMemo(() => {
+    return chainGates
+      .map((g) => {
+        const w = Math.max(0, Number(String(g.width_in).replace(/,/g, '')) || 0);
+        if (w <= 0) return null;
+        const opening = Math.max(0, Number(String(g.opening_in).replace(/,/g, '')) || 45);
+        return computeFmsChainLinkGate({
+          gate_width_in: w,
+          posts: g.posts,
+          normal_opening_in: opening,
+        });
+      })
+      .filter(Boolean) as ReturnType<typeof computeFmsChainLinkGate>[];
+  }, [chainGates]);
+
+  const chainGateAgg = useMemo(() => {
+    if (!chainGateResults.length) return null;
+    const keys = Object.keys(chainGateResults[0]) as (keyof (typeof chainGateResults)[0])[];
+    const sum: Record<string, number> = {};
+    for (const k of keys) {
+      sum[k] = chainGateResults.reduce((a, r) => a + (Number(r[k]) || 0), 0);
+    }
+    return sum as unknown as ReturnType<typeof computeFmsChainLinkGate>;
+  }, [chainGateResults]);
+
+  const hybridPreview = useMemo(() => {
+    const hL = Math.max(0, Number(String(hybHLen).replace(/,/g, '')) || 0);
+    const vL = Math.max(0, Number(String(hybVLen).replace(/,/g, '')) || 0);
+    if (hL <= 0 && vL <= 0) return null;
+
+    const zeroHFence: ReturnType<typeof computeHybridHorizontalWpc6ftFence> = {
+      aluminum_h_post: 0,
+      cap_h_post: 0,
+      rail_6ft: 0,
+      board: 0,
+      long_black_screw_25: 0,
+      u_channel: 0,
+      small_black_screw: 0,
+      posts: 0,
+    };
+    const zeroVFence: ReturnType<typeof computeHybridVerticalPvc64Fence> = {
+      aluminum_h_post: 0,
+      cap_h_post: 0,
+      rail_8ft: 0,
+      board_72: 0,
+      board_stiffener: 0,
+      small_black_screw: 0,
+      u_channel: 0,
+      long_black_screw_25: 0,
+      posts: 0,
+    };
+
+    const hFence =
+      hL > 0
+        ? computeHybridHorizontalWpc6ftFence({
+            length_ft: hL,
+            fence_h_post_type: hybHHPost,
+            fence_u_channel: hybHU,
+          })
+        : zeroHFence;
+    const vFence =
+      vL > 0
+        ? computeHybridVerticalPvc64Fence({
+            length_ft: vL,
+            fence_h_post_type: hybVHPost,
+            fence_u_channel: hybVU,
+          })
+        : zeroVFence;
+
+    const hGw = Math.max(0, Number(String(hybHGateW).replace(/,/g, '')) || 0);
+    const hGate =
+      hybHGateOn && hGw > 0
+        ? computeHybridHorizontalWpc6ftGate({ gate_width_in: hGw, posts: hybHGateP })
+        : null;
+
+    const vSw = Math.max(0, Number(String(hybVSingleW).replace(/,/g, '')) || 0);
+    const vSingle =
+      hybVSingleOn && vSw > 0 ? computeHybridVerticalPvc64GateSingle({ gate_width_in: vSw, posts: hybVSingleP }) : null;
+
+    const vDw = Math.max(0, Number(String(hybVDoubleW).replace(/,/g, '')) || 0);
+    const vDouble =
+      hybVDoubleOn && vDw > 0
+        ? computeHybridVerticalPvc64GateDouble({ gate_width_in: vDw, posts: hybVDoubleP })
+        : null;
+
+    return combineHybridMasterPreview({
+      horizontalFence: hFence,
+      horizontalGate: hGate,
+      verticalFence: vFence,
+      verticalGateSingle: vSingle,
+      verticalGateDouble: vDouble,
+    });
+  }, [
+    hybHLen,
+    hybVLen,
+    hybHHPost,
+    hybHU,
+    hybVHPost,
+    hybVU,
+    hybHGateOn,
+    hybHGateW,
+    hybHGateP,
+    hybVSingleOn,
+    hybVSingleW,
+    hybVSingleP,
+    hybVDoubleOn,
+    hybVDoubleW,
+    hybVDoubleP,
+  ]);
 
   function addLine() {
     setLines((p) => [
@@ -174,6 +466,91 @@ export default function MaterialCalculatorHubPage() {
     setLines((rows) => (rows.length <= 1 ? rows : rows.filter((r) => r.id !== id)));
   }
 
+  function addPvcGate(kind: 'short' | 'single' | 'double') {
+    const row = emptyGateRow();
+    if (kind === 'short') setShortGates((p) => [...p, row]);
+    else if (kind === 'single') setSingleGates((p) => [...p, row]);
+    else setDoubleGates((p) => [...p, row]);
+  }
+
+  function updatePvcGate(
+    kind: 'short' | 'single' | 'double',
+    id: string,
+    patch: Partial<PvcGateRow>
+  ) {
+    const fn = (rows: PvcGateRow[]) => rows.map((r) => (r.id === id ? { ...r, ...patch } : r));
+    if (kind === 'short') setShortGates(fn);
+    else if (kind === 'single') setSingleGates(fn);
+    else setDoubleGates(fn);
+  }
+
+  function removePvcGate(kind: 'short' | 'single' | 'double', id: string) {
+    const fn = (rows: PvcGateRow[]) => rows.filter((r) => r.id !== id);
+    if (kind === 'short') setShortGates(fn);
+    else if (kind === 'single') setSingleGates(fn);
+    else setDoubleGates(fn);
+  }
+
+  function renderPvcGateSection(
+    title: string,
+    hint: string,
+    kind: 'short' | 'single' | 'double',
+    rows: PvcGateRow[]
+  ) {
+    return (
+      <div className="rounded-xl border border-slate-100 bg-slate-50/30 p-4">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <span className="text-sm font-semibold text-slate-800">{title}</span>
+            <p className="text-xs text-slate-500">{hint}</p>
+          </div>
+          <button type="button" className={btnGhost} onClick={() => addPvcGate(kind)}>
+            + Add
+          </button>
+        </div>
+        {rows.length === 0 ? (
+          <p className="text-xs text-slate-400">None</p>
+        ) : (
+          <div className="space-y-2">
+            {rows.map((g, i) => (
+              <div key={g.id} className="flex flex-wrap items-end gap-2 rounded-lg bg-white p-2 ring-1 ring-slate-100">
+                <span className="text-xs text-slate-400">#{i + 1}</span>
+                <div>
+                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">Width (in)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    value={g.width_in}
+                    onChange={(e) => updatePvcGate(kind, g.id, { width_in: e.target.value })}
+                    className={`${field} w-28`}
+                  />
+                </div>
+                <div>
+                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">Posts</label>
+                  <select
+                    value={g.posts}
+                    onChange={(e) =>
+                      updatePvcGate(kind, g.id, { posts: Number(e.target.value) as FmsPvcGatePosts })
+                    }
+                    className={`${field} w-20`}
+                  >
+                    <option value={0}>0</option>
+                    <option value={1}>1</option>
+                    <option value={2}>2</option>
+                  </select>
+                </div>
+                <button type="button" className={btnGhost} onClick={() => removePvcGate(kind, g.id)}>
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="relative mx-auto max-w-5xl space-y-6 pb-24">
       <div>
@@ -182,14 +559,12 @@ export default function MaterialCalculatorHubPage() {
         </Link>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">Material calculator (FMS)</h1>
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
-          Streamlined takeoff from the 2026 FMS workbook: enter the job address, each straight run length, panel height
-          module, and how the line ends (continuous H-post or U-channel). Totals match the Excel{' '}
-          <strong className="font-medium text-slate-800">Material Calculator — PVC</strong> fence block (per line),
-          summed like pasting each line into the colour sheet columns.
+          Takeoff aligned to the 2026 FMS workbook: PVC includes fence lines, short / single / double gates (Excel gate
+          block), Adobe-style breakdown rows, and Master column C totals with optional column M adders. Chain link and
+          hybrid tabs run the ported formula modules from their calculator sheets.
         </p>
         <p className="mt-2 text-xs text-slate-500">
-          Gate sections from the workbook are not in this page yet — only fence lines. For a configurable per-panel BOM
-          (rails rule, custom items), use{' '}
+          For a configurable per-panel BOM (rails rule, custom items), use{' '}
           <Link href="/dashboard/material-calculator/pvc" className="font-medium text-blue-600 hover:underline">
             Legacy PVC BOM
           </Link>
@@ -354,11 +729,122 @@ export default function MaterialCalculatorHubPage() {
           </section>
 
           <section className={card}>
-            <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className={h2}>Totals (all lines)</h2>
+            <div className="border-b border-slate-100 bg-gradient-to-r from-amber-50/40 via-white to-slate-50/80 px-5 py-4">
+              <h2 className={h2}>Gates (PVC workbook)</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Same SKU names as the workbook fence block. Concrete estimate uses Master-list rule: total H-posts ×
-                2.5 (bags).
+                Short (&lt; 59.5&quot;), single (≥ 65.5&quot;), and double (≥ 106&quot;) paths from the Material
+                Calculator — PVC sheet. Width is inside gate in inches; posts matches sheet columns B/G/K.
+              </p>
+            </div>
+            <div className="space-y-4 p-5">
+              {renderPvcGateSection('Short gates', 'Under 59.5″ opening — columns B/C.', 'short', shortGates)}
+              {renderPvcGateSection('Single gates', '≥ 65.5″ — columns G/H.', 'single', singleGates)}
+              {renderPvcGateSection('Double gates', '≥ 106″ — columns K/L.', 'double', doubleGates)}
+            </div>
+          </section>
+
+          <section className={card}>
+            <div className="border-b border-slate-100 px-5 py-4">
+              <h2 className={h2}>Optional Master column M adders</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Same-row manual quantities from the Master sheet (added inside the C formulas). Leave blank for zero.
+              </p>
+            </div>
+            <div className="p-5">
+              <button type="button" className={btnGhost} onClick={() => setMasterExtrasOpen((o) => !o)}>
+                {masterExtrasOpen ? 'Hide' : 'Show'} M6–M24 fields
+              </button>
+              {masterExtrasOpen && (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {MASTER_EXTRA_KEYS.map((k) => (
+                    <div key={k}>
+                      <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
+                        {MASTER_EXTRA_LABELS[k]}
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={masterExtras[k] ?? ''}
+                        onChange={(e) => setMasterExtras((p) => ({ ...p, [k]: e.target.value }))}
+                        className={`${field} w-full`}
+                        placeholder="0"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className={card}>
+            <div className="border-b border-slate-100 px-5 py-4">
+              <h2 className={h2}>Adobe breakdown + Master column C</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Fence rows 2–14 sum all lines; gate rows 18–33 sum all gates; row 17 is total gate width (in) ÷ 12.
+                Master list includes +10 on hole plugs and large screws per workbook.
+              </p>
+            </div>
+            <div className="grid gap-6 p-5 lg:grid-cols-2">
+              <div>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Adobe (J-style)</h3>
+                <div className="overflow-x-auto rounded-lg border border-slate-100">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold text-slate-500">
+                        <th className="px-2 py-2">#</th>
+                        <th className="px-2 py-2">Item</th>
+                        <th className="px-2 py-2 text-right">Qty</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {adobeRows.map((r) => (
+                        <tr key={r.row} className="border-b border-slate-100">
+                          <td className="px-2 py-1.5 tabular-nums text-slate-500">{r.row}</td>
+                          <td className="px-2 py-1.5 text-slate-800">{r.label}</td>
+                          <td className="px-2 py-1.5 text-right tabular-nums text-slate-900">{r.qty}</td>
+                        </tr>
+                      ))}
+                      {adobeRows.length === 0 && (
+                        <tr>
+                          <td colSpan={3} className="px-2 py-4 text-center text-slate-500">
+                            Add fence lines or gates.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Master material (C)</h3>
+                <div className="overflow-x-auto rounded-lg border border-slate-100">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold text-slate-500">
+                        <th className="px-2 py-2">Item</th>
+                        <th className="px-2 py-2 text-right">Qty</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pvcMaster.map((r) => (
+                        <tr key={r.label} className="border-b border-slate-100">
+                          <td className="px-2 py-1.5 font-medium text-slate-800">{r.label}</td>
+                          <td className="px-2 py-1.5 text-right tabular-nums text-slate-900">{r.qty}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className={card}>
+            <div className="border-b border-slate-100 px-5 py-4">
+              <h2 className={h2}>Fence-only SKU rollup (Excel block)</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Sums the PVC calculator fence columns only (no gates). Use Master table above for full job order qty
+                including gates.
               </p>
             </div>
             <div className="overflow-x-auto p-5">
@@ -383,7 +869,7 @@ export default function MaterialCalculatorHubPage() {
                     </td>
                   </tr>
                   <tr className="border-b border-slate-100 bg-slate-50/80">
-                    <td className="px-2 py-2 font-medium text-slate-800">Concrete bags (est., H-post × 2.5)</td>
+                    <td className="px-2 py-2 font-medium text-slate-800">Concrete bags (fence H-post × 2.5)</td>
                     <td className="px-2 py-2 text-right tabular-nums font-semibold text-slate-900">
                       {pvcJob.concrete_bags_est}
                     </td>
@@ -392,7 +878,7 @@ export default function MaterialCalculatorHubPage() {
               </table>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button type="button" onClick={copyBom} className={btn}>
-                  Copy TSV
+                  Copy TSV (fence + Adobe + Master)
                 </button>
               </div>
             </div>
@@ -446,47 +932,464 @@ export default function MaterialCalculatorHubPage() {
       )}
 
       {tab === 'chain' && (
-        <section className={card}>
-          <div className="border-b border-slate-100 px-5 py-4">
-            <h2 className={h2}>Chain link</h2>
-            <p className="mt-2 text-sm text-slate-600">
-              The FMS workbook tab <strong className="font-medium text-slate-800">Material Calculator — Chain link</strong>{' '}
-              and <strong className="font-medium text-slate-800">Chain Link — Material List Breakdown</strong> drive the
-              same multi-step flow. We can port those formulas next so this tab matches Excel the same way PVC does.
-            </p>
-            <p className="mt-4 text-sm">
-              <Link
-                href="/dashboard/material-calculator?tab=pvc"
-                className="font-semibold text-blue-600 hover:underline"
+        <>
+          <section className={card}>
+            <div className="border-b border-slate-100 px-5 py-4">
+              <h2 className={h2}>Chain link fence</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Primary block from Material Calculator — Chain link (rows 10–27). Terminal post type is Excel D6;
+                rail / mesh / ties divisors match D7–D9.
+              </p>
+            </div>
+            <div className="space-y-4 p-5">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-500">Rail length divisor (ft)</label>
+                  <input
+                    type="number"
+                    min={0.01}
+                    step={0.01}
+                    value={chainRailFt}
+                    onChange={(e) => setChainRailFt(e.target.value)}
+                    className={`${field} w-full`}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-500">Mesh roll divisor (ft)</label>
+                  <input
+                    type="number"
+                    min={0.01}
+                    step={0.01}
+                    value={chainMeshFt}
+                    onChange={(e) => setChainMeshFt(e.target.value)}
+                    className={`${field} w-full`}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-500">Ties per bag</label>
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={chainTiesPerBag}
+                    onChange={(e) => setChainTiesPerBag(e.target.value)}
+                    className={`${field} w-full`}
+                  />
+                </div>
+              </div>
+              {chainLines.map((row, idx) => (
+                <div
+                  key={row.id}
+                  className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-100 bg-slate-50/40 p-4"
+                >
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">Label</label>
+                    <input
+                      type="text"
+                      value={row.label}
+                      onChange={(e) =>
+                        setChainLines((rows) => rows.map((r) => (r.id === row.id ? { ...r, label: e.target.value } : r)))
+                      }
+                      className={`${field} w-32`}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">Length (ft)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.1}
+                      value={row.length_ft}
+                      onChange={(e) =>
+                        setChainLines((rows) =>
+                          rows.map((r) => (r.id === row.id ? { ...r, length_ft: e.target.value } : r))
+                        )
+                      }
+                      className={`${field} w-28`}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">Terminal post (D6)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={row.terminal_post}
+                      onChange={(e) =>
+                        setChainLines((rows) =>
+                          rows.map((r) => (r.id === row.id ? { ...r, terminal_post: e.target.value } : r))
+                        )
+                      }
+                      className={`${field} w-24`}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className={btnGhost}
+                    disabled={chainLines.length <= 1}
+                    onClick={() => setChainLines((rows) => rows.filter((r) => r.id !== row.id))}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                className={btnGhost}
+                onClick={() =>
+                  setChainLines((rows) => [
+                    ...rows,
+                    { id: newLineId(), label: `Run ${rows.length + 1}`, length_ft: '', terminal_post: '2' },
+                  ])
+                }
               >
-                Use PVC calculator
-              </Link>{' '}
-              for now, or keep using the spreadsheet for chain link until this tab ships.
-            </p>
-          </div>
-        </section>
+                + Add run
+              </button>
+            </div>
+          </section>
+
+          <section className={card}>
+            <div className="border-b border-slate-100 px-5 py-4">
+              <h2 className={h2}>Chain link gates</h2>
+              <p className="mt-1 text-xs text-slate-500">Gate block (sheet rows 37–45 style): frame, posts, extension, hardware.</p>
+            </div>
+            <div className="p-5">
+              <button
+                type="button"
+                className={btnGhost}
+                onClick={() =>
+                  setChainGates((g) => [
+                    ...g,
+                    { id: newLineId(), width_in: '', posts: 1, opening_in: '45' },
+                  ])
+                }
+              >
+                + Add gate
+              </button>
+              <div className="mt-3 space-y-2">
+                {chainGates.map((g) => (
+                  <div key={g.id} className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-100 bg-white p-3">
+                    <div>
+                      <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">Width (in)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={g.width_in}
+                        onChange={(e) =>
+                          setChainGates((rows) => rows.map((r) => (r.id === g.id ? { ...r, width_in: e.target.value } : r)))
+                        }
+                        className={`${field} w-24`}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">Posts</label>
+                      <select
+                        value={g.posts}
+                        onChange={(e) =>
+                          setChainGates((rows) =>
+                            rows.map((r) =>
+                              r.id === g.id ? { ...r, posts: Number(e.target.value) as FmsPvcGatePosts } : r
+                            )
+                          )
+                        }
+                        className={`${field} w-20`}
+                      >
+                        <option value={0}>0</option>
+                        <option value={1}>1</option>
+                        <option value={2}>2</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">Normal opening (in)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={g.opening_in}
+                        onChange={(e) =>
+                          setChainGates((rows) =>
+                            rows.map((r) => (r.id === g.id ? { ...r, opening_in: e.target.value } : r))
+                          )
+                        }
+                        className={`${field} w-24`}
+                      />
+                    </div>
+                    <button type="button" className={btnGhost} onClick={() => setChainGates((rows) => rows.filter((r) => r.id !== g.id))}>
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className={card}>
+            <div className="border-b border-slate-100 px-5 py-4">
+              <h2 className={h2}>Totals</h2>
+            </div>
+            <div className="overflow-x-auto p-5">
+              {!chainFenceAgg ? (
+                <p className="text-sm text-slate-500">Enter at least one fence run length.</p>
+              ) : (
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <div>
+                    <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">Fence (summed runs)</h3>
+                    <table className="w-full text-sm">
+                      <tbody>
+                        {(
+                          [
+                            ['Terminal post', chainFenceAgg.terminal_post],
+                            ['Line post', chainFenceAgg.line_post],
+                            ['Terminal post cap', chainFenceAgg.terminal_post_cap],
+                            ['Line post loop cap', chainFenceAgg.line_post_loop_cap],
+                            ['Rail end', chainFenceAgg.rail_end],
+                            ['Rail', chainFenceAgg.rail],
+                            ['Center band', chainFenceAgg.center_band],
+                            ['Offset band', chainFenceAgg.offset_band],
+                            ['Tension bar', chainFenceAgg.tension_bar],
+                            ['Mesh (rolls)', chainFenceAgg.mesh],
+                            ['Bottom wire (ft)', chainFenceAgg.bottom_wire],
+                            ['Ties (est.)', chainFenceAgg.ties],
+                            ['Carriage bolt + nut', chainFenceAgg.carriage_bolt_nut],
+                            ['Hog rings (note L/2)', chainFenceAgg.hog_rings_note],
+                          ] as const
+                        ).map(([label, qty]) => (
+                          <tr key={label} className="border-b border-slate-100">
+                            <td className="py-1.5 font-medium text-slate-800">{label}</td>
+                            <td className="py-1.5 text-right tabular-nums">{qty}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div>
+                    <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">Gates (summed)</h3>
+                    {!chainGateAgg ? (
+                      <p className="text-xs text-slate-500">No gates with width entered.</p>
+                    ) : (
+                      <table className="w-full text-sm">
+                        <tbody>
+                          {(
+                            [
+                              ['Pre-assembled frame', chainGateAgg.pre_assembled_frame],
+                              ['Post', chainGateAgg.post],
+                              ['End post cap', chainGateAgg.end_post_cap],
+                              ['Gate extension kit', chainGateAgg.gate_extension_kit],
+                              ['Hardware kit', chainGateAgg.hardware_kit],
+                            ] as const
+                          ).map(([label, qty]) => (
+                            <tr key={label} className="border-b border-slate-100">
+                              <td className="py-1.5 font-medium text-slate-800">{label}</td>
+                              <td className="py-1.5 text-right tabular-nums">{qty}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+        </>
       )}
 
       {tab === 'hybrid' && (
-        <section className={card}>
-          <div className="border-b border-slate-100 px-5 py-4">
-            <h2 className={h2}>Hybrid (horizontal + vertical)</h2>
-            <p className="mt-2 text-sm text-slate-600">
-              The workbook combines <strong className="font-medium text-slate-800">Horizontal Material Calculator</strong>,{' '}
-              <strong className="font-medium text-slate-800">Vertical Material Calculator</strong>, and the hybrid master
-              list. Porting is a follow-up once chain link is in place.
-            </p>
-            <p className="mt-4 text-sm">
-              <Link
-                href="/dashboard/material-calculator?tab=pvc"
-                className="font-semibold text-blue-600 hover:underline"
-              >
-                Use PVC calculator
-              </Link>{' '}
-              for PVC-only jobs in the meantime.
-            </p>
-          </div>
-        </section>
+        <>
+          <section className={card}>
+            <div className="border-b border-amber-100 bg-amber-50/30 px-5 py-4">
+              <h2 className={h2}>Horizontal 6&apos; WPC</h2>
+              <p className="mt-1 text-xs text-slate-600">
+                From Horizontal Material Calculator. Leave length blank or zero to omit horizontal from the combined
+                preview.
+              </p>
+            </div>
+            <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-500">Length (ft)</label>
+                <input
+                  type="number"
+                  min={0}
+                  step={0.1}
+                  value={hybHLen}
+                  onChange={(e) => setHybHLen(e.target.value)}
+                  className={`${field} w-full`}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-500">H-post type (0–2)</label>
+                <select
+                  value={hybHHPost}
+                  onChange={(e) => setHybHHPost(Number(e.target.value) as 0 | 1 | 2)}
+                  className={`${field} w-full`}
+                >
+                  <option value={0}>0</option>
+                  <option value={1}>1</option>
+                  <option value={2}>2</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-500">U-channel (0–2)</label>
+                <select value={hybHU} onChange={(e) => setHybHU(Number(e.target.value) as 0 | 1 | 2)} className={`${field} w-full`}>
+                  <option value={0}>0</option>
+                  <option value={1}>1</option>
+                  <option value={2}>2</option>
+                </select>
+              </div>
+            </div>
+            <div className="border-t border-slate-100 px-5 py-4">
+              <label className="flex items-center gap-2 text-sm text-slate-800">
+                <input type="checkbox" checked={hybHGateOn} onChange={(e) => setHybHGateOn(e.target.checked)} />
+                Horizontal gate
+              </label>
+              {hybHGateOn && (
+                <div className="mt-3 flex flex-wrap gap-3">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">Width (in)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={hybHGateW}
+                      onChange={(e) => setHybHGateW(e.target.value)}
+                      className={`${field} w-28`}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">Posts</label>
+                    <select
+                      value={hybHGateP}
+                      onChange={(e) => setHybHGateP(Number(e.target.value) as FmsPvcGatePosts)}
+                      className={`${field} w-20`}
+                    >
+                      <option value={0}>0</option>
+                      <option value={1}>1</option>
+                      <option value={2}>2</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className={card}>
+            <div className="border-b border-blue-100 bg-blue-50/20 px-5 py-4">
+              <h2 className={h2}>Vertical 6&apos;4″ PVC</h2>
+              <p className="mt-1 text-xs text-slate-600">From Vertical Material Calculator (8 ft panel divisor).</p>
+            </div>
+            <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-500">Length (ft)</label>
+                <input
+                  type="number"
+                  min={0}
+                  step={0.1}
+                  value={hybVLen}
+                  onChange={(e) => setHybVLen(e.target.value)}
+                  className={`${field} w-full`}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-500">H-post type (0–2)</label>
+                <select
+                  value={hybVHPost}
+                  onChange={(e) => setHybVHPost(Number(e.target.value) as 0 | 1 | 2)}
+                  className={`${field} w-full`}
+                >
+                  <option value={0}>0</option>
+                  <option value={1}>1</option>
+                  <option value={2}>2</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-500">U-channel (0–2)</label>
+                <select value={hybVU} onChange={(e) => setHybVU(Number(e.target.value) as 0 | 1 | 2)} className={`${field} w-full`}>
+                  <option value={0}>0</option>
+                  <option value={1}>1</option>
+                  <option value={2}>2</option>
+                </select>
+              </div>
+            </div>
+            <div className="space-y-4 border-t border-slate-100 px-5 py-4">
+              <div>
+                <label className="flex items-center gap-2 text-sm text-slate-800">
+                  <input type="checkbox" checked={hybVSingleOn} onChange={(e) => setHybVSingleOn(e.target.checked)} />
+                  Single gate
+                </label>
+                {hybVSingleOn && (
+                  <div className="mt-2 flex flex-wrap gap-3">
+                    <input
+                      type="number"
+                      placeholder="Width in"
+                      value={hybVSingleW}
+                      onChange={(e) => setHybVSingleW(e.target.value)}
+                      className={`${field} w-28`}
+                    />
+                    <select
+                      value={hybVSingleP}
+                      onChange={(e) => setHybVSingleP(Number(e.target.value) as FmsPvcGatePosts)}
+                      className={`${field} w-20`}
+                    >
+                      <option value={0}>0</option>
+                      <option value={1}>1</option>
+                      <option value={2}>2</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="flex items-center gap-2 text-sm text-slate-800">
+                  <input type="checkbox" checked={hybVDoubleOn} onChange={(e) => setHybVDoubleOn(e.target.checked)} />
+                  Double gate
+                </label>
+                {hybVDoubleOn && (
+                  <div className="mt-2 flex flex-wrap gap-3">
+                    <input
+                      type="number"
+                      placeholder="Width in"
+                      value={hybVDoubleW}
+                      onChange={(e) => setHybVDoubleW(e.target.value)}
+                      className={`${field} w-28`}
+                    />
+                    <select
+                      value={hybVDoubleP}
+                      onChange={(e) => setHybVDoubleP(Number(e.target.value) as FmsPvcGatePosts)}
+                      className={`${field} w-20`}
+                    >
+                      <option value={0}>0</option>
+                      <option value={1}>1</option>
+                      <option value={2}>2</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section className={card}>
+            <div className="border-b border-slate-100 px-5 py-4">
+              <h2 className={h2}>Hybrid master preview</h2>
+              <p className="mt-1 text-xs text-amber-800/90">
+                Simplified combined list: concrete uses total caps × 2.5 (Hybrid C5=C7×2.5). Some screw and U-channel
+                lines are merged approximations — verify against the full hybrid master workbook for exact row parity.
+              </p>
+            </div>
+            <div className="p-5">
+              {!hybridPreview ? (
+                <p className="text-sm text-slate-500">Enter at least one horizontal or vertical fence length.</p>
+              ) : (
+                <table className="w-full max-w-xl text-sm">
+                  <tbody>
+                    {hybridPreview.map((r) => (
+                      <tr key={r.label} className="border-b border-slate-100">
+                        <td className="py-1.5 font-medium text-slate-800">{r.label}</td>
+                        <td className="py-1.5 text-right tabular-nums">{r.qty}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </section>
+        </>
       )}
     </div>
   );

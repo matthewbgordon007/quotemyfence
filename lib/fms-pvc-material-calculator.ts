@@ -1,9 +1,11 @@
 /**
  * FMS 2026 "Material Calculator - PVC" fence-line block (rows 5–23, columns C/D),
  * transcribed from `docs/2026 FMS - Fencing Material Calculator.xlsx` for numeric parity with Excel.
- *
- * Gate blocks (rows 25+) are not included yet — add when gate inputs are wired.
  */
+
+import { excelRound, excelRoundUp } from '@/lib/fms-excel-math';
+
+export { excelRound, excelRoundUp } from '@/lib/fms-excel-math';
 
 export type FmsPvcPanelModule = 'nominal_7ft' | 'nominal_6ft';
 
@@ -59,28 +61,6 @@ export interface FmsPvcFenceLineResult {
   plug: number;
   u_channel: number;
   h_post_stiffener: number;
-}
-
-/** Excel ROUND(number, num_digits) — half away from zero at 0.5 (matches typical Excel). */
-export function excelRound(n: number, numDigits: number): number {
-  if (!Number.isFinite(n)) return 0;
-  const m = 10 ** numDigits;
-  const x = n * m;
-  const sign = n >= 0 ? 1 : -1;
-  const ax = Math.abs(x);
-  const f = Math.floor(ax);
-  const frac = ax - f;
-  if (Math.abs(frac - 0.5) < 1e-12) {
-    return (sign * (f + 1)) / m;
-  }
-  return Math.round(x) / m;
-}
-
-/** Excel ROUNDUP(number, num_digits) for non-negative numbers (workbook uses positive lengths only). */
-export function excelRoundUp(n: number, numDigits: number): number {
-  if (!Number.isFinite(n) || n <= 0) return 0;
-  const m = 10 ** numDigits;
-  return Math.ceil(n * m - 1e-12) / m;
 }
 
 function clampHType(v: number): 0 | 1 | 2 {
