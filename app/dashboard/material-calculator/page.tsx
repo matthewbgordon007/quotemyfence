@@ -28,6 +28,17 @@ import {
   computeHybridVerticalPvc64GateDouble,
   computeHybridVerticalPvc64GateSingle,
 } from '@/lib/fms-hybrid-calculators';
+import {
+  FMS_PVC_CALCULATOR_COLOURS,
+  FMS_WPC_CALCULATOR_COLOURS,
+  coerceFmsPvcCalculatorColour,
+  coerceFmsWpcCalculatorColour,
+  fmsPvcMaterialListBreakdownTitle,
+  fmsPvcVerticalCalculatorTitle,
+  fmsWpcHorizontalCalculatorTitle,
+  type FmsPvcCalculatorColour,
+  type FmsWpcCalculatorColour,
+} from '@/lib/fms-calculator-colour-presets';
 
 const card =
   'overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-md shadow-slate-900/[0.04] ring-1 ring-slate-900/[0.03]';
@@ -149,6 +160,8 @@ export default function MaterialCalculatorHubPage() {
 
   const [tab, setTab] = useState<StyleTab>('pvc');
   const [jobAddress, setJobAddress] = useState('');
+  /** Matches the Excel per-colour breakdown tab (labels / TSV only; formulas shared). */
+  const [pvcBreakdownColour, setPvcBreakdownColour] = useState<FmsPvcCalculatorColour>('Adobe');
   const [lines, setLines] = useState<PvcLineRow[]>([
     {
       id: newLineId(),
@@ -194,12 +207,23 @@ export default function MaterialCalculatorHubPage() {
   const [hybVDoubleOn, setHybVDoubleOn] = useState(false);
   const [hybVDoubleW, setHybVDoubleW] = useState('');
   const [hybVDoubleP, setHybVDoubleP] = useState<FmsPvcGatePosts>(1);
+  const [hybridWpcColour, setHybridWpcColour] = useState<FmsWpcCalculatorColour>('Ash');
+  const [hybridPvcColour, setHybridPvcColour] = useState<FmsPvcCalculatorColour>('White');
 
   useEffect(() => {
     if (tabParam === 'chain' || tabParam === 'hybrid' || tabParam === 'pvc') {
       setTab(tabParam as StyleTab);
     }
   }, [tabParam]);
+
+  useEffect(() => {
+    const pvc = coerceFmsPvcCalculatorColour(searchParams.get('pvc_colour'));
+    if (pvc) setPvcBreakdownColour(pvc);
+    const hw = coerceFmsWpcCalculatorColour(searchParams.get('hybrid_wpc'));
+    if (hw) setHybridWpcColour(hw);
+    const hp = coerceFmsPvcCalculatorColour(searchParams.get('hybrid_pvc'));
+    if (hp) setHybridPvcColour(hp);
+  }, [searchParams]);
 
   useEffect(() => {
     if (!fromLayoutId) return;
@@ -286,17 +310,18 @@ export default function MaterialCalculatorHubPage() {
 
   const bomTsv = useMemo(() => {
     const head = ['Job', jobAddress || '—', '', ''].join('\t');
+    const colourLine = ['PVC colour / breakdown tab', pvcBreakdownColour, '', ''].join('\t');
     const fenceHdr = ['Fence-only SKU rollup (Excel block)', '', '', ''].join('\t');
     const hdr = ['SKU', 'Qty'].join('\t');
     const fenceRows = pvcJob.sku_rows.map((r) => `${r.label}\t${r.quantity}`);
     const extra = [`Whole panels (sum D9)`, `${pvcJob.sum_whole_panels}`, '', ''].join('\t');
     const concF = [`Concrete (fence H-post only × 2.5)`, `${pvcJob.concrete_bags_est}`, '', ''].join('\t');
-    const adobeH = ['Adobe-style breakdown (row → qty)', '', '', ''].join('\t');
+    const adobeH = [`${fmsPvcMaterialListBreakdownTitle(pvcBreakdownColour)} (J row → qty)`, '', '', ''].join('\t');
     const adobeBody = adobeRows.map((r) => `${r.row}\t${r.label}\t${r.qty}`);
-    const masterH = ['Master column C (with optional M adders)', '', '', ''].join('\t');
+    const masterH = [`Master column C — ${pvcBreakdownColour} (optional M adders)`, '', '', ''].join('\t');
     const masterBody = pvcMaster.map((r) => `${r.label}\t${r.qty}`);
-    return [head, '', fenceHdr, hdr, ...fenceRows, extra, concF, '', adobeH, 'Row\tItem\tQty', ...adobeBody, '', masterH, hdr, ...masterBody].join('\n');
-  }, [pvcJob, jobAddress, adobeRows, pvcMaster]);
+    return [head, colourLine, '', fenceHdr, hdr, ...fenceRows, extra, concF, '', adobeH, 'Row\tItem\tQty', ...adobeBody, '', masterH, hdr, ...masterBody].join('\n');
+  }, [pvcJob, jobAddress, pvcBreakdownColour, adobeRows, pvcMaster]);
 
   const copyBom = useCallback(async () => {
     try {
@@ -560,7 +585,8 @@ export default function MaterialCalculatorHubPage() {
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">Material calculator (FMS)</h1>
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
           Takeoff aligned to the 2026 FMS workbook: PVC includes fence lines, short / single / double gates (Excel gate
-          block), Adobe-style breakdown rows, and Master column C totals with optional column M adders. Chain link and
+          block), per-colour Material List Breakdown labels (pick the same colour tab you use in Excel), Master column C
+          totals with optional column M adders, and hybrid horizontal WPC + vertical PVC colours. Chain link and
           hybrid tabs run the ported formula modules from their calculator sheets.
         </p>
         <p className="mt-2 text-xs text-slate-500">
@@ -599,15 +625,36 @@ export default function MaterialCalculatorHubPage() {
               <h2 className={h2}>Job</h2>
               <p className="mt-1 text-xs text-slate-500">Stored on-screen only — not saved to the database yet.</p>
             </div>
-            <div className="p-5">
-              <label className="mb-1 block text-sm font-medium text-slate-700">Address / label</label>
-              <input
-                type="text"
-                value={jobAddress}
-                onChange={(e) => setJobAddress(e.target.value)}
-                placeholder="e.g. 53 Rothesay"
-                className={`${field} w-full max-w-xl`}
-              />
+            <div className="grid gap-4 p-5 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-sm font-medium text-slate-700">Address / label</label>
+                <input
+                  type="text"
+                  value={jobAddress}
+                  onChange={(e) => setJobAddress(e.target.value)}
+                  placeholder="e.g. 53 Rothesay"
+                  className={`${field} w-full max-w-xl`}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">PVC colour (breakdown tab)</label>
+                <select
+                  value={pvcBreakdownColour}
+                  onChange={(e) => setPvcBreakdownColour(e.target.value as FmsPvcCalculatorColour)}
+                  className={`${field} w-full max-w-xs`}
+                >
+                  {FMS_PVC_CALCULATOR_COLOURS.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-slate-500">
+                  Matches the per-colour &quot;Material List Breakdown&quot; sheet name in Excel. Line math is shared
+                  across colours; use this so headings and TSV match the tab you are filling in. Optional URL:{' '}
+                  <code className="rounded bg-slate-100 px-1 text-[11px]">?tab=pvc&amp;pvc_colour=Moonlit</code>
+                </p>
+              </div>
             </div>
           </section>
 
@@ -733,7 +780,9 @@ export default function MaterialCalculatorHubPage() {
               <h2 className={h2}>Gates (PVC workbook)</h2>
               <p className="mt-1 text-xs text-slate-500">
                 Short (&lt; 59.5&quot;), single (≥ 65.5&quot;), and double (≥ 106&quot;) paths from the Material
-                Calculator — PVC sheet. Width is inside gate in inches; posts matches sheet columns B/G/K.
+                Calculator — PVC sheet. Width is inside gate in inches; posts matches sheet columns B/G/K. Gate
+                quantities follow the same logic for all PVC colours; your selected colour ({pvcBreakdownColour}) applies
+                to the breakdown and Master sections below.
               </p>
             </div>
             <div className="space-y-4 p-5">
@@ -778,15 +827,18 @@ export default function MaterialCalculatorHubPage() {
 
           <section className={card}>
             <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className={h2}>Adobe breakdown + Master column C</h2>
+              <h2 className={h2}>{fmsPvcMaterialListBreakdownTitle(pvcBreakdownColour)} + Master column C</h2>
               <p className="mt-1 text-xs text-slate-500">
                 Fence rows 2–14 sum all lines; gate rows 18–33 sum all gates; row 17 is total gate width (in) ÷ 12.
-                Master list includes +10 on hole plugs and large screws per workbook.
+                Master list includes +10 on hole plugs and large screws per workbook. J-column totals are labelled for
+                your selected Excel colour tab.
               </p>
             </div>
             <div className="grid gap-6 p-5 lg:grid-cols-2">
               <div>
-                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Adobe (J-style)</h3>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                  {pvcBreakdownColour} — J totals (breakdown sheet)
+                </h3>
                 <div className="overflow-x-auto rounded-lg border border-slate-100">
                   <table className="w-full text-sm">
                     <thead>
@@ -816,7 +868,9 @@ export default function MaterialCalculatorHubPage() {
                 </div>
               </div>
               <div>
-                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Master material (C)</h3>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Master material (C) — {pvcBreakdownColour}
+                </h3>
                 <div className="overflow-x-auto rounded-lg border border-slate-100">
                   <table className="w-full text-sm">
                     <thead>
@@ -878,7 +932,7 @@ export default function MaterialCalculatorHubPage() {
               </table>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button type="button" onClick={copyBom} className={btn}>
-                  Copy TSV (fence + Adobe + Master)
+                  Copy TSV (fence + {pvcBreakdownColour} breakdown + Master)
                 </button>
               </div>
             </div>
@@ -1197,13 +1251,27 @@ export default function MaterialCalculatorHubPage() {
         <>
           <section className={card}>
             <div className="border-b border-amber-100 bg-amber-50/30 px-5 py-4">
-              <h2 className={h2}>Horizontal 6&apos; WPC</h2>
+              <h2 className={h2}>{fmsWpcHorizontalCalculatorTitle(hybridWpcColour)}</h2>
               <p className="mt-1 text-xs text-slate-600">
                 From Horizontal Material Calculator. Leave length blank or zero to omit horizontal from the combined
-                preview.
+                preview. Pick the WPC colour tab you use in Excel for this run.
               </p>
             </div>
             <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-500">WPC colour (sheet)</label>
+                <select
+                  value={hybridWpcColour}
+                  onChange={(e) => setHybridWpcColour(e.target.value as FmsWpcCalculatorColour)}
+                  className={`${field} w-full`}
+                >
+                  {FMS_WPC_CALCULATOR_COLOURS.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-500">Length (ft)</label>
                 <input
@@ -1272,10 +1340,27 @@ export default function MaterialCalculatorHubPage() {
 
           <section className={card}>
             <div className="border-b border-blue-100 bg-blue-50/20 px-5 py-4">
-              <h2 className={h2}>Vertical 6&apos;4″ PVC</h2>
-              <p className="mt-1 text-xs text-slate-600">From Vertical Material Calculator (8 ft panel divisor).</p>
+              <h2 className={h2}>{fmsPvcVerticalCalculatorTitle(hybridPvcColour)}</h2>
+              <p className="mt-1 text-xs text-slate-600">
+                From Vertical Material Calculator (8 ft panel divisor). Choose the PVC colour sheet that matches this
+                vertical section.
+              </p>
             </div>
             <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-500">PVC colour (sheet)</label>
+                <select
+                  value={hybridPvcColour}
+                  onChange={(e) => setHybridPvcColour(e.target.value as FmsPvcCalculatorColour)}
+                  className={`${field} w-full`}
+                >
+                  {FMS_PVC_CALCULATOR_COLOURS.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-500">Length (ft)</label>
                 <input
@@ -1367,7 +1452,15 @@ export default function MaterialCalculatorHubPage() {
           <section className={card}>
             <div className="border-b border-slate-100 px-5 py-4">
               <h2 className={h2}>Hybrid master preview</h2>
-              <p className="mt-1 text-xs text-amber-800/90">
+              <p className="mt-1 text-xs text-slate-600">
+                Colours for this preview: <strong className="font-medium text-slate-800">{hybridWpcColour}</strong>{' '}
+                (horizontal WPC) · <strong className="font-medium text-slate-800">{hybridPvcColour}</strong> (vertical
+                PVC). Use the same pairing you use on the hybrid master / colour sheets in Excel. Optional URL:{' '}
+                <code className="rounded bg-slate-100 px-1 text-[11px]">
+                  ?tab=hybrid&amp;hybrid_wpc=Walnut&amp;hybrid_pvc=Adobe
+                </code>
+              </p>
+              <p className="mt-2 text-xs text-amber-800/90">
                 Simplified combined list: concrete uses total caps × 2.5 (Hybrid C5=C7×2.5). Some screw and U-channel
                 lines are merged approximations — verify against the full hybrid master workbook for exact row parity.
               </p>
