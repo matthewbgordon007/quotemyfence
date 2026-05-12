@@ -29,7 +29,9 @@ export async function middleware(request: NextRequest) {
   const isDashboard = request.nextUrl.pathname.startsWith('/dashboard');
   const isDashboardBilling = request.nextUrl.pathname.startsWith('/dashboard/billing');
   const isAuthPage =
-    request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/signup';
+    request.nextUrl.pathname === '/login' ||
+    request.nextUrl.pathname === '/signup' ||
+    request.nextUrl.pathname === '/forgot-password';
   const isContractorApi = request.nextUrl.pathname.startsWith('/api/contractor/');
   const isDashboardSettings = request.nextUrl.pathname.startsWith('/dashboard/settings');
   const isCompleteSetupApi =
@@ -87,5 +89,11 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/login', '/signup', '/api/contractor/:path*'],
+  matcher: [
+    '/dashboard/:path*',
+    '/login',
+    '/signup',
+    '/forgot-password',
+    '/api/contractor/:path*',
+  ],
 };

@@ -7,18 +7,18 @@ import {
 } from '@/components/auth-link-password-form';
 
 const COPY: AuthLinkPasswordFormCopy = {
-  title: 'Create your password',
-  titleNoSession: 'Set your password',
+  title: 'Choose a new password',
+  titleNoSession: 'Reset your password',
   subtitleNoSession:
-    'Your invite link may have expired. Ask your admin to click Invite again and open the newest email.',
-  subtitleWithSession: 'Set your password for your company account access.',
-  submitLabel: 'Save password',
+    'This reset link is invalid or has expired. Request a new link from the forgot password page.',
+  subtitleWithSession: 'Enter a new password for your account.',
+  submitLabel: 'Update password',
   submitLabelLoading: 'Saving...',
   defaultLinkError: 'This link is no longer valid.',
   backToLogin: 'Back to login',
 };
 
-export default function SetupPasswordPage() {
+export default function ResetPasswordPage() {
   const router = useRouter();
   return (
     <AuthLinkPasswordForm

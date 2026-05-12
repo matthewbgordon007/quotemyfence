@@ -69,6 +69,11 @@ export default function LoginPage() {
             required
             className="rounded-xl border border-[var(--line)] px-4 py-3 outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
           />
+          <div className="text-right text-sm">
+            <Link href="/forgot-password" className="font-medium text-[var(--accent)] hover:underline">
+              Forgot password?
+            </Link>
+          </div>
           {error && (
             <div className="rounded-xl bg-red-50 px-4 py-2 text-sm text-red-700">
               {error}
