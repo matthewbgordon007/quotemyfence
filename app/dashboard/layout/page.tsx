@@ -553,7 +553,7 @@ export default function LayoutPage() {
                 })}
               </select>
               <Link
-                href={`/dashboard/material-calculator/pvc?from_layout=${encodeURIComponent(layoutId)}`}
+                href={`/dashboard/material-calculator?from_layout=${encodeURIComponent(layoutId)}`}
                 className="whitespace-nowrap text-sm font-medium text-slate-600 underline decoration-slate-200 underline-offset-2 hover:text-[var(--accent)]"
               >
                 PVC material takeoff

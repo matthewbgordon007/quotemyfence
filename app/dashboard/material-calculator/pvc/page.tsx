@@ -220,6 +220,12 @@ export default function PvcMaterialCalculatorPage() {
           it, or you can override structural corners manually. H-post and U-channel counts are directional‑change
           heuristics for PVC—tune with your field rules.
         </p>
+        <p className="mt-2 text-sm">
+          <Link href="/dashboard/material-calculator" className="font-semibold text-blue-600 hover:underline">
+            FMS material hub (Excel-matched PVC)
+          </Link>{' '}
+          — fixed workbook formulas per line, multi-line totals, and optional Draw import.
+        </p>
       </div>
 
       <section className={card}>
