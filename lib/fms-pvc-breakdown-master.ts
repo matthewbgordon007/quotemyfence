@@ -97,7 +97,7 @@ export function computePvcMasterColumn(
   const latch = j(adobe, 31) + x(e.m23);
   const hinge = j(adobe, 32) + x(e.m24);
 
-  const totalLinear = j(adobe, 2) + j(adobe, 17);
+  const totalPanels = j(adobe, 2);
 
   return [
     { label: 'Concrete', qty: concrete },
@@ -122,7 +122,7 @@ export function computePvcMasterColumn(
     { label: '*PREMIUM*Hinge', qty: hinge },
     { label: 'Drop Rod/Sleeve', qty: 0 },
     { label: '—', qty: 0 },
-    { label: 'Total Linear Ft', qty: totalLinear },
+    { label: 'Total Panels', qty: totalPanels },
     { label: 'Total Gates', qty: gateCount },
   ];
 }
