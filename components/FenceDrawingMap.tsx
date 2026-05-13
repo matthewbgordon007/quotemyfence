@@ -65,7 +65,7 @@ export function FenceDrawingMap({ segments, gates = [], center, className = '' }
       });
 
       if (latlngs.length >= 2) {
-        L.default.polyline(latlngs, { color: '#eab308', weight: 5 }).addTo(map);
+        L.default.polyline(latlngs, { color: '#eab308', weight: 3 }).addTo(map);
         segments.forEach((seg, i) => {
           const midLat = (Number(seg.start_lat) + Number(seg.end_lat)) / 2;
           const midLng = (Number(seg.start_lng) + Number(seg.end_lng)) / 2;

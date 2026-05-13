@@ -888,7 +888,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
             onPointerCancel={readOnly ? undefined : handlePointerUp}
           >
             {/* Whiteboard Origin Marker */}
-            <circle cx={0} cy={0} r={2} fill="#cbd5e1" />
+            <circle cx={0} cy={0} r={1.25} fill="#cbd5e1" />
 
             {segments.map((seg, si) =>
               seg.length >= 2 ? (
@@ -899,17 +899,17 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                     x2={seg[1].x}
                     y2={seg[1].y}
                     stroke={strokeForLineMode(lineHighlightModes?.[si])}
-                    strokeWidth={lineHighlightModes?.[si] && lineHighlightModes[si] !== 'none' ? 2.75 : 2}
+                    strokeWidth={lineHighlightModes?.[si] && lineHighlightModes[si] !== 'none' ? 1.55 : 1.2}
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    style={{ filter: 'drop-shadow(0px 1px 1px rgba(0,0,0,0.1))' }}
+                    style={{ filter: 'drop-shadow(0px 0.5px 0.5px rgba(0,0,0,0.08))' }}
                   />
                   {seg.map((p, pi) => (
                     <circle
                       key={pi}
                       cx={p.x}
                       cy={p.y}
-                      r={2.1}
+                      r={1.35}
                       fill={strokeForLineMode(lineHighlightModes?.[si])}
                     />
                   ))}
@@ -937,7 +937,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
             ))}
 
             {currentPath.length > 0 && (
-              <circle cx={currentPath[0].x} cy={currentPath[0].y} r={2.6} fill="#ef4444" />
+              <circle cx={currentPath[0].x} cy={currentPath[0].y} r={1.75} fill="#ef4444" />
             )}
 
             {previewDraw && (
