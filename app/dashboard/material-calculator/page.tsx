@@ -448,6 +448,11 @@ export default function MaterialCalculatorHubPage() {
   const materialCalcDraftSnapshotRef = useRef<Record<string, unknown> | null>(null);
   const materialCalcSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const materialCalcHydrateKeyRef = useRef<string>('');
+  /** Last PVC material TSV successfully written to the clipboard (auto or manual). */
+  const lastPvcBomClipboardRef = useRef<string | null>(null);
+  const pvcBomAutoClipboardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [pvcTsvCopyToast, setPvcTsvCopyToast] = useState<string | null>(null);
+  const pvcTsvCopyToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (tabParam === 'chain' || tabParam === 'hybrid' || tabParam === 'pvc') {
@@ -887,6 +892,11 @@ export default function MaterialCalculatorHubPage() {
     return o;
   }, [masterExtras]);
 
+  const bomTsvWorthCopying = useMemo(
+    () => pvcInputs.length > 0 || gateCount > 0 || Object.keys(extrasParsed).length > 0,
+    [pvcInputs.length, gateCount, extrasParsed]
+  );
+
   const pvcAdobe = useMemo(
     () => buildPvcAdobeBreakdown(pvcJob.lines, gateMerge.merged, gateWidthInchesSum),
     [pvcJob.lines, gateMerge.merged, gateWidthInchesSum]
@@ -927,10 +937,41 @@ export default function MaterialCalculatorHubPage() {
     return [head, colourLine, '', fenceHdr, hdr, ...fenceRows, extra, concF, '', adobeH, 'Row\tItem\tQty', ...adobeBody, '', masterH, hdr, ...masterBody].join('\n');
   }, [pvcJob, jobAddress, pvcBreakdownColour, adobeRows, pvcMaster]);
 
+  useEffect(() => {
+    if (tab !== 'pvc' || !bomTsvWorthCopying) return;
+    if (bomTsv === lastPvcBomClipboardRef.current) return;
+    if (pvcBomAutoClipboardTimerRef.current != null) clearTimeout(pvcBomAutoClipboardTimerRef.current);
+    pvcBomAutoClipboardTimerRef.current = setTimeout(() => {
+      pvcBomAutoClipboardTimerRef.current = null;
+      const text = bomTsv;
+      if (text === lastPvcBomClipboardRef.current) return;
+      void navigator.clipboard
+        .writeText(text)
+        .then(() => {
+          lastPvcBomClipboardRef.current = text;
+        })
+        .catch(() => {
+          /* Clipboard may require a direct gesture in some browsers; manual Copy TSV still works. */
+        });
+    }, 900);
+    return () => {
+      if (pvcBomAutoClipboardTimerRef.current != null) {
+        clearTimeout(pvcBomAutoClipboardTimerRef.current);
+        pvcBomAutoClipboardTimerRef.current = null;
+      }
+    };
+  }, [tab, bomTsv, bomTsvWorthCopying]);
+
   const copyBom = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(bomTsv);
-      alert('Copied material summary as TSV.');
+      lastPvcBomClipboardRef.current = bomTsv;
+      if (pvcTsvCopyToastTimerRef.current != null) clearTimeout(pvcTsvCopyToastTimerRef.current);
+      setPvcTsvCopyToast('Copied material summary (TSV) to clipboard.');
+      pvcTsvCopyToastTimerRef.current = setTimeout(() => {
+        pvcTsvCopyToastTimerRef.current = null;
+        setPvcTsvCopyToast(null);
+      }, 2800);
     } catch {
       prompt('Copy:', bomTsv);
     }
@@ -1249,10 +1290,17 @@ export default function MaterialCalculatorHubPage() {
               <h2 className={h2}>Job</h2>
               <p className="mt-1 text-xs text-slate-500">
                 Same browser draft as the rest of this calculator (auto-saves when you leave the page). Not stored in
-                the database.
+                the database. On the PVC tab, the full material summary TSV (same as the tables below) copies to your
+                clipboard automatically about a second after you change fence lines, gates, extras, or this job label,
+                whenever there is takeoff data—no need to scroll to the copy button.
               </p>
             </div>
             <div className="grid gap-4 p-5 sm:grid-cols-2">
+              {pvcTsvCopyToast && (
+                <div className="sm:col-span-2 rounded-lg border border-emerald-200 bg-emerald-50/90 px-3 py-2 text-xs font-medium text-emerald-900">
+                  {pvcTsvCopyToast}
+                </div>
+              )}
               <div className="sm:col-span-2">
                 <label className="mb-1 block text-sm font-medium text-slate-700">Address / label</label>
                 <input
@@ -1622,8 +1670,13 @@ export default function MaterialCalculatorHubPage() {
               </table>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button type="button" onClick={copyBom} className={btn}>
-                  Copy TSV (fence + {pvcBreakdownColour} breakdown + Master)
+                  Copy TSV again (fence + {pvcBreakdownColour} breakdown + Master)
                 </button>
+                <span className="max-w-xl self-center text-xs text-slate-500">
+                  The same TSV is copied to your clipboard automatically about a second after you pause editing, whenever
+                  there is fence, gate, or optional M takeoff. Use this button if your browser blocked that or you need
+                  another copy.
+                </span>
               </div>
             </div>
           </section>
