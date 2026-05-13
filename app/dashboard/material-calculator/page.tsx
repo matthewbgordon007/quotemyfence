@@ -720,7 +720,7 @@ export default function MaterialCalculatorHubPage() {
               <h2 className={h2}>Layout sketch</h2>
               <p className="mt-1 text-xs text-slate-500">
                 Draw the fence in plan view, enter each segment length in feet, then apply. New segments snap to nearby
-                corners within 6 ft; if the next segment is within 10° of straight, it snaps colinear. Sharper
+                corners within 6 ft; if the next segment is within 25° of straight, it snaps colinear. Sharper
                 corners are treated as a U-channel on the run that ends there; nearly straight joints stay on a
                 continuous H-post run.
               </p>
@@ -775,8 +775,9 @@ export default function MaterialCalculatorHubPage() {
                   </div>
                   {row.fromSketch && (
                     <p className="mb-3 rounded-lg border border-violet-100 bg-violet-50/80 px-3 py-2 text-xs text-violet-900">
-                      From layout sketch: U-channel (D7) is set at corners where the path turns more than 10° from
-                      straight; straighter joints stay on one H-post run.
+                      From layout sketch: U-channel (D7) is set once per corner post (not double-counted): turns
+                      larger than 25° from straight add a U on the run that ends there; the next run starts at the same
+                      post with D7=0. Straighter joints stay one run.
                     </p>
                   )}
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

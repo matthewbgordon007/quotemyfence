@@ -3,6 +3,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import {
   deflectionAtVertexDeg,
+  LAYOUT_CHAIN_ALIGN_FT,
   LAYOUT_SNAP_VERTEX_FT,
   LAYOUT_STRAIGHT_MAX_DEG,
   layoutPointsToSegmentPairs,
@@ -11,7 +12,6 @@ import {
 } from '@/lib/layout-sketch-to-pvc-inputs';
 
 // Canvas uses feet as coordinate system. Origin at center.
-const CHAIN_CONTINUE_TOL_FT = 0.35;
 const MIN_DRAW_SEGMENT_FT = 0.08;
 
 export interface LayoutDrawCanvasRef {
@@ -218,7 +218,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         if (last.length >= 2) {
           const A = last[0];
           const B = last[1];
-          const continuesChain = dist(start, B) <= CHAIN_CONTINUE_TOL_FT;
+          const continuesChain = dist(start, B) <= LAYOUT_CHAIN_ALIGN_FT;
           if (continuesChain) {
             const d = deflectionAtVertexDeg(A, B, end);
             if (d <= LAYOUT_STRAIGHT_MAX_DEG) {
@@ -409,7 +409,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
           if (last.length >= 2) {
             const A = last[0];
             const B = last[1];
-            const continuesChain = dist(start, B) <= CHAIN_CONTINUE_TOL_FT;
+            const continuesChain = dist(start, B) <= LAYOUT_CHAIN_ALIGN_FT;
             if (continuesChain) {
               const d = deflectionAtVertexDeg(A, B, end);
               if (d <= LAYOUT_STRAIGHT_MAX_DEG) {
@@ -441,7 +441,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         if (last.length >= 2) {
           const A = last[0];
           const B = last[1];
-          const continuesChain = dist(start, B) <= CHAIN_CONTINUE_TOL_FT;
+          const continuesChain = dist(start, B) <= LAYOUT_CHAIN_ALIGN_FT;
           if (continuesChain) {
             const d = deflectionAtVertexDeg(A, B, end);
             if (d <= LAYOUT_STRAIGHT_MAX_DEG) {
@@ -829,7 +829,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
             <span className="flex items-center gap-1">
               <span className="inline-flex h-3 w-3 items-center justify-center rounded-full bg-gray-200 text-[8px]">2</span>
               Click again to end, or use <strong className="text-slate-700">End line</strong> (snaps to nearby corners
-              within 6 ft; within 10° of straight snaps colinear)
+              within 6 ft; within 25° of straight snaps colinear)
             </span>
             <span className="flex items-center gap-1">
               <span className="inline-flex h-3 w-3 items-center justify-center rounded-full bg-gray-200 text-[8px]">Esc</span>

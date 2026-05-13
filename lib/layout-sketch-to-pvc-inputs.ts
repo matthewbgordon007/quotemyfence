@@ -3,14 +3,25 @@
  * Rules (product spec):
  * - Vertices where the turn is within `STRAIGHT_MAX_DEG` of straight → treat as continuous straight run
  *   (merge for material; no extra U at that joint).
- * - Vertices where the turn is larger than that → corner post with U-channel → +1 U on the run that ends there.
+ * - Vertices where the turn is larger than that → one corner post with one U-channel: **D7=1 on exactly one
+ *   fence run** (the run that ends at that post). The next run starts at the same post with D7=0 so U’s are not
+ *   double-counted when job totals sum each line.
+ * - Segment starts are snapped to the previous segment’s end when within `CHAIN_ALIGN_FT` so both “dots” at a
+ *   corner share one joint for angle + U logic.
  * - Open fence: no U at global start / global end unless we add UI later.
  */
 
 import type { FmsPvcFenceLineInput, FmsPvcPanelModule } from '@/lib/fms-pvc-material-calculator';
 
 export const LAYOUT_SNAP_VERTEX_FT = 6;
-export const LAYOUT_STRAIGHT_MAX_DEG = 10;
+/** Degrees: colinear snap while drawing, straight merge, and “no U” band share this (larger = more tolerance). */
+export const LAYOUT_STRAIGHT_MAX_DEG = 25;
+
+/** Snap sketch segment starts to the prior segment’s end (ft) so one physical post = one vertex. */
+export const LAYOUT_CHAIN_ALIGN_FT = 0.5;
+
+/** After chaining, drop links shorter than this (ft) to remove jitter / duplicate dots on one post. */
+export const LAYOUT_MIN_SKETCH_SEGMENT_FT = 0.08;
 
 export type LayoutPt = { x: number; y: number };
 
@@ -123,24 +134,57 @@ export interface LayoutSegmentFeet {
 }
 
 /**
+ * Snap each segment’s start to the previous end when close, then drop micro-segments.
+ * Ensures one physical corner → one joint angle → one U (on the ending run only).
+ */
+export function alignChainedSketchSegments(
+  segments: LayoutPt[][],
+  lengthPerSegmentFt: number[],
+  chainAlignFt = LAYOUT_CHAIN_ALIGN_FT,
+  minSegFt = LAYOUT_MIN_SKETCH_SEGMENT_FT
+): LayoutSegmentFeet[] {
+  const out: LayoutSegmentFeet[] = [];
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    if (!seg || seg.length < 2) continue;
+    let a = { ...seg[0] };
+    const b = { ...seg[1] };
+    const Lraw = lengthPerSegmentFt[i];
+    const Lnum = Number(Lraw);
+    let length_ft = Number.isFinite(Lnum) && Lnum > 0 ? Lnum : dist(a, b);
+    if (length_ft <= 0) continue;
+
+    if (out.length > 0) {
+      const joint = out[out.length - 1].b;
+      if (dist(a, joint) <= chainAlignFt) {
+        a = { ...joint };
+        if (!Number.isFinite(Lnum) || Lnum <= 0) {
+          length_ft = dist(a, b);
+        }
+      }
+    }
+
+    if (dist(a, b) < minSegFt) continue;
+
+    out.push({ a, b, length_ft });
+  }
+  return out;
+}
+
+/**
  * Build merged straight runs and map to PVC inputs (D6=1, D7 = U count for that run’s ends at corners).
  */
 export function layoutSegmentsToPvcFenceInputs(
   segments: LayoutPt[][],
   lengthPerSegmentFt: number[],
   panelModule: FmsPvcPanelModule,
-  opts?: { snapStraightDeg?: number }
+  opts?: { snapStraightDeg?: number; chainAlignFt?: number; minSegFt?: number }
 ): FmsPvcFenceLineInput[] {
   const straightMax = opts?.snapStraightDeg ?? LAYOUT_STRAIGHT_MAX_DEG;
-  const segs: LayoutSegmentFeet[] = [];
-  for (let i = 0; i < segments.length; i++) {
-    const seg = segments[i];
-    if (!seg || seg.length < 2) continue;
-    const L = Number(lengthPerSegmentFt[i]);
-    const len = Number.isFinite(L) && L > 0 ? L : dist(seg[0], seg[1]);
-    if (len <= 0) continue;
-    segs.push({ a: { ...seg[0] }, b: { ...seg[1] }, length_ft: len });
-  }
+  const chainAlign = opts?.chainAlignFt ?? LAYOUT_CHAIN_ALIGN_FT;
+  const minSeg = opts?.minSegFt ?? LAYOUT_MIN_SKETCH_SEGMENT_FT;
+
+  const segs = alignChainedSketchSegments(segments, lengthPerSegmentFt, chainAlign, minSeg);
   if (segs.length === 0) return [];
 
   type Run = { length_ft: number; uEnd: number };
@@ -150,6 +194,12 @@ export function layoutSegmentsToPvcFenceInputs(
   for (let i = 1; i < segs.length; i++) {
     const prev = segs[i - 1];
     const next = segs[i];
+    const inLen = dist(prev.a, prev.b);
+    const outLen = dist(prev.b, next.b);
+    if (inLen < minSeg * 0.5 || outLen < minSeg * 0.5) {
+      cur.length_ft += next.length_ft;
+      continue;
+    }
     const d = deflectionAtVertexDeg(prev.a, prev.b, next.b);
     const straight = d <= straightMax;
     if (straight) {
