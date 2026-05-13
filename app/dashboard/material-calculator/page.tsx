@@ -41,6 +41,7 @@ import {
   type FmsWpcCalculatorColour,
 } from '@/lib/fms-calculator-colour-presets';
 import { LayoutDrawCanvas } from '@/components/LayoutDrawCanvas';
+import { SupplierMaterialQuoteActions } from '@/components/dashboard/SupplierMaterialQuoteActions';
 import { SupplierMaterialQuoteRequestWorkspace } from '@/components/dashboard/SupplierMaterialQuoteRequestWorkspace';
 import type { MaterialQuoteLine } from '@/lib/material-quote-lines';
 import type { MaterialQuoteRequestDto } from '@/lib/supplier-material-quote-requests-enrich';
@@ -1639,11 +1640,6 @@ export default function MaterialCalculatorHubPage() {
           <SupplierMaterialQuoteRequestWorkspace
             requestId={materialRequestId}
             calculatorBasePath="/dashboard/material-calculator"
-            onDownloadMasterPdf={() => void downloadMasterMaterialListPdf()}
-            masterPdfAvailable={tab === 'pvc' && !fmsQuoteMaterialUnsupported}
-            buildMaterialRowsForQuote={buildSupplierMaterialQuoteLines}
-            quoteDetailHref={`/dashboard/supplier/contractor-quotes/${encodeURIComponent(materialRequestId)}`}
-            calculatorBlocked={Boolean(fmsQuoteMaterialUnsupported)}
           />
         ) : null}
         <div className={`min-w-0 space-y-6 ${showSupplierMaterialRequest ? 'flex-1' : ''}`}>
@@ -2738,6 +2734,17 @@ export default function MaterialCalculatorHubPage() {
         </button>
       </div>
       </>
+      ) : null}
+
+      {showSupplierMaterialRequest ? (
+        <SupplierMaterialQuoteActions
+          requestId={materialRequestId}
+          onDownloadMasterPdf={() => void downloadMasterMaterialListPdf()}
+          masterPdfAvailable={tab === 'pvc' && !fmsQuoteMaterialUnsupported}
+          buildMaterialRowsForQuote={buildSupplierMaterialQuoteLines}
+          quoteDetailHref={`/dashboard/supplier/contractor-quotes/${encodeURIComponent(materialRequestId)}`}
+          calculatorBlocked={Boolean(fmsQuoteMaterialUnsupported)}
+        />
       ) : null}
         </div>
       </div>
