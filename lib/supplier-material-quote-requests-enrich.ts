@@ -20,6 +20,7 @@ export type MaterialQuoteRequestProject = {
     points?: { x: number; y: number }[];
     segments?: { length_ft: number }[];
     gates?: { type: 'single' | 'double'; quantity: number }[];
+    gate_placements?: { type: 'single' | 'double'; line_index: number }[];
     total_length_ft?: number;
   } | null;
 };

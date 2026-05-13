@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -287,6 +287,11 @@ export default function CalculatorPage() {
   const [doubleGatePriceOverride, setDoubleGatePriceOverride] = useState<number | null>(null);
   const [minJobOverride, setMinJobOverride] = useState<number | null>(null);
   const [materialQuoteCustomerId, setMaterialQuoteCustomerId] = useState<string | null>(null);
+  /** Quote session for one-click map → material calculator (saved quote row). */
+  const [linkedQuoteSessionId, setLinkedQuoteSessionId] = useState<string | null>(null);
+  /** Quote session when opened via supplier material quote bootstrap. */
+  const [materialQuoteBootstrapSessionId, setMaterialQuoteBootstrapSessionId] = useState<string | null>(null);
+  const [exportingMapToMaterial, setExportingMapToMaterial] = useState(false);
   /** Supplier BOM / notes pasted on calculator (saved with quote / customer). */
   const [materialBomTsv, setMaterialBomTsv] = useState('');
   const [taxRate, setTaxRate] = useState(13);
@@ -315,6 +320,22 @@ export default function CalculatorPage() {
   const fromLayoutId = searchParams.get('from_layout');
   const layoutHomeownerFilter = searchParams.get('layout_homeowner');
   const effectiveCustomerId = fromCustomerId || materialQuoteCustomerId;
+
+  const exportQuoteSessionId = useMemo(
+    () =>
+      linkedQuoteSessionId ||
+      materialQuoteBootstrapSessionId ||
+      (fromCustomerId && fromCustomerId.trim() !== '' ? fromCustomerId.trim() : null),
+    [linkedQuoteSessionId, materialQuoteBootstrapSessionId, fromCustomerId],
+  );
+
+  useEffect(() => {
+    if (!quoteId) setLinkedQuoteSessionId(null);
+  }, [quoteId]);
+
+  useEffect(() => {
+    if (!materialQuoteId) setMaterialQuoteBootstrapSessionId(null);
+  }, [materialQuoteId]);
 
   useEffect(() => {
     fetch('/api/contractor/me', { cache: 'no-store' })
@@ -460,6 +481,8 @@ export default function CalculatorPage() {
           return r.json();
         })
         .then((data) => {
+          if (data.quote?.quote_session_id) setLinkedQuoteSessionId(String(data.quote.quote_session_id));
+          else setLinkedQuoteSessionId(null);
           const st = data.quote?.calculator_state;
           if (st) {
             if (st.homeownerName) setHomeownerName(st.homeownerName);
@@ -506,31 +529,30 @@ export default function CalculatorPage() {
             if (st.segmentAssignments) setSegmentAssignments(st.segmentAssignments);
             if (typeof st.materialBomTsv === 'string') setMaterialBomTsv(st.materialBomTsv);
           }
+          const sessionIdForMap = typeof data.quote?.quote_session_id === 'string' ? data.quote.quote_session_id : null;
+          const mapCustomerKey = (fromCustomerId && fromCustomerId.trim()) || sessionIdForMap;
+          if (mapCustomerKey) {
+            fetch(`/api/contractor/customers/${mapCustomerKey}`)
+              .then((r) => (r.ok ? r.json() : null))
+              .then((cdata) => {
+                if (!cdata) return;
+                const segs = cdata.segments || [];
+                const gateList = cdata.gates || [];
+                const prop = cdata.property;
+                if (segs.length > 0) {
+                  setCustomerSegments(segs);
+                  if (prop?.latitude != null && prop?.longitude != null) {
+                    setCustomerMapCenter([Number(prop.latitude), Number(prop.longitude)]);
+                  }
+                }
+                if (gateList.length > 0) {
+                  setCustomerGates(gateList);
+                }
+              })
+              .catch(() => {});
+          }
         })
         .catch(() => {});
-        
-      // Still fetch the customer to get the drawing map if fromCustomerId exists
-      if (fromCustomerId) {
-        fetch(`/api/contractor/customers/${fromCustomerId}`)
-          .then((r) => r.ok ? r.json() : null)
-          .then((data) => {
-            if (!data) return;
-            const segs = data.segments || [];
-            const gateList = data.gates || [];
-            const prop = data.property;
-            
-            if (segs.length > 0) {
-              setCustomerSegments(segs);
-              if (prop?.latitude != null && prop?.longitude != null) {
-                setCustomerMapCenter([Number(prop.latitude), Number(prop.longitude)]);
-              }
-            }
-            if (gateList.length > 0) {
-              setCustomerGates(gateList);
-            }
-          })
-          .catch(() => {});
-      }
     } else if (materialQuoteId && !quoteId) {
       fetch(`/api/contractor/material-quote-requests/${encodeURIComponent(materialQuoteId)}/for-calculator`, {
         cache: 'no-store',
@@ -538,6 +560,8 @@ export default function CalculatorPage() {
         .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
           if (!data) return;
+          if (data.quoteSessionId) setMaterialQuoteBootstrapSessionId(String(data.quoteSessionId));
+          else setMaterialQuoteBootstrapSessionId(null);
           if (data.homeownerName) setHomeownerName(data.homeownerName);
           if (data.quoteAddress) setQuoteAddress(data.quoteAddress);
           if (data.customerId) setMaterialQuoteCustomerId(data.customerId);
@@ -1218,6 +1242,37 @@ export default function CalculatorPage() {
     DEFAULT_QUOTE_TEMPLATE_TEXT;
   const activeTemplate = baseTemplate.replaceAll('[[HEIGHT]]', inferredHeight);
   const quoteText = composeQuoteText(activeTemplate, quoteTokenValues);
+
+  const handleExportMapToMaterialCalculator = useCallback(async () => {
+    const sid = exportQuoteSessionId;
+    if (!sid || customerSegments.length === 0) {
+      alert(
+        'Open this calculator from a lead (Customers) or a saved quote so the map fence is tied to a job, then try again.',
+      );
+      return;
+    }
+    setExportingMapToMaterial(true);
+    try {
+      const res = await fetch('/api/contractor/material-quote', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          quote_session_id: sid,
+          description: 'Contractor quote — map fence to FMS material calculator',
+          supplier_contractor_id: null,
+        }),
+      });
+      const json = (await res.json()) as { error?: string; id?: string };
+      if (!res.ok) throw new Error(json.error || 'Failed to create material request');
+      if (!json.id) throw new Error('No material request id returned');
+      window.location.href = `/dashboard/material-calculator?from_material_quote=${encodeURIComponent(String(json.id))}`;
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to open material calculator');
+    } finally {
+      setExportingMapToMaterial(false);
+    }
+  }, [exportQuoteSessionId, customerSegments.length]);
 
   async function copyQuote() {
     try {
@@ -2001,7 +2056,7 @@ export default function CalculatorPage() {
                 </span>
               </div>
             </div>
-            {customerSegments.length > 0 && customerMapCenter && (
+            {customerSegments.length > 0 && (
               <div className="border-b border-slate-100 bg-slate-50/30 p-5">
                 <p className="mb-3 text-xs font-medium leading-relaxed text-slate-600">
                   Customer drawing — assign each numbered line to the correct calculator side (LHS, back, RHS, etc.) using
@@ -2013,6 +2068,22 @@ export default function CalculatorPage() {
                   center={customerMapCenter}
                   className="min-h-[220px] overflow-hidden rounded-xl border border-slate-200/80 shadow-inner shadow-slate-900/[0.03]"
                 />
+                {exportQuoteSessionId ? (
+                  <div className="mt-4 flex flex-col gap-2 rounded-xl border border-slate-200/90 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-xs leading-relaxed text-slate-600">
+                      <span className="font-semibold text-slate-800">FMS material list.</span> Save the map fence to this
+                      lead, then open the material calculator with the same lines, lengths, and gate pins (plan sketch).
+                    </p>
+                    <button
+                      type="button"
+                      disabled={exportingMapToMaterial || customerSegments.length === 0}
+                      onClick={() => void handleExportMapToMaterialCalculator()}
+                      className="shrink-0 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {exportingMapToMaterial ? 'Opening…' : 'Open material calculator from map'}
+                    </button>
+                  </div>
+                ) : null}
               </div>
             )}
             <div className="hidden overflow-x-auto md:block">
