@@ -113,6 +113,22 @@ function nearestLineIndexForPoint(
   return bestI;
 }
 
+/** Drop gates that are not still on some segment (after undo / delete). */
+function filterGatesToValidSegments(
+  gates: { type: 'single' | 'double'; x: number; y: number }[],
+  segs: { x: number; y: number }[][],
+  hitThreshold: number
+): { type: 'single' | 'double'; x: number; y: number }[] {
+  if (segs.length === 0) return [];
+  const thr = hitThreshold * 1.5;
+  return gates.filter((g) => {
+    const i = nearestLineIndexForPoint({ x: g.x, y: g.y }, segs);
+    const seg = segs[i];
+    if (!seg || seg.length < 2) return false;
+    return pointToSegmentDist({ x: g.x, y: g.y }, seg[0], seg[1]) <= thr;
+  });
+}
+
 function strokeForLineMode(mode: LineHighlightMode | undefined): string {
   if (mode === 'private') return '#16a34a';
   if (mode === 'shared') return '#dc2626';
@@ -538,20 +554,27 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       function onKey(ev: KeyboardEvent) {
         if (readOnly) return;
         if (ev.key === 'Escape') {
+          if (mode === 'place_single_gate' || mode === 'place_double_gate') {
+            ev.preventDefault();
+            setMode('draw');
+            return;
+          }
           cancelCurrentLine();
         }
       }
       window.addEventListener('keydown', onKey);
       return () => window.removeEventListener('keydown', onKey);
-    }, [readOnly]);
+    }, [readOnly, mode]);
 
     function undo() {
       if (currentPath.length === 1) {
         setCurrentPath([]);
         setHoverPt(null);
       } else if (segments.length > 0) {
-        setSegments((prev) => prev.slice(0, -1));
+        const newSegs = segments.slice(0, -1);
+        setSegments(newSegs);
         setLineLengths((prev) => prev.slice(0, -1));
+        setPlacedGates((prev) => filterGatesToValidSegments(prev, newSegs, HIT_THRESHOLD));
       }
     }
 
@@ -564,10 +587,13 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       if (!ok) return;
 
       const willBeEmpty = segments.length <= 1;
-      setSegments((prev) => prev.filter((_, j) => j !== segmentIndex));
+      const newSegs = segments.filter((_, j) => j !== segmentIndex);
+      setSegments(newSegs);
       setLineLengths((prev) => prev.filter((_, j) => j !== segmentIndex));
       if (willBeEmpty) {
         setPlacedGates([]);
+      } else {
+        setPlacedGates((prev) => filterGatesToValidSegments(prev, newSegs, HIT_THRESHOLD));
       }
     }
 
@@ -853,7 +879,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
           </button>
           <button
             type="button"
-            onClick={() => setMode('place_single_gate')}
+            onClick={() => setMode((m) => (m === 'place_single_gate' ? 'draw' : 'place_single_gate'))}
             className={`rounded-lg border px-3 py-1.5 text-sm font-semibold ${
               mode === 'place_single_gate'
                 ? 'border-green-600 bg-green-100 text-green-900'
@@ -864,7 +890,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
           </button>
           <button
             type="button"
-            onClick={() => setMode('place_double_gate')}
+            onClick={() => setMode((m) => (m === 'place_double_gate' ? 'draw' : 'place_double_gate'))}
             className={`rounded-lg border px-3 py-1.5 text-sm font-semibold ${
               mode === 'place_double_gate'
                 ? 'border-sky-600 bg-sky-100 text-sky-900'
@@ -953,10 +979,32 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
           </div>
         )}
         {mode === 'place_single_gate' && (
-          <p className="mt-2 text-sm text-[var(--muted)]">Click on a line to place a single gate (small blue circle with S).</p>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <p className="text-sm text-[var(--muted)]">
+              Click on a line to place a single gate (small blue circle with S). Press Esc or click Cancel to exit.
+            </p>
+            <button
+              type="button"
+              onClick={() => setMode('draw')}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+            >
+              Cancel gate placement
+            </button>
+          </div>
         )}
         {mode === 'place_double_gate' && (
-          <p className="mt-2 text-sm text-[var(--muted)]">Click on a line to place a double gate (larger blue circle with D).</p>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <p className="text-sm text-[var(--muted)]">
+              Click on a line to place a double gate (larger blue circle with D). Press Esc or click Cancel to exit.
+            </p>
+            <button
+              type="button"
+              onClick={() => setMode('draw')}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+            >
+              Cancel gate placement
+            </button>
+          </div>
         )}
         {mode === 'draw' && (
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]">
