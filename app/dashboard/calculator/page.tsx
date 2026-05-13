@@ -201,10 +201,16 @@ function feetForGateSideValue(
 function labelForGateSideValue(
   v: string,
   segments: Segment[],
-  customerSegments: { length_ft?: number }[]
+  customerSegments: { length_ft?: number }[],
+  segmentAssignments: Record<string, number | null>
 ): string {
   const lineIdx = parseDrawLineGateValue(v);
-  if (lineIdx != null && customerSegments[lineIdx]) return `Line ${lineIdx + 1}`;
+  if (lineIdx != null && customerSegments[lineIdx]) {
+    for (const seg of segments) {
+      if (segmentAssignments[seg.key] === lineIdx) return seg.name;
+    }
+    return `Line ${lineIdx + 1}`;
+  }
   return segments.find((s) => s.key === v)?.name ?? v;
 }
 
@@ -976,6 +982,13 @@ export default function CalculatorPage() {
     : null;
   const rule = lengthTierPricingRule ?? styleRule ?? colourRule ?? null;
 
+  const catalogueSingleGatePrice = rule
+    ? (safeNum(rule.single_gate_low) + safeNum(rule.single_gate_high)) / 2 || 0
+    : 0;
+  const catalogueDoubleGatePrice = rule
+    ? (safeNum(rule.double_gate_low) + safeNum(rule.double_gate_high)) / 2 || 0
+    : 0;
+
   const cataloguePricePerFt = rule
     ? (safeNum(rule.base_price_per_ft_low) + safeNum(rule.base_price_per_ft_high)) / 2 || 0
     : 0;
@@ -983,15 +996,11 @@ export default function CalculatorPage() {
   const singleGatePrice =
     singleGatePriceOverride != null && singleGatePriceOverride > 0
       ? singleGatePriceOverride
-      : rule
-        ? (safeNum(rule.single_gate_low) + safeNum(rule.single_gate_high)) / 2 || 0
-        : 0;
+      : catalogueSingleGatePrice;
   const doubleGatePrice =
     doubleGatePriceOverride != null && doubleGatePriceOverride > 0
       ? doubleGatePriceOverride
-      : rule
-        ? (safeNum(rule.double_gate_low) + safeNum(rule.double_gate_high)) / 2 || 0
-        : 0;
+      : catalogueDoubleGatePrice;
   const removalPerFt = rule ? safeNum(rule.removal_price_per_ft_low) : 0;
   const effectiveRemovalPricePerFt =
     removalPricePerFtOverride != null ? removalPricePerFtOverride : removalPerFt;
@@ -1100,6 +1109,9 @@ export default function CalculatorPage() {
     setQuoteAddress('');
     setHomeownerName('');
     setPricePerFtOverride(null);
+    setMinJobOverride(null);
+    setSingleGatePriceOverride(null);
+    setDoubleGatePriceOverride(null);
     setCustomerSegments([]);
     setCustomerMapCenter(undefined);
     setSegmentAssignments({});
@@ -1149,19 +1161,15 @@ export default function CalculatorPage() {
 
   const totalGateCount = Math.max(0, singleGateQty + doubleGateQty);
   const gateInstalledParts: string[] = [];
-  singleGateSides.slice(0, singleGateQty).forEach((key, i) => {
+  singleGateSides.slice(0, singleGateQty).forEach((key) => {
     const ft = feetForGateSideValue(key, feetFinalByKey, customerSegments);
-    const sideLabel = labelForGateSideValue(key, segments, customerSegments);
-    gateInstalledParts.push(
-      `Single ${i + 1}: ${sideLabel}${ft > 0 ? ` (${fmtFeet(ft)} along that side)` : ''}`
-    );
+    const sideLabel = labelForGateSideValue(key, segments, customerSegments, segmentAssignments);
+    gateInstalledParts.push(ft > 0 ? `${sideLabel} ${fmtFeet(ft)}` : sideLabel);
   });
-  doubleGateSides.slice(0, doubleGateQty).forEach((key, i) => {
+  doubleGateSides.slice(0, doubleGateQty).forEach((key) => {
     const ft = feetForGateSideValue(key, feetFinalByKey, customerSegments);
-    const sideLabel = labelForGateSideValue(key, segments, customerSegments);
-    gateInstalledParts.push(
-      `Double ${i + 1}: ${sideLabel}${ft > 0 ? ` (${fmtFeet(ft)} along that side)` : ''}`
-    );
+    const sideLabel = labelForGateSideValue(key, segments, customerSegments, segmentAssignments);
+    gateInstalledParts.push(ft > 0 ? `${sideLabel} ${fmtFeet(ft)}` : sideLabel);
   });
   const gateInstalledLength = gateInstalledParts.length > 0 ? gateInstalledParts.join(' | ') : '—';
   const lengthExpression = segments
@@ -1504,6 +1512,9 @@ export default function CalculatorPage() {
                       setSelectedStyleId(null);
                       setSelectedColourId(null);
                       setPricePerFtOverride(null);
+                      setMinJobOverride(null);
+                      setSingleGatePriceOverride(null);
+                      setDoubleGatePriceOverride(null);
                       if (id) {
                         const tStyles = styles.filter((s) => s.fence_type_id === id);
                         const firstStyle = tStyles[0];
@@ -1536,6 +1547,9 @@ export default function CalculatorPage() {
                         setSelectedStyleId(id);
                         setSelectedColourId(null);
                         setPricePerFtOverride(null);
+                        setMinJobOverride(null);
+                        setSingleGatePriceOverride(null);
+                        setDoubleGatePriceOverride(null);
                         if (id) {
                           const sColours = colours.filter((c) => c.fence_style_id === id);
                           const styleHasRule = stylePricingRules.some((r) => r.fence_style_id === id);
@@ -1561,6 +1575,9 @@ export default function CalculatorPage() {
                       onChange={(e) => {
                         setSelectedColourId(e.target.value || null);
                         setPricePerFtOverride(null);
+                        setMinJobOverride(null);
+                        setSingleGatePriceOverride(null);
+                        setDoubleGatePriceOverride(null);
                       }}
                       className={`${field} disabled:cursor-not-allowed disabled:opacity-50`}
                       disabled={!selectedStyleId}
@@ -1761,7 +1778,11 @@ export default function CalculatorPage() {
                       type="number"
                       min={0}
                       value={singleGateQty}
-                      onChange={(e) => setSingleGateQty(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      onChange={(e) => {
+                        const n = Math.max(0, parseInt(e.target.value, 10) || 0);
+                        setSingleGateQty(n);
+                        if (n === 0) setSingleGatePriceOverride(null);
+                      }}
                       className={field}
                     />
                   </div>
@@ -1771,7 +1792,11 @@ export default function CalculatorPage() {
                       type="number"
                       min={0}
                       value={doubleGateQty}
-                      onChange={(e) => setDoubleGateQty(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      onChange={(e) => {
+                        const n = Math.max(0, parseInt(e.target.value, 10) || 0);
+                        setDoubleGateQty(n);
+                        if (n === 0) setDoubleGatePriceOverride(null);
+                      }}
                       className={field}
                     />
                   </div>
@@ -1874,6 +1899,78 @@ export default function CalculatorPage() {
                         </div>
                       );
                     })}
+                  </div>
+                )}
+                {(singleGateQty > 0 || doubleGateQty > 0) && (
+                  <div className="rounded-xl border border-emerald-100/90 bg-gradient-to-br from-emerald-50/80 via-white to-slate-50/40 p-4 shadow-sm ring-1 ring-emerald-500/10">
+                    <p className="mb-1 text-sm font-medium text-slate-800">Gate prices (this quote only)</p>
+                    <p className="mb-3 text-xs text-slate-500">
+                      Filled from your catalogue; edit for this job without changing saved product pricing.
+                    </p>
+                    {singleGateQty > 0 && (
+                      <div className="mb-4">
+                        <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                          Single gate price (each){' '}
+                          <span className="font-normal text-slate-500">× {singleGateQty}</span>
+                        </label>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-slate-600">$</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min={0}
+                            value={singleGatePrice > 0 ? singleGatePrice : ''}
+                            onChange={(e) => {
+                              const v = safeNum(e.target.value);
+                              setSingleGatePriceOverride(v > 0 ? v : null);
+                            }}
+                            placeholder={catalogueSingleGatePrice > 0 ? String(catalogueSingleGatePrice) : '—'}
+                            className="w-32 rounded-xl border border-slate-200/90 bg-white px-3 py-2.5 text-sm font-semibold tabular-nums text-slate-900 shadow-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                          />
+                          {singleGatePriceOverride != null && (
+                            <button
+                              type="button"
+                              onClick={() => setSingleGatePriceOverride(null)}
+                              className="text-xs font-semibold text-blue-600 hover:text-blue-500 hover:underline"
+                            >
+                              Reset to catalogue
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {doubleGateQty > 0 && (
+                      <div>
+                        <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                          Double gate price (each){' '}
+                          <span className="font-normal text-slate-500">× {doubleGateQty}</span>
+                        </label>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-slate-600">$</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min={0}
+                            value={doubleGatePrice > 0 ? doubleGatePrice : ''}
+                            onChange={(e) => {
+                              const v = safeNum(e.target.value);
+                              setDoubleGatePriceOverride(v > 0 ? v : null);
+                            }}
+                            placeholder={catalogueDoubleGatePrice > 0 ? String(catalogueDoubleGatePrice) : '—'}
+                            className="w-32 rounded-xl border border-slate-200/90 bg-white px-3 py-2.5 text-sm font-semibold tabular-nums text-slate-900 shadow-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                          />
+                          {doubleGatePriceOverride != null && (
+                            <button
+                              type="button"
+                              onClick={() => setDoubleGatePriceOverride(null)}
+                              className="text-xs font-semibold text-blue-600 hover:text-blue-500 hover:underline"
+                            >
+                              Reset to catalogue
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
