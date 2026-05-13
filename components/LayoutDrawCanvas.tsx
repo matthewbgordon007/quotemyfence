@@ -78,6 +78,22 @@ function dist(a: { x: number; y: number }, b: { x: number; y: number }): number 
   return Math.hypot(b.x - a.x, b.y - a.y);
 }
 
+const LAYOUT_LABEL_VERTEX_EPS_FT = 0.4;
+
+function segmentsShareEndpoint(
+  sa: { x: number; y: number }[],
+  sb: { x: number; y: number }[],
+  eps = LAYOUT_LABEL_VERTEX_EPS_FT
+): boolean {
+  if (sa.length < 2 || sb.length < 2) return false;
+  for (const a of [sa[0], sa[1]]) {
+    for (const b of [sb[0], sb[1]]) {
+      if (dist(a, b) <= eps) return true;
+    }
+  }
+  return false;
+}
+
 function nearestPointOnSegment(
   p: { x: number; y: number },
   a: { x: number; y: number },
@@ -661,6 +677,146 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
 
     const viewBox = mapView.viewBox;
 
+    /** Midpoint labels with collision separation (L / T junctions no longer stack). */
+    const segmentLabelPlacements = useMemo(() => {
+      const n = segments.length;
+      if (n > 25) return [];
+
+      type Lab = {
+        si: number;
+        x: number;
+        y: number;
+        ox: number;
+        oy: number;
+        r: number;
+        text: string;
+        fontSize: number;
+        strokeW: number;
+      };
+
+      const share: boolean[][] = Array.from({ length: n }, () => Array(n).fill(false));
+      for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+          const ai = segments[i];
+          const bj = segments[j];
+          if (ai.length < 2 || bj.length < 2) continue;
+          if (segmentsShareEndpoint(ai, bj)) {
+            share[i][j] = true;
+            share[j][i] = true;
+          }
+        }
+      }
+
+      const labs: Lab[] = [];
+      const vw = mapView.vw;
+      const vh = mapView.vh;
+      const contentCx = mapView.contentCx;
+      const contentCy = mapView.contentCy;
+
+      for (let si = 0; si < n; si++) {
+        const seg = segments[si];
+        if (seg.length < 2) continue;
+        const dx = seg[1].x - seg[0].x;
+        const dy = seg[1].y - seg[0].y;
+        const len = Math.hypot(dx, dy) || 1;
+        if (n > 18 && len < 2) continue;
+
+        let neighborBoost = 1;
+        for (let oj = 0; oj < n; oj++) {
+          if (oj === si) continue;
+          const other = segments[oj];
+          if (other.length < 2) continue;
+          if (segmentsShareEndpoint(seg, other)) {
+            neighborBoost = Math.max(neighborBoost, 1.42);
+          }
+        }
+
+        const mx = (seg[0].x + seg[1].x) / 2;
+        const my = (seg[0].y + seg[1].y) / 2;
+        let perpX = -dy / len;
+        let perpY = dx / len;
+        const towardCx = mx - contentCx;
+        const towardCy = my - contentCy;
+        if (perpX * towardCx + perpY * towardCy < 0) {
+          perpX = -perpX;
+          perpY = -perpY;
+        }
+        const labelText = lineLengths[si]?.trim()
+          ? `Line ${si + 1}: ${lineLengths[si].trim()} ft`
+          : `Line ${si + 1}`;
+        const labelFontFt = Math.max(2.2, Math.min(vw, vh) * 0.026);
+        const estHalfW = labelText.length * labelFontFt * 0.38;
+        const perpOffset =
+          Math.max(len * 0.07 + 1.5, estHalfW * 0.95 + 3, 10) * neighborBoost;
+        const px = mx + perpX * perpOffset;
+        const py = my + perpY * perpOffset;
+        const r = Math.max(estHalfW * 0.95, labelFontFt * 0.72, 5.5);
+        const strokeW = Math.max(0.28, labelFontFt * 0.35);
+        labs.push({
+          si,
+          x: px,
+          y: py,
+          ox: px,
+          oy: py,
+          r,
+          text: labelText,
+          fontSize: labelFontFt,
+          strokeW,
+        });
+      }
+
+      const maxDrift = Math.max(32, Math.min(vw, vh) * 0.16);
+
+      const repelPasses = (passes: number) => {
+        for (let pass = 0; pass < passes; pass++) {
+          for (let i = 0; i < labs.length; i++) {
+            for (let j = i + 1; j < labs.length; j++) {
+              const a = labs[i];
+              const b = labs[j];
+              const distAB = Math.hypot(b.x - a.x, b.y - a.y);
+              const gapExtra = share[a.si][b.si] ? 4.2 : 2;
+              const need = a.r + b.r + gapExtra;
+              if (distAB >= need) continue;
+              let nx = b.x - a.x;
+              let ny = b.y - a.y;
+              const dlen = Math.hypot(nx, ny);
+              if (dlen < 1e-5) {
+                const ang = ((i * 2.391 + j * 1.127) % 6.283185307179586) || 0.37;
+                nx = Math.cos(ang);
+                ny = Math.sin(ang);
+              } else {
+                nx /= dlen;
+                ny /= dlen;
+              }
+              const push = (need - distAB) * 0.52;
+              a.x -= nx * push;
+              a.y -= ny * push;
+              b.x += nx * push;
+              b.y += ny * push;
+            }
+          }
+        }
+      };
+
+      const clampDrift = () => {
+        for (const L of labs) {
+          const ddc = Math.hypot(L.x - L.ox, L.y - L.oy);
+          if (ddc > maxDrift) {
+            const t = maxDrift / ddc;
+            L.x = L.ox + (L.x - L.ox) * t;
+            L.y = L.oy + (L.y - L.oy) * t;
+          }
+        }
+      };
+
+      repelPasses(18);
+      clampDrift();
+      repelPasses(10);
+      clampDrift();
+
+      return labs;
+    }, [segments, lineLengths, mapView]);
+
     useEffect(() => {
       const el = containerRef.current;
       if (!el) return;
@@ -756,51 +912,28 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                       fill={strokeForLineMode(lineHighlightModes?.[si])}
                     />
                   ))}
-                  {segments.length <= 25 && (() => {
-                    const mx = (seg[0].x + seg[1].x) / 2;
-                    const my = (seg[0].y + seg[1].y) / 2;
-                    const dx = seg[1].x - seg[0].x;
-                    const dy = seg[1].y - seg[0].y;
-                    const len = Math.hypot(dx, dy) || 1;
-                    if (segments.length > 18 && len < 2) return null;
-                    const labelText = lineLengths[si]?.trim()
-                      ? `Line ${si + 1}: ${lineLengths[si].trim()} ft`
-                      : `Line ${si + 1}`;
-                    const labelFontFt = Math.max(2.2, Math.min(mapView.vw, mapView.vh) * 0.026);
-                    let perpX = -dy / len;
-                    let perpY = dx / len;
-                    const towardCx = mx - mapView.contentCx;
-                    const towardCy = my - mapView.contentCy;
-                    if (perpX * towardCx + perpY * towardCy < 0) {
-                      perpX = -perpX;
-                      perpY = -perpY;
-                    }
-                    const estHalfW = labelText.length * labelFontFt * 0.38;
-                    const perpOffset = Math.max(len * 0.07 + 1.5, estHalfW * 0.95 + 3, 10);
-                    const px = mx + perpX * perpOffset;
-                    const py = my + perpY * perpOffset;
-                    const sw = Math.max(0.28, labelFontFt * 0.35);
-                    return (
-                      <text
-                        x={px}
-                        y={py}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                        fill="#0f172a"
-                        fontSize={labelFontFt}
-                        fontWeight="600"
-                        paintOrder="stroke"
-                        stroke="#f8fafc"
-                        strokeWidth={sw}
-                        strokeLinejoin="round"
-                      >
-                        {labelText}
-                      </text>
-                    );
-                  })()}
                 </g>
               ) : null
             )}
+
+            {segmentLabelPlacements.map((pl) => (
+              <text
+                key={`line-label-${pl.si}`}
+                x={pl.x}
+                y={pl.y}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill="#0f172a"
+                fontSize={pl.fontSize}
+                fontWeight="600"
+                paintOrder="stroke"
+                stroke="#f8fafc"
+                strokeWidth={pl.strokeW}
+                strokeLinejoin="round"
+              >
+                {pl.text}
+              </text>
+            ))}
 
             {currentPath.length > 0 && (
               <circle cx={currentPath[0].x} cy={currentPath[0].y} r={2.6} fill="#ef4444" />
