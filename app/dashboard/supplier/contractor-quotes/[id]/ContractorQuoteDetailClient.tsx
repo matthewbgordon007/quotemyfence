@@ -7,6 +7,7 @@ import {
   parseMaterialListFromPaste,
 } from '@/lib/material-quote-lines';
 import type { MaterialQuoteRequestDto } from '@/lib/supplier-material-quote-requests-enrich';
+import { materialQuoteRequestTitle } from '@/lib/supplier-material-quote-requests-enrich';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState, type ClipboardEvent } from 'react';
@@ -157,7 +158,7 @@ export function ContractorQuoteDetailClient() {
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Material request</p>
             <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-              {request.project?.design_summary || 'Material request'}
+              {materialQuoteRequestTitle(request.project)}
             </h1>
             <p className="mt-2 text-sm text-slate-500">
               From <span className="font-medium text-slate-700">{request.contractor.company_name}</span>

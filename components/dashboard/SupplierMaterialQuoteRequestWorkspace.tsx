@@ -2,6 +2,7 @@
 
 import { MaterialQuoteRequestViewer } from '@/components/dashboard/MaterialQuoteRequestViewer';
 import type { MaterialQuoteRequestDto } from '@/lib/supplier-material-quote-requests-enrich';
+import { materialQuoteRequestTitle } from '@/lib/supplier-material-quote-requests-enrich';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
@@ -75,7 +76,7 @@ export function SupplierMaterialQuoteRequestWorkspace({
                 <p className="mt-1 truncate text-sm font-semibold text-slate-900">{sideRequest.contractor.company_name}</p>
                 <p className="mt-0.5 text-xs text-slate-500">{new Date(sideRequest.created_at).toLocaleString()}</p>
                 <p className="mt-2 line-clamp-3 text-sm text-slate-700">
-                  {sideRequest.project.design_summary || 'Material request'}
+                  {materialQuoteRequestTitle(sideRequest.project)}
                 </p>
               </>
             ) : (

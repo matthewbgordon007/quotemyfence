@@ -1,6 +1,7 @@
 'use client';
 
 import type { MaterialQuoteRequestDto } from '@/lib/supplier-material-quote-requests-enrich';
+import { materialQuoteRequestTitle } from '@/lib/supplier-material-quote-requests-enrich';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -56,6 +57,7 @@ export function ContractorQuotesClient() {
     return requests.filter((r) => {
       const blob = [
         r.contractor.company_name,
+        r.project?.home_address,
         r.project?.design_summary,
         r.description,
         r.status,
@@ -146,7 +148,7 @@ export function ContractorQuotesClient() {
           </div>
         ) : (
           filtered.map((req) => {
-            const title = req.project?.design_summary || 'Material request';
+            const title = materialQuoteRequestTitle(req.project);
             const ft = Math.round(Number(req.project?.total_length_ft || 0));
             const metaParts = [
               `${ft} ft`,

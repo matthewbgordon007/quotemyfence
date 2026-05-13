@@ -10,6 +10,8 @@ export type MaterialQuoteRequestContractor = {
 
 export type MaterialQuoteRequestProject = {
   total_length_ft: number | null;
+  /** Job site from lead `properties.formatted_address` when the request is tied to a quote session. */
+  home_address: string | null;
   design_summary: string | null;
   design_option: { height_ft?: number; type?: string; style?: string; colour?: string } | null;
   has_removal: boolean;
@@ -47,6 +49,17 @@ export type MaterialQuoteRequestDto = {
   contractor: MaterialQuoteRequestContractor;
   project: MaterialQuoteRequestProject;
 };
+
+/** Primary label for lists and detail headers: job site when known, else fence design summary. */
+export function materialQuoteRequestTitle(
+  project: Pick<MaterialQuoteRequestProject, 'home_address' | 'design_summary'> | null | undefined
+): string {
+  const addr = project?.home_address?.trim();
+  if (addr) return addr;
+  const ds = project?.design_summary?.trim();
+  if (ds) return ds;
+  return 'Material request';
+}
 
 type RawFence = {
   total_length_ft: number | null;
@@ -237,6 +250,18 @@ export async function enrichMaterialQuoteRequests(supabase: any, rows: RawMateri
     fenceIdBySessionId = new Map((fenceRows || []).map((f: { id: string; quote_session_id: string }) => [f.quote_session_id, f.id]));
   }
 
+  let homeAddressBySessionId = new Map<string, string>();
+  if (quoteSessionIds.length > 0) {
+    const { data: propRows } = await supabase
+      .from('properties')
+      .select('quote_session_id, formatted_address')
+      .in('quote_session_id', quoteSessionIds);
+    for (const p of propRows || []) {
+      const line = String((p as { formatted_address?: string }).formatted_address || '').trim();
+      if (line) homeAddressBySessionId.set((p as { quote_session_id: string }).quote_session_id, line);
+    }
+  }
+
   const fenceIds = Array.from(new Set(Array.from(fenceIdBySessionId.values()).filter(Boolean)));
   let segmentsByFenceId = new Map<string, MaterialQuoteRequestProject['segments']>();
   let gatesByFenceId = new Map<string, MaterialQuoteRequestProject['gates']>();
@@ -280,6 +305,7 @@ export async function enrichMaterialQuoteRequests(supabase: any, rows: RawMateri
       const designOption = await getDesignOption(supabase, fence);
       const layout = r.layout_drawing_id ? layoutById.get(r.layout_drawing_id) || null : null;
       const fenceId = r.quote_session_id ? fenceIdBySessionId.get(r.quote_session_id) || null : null;
+      const homeAddress = r.quote_session_id ? homeAddressBySessionId.get(r.quote_session_id) ?? null : null;
       const { supplier_material_list_json, ...rest } = r;
       return {
         ...rest,
@@ -292,6 +318,7 @@ export async function enrichMaterialQuoteRequests(supabase: any, rows: RawMateri
         },
         project: {
           total_length_ft: fence?.total_length_ft ?? null,
+          home_address: homeAddress,
           design_summary: designSummary,
           design_option: designOption,
           has_removal: fence?.has_removal ?? false,

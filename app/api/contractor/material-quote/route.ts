@@ -172,6 +172,21 @@ export async function POST(request: NextRequest) {
     if (!rel) return NextResponse.json({ error: 'Link that supplier on the Suppliers page first' }, { status: 403 });
   }
 
+  let jobSiteAddress = '';
+  if (sessionId) {
+    const { data: propRow } = await supabase
+      .from('properties')
+      .select('formatted_address')
+      .eq('quote_session_id', sessionId)
+      .maybeSingle();
+    jobSiteAddress = String((propRow as { formatted_address?: string } | null)?.formatted_address || '').trim();
+  }
+
+  const descriptionForInsert =
+    jobSiteAddress && !descFinal.includes(jobSiteAddress)
+      ? `${descFinal}\n\n— Job site: ${jobSiteAddress}`
+      : descFinal;
+
   const { data: req, error } = await supabase
     .from('material_quote_requests')
     .insert({
@@ -186,7 +201,7 @@ export async function POST(request: NextRequest) {
         attachment_size_bytes != null && Number.isFinite(Number(attachment_size_bytes))
           ? Number(attachment_size_bytes)
           : null,
-      description: descFinal,
+      description: descriptionForInsert,
       status: 'pending',
       updated_at: new Date().toISOString(),
     })
@@ -215,12 +230,14 @@ export async function POST(request: NextRequest) {
         await resend.emails.send({
           from,
           to: [toEmail],
-          subject: `New material request from ${contractorName}`,
+          subject: jobSiteAddress
+            ? `Material request — ${jobSiteAddress}`
+            : `New material request from ${contractorName}`,
           html: `
             <div style="font-family: Arial, sans-serif; line-height:1.5;">
               <h2>New material request</h2>
               <p><strong>Contractor:</strong> ${contractorName}</p>
-              <p><strong>Description:</strong> ${descFinal}</p>
+              <p><strong>Notes:</strong> ${descriptionForInsert.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
               ${
                 attachment_url
                   ? `<p><strong>Attachment:</strong> <a href="${String(attachment_url)}">${String(attachment_name || 'Open file')}</a></p>`

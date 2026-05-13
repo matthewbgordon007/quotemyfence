@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { MATERIAL_QUOTE_REQUEST_SELECT } from '@/lib/supplier-material-quote-request-fields';
-import { enrichMaterialQuoteRequests } from '@/lib/supplier-material-quote-requests-enrich';
+import { enrichMaterialQuoteRequests, materialQuoteRequestTitle } from '@/lib/supplier-material-quote-requests-enrich';
 import { requireSupplierDashboard } from '@/lib/supplier-dashboard-guard';
 
 function formatDateShort(iso: string): string {
@@ -298,7 +298,7 @@ export default async function SupplierDashboardHomePage() {
               </div>
             ) : (
               recentQuotes.map((q) => {
-                const title = q.project?.design_summary || 'Material request';
+                const title = materialQuoteRequestTitle(q.project);
                 const ft = Math.round(Number(q.project?.total_length_ft || 0));
                 const isNew = !q.supplier_seen_at;
                 return (

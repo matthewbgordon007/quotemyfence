@@ -29,6 +29,13 @@ export function MaterialQuoteRequestViewer({ request: selectedRequest, compact }
         </div>
       )}
 
+      {selectedRequest.project?.home_address ? (
+        <div className={`${gap} rounded-lg border border-slate-200 bg-slate-50 ${pad} text-slate-700`}>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Home address</p>
+          <p className="mt-2 font-medium text-slate-900">{selectedRequest.project.home_address}</p>
+        </div>
+      ) : null}
+
       <div className={`${gap} grid gap-3 ${compact ? '' : 'md:grid-cols-2'}`}>
         <div className={`rounded-lg border border-slate-200 bg-slate-50 ${pad}`}>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Fence information</p>

@@ -965,7 +965,8 @@ export default function MaterialCalculatorHubPage() {
           return;
         }
         const req = json.request;
-        const summary = req.project?.design_summary?.trim();
+        const addr = req.project?.home_address?.trim();
+        const summary = addr || req.project?.design_summary?.trim();
         if (summary) setJobAddress((prev) => (prev.trim() ? prev : summary));
         const sketch = layoutSketchFromMaterialQuoteProject(req.project);
         setShortGates([]);
