@@ -51,6 +51,7 @@ import {
   type MapFenceSegment,
 } from '@/lib/map-fence-to-layout-drawing';
 import {
+  adjustLayoutDrawingSegmentLength,
   layoutPointsToSegmentPairs,
   layoutSegmentsToPvcFenceInputsPerSketchSegment,
 } from '@/lib/layout-sketch-to-pvc-inputs';
@@ -481,6 +482,8 @@ export default function MaterialCalculatorHubPage() {
   const [lines, setLines] = useState<PvcLineRow[]>(() => defaultPvcLines());
 
   const [layoutSketchData, setLayoutSketchData] = useState<LayoutSketchDrawingPayload | null>(null);
+  const layoutSketchDataRef = useRef<LayoutSketchDrawingPayload | null>(null);
+  layoutSketchDataRef.current = layoutSketchData;
   const [layoutCanvasRemountKey, setLayoutCanvasRemountKey] = useState(0);
 
   const [shortGates, setShortGates] = useState<PvcGateRow[]>([]);
@@ -1536,7 +1539,31 @@ export default function MaterialCalculatorHubPage() {
   }
 
   function updateLine(id: string, patch: Partial<PvcLineRow>) {
-    setLines((rows) => rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    setLines((rows) => {
+      const next = rows.map((r) => (r.id === id ? { ...r, ...patch } : r));
+      const idx = next.findIndex((r) => r.id === id);
+      const merged = idx >= 0 ? next[idx] : null;
+      const sketch = layoutSketchDataRef.current;
+      if (
+        merged?.fromSketch &&
+        sketch?.segments?.length &&
+        idx >= 0 &&
+        idx < sketch.segments.length &&
+        'length_ft' in patch
+      ) {
+        const newL = Math.max(0, Number(String(merged.length_ft).replace(/,/g, '')) || 0);
+        if (newL > 0) {
+          const sk = adjustLayoutDrawingSegmentLength(sketch, idx, newL);
+          if (sk) {
+            queueMicrotask(() => {
+              setLayoutSketchData(sk as LayoutSketchDrawingPayload);
+              setLayoutCanvasRemountKey((k) => k + 1);
+            });
+          }
+        }
+      }
+      return next;
+    });
   }
 
   function removeLine(id: string) {

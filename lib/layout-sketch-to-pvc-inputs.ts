@@ -69,6 +69,89 @@ function hypot(a: number, b: number): number {
   return Math.hypot(a, b);
 }
 
+/**
+ * Resize one sketch segment to `newLengthFt` along its current direction, update stored `length_ft` values
+ * (and following segments when geometry shifts), and refresh `total_length_ft`. Supports disjoint pairs
+ * (`points.length === 2 * segments.length`) and polyline (`points.length === segments.length + 1`).
+ */
+export function adjustLayoutDrawingSegmentLength<
+  T extends {
+    points: LayoutPt[];
+    segments: { length_ft: number }[];
+    gates?: { type: 'single' | 'double'; quantity: number }[];
+    gate_placements?: { type: 'single' | 'double'; line_index: number }[];
+    total_length_ft?: number;
+  },
+>(drawing: T, segmentIndex: number, newLengthFt: number): T | null {
+  const m = drawing.segments.length;
+  if (segmentIndex < 0 || segmentIndex >= m) return null;
+  const L = Number(newLengthFt);
+  if (!Number.isFinite(L) || L <= 0) return null;
+
+  const pairs = layoutPointsToSegmentPairs(drawing.points, drawing.segments);
+  const pair = pairs[segmentIndex];
+  if (!pair || pair.length < 2) return null;
+  const ax = pair[0].x;
+  const ay = pair[0].y;
+  const bx = pair[1].x;
+  const by = pair[1].y;
+  const dx = bx - ax;
+  const dy = by - ay;
+  const cur = hypot(dx, dy);
+  if (cur < 1e-9) return null;
+  const nx = ax + (dx / cur) * L;
+  const ny = ay + (dy / cur) * L;
+
+  const pts = drawing.points.map((p) => ({ ...p }));
+  const segs = drawing.segments.map((s) => ({
+    ...s,
+    length_ft: Number(s.length_ft) || 0,
+  }));
+  segs[segmentIndex] = { ...segs[segmentIndex], length_ft: Math.round(L * 100) / 100 };
+
+  const n = pts.length;
+
+  const recomputeDisjointFrom = (startJ: number) => {
+    for (let j = startJ; j < m; j++) {
+      const a = pts[j * 2];
+      const b = pts[j * 2 + 1];
+      if (!a || !b) continue;
+      segs[j] = { ...segs[j], length_ft: Math.round(hypot(b.x - a.x, b.y - a.y) * 100) / 100 };
+    }
+  };
+
+  if (m > 0 && n === 2 * m) {
+    pts[segmentIndex * 2 + 1] = { x: nx, y: ny };
+    if (segmentIndex + 1 < m) {
+      pts[(segmentIndex + 1) * 2] = { x: nx, y: ny };
+    }
+    recomputeDisjointFrom(segmentIndex + 1);
+  } else if (m > 0 && n === m + 1) {
+    pts[segmentIndex + 1] = { x: nx, y: ny };
+    const deltaX = nx - bx;
+    const deltaY = ny - by;
+    for (let j = segmentIndex + 2; j < n; j++) {
+      pts[j] = { x: pts[j].x + deltaX, y: pts[j].y + deltaY };
+    }
+    for (let j = segmentIndex + 1; j < m; j++) {
+      const a = pts[j];
+      const b = pts[j + 1];
+      segs[j] = { ...segs[j], length_ft: Math.round(hypot(b.x - a.x, b.y - a.y) * 100) / 100 };
+    }
+  } else {
+    return null;
+  }
+
+  const total = segs.reduce((a, s) => a + (Number(s.length_ft) || 0), 0);
+
+  return {
+    ...drawing,
+    points: pts,
+    segments: segs,
+    total_length_ft: Math.round(total * 100) / 100,
+  };
+}
+
 function norm(v: { x: number; y: number }): { x: number; y: number } {
   const h = hypot(v.x, v.y);
   if (h < 1e-9) return { x: 0, y: 0 };
