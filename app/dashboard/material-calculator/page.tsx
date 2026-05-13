@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -143,6 +143,36 @@ function emptyGateRow(): PvcGateRow {
   return { id: newLineId(), width_in: '', posts: 1 };
 }
 
+/** Workbook gate paths (Material Calculator — PVC). */
+const PVC_SHORT_GATE_MAX_IN = 59.5;
+const PVC_SINGLE_GATE_MIN_IN = 65.5;
+const PVC_DOUBLE_GATE_MIN_IN = 106;
+
+/**
+ * Map a sketch gate (on a fence segment) to the correct PVC gate calculator row.
+ * Width (in) comes from that segment’s length in feet × 12; short path if &lt; 59.5″, else single uses min 65.5″,
+ * double uses min 106″ when the user placed a double gate on the sketch.
+ */
+function pvcGateFromSketchPlacement(
+  placement: { type: 'single' | 'double'; line_index: number },
+  segments: { length_ft: number }[]
+): { kind: 'short' | 'single' | 'double'; row: PvcGateRow } {
+  const idx = Math.max(0, Math.min(segments.length - 1, Number(placement.line_index) || 0));
+  const lengthFt = Math.max(0, Number(segments[idx]?.length_ft) || 0);
+  const widthRaw = lengthFt * 12;
+  const wStr = (n: number) => String(Math.round(n * 100) / 100);
+
+  if (widthRaw > 0 && widthRaw < PVC_SHORT_GATE_MAX_IN) {
+    return { kind: 'short', row: { id: newLineId(), width_in: wStr(widthRaw), posts: 1 } };
+  }
+  if (placement.type === 'double') {
+    const w = widthRaw > 0 ? Math.max(widthRaw, PVC_DOUBLE_GATE_MIN_IN) : PVC_DOUBLE_GATE_MIN_IN;
+    return { kind: 'double', row: { id: newLineId(), width_in: wStr(w), posts: 1 } };
+  }
+  const w = widthRaw > 0 ? Math.max(widthRaw, PVC_SINGLE_GATE_MIN_IN) : PVC_SINGLE_GATE_MIN_IN;
+  return { kind: 'single', row: { id: newLineId(), width_in: wStr(w), posts: 1 } };
+}
+
 function parseGateRowsShort(rows: PvcGateRow[]) {
   return rows
     .map((r) => {
@@ -217,6 +247,9 @@ export default function MaterialCalculatorHubPage() {
   const [shortGates, setShortGates] = useState<PvcGateRow[]>([]);
   const [singleGates, setSingleGates] = useState<PvcGateRow[]>([]);
   const [doubleGates, setDoubleGates] = useState<PvcGateRow[]>([]);
+  /** How many sketch `gate_placements` we have already mirrored into PVC gate rows (append-only). */
+  const sketchSyncedGatePlacementCountRef = useRef(0);
+  const pvcGatesSectionRef = useRef<HTMLElement | null>(null);
   const [masterExtrasOpen, setMasterExtrasOpen] = useState(false);
   const [masterExtras, setMasterExtras] = useState<Partial<Record<keyof FmsPvcMasterExtras, string>>>({});
 
@@ -302,6 +335,39 @@ export default function MaterialCalculatorHubPage() {
       cancelled = true;
     };
   }, [fromLayoutId]);
+
+  /** New gates placed on the layout sketch → PVC gate calculator rows + scroll to Gates. */
+  useEffect(() => {
+    if (tab !== 'pvc') return;
+    const drawing = layoutSketchData;
+    const gp = drawing?.gate_placements;
+    const segs = drawing?.segments;
+    if (!gp || !segs?.length) {
+      sketchSyncedGatePlacementCountRef.current = gp?.length ?? 0;
+      return;
+    }
+    if (gp.length < sketchSyncedGatePlacementCountRef.current) {
+      sketchSyncedGatePlacementCountRef.current = gp.length;
+      return;
+    }
+    if (gp.length === sketchSyncedGatePlacementCountRef.current) return;
+
+    const start = sketchSyncedGatePlacementCountRef.current;
+    const newPlacements = gp.slice(start);
+    for (const placement of newPlacements) {
+      const { kind, row } = pvcGateFromSketchPlacement(placement, segs);
+      if (kind === 'short') setShortGates((p) => [...p, row]);
+      else if (kind === 'single') setSingleGates((p) => [...p, row]);
+      else setDoubleGates((p) => [...p, row]);
+    }
+    sketchSyncedGatePlacementCountRef.current = gp.length;
+
+    if (newPlacements.length > 0) {
+      requestAnimationFrame(() => {
+        pvcGatesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+    }
+  }, [layoutSketchData, tab]);
 
   const pvcInputs = useMemo(() => buildInputs(lines), [lines]);
   const pvcJob = useMemo(() => aggregateFmsPvcFenceLines(pvcInputs), [pvcInputs]);
@@ -722,7 +788,8 @@ export default function MaterialCalculatorHubPage() {
                 Draw the fence in plan view, enter each segment length in feet, then apply. New segments snap to nearby
                 corners within 6 ft; if the next segment is within 25° of straight, it snaps colinear. Sharper
                 corners are treated as a U-channel on the run that ends there; nearly straight joints stay on a
-                continuous H-post run.
+                continuous H-post run. Use Single gate / Double gate on the canvas to add matching rows under Gates
+                (width from that line&apos;s length in feet).
               </p>
             </div>
             <div className="space-y-4 p-5">
@@ -879,14 +946,15 @@ export default function MaterialCalculatorHubPage() {
             </div>
           </section>
 
-          <section className={card}>
+          <section ref={pvcGatesSectionRef} className={card}>
             <div className="border-b border-slate-100 bg-gradient-to-r from-amber-50/40 via-white to-slate-50/80 px-5 py-4">
               <h2 className={h2}>Gates (PVC workbook)</h2>
               <p className="mt-1 text-xs text-slate-500">
                 Short (&lt; 59.5&quot;), single (≥ 65.5&quot;), and double (≥ 106&quot;) paths from the Material
                 Calculator — PVC sheet. Width is inside gate in inches; posts matches sheet columns B/G/K. Gate
                 quantities follow the same logic for all PVC colours; your selected colour ({pvcBreakdownColour}) applies
-                to the breakdown and Master sections below.
+                to the breakdown and Master sections below. Placing a gate on the layout sketch above adds a row here
+                (width from that segment&apos;s length in feet) and scrolls to this section.
               </p>
             </div>
             <div className="space-y-4 p-5">
