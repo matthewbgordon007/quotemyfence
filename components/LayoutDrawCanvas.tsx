@@ -727,7 +727,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
           const other = segments[oj];
           if (other.length < 2) continue;
           if (segmentsShareEndpoint(seg, other)) {
-            neighborBoost = Math.max(neighborBoost, 1.42);
+            neighborBoost = Math.max(neighborBoost, 1.32);
           }
         }
 
@@ -744,14 +744,15 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         const labelText = lineLengths[si]?.trim()
           ? `Line ${si + 1}: ${lineLengths[si].trim()} ft`
           : `Line ${si + 1}`;
-        const labelFontFt = Math.max(2.2, Math.min(vw, vh) * 0.026);
-        const estHalfW = labelText.length * labelFontFt * 0.38;
+        /** Keep labels compact vs sketch (feet in SVG space); was ~2.6% of view — smaller reads cleaner on dense layouts. */
+        const labelFontFt = Math.max(1.45, Math.min(vw, vh) * 0.017);
+        const estHalfW = labelText.length * labelFontFt * 0.36;
         const perpOffset =
-          Math.max(len * 0.07 + 1.5, estHalfW * 0.95 + 3, 10) * neighborBoost;
+          Math.max(len * 0.042 + 0.55, estHalfW * 0.78 + 1.15, 4.25) * neighborBoost;
         const px = mx + perpX * perpOffset;
         const py = my + perpY * perpOffset;
-        const r = Math.max(estHalfW * 0.95, labelFontFt * 0.72, 5.5);
-        const strokeW = Math.max(0.28, labelFontFt * 0.35);
+        const r = Math.max(estHalfW * 0.9, labelFontFt * 0.62, 3.25);
+        const strokeW = Math.max(0.14, labelFontFt * 0.3);
         labs.push({
           si,
           x: px,
@@ -765,7 +766,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         });
       }
 
-      const maxDrift = Math.max(32, Math.min(vw, vh) * 0.16);
+      const maxDrift = Math.max(22, Math.min(vw, vh) * 0.12);
 
       const repelPasses = (passes: number) => {
         for (let pass = 0; pass < passes; pass++) {
@@ -774,7 +775,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
               const a = labs[i];
               const b = labs[j];
               const distAB = Math.hypot(b.x - a.x, b.y - a.y);
-              const gapExtra = share[a.si][b.si] ? 4.2 : 2;
+              const gapExtra = share[a.si][b.si] ? 2.9 : 1.35;
               const need = a.r + b.r + gapExtra;
               if (distAB >= need) continue;
               let nx = b.x - a.x;
