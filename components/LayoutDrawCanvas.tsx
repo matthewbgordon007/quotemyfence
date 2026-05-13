@@ -1,6 +1,15 @@
 'use client';
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   deflectionAtVertexDeg,
   LAYOUT_CHAIN_ALIGN_FT,
@@ -13,6 +22,9 @@ import {
 
 // Canvas uses feet as coordinate system. Origin at center.
 const MIN_DRAW_SEGMENT_FT = 0.08;
+/** Empty / origin view span in feet (before zoom). */
+const BASE_VIEW_FT = 360;
+const MIN_BBOX_SPAN_FT = 40;
 
 export interface LayoutDrawCanvasRef {
   appendSegmentByLength: (lengthFt: number) => void;
@@ -105,6 +117,53 @@ function strokeForLineMode(mode: LineHighlightMode | undefined): string {
   if (mode === 'private') return '#16a34a';
   if (mode === 'shared') return '#dc2626';
   return '#1e293b';
+}
+
+type FeetBBox = { minX: number; minY: number; maxX: number; maxY: number };
+
+function addPointToBounds(b: FeetBBox | null, x: number, y: number): FeetBBox {
+  if (!b) return { minX: x, maxX: x, minY: y, maxY: y };
+  return {
+    minX: Math.min(b.minX, x),
+    maxX: Math.max(b.maxX, x),
+    minY: Math.min(b.minY, y),
+    maxY: Math.max(b.maxY, y),
+  };
+}
+
+function boundsFromSketch(
+  segments: { x: number; y: number }[][],
+  placedGates: { x: number; y: number }[],
+  currentPath: { x: number; y: number }[],
+  previewDraw: { start: { x: number; y: number }; end: { x: number; y: number } } | null
+): FeetBBox | null {
+  let b: FeetBBox | null = null;
+  for (const seg of segments) {
+    for (const p of seg) b = addPointToBounds(b, p.x, p.y);
+  }
+  for (const g of placedGates) b = addPointToBounds(b, g.x, g.y);
+  for (const p of currentPath) b = addPointToBounds(b, p.x, p.y);
+  if (previewDraw) {
+    b = addPointToBounds(b, previewDraw.start.x, previewDraw.start.y);
+    b = addPointToBounds(b, previewDraw.end.x, previewDraw.end.y);
+  }
+  return b;
+}
+
+/** Ensures a minimum span so a single point or short stroke still has a usable window. */
+function normalizeBoundsSpan(box: FeetBBox): FeetBBox {
+  const cx = (box.minX + box.maxX) / 2;
+  const cy = (box.minY + box.maxY) / 2;
+  let spanX = Math.max(box.maxX - box.minX, MIN_BBOX_SPAN_FT * 0.15);
+  let spanY = Math.max(box.maxY - box.minY, MIN_BBOX_SPAN_FT * 0.15);
+  if (spanX < MIN_BBOX_SPAN_FT) spanX = MIN_BBOX_SPAN_FT;
+  if (spanY < MIN_BBOX_SPAN_FT) spanY = MIN_BBOX_SPAN_FT;
+  return {
+    minX: cx - spanX / 2,
+    maxX: cx + spanX / 2,
+    minY: cy - spanY / 2,
+    maxY: cy + spanY / 2,
+  };
 }
 
 export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvasProps>(
@@ -522,30 +581,58 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       onReset?.();
     }
 
-    const baseViewSize = 360;
-    const viewSize = baseViewSize / zoom;
-    const defaultViewBox = `${-viewSize / 2 - pan.x} ${-viewSize / 2 - pan.y} ${viewSize} ${viewSize}`;
+    const [mapAspect, setMapAspect] = useState(1.35);
 
-    const fitViewBox = useMemo(() => {
-      if (!readOnly || segments.length === 0) return null;
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      segments.forEach((seg) => {
-        seg.forEach((p) => {
-          if (p.x < minX) minX = p.x;
-          if (p.y < minY) minY = p.y;
-          if (p.x > maxX) maxX = p.x;
-          if (p.y > maxY) maxY = p.y;
-        });
-      });
-      if (!Number.isFinite(minX)) return null;
-      const pad = Math.max(20, (maxX - minX + maxY - minY) * 0.1);
-      const w = Math.max(40, maxX - minX + pad * 2);
-      const h = Math.max(40, maxY - minY + pad * 2);
-      const cx = (minX + maxX) / 2;
-      const cy = (minY + maxY) / 2;
-      return `${cx - w / 2} ${cy - h / 2} ${w} ${h}`;
-    }, [readOnly, segments]);
-    const viewBox = fitViewBox ?? defaultViewBox;
+    useLayoutEffect(() => {
+      const el = containerRef.current;
+      if (!el) return;
+      const update = () => {
+        const r = el.getBoundingClientRect();
+        if (r.width > 2 && r.height > 2) setMapAspect(r.width / r.height);
+      };
+      update();
+      const ro = new ResizeObserver(update);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }, []);
+
+    const mapView = useMemo(() => {
+      const emptySpan = BASE_VIEW_FT / zoom;
+      const raw = boundsFromSketch(segments, placedGates, currentPath, previewDraw);
+      if (!raw) {
+        return {
+          viewBox: `${-emptySpan / 2 - pan.x} ${-emptySpan / 2 - pan.y} ${emptySpan} ${emptySpan}`,
+          vw: emptySpan,
+          vh: emptySpan,
+          contentCx: 0,
+          contentCy: 0,
+        };
+      }
+      const b0 = normalizeBoundsSpan(raw);
+      const spanX = b0.maxX - b0.minX;
+      const spanY = b0.maxY - b0.minY;
+      const contentCx = (b0.minX + b0.maxX) / 2;
+      const contentCy = (b0.minY + b0.maxY) / 2;
+      const pad = Math.max(12, Math.max(spanX, spanY) * 0.14);
+      let bw0 = spanX + 2 * pad;
+      let bh0 = spanY + 2 * pad;
+      const ar = mapAspect > 0.25 ? mapAspect : 1;
+      let vw = bw0;
+      let vh = bh0;
+      if (vw / vh > ar) vh = vw / ar;
+      else vw = vh * ar;
+      vw /= zoom;
+      vh /= zoom;
+      return {
+        viewBox: `${contentCx - vw / 2 - pan.x} ${contentCy - vh / 2 - pan.y} ${vw} ${vh}`,
+        vw,
+        vh,
+        contentCx,
+        contentCy,
+      };
+    }, [segments, placedGates, currentPath, previewDraw, pan.x, pan.y, zoom, mapAspect]);
+
+    const viewBox = mapView.viewBox;
 
     useEffect(() => {
       const el = containerRef.current;
@@ -645,13 +732,24 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                     const dx = seg[1].x - seg[0].x;
                     const dy = seg[1].y - seg[0].y;
                     const len = Math.hypot(dx, dy) || 1;
-                    if (segments.length > 12 && len < 8) return null; // hide small segment text if drawing is rough
-                    const offset = 14;
-                    const px = mx + (-dy / len) * offset;
-                    const py = my + (dx / len) * offset;
+                    if (segments.length > 18 && len < 2) return null;
                     const labelText = lineLengths[si]?.trim()
                       ? `Line ${si + 1}: ${lineLengths[si].trim()} ft`
                       : `Line ${si + 1}`;
+                    const labelFontFt = Math.max(2.2, Math.min(mapView.vw, mapView.vh) * 0.026);
+                    let perpX = -dy / len;
+                    let perpY = dx / len;
+                    const towardCx = mx - mapView.contentCx;
+                    const towardCy = my - mapView.contentCy;
+                    if (perpX * towardCx + perpY * towardCy < 0) {
+                      perpX = -perpX;
+                      perpY = -perpY;
+                    }
+                    const estHalfW = labelText.length * labelFontFt * 0.38;
+                    const perpOffset = Math.max(len * 0.07 + 1.5, estHalfW * 0.95 + 3, 10);
+                    const px = mx + perpX * perpOffset;
+                    const py = my + perpY * perpOffset;
+                    const sw = Math.max(0.28, labelFontFt * 0.35);
                     return (
                       <text
                         x={px}
@@ -659,9 +757,12 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                         textAnchor="middle"
                         dominantBaseline="middle"
                         fill="#0f172a"
-                        fontSize={6}
+                        fontSize={labelFontFt}
                         fontWeight="600"
-                        style={{ filter: 'drop-shadow(0px 1px 2px white)' }}
+                        paintOrder="stroke"
+                        stroke="#f8fafc"
+                        strokeWidth={sw}
+                        strokeLinejoin="round"
                       >
                         {labelText}
                       </text>
