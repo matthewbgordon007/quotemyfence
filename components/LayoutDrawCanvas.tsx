@@ -26,6 +26,18 @@ const MIN_DRAW_SEGMENT_FT = 0.08;
 const BASE_VIEW_FT = 360;
 const MIN_BBOX_SPAN_FT = 40;
 
+/** Pixels-ish delta for wheel zoom (handles line/page deltaMode). */
+function normalizeWheelDeltaY(e: WheelEvent): number {
+  let dy = e.deltaY;
+  if (e.deltaMode === WheelEvent.DOM_DELTA_LINE) dy *= 16;
+  else if (e.deltaMode === WheelEvent.DOM_DELTA_PAGE) dy *= 500;
+  return dy;
+}
+
+/** Multiplicative wheel zoom: trackpads emit many events; cap log step so flicks stay controllable. */
+const WHEEL_ZOOM_LOG_SENS = 0.0011;
+const WHEEL_ZOOM_MAX_LOG_STEP = 0.065;
+
 export interface LayoutDrawCanvasRef {
   appendSegmentByLength: (lengthFt: number) => void;
 }
@@ -654,8 +666,11 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       if (!el) return;
       const onWheel = (e: WheelEvent) => {
         e.preventDefault();
-        const delta = e.deltaY > 0 ? -0.15 : 0.15;
-        setZoom((z) => Math.min(3, Math.max(0.25, z + delta)));
+        const dy = normalizeWheelDeltaY(e);
+        let logStep = -dy * WHEEL_ZOOM_LOG_SENS;
+        logStep = Math.max(-WHEEL_ZOOM_MAX_LOG_STEP, Math.min(WHEEL_ZOOM_MAX_LOG_STEP, logStep));
+        const factor = Math.exp(logStep);
+        setZoom((z) => Math.min(3, Math.max(0.25, z * factor)));
       };
       el.addEventListener('wheel', onWheel, { passive: false });
       return () => el.removeEventListener('wheel', onWheel);
