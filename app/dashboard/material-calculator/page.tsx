@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { inferFmsHubMaterialFromQuoteProject } from '@/lib/material-quote-fms-calculator-style';
 import {
   aggregateFmsPvcFenceLines,
   type FmsPvcFenceLineInput,
@@ -463,6 +464,8 @@ function parseMasterExtras(raw: unknown): Partial<Record<keyof FmsPvcMasterExtra
 
 export default function MaterialCalculatorHubPage() {
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
   const tabParam = (searchParams.get('tab') || '').toLowerCase();
   const fromLayoutId = searchParams.get('from_layout');
   const materialRequestId = (searchParams.get('materialRequest') || '').trim();
@@ -526,6 +529,9 @@ export default function MaterialCalculatorHubPage() {
   const [materialQuoteSketchLoadState, setMaterialQuoteSketchLoadState] = useState<
     'idle' | 'loading' | 'ok' | 'none'
   >('idle');
+  /** Set when a linked quote is not PVC / chain / hybrid — hides FMS tab math, sketch may still load. */
+  const [fmsQuoteMaterialUnsupported, setFmsQuoteMaterialUnsupported] = useState<string | null>(null);
+  const materialQuoteUnsupportedAlertKeyRef = useRef('');
   /** Plan sketch from profile snapshot `?from_material_sketch_save=`. */
   const [profileSketchSaveLoadState, setProfileSketchSaveLoadState] = useState<
     'idle' | 'loading' | 'ok' | 'none'
@@ -883,6 +889,8 @@ export default function MaterialCalculatorHubPage() {
     setHybVDoubleP(1);
     setHybridWpcColour('Ash');
     setHybridPvcColour('White');
+    setFmsQuoteMaterialUnsupported(null);
+    materialQuoteUnsupportedAlertKeyRef.current = '';
   }, [contractorId]);
 
   useEffect(() => {
@@ -931,6 +939,8 @@ export default function MaterialCalculatorHubPage() {
     const fromSupplier = materialRequestId.trim();
     if (!fromContractor && !fromSupplier) {
       setMaterialQuoteSketchLoadState('idle');
+      setFmsQuoteMaterialUnsupported(null);
+      materialQuoteUnsupportedAlertKeyRef.current = '';
       return;
     }
     const useSupplierApi = !fromContractor && Boolean(fromSupplier);
@@ -939,6 +949,7 @@ export default function MaterialCalculatorHubPage() {
       : `/api/contractor/material-quote-requests/${encodeURIComponent(fromContractor)}`;
 
     setMaterialQuoteSketchLoadState('loading');
+    setFmsQuoteMaterialUnsupported(null);
     let cancelled = false;
     fetch(url, {
       credentials: 'include',
@@ -949,6 +960,7 @@ export default function MaterialCalculatorHubPage() {
         if (cancelled) return;
         if (!json?.request) {
           setMaterialQuoteSketchLoadState('none');
+          setFmsQuoteMaterialUnsupported(null);
           return;
         }
         const req = json.request;
@@ -972,15 +984,55 @@ export default function MaterialCalculatorHubPage() {
           sketchHadSegmentsRef.current = false;
           setMaterialQuoteSketchLoadState('none');
         }
-        setTab('pvc');
+
+        const inferred = inferFmsHubMaterialFromQuoteProject({
+          design_summary: req.project?.design_summary ?? null,
+          design_option: req.project?.design_option ?? null,
+        });
+        const alertKey = `${fromContractor}|${fromSupplier}`;
+        if (inferred.kind === 'unsupported') {
+          setFmsQuoteMaterialUnsupported(inferred.materialLabel);
+          if (materialQuoteUnsupportedAlertKeyRef.current !== alertKey) {
+            materialQuoteUnsupportedAlertKeyRef.current = alertKey;
+            queueMicrotask(() => {
+              window.alert(
+                `No FMS material calculator is available for this material yet (${inferred.materialLabel}). ` +
+                  'This hub supports PVC / vinyl, chain link, and hybrid only. You can still review the job sketch and details above.'
+              );
+            });
+          }
+          setTab('pvc');
+          const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+          params.delete('tab');
+          router.replace(`${pathname}?${params.toString()}`);
+        } else {
+          setFmsQuoteMaterialUnsupported(null);
+          materialQuoteUnsupportedAlertKeyRef.current = alertKey;
+          if (inferred.kind === 'pvc' && inferred.pvcColour) {
+            setPvcBreakdownColour(inferred.pvcColour);
+          }
+          if (inferred.kind === 'hybrid') {
+            if (inferred.wpcColour) setHybridWpcColour(inferred.wpcColour);
+            if (inferred.pvcColour) setHybridPvcColour(inferred.pvcColour);
+          }
+          if (inferred.tab) {
+            setTab(inferred.tab);
+            const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+            params.set('tab', inferred.tab);
+            router.replace(`${pathname}?${params.toString()}`);
+          }
+        }
       })
       .catch(() => {
-        if (!cancelled) setMaterialQuoteSketchLoadState('none');
+        if (!cancelled) {
+          setMaterialQuoteSketchLoadState('none');
+          setFmsQuoteMaterialUnsupported(null);
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, [fromMaterialQuoteId, fromMaterialSketchSaveId, materialRequestId]);
+  }, [fromMaterialQuoteId, fromMaterialSketchSaveId, materialRequestId, pathname, router]);
 
   /** Profile-saved map sketch → PVC tab. */
   useEffect(() => {
@@ -1588,9 +1640,10 @@ export default function MaterialCalculatorHubPage() {
             requestId={materialRequestId}
             calculatorBasePath="/dashboard/material-calculator"
             onDownloadMasterPdf={() => void downloadMasterMaterialListPdf()}
-            masterPdfAvailable={tab === 'pvc'}
+            masterPdfAvailable={tab === 'pvc' && !fmsQuoteMaterialUnsupported}
             buildMaterialRowsForQuote={buildSupplierMaterialQuoteLines}
             quoteDetailHref={`/dashboard/supplier/contractor-quotes/${encodeURIComponent(materialRequestId)}`}
+            calculatorBlocked={Boolean(fmsQuoteMaterialUnsupported)}
           />
         ) : null}
         <div className={`min-w-0 space-y-6 ${showSupplierMaterialRequest ? 'flex-1' : ''}`}>
@@ -1678,6 +1731,25 @@ export default function MaterialCalculatorHubPage() {
         </div>
       </div>
 
+      {fmsQuoteMaterialUnsupported ? (
+        <div className="max-w-3xl rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-sm text-amber-950">
+          <p className="font-semibold">No FMS material calculator for this material</p>
+          <p className="mt-2">
+            This quote is recorded as <span className="font-medium text-slate-900">{fmsQuoteMaterialUnsupported}</span>.
+            The hub only supports PVC / vinyl, chain link, and hybrid.
+          </p>
+          <p className="mt-2 text-slate-700">The layout sketch and job details above stay available for reference.</p>
+          <Link
+            href="/dashboard/material-calculator"
+            className="mt-3 inline-block text-sm font-semibold text-amber-900 underline hover:text-amber-950"
+          >
+            Clear import and open a blank calculator
+          </Link>
+        </div>
+      ) : null}
+
+      {!fmsQuoteMaterialUnsupported ? (
+      <>
       <div className="flex flex-wrap gap-2">
         <button type="button" className={`${tabBase} ${tab === 'pvc' ? tabActive : tabIdle}`} onClick={() => setTab('pvc')}>
           PVC
@@ -2665,6 +2737,8 @@ export default function MaterialCalculatorHubPage() {
           Reset material calculator
         </button>
       </div>
+      </>
+      ) : null}
         </div>
       </div>
     </div>

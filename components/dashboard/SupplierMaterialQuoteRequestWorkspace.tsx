@@ -21,15 +21,17 @@ export function SupplierMaterialQuoteRequestWorkspace({
   masterPdfAvailable = true,
   buildMaterialRowsForQuote,
   quoteDetailHref,
+  calculatorBlocked = false,
 }: {
   requestId: string;
   calculatorBasePath: string;
   onDownloadMasterPdf?: () => void | Promise<void>;
-  /** When false, the Master PDF matches the PVC workbook only — button stays disabled with a short hint. */
+  /** When false, PDF button disabled with hint (e.g. not on PVC tab). */
   masterPdfAvailable?: boolean;
   buildMaterialRowsForQuote?: () => MaterialQuoteLine[];
-  /** After saving materials, navigate here (e.g. contractor quote detail to send / mark quoted). */
   quoteDetailHref?: string;
+  /** Quote material is not PVC / chain / hybrid — hide save/PDF actions. */
+  calculatorBlocked?: boolean;
 }) {
   const router = useRouter();
   const [sideRequest, setSideRequest] = useState<MaterialQuoteRequestDto | null>(null);
@@ -160,12 +162,20 @@ export function SupplierMaterialQuoteRequestWorkspace({
       </aside>
 
       {(onDownloadMasterPdf || buildMaterialRowsForQuote) && (
-        <div className="space-y-3 rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm sm:p-5">
+        <div
+          className={`space-y-3 rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm sm:p-5 ${calculatorBlocked ? 'pointer-events-none opacity-50' : ''}`}
+        >
           <p className={sectionLabel}>Quote actions</p>
-          <p className="text-sm text-slate-600">
-            Download a PDF from the calculator, or save this takeoff to the contractor quote and return to send materials
-            or mark quoted.
-          </p>
+          {calculatorBlocked ? (
+            <p className="text-sm text-amber-900">
+              Calculator actions are hidden because this job&apos;s material type is not supported in the FMS hub yet.
+            </p>
+          ) : (
+            <p className="text-sm text-slate-600">
+              Download a PDF from the calculator, or save this takeoff to the contractor quote and return to send materials
+              or mark quoted.
+            </p>
+          )}
           {onDownloadMasterPdf ? (
             <div className="space-y-1.5">
               <button
