@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -50,6 +50,8 @@ const field =
 const btn =
   'rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-50';
 const btnGhost = 'rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50';
+const btnReset =
+  'rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-50 disabled:opacity-50';
 const tabBase =
   'rounded-lg px-4 py-2 text-sm font-semibold transition-colors border border-transparent';
 const tabActive = 'bg-slate-900 text-white border-slate-900';
@@ -221,16 +223,14 @@ const MASTER_EXTRA_LABELS: Record<keyof FmsPvcMasterExtras, string> = {
   m24: 'M24 (hinge)',
 };
 
-export default function MaterialCalculatorHubPage() {
-  const searchParams = useSearchParams();
-  const tabParam = (searchParams.get('tab') || '').toLowerCase();
-  const fromLayoutId = searchParams.get('from_layout');
+const MATERIAL_CALC_DRAFT_VERSION = 1 as const;
 
-  const [tab, setTab] = useState<StyleTab>('pvc');
-  const [jobAddress, setJobAddress] = useState('');
-  /** Matches the Excel per-colour breakdown tab (labels / TSV only; formulas shared). */
-  const [pvcBreakdownColour, setPvcBreakdownColour] = useState<FmsPvcCalculatorColour>('Adobe');
-  const [lines, setLines] = useState<PvcLineRow[]>([
+function materialCalculatorDraftStorageKey(contractorId: string) {
+  return `qmf_material_calculator_draft_v${MATERIAL_CALC_DRAFT_VERSION}_${contractorId}`;
+}
+
+function defaultPvcLines(): PvcLineRow[] {
+  return [
     {
       id: newLineId(),
       label: 'Line 1',
@@ -240,9 +240,170 @@ export default function MaterialCalculatorHubPage() {
       h_post_type: 1,
       u_channel: '0',
     },
-  ]);
+  ];
+}
+
+function defaultChainLines(): { id: string; label: string; length_ft: string; terminal_post: string }[] {
+  return [{ id: newLineId(), label: 'Run 1', length_ft: '', terminal_post: '2' }];
+}
+
+function coerceStyleTab(x: unknown): StyleTab {
+  return x === 'chain' || x === 'hybrid' || x === 'pvc' ? x : 'pvc';
+}
+
+function coerceLineEndPreset(x: unknown): LineEndPreset {
+  return x === 'h_continuous' || x === 'u_at_end' || x === 'custom' ? x : 'h_continuous';
+}
+
+function coercePanelModule(x: unknown): FmsPvcPanelModule {
+  return x === 'nominal_6ft' || x === 'nominal_7ft' ? x : 'nominal_7ft';
+}
+
+function coerceH012(x: unknown): 0 | 1 | 2 {
+  const n = Number(x);
+  return n === 0 || n === 1 || n === 2 ? n : 1;
+}
+
+function parsePvcLines(raw: unknown): PvcLineRow[] | null {
+  if (!Array.isArray(raw)) return null;
+  const out: PvcLineRow[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue;
+    const o = row as Record<string, unknown>;
+    out.push({
+      id: typeof o.id === 'string' && o.id ? o.id : newLineId(),
+      label: typeof o.label === 'string' ? o.label : `Line ${out.length + 1}`,
+      length_ft: typeof o.length_ft === 'string' || typeof o.length_ft === 'number' ? String(o.length_ft) : '',
+      panel_module: coercePanelModule(o.panel_module),
+      end_preset: coerceLineEndPreset(o.end_preset),
+      h_post_type: coerceH012(o.h_post_type),
+      u_channel: typeof o.u_channel === 'string' || typeof o.u_channel === 'number' ? String(o.u_channel) : '0',
+      fromSketch: o.fromSketch === true,
+    });
+  }
+  return out.length ? out : null;
+}
+
+function parseLayoutSketch(raw: unknown): LayoutSketchDrawingPayload | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  const points = Array.isArray(o.points) ? o.points.filter((p) => p && typeof p === 'object') : [];
+  const pts = points.map((p) => {
+    const q = p as Record<string, unknown>;
+    return { x: Number(q.x) || 0, y: Number(q.y) || 0 };
+  });
+  const segsRaw = Array.isArray(o.segments) ? o.segments : [];
+  const segments = segsRaw.map((s) => {
+    const q = s && typeof s === 'object' ? (s as Record<string, unknown>) : {};
+    const lf = q.length_ft;
+    const n = typeof lf === 'number' ? lf : Number(lf);
+    return { length_ft: Number.isFinite(n) && n > 0 ? n : 0 };
+  });
+  const gatesRaw = Array.isArray(o.gates) ? o.gates : [];
+  const gates = gatesRaw
+    .map((g) => {
+      const q = g && typeof g === 'object' ? (g as Record<string, unknown>) : {};
+      const type = q.type === 'double' ? 'double' : 'single';
+      const qty = Math.max(0, Math.floor(Number(q.quantity) || 0));
+      return { type: type as 'single' | 'double', quantity: qty };
+    })
+    .filter((g) => g.quantity > 0);
+  const gpRaw = Array.isArray(o.gate_placements) ? o.gate_placements : [];
+  const gate_placements = gpRaw
+    .map((row) => {
+      const q = row && typeof row === 'object' ? (row as Record<string, unknown>) : {};
+      const type = q.type === 'double' ? 'double' : 'single';
+      const line_index = Math.max(0, Math.floor(Number(q.line_index) || 0));
+      return { type: type as 'single' | 'double', line_index };
+    })
+    .filter((_, i) => i < 500);
+  const total = Number(o.total_length_ft);
+  const total_length_ft = Number.isFinite(total) ? total : 0;
+  if (pts.length === 0 && segments.length === 0 && gates.length === 0 && gate_placements.length === 0) return null;
+  return { points: pts, segments, gates, gate_placements, total_length_ft };
+}
+
+function parsePvcGateRows(raw: unknown): PvcGateRow[] | null {
+  if (!Array.isArray(raw)) return null;
+  const out: PvcGateRow[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue;
+    const o = row as Record<string, unknown>;
+    const posts = Number(o.posts);
+    const p: FmsPvcGatePosts = posts === 0 || posts === 1 || posts === 2 ? posts : 1;
+    out.push({
+      id: typeof o.id === 'string' && o.id ? o.id : newLineId(),
+      width_in: typeof o.width_in === 'string' || typeof o.width_in === 'number' ? String(o.width_in) : '',
+      posts: p,
+    });
+  }
+  return out;
+}
+
+function parseChainLines(
+  raw: unknown
+): { id: string; label: string; length_ft: string; terminal_post: string }[] | null {
+  if (!Array.isArray(raw)) return null;
+  const out: { id: string; label: string; length_ft: string; terminal_post: string }[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue;
+    const o = row as Record<string, unknown>;
+    out.push({
+      id: typeof o.id === 'string' && o.id ? o.id : newLineId(),
+      label: typeof o.label === 'string' ? o.label : `Run ${out.length + 1}`,
+      length_ft: typeof o.length_ft === 'string' || typeof o.length_ft === 'number' ? String(o.length_ft) : '',
+      terminal_post:
+        typeof o.terminal_post === 'string' || typeof o.terminal_post === 'number' ? String(o.terminal_post) : '2',
+    });
+  }
+  return out.length ? out : null;
+}
+
+function parseChainGates(
+  raw: unknown
+): { id: string; width_in: string; posts: FmsPvcGatePosts; opening_in: string }[] | null {
+  if (!Array.isArray(raw)) return null;
+  const out: { id: string; width_in: string; posts: FmsPvcGatePosts; opening_in: string }[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue;
+    const o = row as Record<string, unknown>;
+    const posts = Number(o.posts);
+    const p: FmsPvcGatePosts = posts === 0 || posts === 1 || posts === 2 ? posts : 1;
+    out.push({
+      id: typeof o.id === 'string' && o.id ? o.id : newLineId(),
+      width_in: typeof o.width_in === 'string' || typeof o.width_in === 'number' ? String(o.width_in) : '',
+      posts: p,
+      opening_in:
+        typeof o.opening_in === 'string' || typeof o.opening_in === 'number' ? String(o.opening_in) : '45',
+    });
+  }
+  return out;
+}
+
+function parseMasterExtras(raw: unknown): Partial<Record<keyof FmsPvcMasterExtras, string>> | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  const out: Partial<Record<keyof FmsPvcMasterExtras, string>> = {};
+  for (const k of MASTER_EXTRA_KEYS) {
+    const v = o[k];
+    if (typeof v === 'string' || typeof v === 'number') out[k] = String(v);
+  }
+  return out;
+}
+
+export default function MaterialCalculatorHubPage() {
+  const searchParams = useSearchParams();
+  const tabParam = (searchParams.get('tab') || '').toLowerCase();
+  const fromLayoutId = searchParams.get('from_layout');
+
+  const [tab, setTab] = useState<StyleTab>('pvc');
+  const [jobAddress, setJobAddress] = useState('');
+  /** Matches the Excel per-colour breakdown tab (labels / TSV only; formulas shared). */
+  const [pvcBreakdownColour, setPvcBreakdownColour] = useState<FmsPvcCalculatorColour>('Adobe');
+  const [lines, setLines] = useState<PvcLineRow[]>(() => defaultPvcLines());
 
   const [layoutSketchData, setLayoutSketchData] = useState<LayoutSketchDrawingPayload | null>(null);
+  const [layoutCanvasRemountKey, setLayoutCanvasRemountKey] = useState(0);
 
   const [shortGates, setShortGates] = useState<PvcGateRow[]>([]);
   const [singleGates, setSingleGates] = useState<PvcGateRow[]>([]);
@@ -256,7 +417,7 @@ export default function MaterialCalculatorHubPage() {
   /** Chain link */
   const [chainLines, setChainLines] = useState<
     { id: string; label: string; length_ft: string; terminal_post: string }[]
-  >([{ id: newLineId(), label: 'Run 1', length_ft: '', terminal_post: '2' }]);
+  >(() => defaultChainLines());
   const [chainRailFt, setChainRailFt] = useState('10');
   const [chainMeshFt, setChainMeshFt] = useState('50');
   const [chainTiesPerBag, setChainTiesPerBag] = useState('100');
@@ -283,6 +444,11 @@ export default function MaterialCalculatorHubPage() {
   const [hybridWpcColour, setHybridWpcColour] = useState<FmsWpcCalculatorColour>('Ash');
   const [hybridPvcColour, setHybridPvcColour] = useState<FmsPvcCalculatorColour>('White');
 
+  const [contractorId, setContractorId] = useState<string | null>(null);
+  const materialCalcDraftSnapshotRef = useRef<Record<string, unknown> | null>(null);
+  const materialCalcSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const materialCalcHydrateKeyRef = useRef<string>('');
+
   useEffect(() => {
     if (tabParam === 'chain' || tabParam === 'hybrid' || tabParam === 'pvc') {
       setTab(tabParam as StyleTab);
@@ -297,6 +463,328 @@ export default function MaterialCalculatorHubPage() {
     const hp = coerceFmsPvcCalculatorColour(searchParams.get('hybrid_pvc'));
     if (hp) setHybridPvcColour(hp);
   }, [searchParams]);
+
+  useEffect(() => {
+    fetch('/api/contractor/me', { cache: 'no-store', credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        const id = data?.id;
+        if (typeof id === 'string' && id) setContractorId(id);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!contractorId) return;
+    const hydrateKey = `${contractorId}|${fromLayoutId ?? ''}`;
+    if (materialCalcHydrateKeyRef.current === hydrateKey) return;
+
+    const hasUrlTab = tabParam === 'chain' || tabParam === 'hybrid' || tabParam === 'pvc';
+    const urlPvcCol = coerceFmsPvcCalculatorColour(searchParams.get('pvc_colour'));
+    const urlHwCol = coerceFmsWpcCalculatorColour(searchParams.get('hybrid_wpc'));
+    const urlHpCol = coerceFmsPvcCalculatorColour(searchParams.get('hybrid_pvc'));
+    const skipPvcLinesAndSketch = Boolean(fromLayoutId);
+
+    const markHydrated = () => {
+      materialCalcHydrateKeyRef.current = hydrateKey;
+    };
+
+    try {
+      const raw = localStorage.getItem(materialCalculatorDraftStorageKey(contractorId));
+      if (!raw) {
+        markHydrated();
+        return;
+      }
+      const d = JSON.parse(raw) as Record<string, unknown>;
+      if (d.v !== MATERIAL_CALC_DRAFT_VERSION) {
+        markHydrated();
+        return;
+      }
+
+      if (!hasUrlTab && typeof d.tab === 'string') setTab(coerceStyleTab(d.tab));
+      if (typeof d.jobAddress === 'string') setJobAddress(d.jobAddress);
+
+      if (!urlPvcCol) {
+        const c = typeof d.pvcBreakdownColour === 'string' ? coerceFmsPvcCalculatorColour(d.pvcBreakdownColour) : null;
+        if (c) setPvcBreakdownColour(c);
+      }
+      if (!urlHwCol) {
+        const c = typeof d.hybridWpcColour === 'string' ? coerceFmsWpcCalculatorColour(d.hybridWpcColour) : null;
+        if (c) setHybridWpcColour(c);
+      }
+      if (!urlHpCol) {
+        const c = typeof d.hybridPvcColour === 'string' ? coerceFmsPvcCalculatorColour(d.hybridPvcColour) : null;
+        if (c) setHybridPvcColour(c);
+      }
+
+      if (!skipPvcLinesAndSketch) {
+        const pl = parsePvcLines(d.lines);
+        if (pl) setLines(pl);
+        const sketch = parseLayoutSketch(d.layoutSketchData);
+        if (sketch) {
+          setLayoutSketchData(sketch);
+          setLayoutCanvasRemountKey((k) => k + 1);
+        }
+        const sh = parsePvcGateRows(d.shortGates);
+        if (sh) setShortGates(sh);
+        const si = parsePvcGateRows(d.singleGates);
+        if (si) setSingleGates(si);
+        const db = parsePvcGateRows(d.doubleGates);
+        if (db) setDoubleGates(db);
+        const syncFromCount =
+          typeof d.sketchGateSyncCount === 'number' || typeof d.sketchGateSyncCount === 'string'
+            ? Math.max(0, Math.floor(Number(d.sketchGateSyncCount)))
+            : sketch?.gate_placements?.length ?? 0;
+        sketchSyncedGatePlacementCountRef.current = syncFromCount;
+      } else {
+        const sh = parsePvcGateRows(d.shortGates);
+        if (sh) setShortGates(sh);
+        const si = parsePvcGateRows(d.singleGates);
+        if (si) setSingleGates(si);
+        const db = parsePvcGateRows(d.doubleGates);
+        if (db) setDoubleGates(db);
+        sketchSyncedGatePlacementCountRef.current = 0;
+      }
+
+      if (typeof d.masterExtrasOpen === 'boolean') setMasterExtrasOpen(d.masterExtrasOpen);
+      const mx = parseMasterExtras(d.masterExtras);
+      if (mx && Object.keys(mx).length > 0) setMasterExtras(mx);
+
+      const cl = parseChainLines(d.chainLines);
+      if (cl) setChainLines(cl);
+      if (typeof d.chainRailFt === 'string' || typeof d.chainRailFt === 'number') setChainRailFt(String(d.chainRailFt));
+      if (typeof d.chainMeshFt === 'string' || typeof d.chainMeshFt === 'number') setChainMeshFt(String(d.chainMeshFt));
+      if (typeof d.chainTiesPerBag === 'string' || typeof d.chainTiesPerBag === 'number')
+        setChainTiesPerBag(String(d.chainTiesPerBag));
+      const cg = parseChainGates(d.chainGates);
+      if (cg) setChainGates(cg);
+
+      if (typeof d.hybHLen === 'string' || typeof d.hybHLen === 'number') setHybHLen(String(d.hybHLen));
+      if (typeof d.hybHHPost === 'number' || typeof d.hybHHPost === 'string') setHybHHPost(coerceH012(d.hybHHPost));
+      if (typeof d.hybHU === 'number' || typeof d.hybHU === 'string') setHybHU(coerceH012(d.hybHU));
+      if (typeof d.hybHGateOn === 'boolean') setHybHGateOn(d.hybHGateOn);
+      if (typeof d.hybHGateW === 'string' || typeof d.hybHGateW === 'number') setHybHGateW(String(d.hybHGateW));
+      if (typeof d.hybHGateP === 'number' || typeof d.hybHGateP === 'string')
+        setHybHGateP(coerceH012(d.hybHGateP) as FmsPvcGatePosts);
+
+      if (typeof d.hybVLen === 'string' || typeof d.hybVLen === 'number') setHybVLen(String(d.hybVLen));
+      if (typeof d.hybVHPost === 'number' || typeof d.hybVHPost === 'string') setHybVHPost(coerceH012(d.hybVHPost));
+      if (typeof d.hybVU === 'number' || typeof d.hybVU === 'string') setHybVU(coerceH012(d.hybVU));
+      if (typeof d.hybVSingleOn === 'boolean') setHybVSingleOn(d.hybVSingleOn);
+      if (typeof d.hybVSingleW === 'string' || typeof d.hybVSingleW === 'number') setHybVSingleW(String(d.hybVSingleW));
+      if (typeof d.hybVSingleP === 'number' || typeof d.hybVSingleP === 'string')
+        setHybVSingleP(coerceH012(d.hybVSingleP) as FmsPvcGatePosts);
+      if (typeof d.hybVDoubleOn === 'boolean') setHybVDoubleOn(d.hybVDoubleOn);
+      if (typeof d.hybVDoubleW === 'string' || typeof d.hybVDoubleW === 'number') setHybVDoubleW(String(d.hybVDoubleW));
+      if (typeof d.hybVDoubleP === 'number' || typeof d.hybVDoubleP === 'string')
+        setHybVDoubleP(coerceH012(d.hybVDoubleP) as FmsPvcGatePosts);
+      markHydrated();
+    } catch {
+      markHydrated();
+    }
+  }, [contractorId, fromLayoutId, tabParam, searchParams]);
+
+  useLayoutEffect(() => {
+    if (!contractorId) {
+      materialCalcDraftSnapshotRef.current = null;
+      return;
+    }
+    materialCalcDraftSnapshotRef.current = {
+      v: MATERIAL_CALC_DRAFT_VERSION,
+      tab,
+      jobAddress,
+      pvcBreakdownColour,
+      lines,
+      layoutSketchData,
+      shortGates,
+      singleGates,
+      doubleGates,
+      sketchGateSyncCount: sketchSyncedGatePlacementCountRef.current,
+      masterExtrasOpen,
+      masterExtras,
+      chainLines,
+      chainRailFt,
+      chainMeshFt,
+      chainTiesPerBag,
+      chainGates,
+      hybHLen,
+      hybHHPost,
+      hybHU,
+      hybHGateOn,
+      hybHGateW,
+      hybHGateP,
+      hybVLen,
+      hybVHPost,
+      hybVU,
+      hybVSingleOn,
+      hybVSingleW,
+      hybVSingleP,
+      hybVDoubleOn,
+      hybVDoubleW,
+      hybVDoubleP,
+      hybridWpcColour,
+      hybridPvcColour,
+    };
+  }, [
+    contractorId,
+    tab,
+    jobAddress,
+    pvcBreakdownColour,
+    lines,
+    layoutSketchData,
+    shortGates,
+    singleGates,
+    doubleGates,
+    masterExtrasOpen,
+    masterExtras,
+    chainLines,
+    chainRailFt,
+    chainMeshFt,
+    chainTiesPerBag,
+    chainGates,
+    hybHLen,
+    hybHHPost,
+    hybHU,
+    hybHGateOn,
+    hybHGateW,
+    hybHGateP,
+    hybVLen,
+    hybVHPost,
+    hybVU,
+    hybVSingleOn,
+    hybVSingleW,
+    hybVSingleP,
+    hybVDoubleOn,
+    hybVDoubleW,
+    hybVDoubleP,
+    hybridWpcColour,
+    hybridPvcColour,
+  ]);
+
+  useEffect(() => {
+    if (!contractorId) return;
+    if (materialCalcSaveTimerRef.current != null) clearTimeout(materialCalcSaveTimerRef.current);
+    materialCalcSaveTimerRef.current = setTimeout(() => {
+      materialCalcSaveTimerRef.current = null;
+      try {
+        const payload = materialCalcDraftSnapshotRef.current;
+        if (payload) localStorage.setItem(materialCalculatorDraftStorageKey(contractorId), JSON.stringify(payload));
+      } catch {
+        /* quota / private mode */
+      }
+    }, 450);
+    return () => {
+      if (materialCalcSaveTimerRef.current != null) clearTimeout(materialCalcSaveTimerRef.current);
+    };
+  }, [
+    contractorId,
+    tab,
+    jobAddress,
+    pvcBreakdownColour,
+    lines,
+    layoutSketchData,
+    shortGates,
+    singleGates,
+    doubleGates,
+    masterExtrasOpen,
+    masterExtras,
+    chainLines,
+    chainRailFt,
+    chainMeshFt,
+    chainTiesPerBag,
+    chainGates,
+    hybHLen,
+    hybHHPost,
+    hybHU,
+    hybHGateOn,
+    hybHGateW,
+    hybHGateP,
+    hybVLen,
+    hybVHPost,
+    hybVU,
+    hybVSingleOn,
+    hybVSingleW,
+    hybVSingleP,
+    hybVDoubleOn,
+    hybVDoubleW,
+    hybVDoubleP,
+    hybridWpcColour,
+    hybridPvcColour,
+  ]);
+
+  useEffect(() => {
+    if (!contractorId) return;
+    const flushSave = () => {
+      try {
+        const payload = materialCalcDraftSnapshotRef.current;
+        if (payload) localStorage.setItem(materialCalculatorDraftStorageKey(contractorId), JSON.stringify(payload));
+      } catch {
+        /* ignore */
+      }
+    };
+    const onPageHide = () => flushSave();
+    const onVis = () => {
+      if (document.visibilityState === 'hidden') flushSave();
+    };
+    window.addEventListener('pagehide', onPageHide);
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      window.removeEventListener('pagehide', onPageHide);
+      document.removeEventListener('visibilitychange', onVis);
+      flushSave();
+    };
+  }, [contractorId]);
+
+  const resetMaterialCalculator = useCallback(() => {
+    if (
+      !window.confirm(
+        'Reset the entire material calculator (all tabs), clear the layout sketch, and remove the saved draft on this device?'
+      )
+    ) {
+      return;
+    }
+    if (contractorId) {
+      try {
+        localStorage.removeItem(materialCalculatorDraftStorageKey(contractorId));
+      } catch {
+        /* ignore */
+      }
+    }
+    sketchSyncedGatePlacementCountRef.current = 0;
+    setTab('pvc');
+    setJobAddress('');
+    setPvcBreakdownColour('Adobe');
+    setLines(defaultPvcLines());
+    setLayoutSketchData(null);
+    setLayoutCanvasRemountKey((k) => k + 1);
+    setShortGates([]);
+    setSingleGates([]);
+    setDoubleGates([]);
+    setMasterExtrasOpen(false);
+    setMasterExtras({});
+    setChainLines(defaultChainLines());
+    setChainRailFt('10');
+    setChainMeshFt('50');
+    setChainTiesPerBag('100');
+    setChainGates([]);
+    setHybHLen('');
+    setHybHHPost(1);
+    setHybHU(0);
+    setHybHGateOn(false);
+    setHybHGateW('');
+    setHybHGateP(1);
+    setHybVLen('');
+    setHybVHPost(1);
+    setHybVU(0);
+    setHybVSingleOn(false);
+    setHybVSingleW('');
+    setHybVSingleP(1);
+    setHybVDoubleOn(false);
+    setHybVDoubleW('');
+    setHybVDoubleP(1);
+    setHybridWpcColour('Ash');
+    setHybridPvcColour('White');
+  }, [contractorId]);
 
   useEffect(() => {
     if (!fromLayoutId) return;
@@ -719,6 +1207,19 @@ export default function MaterialCalculatorHubPage() {
           </Link>
           .
         </p>
+        <div className="mt-4">
+          <button type="button" className={btnReset} onClick={resetMaterialCalculator}>
+            Reset material calculator
+          </button>
+          {!contractorId ? (
+            <p className="mt-1 text-xs text-slate-500">Sign in to auto-save your draft in this browser.</p>
+          ) : (
+            <p className="mt-1 text-xs text-slate-500">
+              Your entries auto-save in this browser when you leave the page (per account). Use reset to clear
+              everything.
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -746,7 +1247,10 @@ export default function MaterialCalculatorHubPage() {
           <section className={card}>
             <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-emerald-50/30 px-5 py-4">
               <h2 className={h2}>Job</h2>
-              <p className="mt-1 text-xs text-slate-500">Stored on-screen only — not saved to the database yet.</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Same browser draft as the rest of this calculator (auto-saves when you leave the page). Not stored in
+                the database.
+              </p>
             </div>
             <div className="grid gap-4 p-5 sm:grid-cols-2">
               <div className="sm:col-span-2">
@@ -794,7 +1298,21 @@ export default function MaterialCalculatorHubPage() {
             </div>
             <div className="space-y-4 p-5">
               <div className="flex min-h-[400px] h-[min(640px,80vh)] w-full flex-col">
-                <LayoutDrawCanvas onDrawingChange={setLayoutSketchData} />
+                <LayoutDrawCanvas
+                  key={layoutCanvasRemountKey}
+                  initialDrawing={
+                    layoutSketchData
+                      ? {
+                          points: layoutSketchData.points,
+                          segments: layoutSketchData.segments,
+                          gates: layoutSketchData.gates ?? [],
+                          total_length_ft: layoutSketchData.total_length_ft,
+                          gate_placements: layoutSketchData.gate_placements ?? [],
+                        }
+                      : null
+                  }
+                  onDrawingChange={setLayoutSketchData}
+                />
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button
@@ -1656,6 +2174,12 @@ export default function MaterialCalculatorHubPage() {
           </section>
         </>
       )}
+
+      <div className="border-t border-slate-200 pt-8">
+        <button type="button" className={btnReset} onClick={resetMaterialCalculator}>
+          Reset material calculator
+        </button>
+      </div>
     </div>
   );
 }
