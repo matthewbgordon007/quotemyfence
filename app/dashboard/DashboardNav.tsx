@@ -26,7 +26,7 @@ const workspaceLinks = [
   },
   {
     href: '/dashboard/quote-template',
-    label: 'Template',
+    label: 'Quote text',
     icon: <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 7.5v9.75A2.25 2.25 0 0 1 17.25 19.5H6.75A2.25 2.25 0 0 1 4.5 17.25V6.75A2.25 2.25 0 0 1 6.75 4.5h7.5L19.5 9.75Zm-9 1.5h3m-3 3h6m-6 3h6" />,
   },
   {

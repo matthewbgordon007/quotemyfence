@@ -2280,7 +2280,7 @@ export default function CalculatorPage() {
                 <span className="h-2 w-2 shrink-0 rounded-full bg-slate-400 shadow-sm" aria-hidden />
                 <h2 className="text-base font-semibold text-slate-900">Generated Quote Text</h2>
               </div>
-              <p className="mt-1 text-xs text-slate-500">Updates live. Template is managed in Quote template.</p>
+              <p className="mt-1 text-xs text-slate-500">Updates live. Wording is edited under Quote text in the menu.</p>
             </div>
             <div className="space-y-3 p-4 sm:p-5">
               <Link
@@ -2290,7 +2290,7 @@ export default function CalculatorPage() {
                 <svg className="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487A2.25 2.25 0 0 1 19.5 6.75v10.5A2.25 2.25 0 0 1 17.25 19.5H6.75A2.25 2.25 0 0 1 4.5 17.25V6.75A2.25 2.25 0 0 1 6.75 4.5h10.112Zm-8.112 4.5h6m-6 3h6m-6 3h4.5" />
                 </svg>
-                Edit quote template
+                Edit customer quote wording
               </Link>
               <textarea
                 readOnly
