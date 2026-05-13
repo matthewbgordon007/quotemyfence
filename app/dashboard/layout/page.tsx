@@ -469,8 +469,8 @@ export default function LayoutPage() {
           ...(attachmentPayload || {}),
         }),
       });
+      const data = (await res.json()) as { error?: string; id?: string };
       if (!res.ok) {
-        const data = await res.json();
         throw new Error(data.error || 'Failed to submit');
       }
       setShowMaterialModal(false);
@@ -481,6 +481,14 @@ export default function LayoutPage() {
           ? 'Material quote request sent to the platform team.'
           : 'Material quote request sent to your supplier.'
       );
+      const newId = data?.id;
+      if (
+        newId &&
+        typeof window !== 'undefined' &&
+        window.confirm('Open the FMS material calculator with this plan sketch (line lengths and gates)?')
+      ) {
+        window.location.href = `/dashboard/material-calculator?from_material_quote=${encodeURIComponent(String(newId))}`;
+      }
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Failed to send request');
     } finally {

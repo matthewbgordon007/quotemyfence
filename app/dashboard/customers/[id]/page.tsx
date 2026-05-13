@@ -159,8 +159,8 @@ export default function CustomerDetailPage() {
           ...(attachmentPayload || {}),
         }),
       });
+      const d = (await res.json()) as { error?: string; id?: string };
       if (!res.ok) {
-        const d = await res.json();
         throw new Error(d.error || 'Failed to send');
       }
       setShowExportToAdmin(false);
@@ -171,6 +171,14 @@ export default function CustomerDetailPage() {
           ? 'Fence layout and notes sent to your supplier. They can respond from their dashboard.'
           : 'Fence layout and notes sent to the platform team for a material quote.'
       );
+      const newId = d?.id;
+      if (
+        newId &&
+        typeof window !== 'undefined' &&
+        window.confirm('Open the FMS material calculator with this job\'s plan sketch (line lengths and gates)?')
+      ) {
+        window.location.href = `/dashboard/material-calculator?from_material_quote=${encodeURIComponent(String(newId))}`;
+      }
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Failed to send');
     } finally {

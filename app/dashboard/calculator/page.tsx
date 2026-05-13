@@ -1399,6 +1399,12 @@ export default function CalculatorPage() {
                 Loaded from a supplier material request. Per-foot, gate, and minimum pricing use your linked supplier’s{' '}
                 <span className="font-semibold">contractor material</span> rates when that style is imported from them;
                 otherwise your normal catalogue prices apply.
+                <Link
+                  href={`/dashboard/material-calculator?from_material_quote=${encodeURIComponent(materialQuoteId)}`}
+                  className="mt-2 block font-semibold text-emerald-900 underline hover:text-emerald-950"
+                >
+                  Open the same job in the FMS material calculator (plan sketch, line lengths, gates)
+                </Link>
               </p>
             ) : null}
           </div>

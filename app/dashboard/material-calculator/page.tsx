@@ -41,6 +41,7 @@ import {
 } from '@/lib/fms-calculator-colour-presets';
 import { LayoutDrawCanvas } from '@/components/LayoutDrawCanvas';
 import { SupplierMaterialQuoteRequestWorkspace } from '@/components/dashboard/SupplierMaterialQuoteRequestWorkspace';
+import type { MaterialQuoteRequestDto } from '@/lib/supplier-material-quote-requests-enrich';
 import {
   layoutPointsToSegmentPairs,
   layoutSegmentsToPvcFenceInputsPerSketchSegment,
@@ -401,6 +402,7 @@ export default function MaterialCalculatorHubPage() {
   const tabParam = (searchParams.get('tab') || '').toLowerCase();
   const fromLayoutId = searchParams.get('from_layout');
   const materialRequestId = (searchParams.get('materialRequest') || '').trim();
+  const fromMaterialQuoteId = (searchParams.get('from_material_quote') || '').trim();
   const showSupplierMaterialRequest = Boolean(materialRequestId);
 
   const [tab, setTab] = useState<StyleTab>('pvc');
@@ -451,6 +453,11 @@ export default function MaterialCalculatorHubPage() {
   const [hybridWpcColour, setHybridWpcColour] = useState<FmsWpcCalculatorColour>('Ash');
   const [hybridPvcColour, setHybridPvcColour] = useState<FmsPvcCalculatorColour>('White');
 
+  /** Plan sketch from `?from_material_quote=` (loading / found / missing). */
+  const [materialQuoteSketchLoadState, setMaterialQuoteSketchLoadState] = useState<
+    'idle' | 'loading' | 'ok' | 'none'
+  >('idle');
+
   const [contractorId, setContractorId] = useState<string | null>(null);
   const materialCalcDraftSnapshotRef = useRef<Record<string, unknown> | null>(null);
   const materialCalcSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -487,14 +494,14 @@ export default function MaterialCalculatorHubPage() {
 
   useEffect(() => {
     if (!contractorId) return;
-    const hydrateKey = `${contractorId}|${fromLayoutId ?? ''}`;
+    const hydrateKey = `${contractorId}|${fromLayoutId ?? ''}|${fromMaterialQuoteId ?? ''}`;
     if (materialCalcHydrateKeyRef.current === hydrateKey) return;
 
     const hasUrlTab = tabParam === 'chain' || tabParam === 'hybrid' || tabParam === 'pvc';
     const urlPvcCol = coerceFmsPvcCalculatorColour(searchParams.get('pvc_colour'));
     const urlHwCol = coerceFmsWpcCalculatorColour(searchParams.get('hybrid_wpc'));
     const urlHpCol = coerceFmsPvcCalculatorColour(searchParams.get('hybrid_pvc'));
-    const skipPvcLinesAndSketch = Boolean(fromLayoutId);
+    const skipPvcLinesAndSketch = Boolean(fromLayoutId || fromMaterialQuoteId);
 
     const markHydrated = () => {
       materialCalcHydrateKeyRef.current = hydrateKey;
@@ -548,12 +555,14 @@ export default function MaterialCalculatorHubPage() {
             : sketch?.gate_placements?.length ?? 0;
         sketchSyncedGatePlacementCountRef.current = syncFromCount;
       } else {
-        const sh = parsePvcGateRows(d.shortGates);
-        if (sh) setShortGates(sh);
-        const si = parsePvcGateRows(d.singleGates);
-        if (si) setSingleGates(si);
-        const db = parsePvcGateRows(d.doubleGates);
-        if (db) setDoubleGates(db);
+        if (!fromMaterialQuoteId) {
+          const sh = parsePvcGateRows(d.shortGates);
+          if (sh) setShortGates(sh);
+          const si = parsePvcGateRows(d.singleGates);
+          if (si) setSingleGates(si);
+          const db = parsePvcGateRows(d.doubleGates);
+          if (db) setDoubleGates(db);
+        }
         sketchSyncedGatePlacementCountRef.current = 0;
       }
 
@@ -593,7 +602,7 @@ export default function MaterialCalculatorHubPage() {
     } catch {
       markHydrated();
     }
-  }, [contractorId, fromLayoutId, tabParam, searchParams]);
+  }, [contractorId, fromLayoutId, fromMaterialQuoteId, tabParam, searchParams]);
 
   useLayoutEffect(() => {
     if (!contractorId) {
@@ -800,6 +809,7 @@ export default function MaterialCalculatorHubPage() {
   }, [contractorId]);
 
   useEffect(() => {
+    if (fromMaterialQuoteId) return;
     if (!fromLayoutId) return;
     let cancelled = false;
     fetch(`/api/contractor/layouts/${encodeURIComponent(fromLayoutId)}`, { credentials: 'include' })
@@ -835,7 +845,55 @@ export default function MaterialCalculatorHubPage() {
     return () => {
       cancelled = true;
     };
-  }, [fromLayoutId]);
+  }, [fromLayoutId, fromMaterialQuoteId]);
+
+  /** Contractor material quote request → layout sketch + PVC tab (plan view, lengths, gates). */
+  useEffect(() => {
+    if (!fromMaterialQuoteId) {
+      setMaterialQuoteSketchLoadState('idle');
+      return;
+    }
+    setMaterialQuoteSketchLoadState('loading');
+    let cancelled = false;
+    fetch(`/api/contractor/material-quote-requests/${encodeURIComponent(fromMaterialQuoteId)}`, {
+      credentials: 'include',
+      cache: 'no-store',
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json: { request?: MaterialQuoteRequestDto } | null) => {
+        if (cancelled) return;
+        if (!json?.request) {
+          setMaterialQuoteSketchLoadState('none');
+          return;
+        }
+        const req = json.request;
+        const summary = req.project?.design_summary?.trim();
+        if (summary) setJobAddress((prev) => (prev.trim() ? prev : summary));
+        const sketch = parseLayoutSketch(req.project?.drawing_data ?? null);
+        setShortGates([]);
+        setSingleGates([]);
+        setDoubleGates([]);
+        sketchSyncedGatePlacementCountRef.current = 0;
+        sketchToLinesSyncKeyRef.current = '';
+        if (sketch) {
+          setLayoutSketchData(sketch);
+          setLayoutCanvasRemountKey((k) => k + 1);
+          sketchHadSegmentsRef.current = true;
+          setMaterialQuoteSketchLoadState('ok');
+        } else {
+          setLayoutSketchData(null);
+          sketchHadSegmentsRef.current = false;
+          setMaterialQuoteSketchLoadState('none');
+        }
+        setTab('pvc');
+      })
+      .catch(() => {
+        if (!cancelled) setMaterialQuoteSketchLoadState('none');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fromMaterialQuoteId]);
 
   /** Layout sketch geometry → PVC fence line rows (lengths and corner logic match Excel apply). */
   useEffect(() => {
@@ -1279,6 +1337,33 @@ export default function MaterialCalculatorHubPage() {
           ← Dashboard
         </Link>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">Material calculator (FMS)</h1>
+        {fromMaterialQuoteId ? (
+          <div className="mt-3 max-w-3xl space-y-2">
+            <div className="rounded-xl border border-violet-200/90 bg-violet-50/90 px-4 py-3 text-sm text-violet-950">
+              {materialQuoteSketchLoadState === 'loading' ? (
+                <span className="font-semibold">Loading layout from material request…</span>
+              ) : (
+                <>
+                  <span className="font-semibold">Material request import.</span> The PVC tab uses the drawing saved on
+                  that request when available.{' '}
+                  <Link
+                    href="/dashboard/material-calculator"
+                    className="font-semibold text-violet-800 underline hover:text-violet-950"
+                  >
+                    Clear import
+                  </Link>
+                </>
+              )}
+            </div>
+            {materialQuoteSketchLoadState === 'none' ? (
+              <div className="rounded-xl border border-amber-200/90 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
+                No plan-view sketch was found on this material request (or the request could not be loaded). Line lengths
+                and gates from the map-only flow are not shown here yet; you can draw or enter runs manually, or open the
+                job&apos;s layout drawing if you saved one.
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
           Takeoff aligned to the 2026 FMS workbook: PVC includes fence lines, short / single / double gates (Excel gate
           block), per-colour Material List Breakdown labels (pick the same colour tab you use in Excel), Master column C
