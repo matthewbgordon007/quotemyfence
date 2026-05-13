@@ -39,6 +39,8 @@ import {
   type FmsPvcCalculatorColour,
   type FmsWpcCalculatorColour,
 } from '@/lib/fms-calculator-colour-presets';
+import { LayoutDrawCanvas } from '@/components/LayoutDrawCanvas';
+import { layoutPointsToSegmentPairs, layoutSegmentsToPvcFenceInputs } from '@/lib/layout-sketch-to-pvc-inputs';
 
 const card =
   'overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-md shadow-slate-900/[0.04] ring-1 ring-slate-900/[0.03]';
@@ -70,6 +72,42 @@ interface PvcLineRow {
   end_preset: LineEndPreset;
   h_post_type: 0 | 1 | 2;
   u_channel: string;
+  /** When true, D6/D7 came from the layout sketch (corners vs straight merge). */
+  fromSketch?: boolean;
+}
+
+type LayoutSketchDrawingPayload = {
+  points: { x: number; y: number }[];
+  segments: { length_ft: number }[];
+  gates: { type: 'single' | 'double'; quantity: number }[];
+  gate_placements: { type: 'single' | 'double'; line_index: number }[];
+  total_length_ft: number;
+};
+
+function drawingDataToPvcLineRows(
+  drawing: { points: { x: number; y: number }[]; segments: { length_ft?: number }[] },
+  panelModule: FmsPvcPanelModule
+): PvcLineRow[] | null {
+  const pairs = layoutPointsToSegmentPairs(drawing.points, drawing.segments);
+  if (pairs.length === 0) return null;
+  const lengthPerSeg = pairs.map((pair, i) => {
+    const raw = drawing.segments[i]?.length_ft;
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) return n;
+    const d = Math.hypot(pair[1].x - pair[0].x, pair[1].y - pair[0].y);
+    return Math.max(1e-6, d);
+  });
+  const inputs = layoutSegmentsToPvcFenceInputs(pairs, lengthPerSeg, panelModule);
+  return inputs.map((inp, i) => ({
+    id: newLineId(),
+    label: `Run ${i + 1}`,
+    length_ft: String(inp.length_ft),
+    panel_module: panelModule,
+    end_preset: 'custom',
+    h_post_type: inp.fence_terminated_h_post_type as 0 | 1 | 2,
+    u_channel: String(inp.fence_terminated_u_channel),
+    fromSketch: true,
+  }));
 }
 
 interface PvcGateRow {
@@ -174,6 +212,8 @@ export default function MaterialCalculatorHubPage() {
     },
   ]);
 
+  const [layoutSketchData, setLayoutSketchData] = useState<LayoutSketchDrawingPayload | null>(null);
+
   const [shortGates, setShortGates] = useState<PvcGateRow[]>([]);
   const [singleGates, setSingleGates] = useState<PvcGateRow[]>([]);
   const [doubleGates, setDoubleGates] = useState<PvcGateRow[]>([]);
@@ -232,9 +272,19 @@ export default function MaterialCalculatorHubPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (cancelled || !data?.drawing_data) return;
-        const segs = (data.drawing_data as { segments?: { length_ft: number }[] }).segments;
-        if (!Array.isArray(segs) || !segs.length) return;
-        const lens = segs.map((s) => String(Number(s.length_ft) || ''));
+        const dd = data.drawing_data as {
+          points?: { x: number; y: number }[];
+          segments?: { length_ft?: number }[];
+        };
+        const pts = Array.isArray(dd.points) ? dd.points : [];
+        const segMeta = Array.isArray(dd.segments) ? dd.segments : [];
+        const inferred = drawingDataToPvcLineRows({ points: pts, segments: segMeta }, 'nominal_7ft');
+        if (inferred?.length) {
+          setLines(inferred);
+          return;
+        }
+        if (!segMeta.length) return;
+        const lens = segMeta.map((s) => String(Number(s.length_ft) || ''));
         setLines(
           lens.map((len, i) => ({
             id: newLineId(),
@@ -468,6 +518,13 @@ export default function MaterialCalculatorHubPage() {
     hybVDoubleP,
   ]);
 
+  const applyLayoutSketchToLines = useCallback(() => {
+    if (!layoutSketchData?.segments?.length) return;
+    const panelModule = lines[0]?.panel_module ?? 'nominal_7ft';
+    const next = drawingDataToPvcLineRows(layoutSketchData, panelModule);
+    if (next?.length) setLines(next);
+  }, [layoutSketchData, lines]);
+
   function addLine() {
     setLines((p) => [
       ...p,
@@ -475,7 +532,7 @@ export default function MaterialCalculatorHubPage() {
         id: newLineId(),
         label: `Line ${p.length + 1}`,
         length_ft: '',
-        panel_module: 'nominal_7ft',
+        panel_module: p[0]?.panel_module ?? 'nominal_7ft',
         end_preset: 'h_continuous',
         h_post_type: 1,
         u_channel: '0',
@@ -659,12 +716,49 @@ export default function MaterialCalculatorHubPage() {
           </section>
 
           <section className={card}>
+            <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-violet-50/25 px-5 py-4">
+              <h2 className={h2}>Layout sketch</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Draw the fence in plan view, enter each segment length in feet, then apply. New segments snap to the
+                previous end within 2 ft; if the next segment is within 3° of straight, it snaps colinear. Sharper
+                corners are treated as a U-channel on the run that ends there; nearly straight joints stay on a
+                continuous H-post run.
+              </p>
+            </div>
+            <div className="space-y-4 p-5">
+              <div className="h-[min(420px,55vh)] min-h-[280px] w-full">
+                <LayoutDrawCanvas onDrawingChange={setLayoutSketchData} />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  className={btn}
+                  disabled={!layoutSketchData?.segments?.length}
+                  onClick={applyLayoutSketchToLines}
+                >
+                  Apply sketch to fence runs
+                </button>
+                {lines.some((l) => l.fromSketch) && (
+                  <button
+                    type="button"
+                    className={btnGhost}
+                    onClick={() => setLines((prev) => prev.map((l) => ({ ...l, fromSketch: false })))}
+                  >
+                    Unlock line ends (manual D6 / D7)
+                  </button>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section className={card}>
             <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-blue-50/30 px-5 py-4">
               <h2 className={h2}>Fence lines</h2>
               <p className="mt-1 text-xs text-slate-500">
+                Use the layout sketch above to drive runs and U-channels at corners, or set lines manually.{' '}
                 <strong className="text-slate-700">H-post end</strong> = Excel D6=1, D7=0 (continuous line on slit
-                post). <strong className="text-slate-700">U-channel end</strong> = D6=1, D7=1 (terminal U). Use{' '}
-                <em className="not-italic text-slate-600">Custom</em> for other workbook 0/1/2 + U values.
+                post). <strong className="text-slate-700">U-channel end</strong> = D6=1, D7=1 (terminal U).{' '}
+                <em className="not-italic text-slate-600">Custom</em> covers other workbook 0/1/2 + U values.
               </p>
             </div>
             <div className="space-y-4 p-5">
@@ -679,6 +773,12 @@ export default function MaterialCalculatorHubPage() {
                       Remove
                     </button>
                   </div>
+                  {row.fromSketch && (
+                    <p className="mb-3 rounded-lg border border-violet-100 bg-violet-50/80 px-3 py-2 text-xs text-violet-900">
+                      From layout sketch: U-channel (D7) is set at corners where the path turns more than 3° from
+                      straight; straighter joints stay on one H-post run.
+                    </p>
+                  )}
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div className="sm:col-span-2">
                       <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -726,7 +826,8 @@ export default function MaterialCalculatorHubPage() {
                       <select
                         value={row.end_preset}
                         onChange={(e) => updateLine(row.id, { end_preset: e.target.value as LineEndPreset })}
-                        className={`${field} w-full`}
+                        disabled={row.fromSketch}
+                        className={`${field} w-full disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70`}
                       >
                         <option value="h_continuous">Ends on H-post (continuous / standard)</option>
                         <option value="u_at_end">Ends with U-channel</option>
@@ -744,7 +845,8 @@ export default function MaterialCalculatorHubPage() {
                             onChange={(e) =>
                               updateLine(row.id, { h_post_type: Number(e.target.value) as 0 | 1 | 2 })
                             }
-                            className={`${field} w-full`}
+                            disabled={row.fromSketch}
+                            className={`${field} w-full disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70`}
                           >
                             <option value={0}>0</option>
                             <option value={1}>1</option>
@@ -761,7 +863,8 @@ export default function MaterialCalculatorHubPage() {
                             step={0.5}
                             value={row.u_channel}
                             onChange={(e) => updateLine(row.id, { u_channel: e.target.value })}
-                            className={`${field} w-full`}
+                            disabled={row.fromSketch}
+                            className={`${field} w-full disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70`}
                           />
                         </div>
                       </>

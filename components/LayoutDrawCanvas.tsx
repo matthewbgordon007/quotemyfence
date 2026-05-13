@@ -1,6 +1,14 @@
 'use client';
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import {
+  deflectionAtVertexDeg,
+  LAYOUT_SNAP_VERTEX_FT,
+  LAYOUT_STRAIGHT_MAX_DEG,
+  layoutPointsToSegmentPairs,
+  snapEndColinearWithPrev,
+  snapPointToAnchorIfClose,
+} from '@/lib/layout-sketch-to-pvc-inputs';
 
 // Canvas uses feet as coordinate system. Origin at center.
 // Scale: pixels per foot for display
@@ -77,46 +85,6 @@ function nearestLineIndexForPoint(
   return bestI;
 }
 
-/**
- * Saved `points` from this canvas are flattened segment pairs: [a0,b0, a1,b1, …] (length === 2 × segmentCount).
- * Imports from the map use a polyline: [v0,v1,…,vn] (length === segmentCount + 1).
- */
-function segmentsFromSavedPoints(
-  pts: { x: number; y: number }[],
-  segMeta: { length_ft?: number }[]
-): { x: number; y: number }[][] {
-  const out: { x: number; y: number }[][] = [];
-  if (pts.length < 2) return out;
-  const m = segMeta.length;
-
-  if (m > 0 && pts.length === 2 * m) {
-    for (let i = 0; i < m; i++) {
-      out.push([pts[i * 2], pts[i * 2 + 1]]);
-    }
-    return out;
-  }
-
-  if (m > 0 && pts.length === m + 1) {
-    for (let i = 0; i < m; i++) {
-      out.push([pts[i], pts[i + 1]]);
-    }
-    return out;
-  }
-
-  const pairN = Math.floor(pts.length / 2);
-  if (pairN >= 1 && m === pairN) {
-    for (let i = 0; i < pairN; i++) {
-      out.push([pts[i * 2], pts[i * 2 + 1]]);
-    }
-    return out;
-  }
-
-  for (let i = 0; i < pts.length - 1; i++) {
-    out.push([pts[i], pts[i + 1]]);
-  }
-  return out;
-}
-
 function strokeForLineMode(mode: LineHighlightMode | undefined): string {
   if (mode === 'private') return '#16a34a';
   if (mode === 'shared') return '#dc2626';
@@ -131,7 +99,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
     const [segments, setSegments] = useState<{ x: number; y: number }[][]>(() => {
       const pts = initialDrawing?.points ?? [];
       const segLens = initialDrawing?.segments ?? [];
-      return segmentsFromSavedPoints(pts, segLens);
+      return layoutPointsToSegmentPairs(pts, segLens);
     });
     /** At most one point = start of current line; second click (or End line) finishes the segment. */
     const [currentPath, setCurrentPath] = useState<{ x: number; y: number }[]>([]);
@@ -144,7 +112,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       const gates = initialDrawing?.gates ?? [];
       const pts = initialDrawing?.points ?? [];
       const segLens = initialDrawing?.segments ?? [];
-      const initSegs = segmentsFromSavedPoints(pts, segLens);
+      const initSegs = layoutPointsToSegmentPairs(pts, segLens);
       const gp = initialDrawing?.gate_placements;
       if (Array.isArray(gp) && gp.length > 0 && initSegs.length > 0) {
         return gp.map((row) => {
@@ -187,7 +155,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
     const [lineLengths, setLineLengths] = useState<string[]>(() => {
       const pts = initialDrawing?.points ?? [];
       const segLens = initialDrawing?.segments ?? [];
-      const initSegs = segmentsFromSavedPoints(pts, segLens);
+      const initSegs = layoutPointsToSegmentPairs(pts, segLens);
       const n = initSegs.length;
       if (n === 0) return [];
       return Array.from({ length: n }, (_, i) => {
@@ -198,6 +166,26 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       });
     });
     const [zoom, setZoom] = useState(1);
+
+    const previewDraw = useMemo(() => {
+      if (currentPath.length !== 1 || !hoverPt) return null;
+      let start = currentPath[0];
+      let end = { ...hoverPt };
+      if (segments.length > 0) {
+        const last = segments[segments.length - 1];
+        if (last.length >= 2) {
+          const A = last[0];
+          const B = last[1];
+          start = snapPointToAnchorIfClose(start, B, LAYOUT_SNAP_VERTEX_FT);
+          const d = deflectionAtVertexDeg(A, B, end);
+          if (d <= LAYOUT_STRAIGHT_MAX_DEG) {
+            end = snapEndColinearWithPrev(A, B, end);
+          }
+        }
+      }
+      return { start, end };
+    }, [currentPath, hoverPt, segments]);
+
     const segmentsRef = useRef(segments);
     segmentsRef.current = segments;
 
@@ -361,10 +349,30 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       }
 
       if (currentPath.length === 0) {
-        setCurrentPath([{ x, y }]);
+        let p = { x, y };
+        if (segments.length > 0) {
+          const last = segments[segments.length - 1];
+          if (last.length >= 2) {
+            p = snapPointToAnchorIfClose(p, last[1], LAYOUT_SNAP_VERTEX_FT);
+          }
+        }
+        setCurrentPath([p]);
       } else {
-        const start = currentPath[0];
-        setSegments((prev) => [...prev, [start, { x, y }]]);
+        let start = currentPath[0];
+        let end = { x, y };
+        if (segments.length > 0) {
+          const last = segments[segments.length - 1];
+          if (last.length >= 2) {
+            const A = last[0];
+            const B = last[1];
+            start = snapPointToAnchorIfClose(start, B, LAYOUT_SNAP_VERTEX_FT);
+            const d = deflectionAtVertexDeg(A, B, end);
+            if (d <= LAYOUT_STRAIGHT_MAX_DEG) {
+              end = snapEndColinearWithPrev(A, B, end);
+            }
+          }
+        }
+        setSegments((prev) => [...prev, [start, end]]);
         setLineLengths((prev) => [...prev, '']);
         setCurrentPath([]);
       }
@@ -373,8 +381,20 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
 
     function finishLineAt(hover: { x: number; y: number } | null) {
       if (currentPath.length !== 1 || !hover) return;
-      const start = currentPath[0];
-      const end = hover;
+      let start = currentPath[0];
+      let end = { ...hover };
+      if (segments.length > 0) {
+        const last = segments[segments.length - 1];
+        if (last.length >= 2) {
+          const A = last[0];
+          const B = last[1];
+          start = snapPointToAnchorIfClose(start, B, LAYOUT_SNAP_VERTEX_FT);
+          const d = deflectionAtVertexDeg(A, B, end);
+          if (d <= LAYOUT_STRAIGHT_MAX_DEG) {
+            end = snapEndColinearWithPrev(A, B, end);
+          }
+        }
+      }
       setSegments((prev) => [...prev, [start, end]]);
       setLineLengths((prev) => [...prev, '']);
       setCurrentPath([]);
@@ -535,12 +555,12 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
               <circle cx={currentPath[0].x} cy={currentPath[0].y} r={2} fill="#ef4444" />
             )}
 
-            {hoverPt && currentPath.length > 0 && (
+            {previewDraw && (
               <line
-                x1={currentPath[currentPath.length - 1].x}
-                y1={currentPath[currentPath.length - 1].y}
-                x2={hoverPt.x}
-                y2={hoverPt.y}
+                x1={previewDraw.start.x}
+                y1={previewDraw.start.y}
+                x2={previewDraw.end.x}
+                y2={previewDraw.end.y}
                 stroke="#1e293b"
                 strokeWidth={1}
                 strokeDasharray="2 3"
@@ -718,7 +738,8 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
             </span>
             <span className="flex items-center gap-1">
               <span className="inline-flex h-3 w-3 items-center justify-center rounded-full bg-gray-200 text-[8px]">2</span>
-              Click again to end, or use <strong className="text-slate-700">End line</strong>
+              Click again to end, or use <strong className="text-slate-700">End line</strong> (snaps to prior end within 2
+              ft; within 3° of straight snaps colinear)
             </span>
             <span className="flex items-center gap-1">
               <span className="inline-flex h-3 w-3 items-center justify-center rounded-full bg-gray-200 text-[8px]">Esc</span>
