@@ -719,14 +719,14 @@ export default function MaterialCalculatorHubPage() {
             <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-violet-50/25 px-5 py-4">
               <h2 className={h2}>Layout sketch</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Draw the fence in plan view, enter each segment length in feet, then apply. New segments snap to the
-                previous end within 2 ft; if the next segment is within 10° of straight, it snaps colinear. Sharper
+                Draw the fence in plan view, enter each segment length in feet, then apply. New segments snap to nearby
+                corners within 6 ft; if the next segment is within 10° of straight, it snaps colinear. Sharper
                 corners are treated as a U-channel on the run that ends there; nearly straight joints stay on a
                 continuous H-post run.
               </p>
             </div>
             <div className="space-y-4 p-5">
-              <div className="h-[min(420px,55vh)] min-h-[280px] w-full">
+              <div className="flex min-h-[400px] h-[min(640px,80vh)] w-full flex-col">
                 <LayoutDrawCanvas onDrawingChange={setLayoutSketchData} />
               </div>
               <div className="flex flex-wrap items-center gap-2">

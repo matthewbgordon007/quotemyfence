@@ -7,12 +7,12 @@ import {
   LAYOUT_STRAIGHT_MAX_DEG,
   layoutPointsToSegmentPairs,
   snapEndColinearWithPrev,
-  snapPointToAnchorIfClose,
+  snapPointToNearestAnchorIfClose,
 } from '@/lib/layout-sketch-to-pvc-inputs';
 
 // Canvas uses feet as coordinate system. Origin at center.
-// Scale: pixels per foot for display
-const PX_PER_FT = 8;
+const CHAIN_CONTINUE_TOL_FT = 0.35;
+const MIN_DRAW_SEGMENT_FT = 0.08;
 
 export interface LayoutDrawCanvasRef {
   appendSegmentByLength: (lengthFt: number) => void;
@@ -47,6 +47,17 @@ export interface LayoutDrawCanvasProps {
 
 function dist(a: { x: number; y: number }, b: { x: number; y: number }): number {
   return Math.hypot(b.x - a.x, b.y - a.y);
+}
+
+/** All segment endpoints for vertex snapping. */
+function segmentEndpointAnchors(segs: { x: number; y: number }[][]): { x: number; y: number }[] {
+  const out: { x: number; y: number }[] = [];
+  for (const seg of segs) {
+    if (seg.length >= 2) {
+      out.push(seg[0], seg[1]);
+    }
+  }
+  return out;
 }
 
 function nearestPointOnSegment(
@@ -93,6 +104,8 @@ function strokeForLineMode(mode: LineHighlightMode | undefined): string {
 
 export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvasProps>(
   function LayoutDrawCanvas({ initialDrawing, readOnly, lineHighlightModes, onDrawingChange, onReset }, ref) {
+    const fsRootRef = useRef<HTMLDivElement>(null);
+    const [isFullscreen, setIsFullscreen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const svgRef = useRef<SVGSVGElement>(null);
     // Each segment is exactly one line: [start, end]
@@ -167,22 +180,55 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
     });
     const [zoom, setZoom] = useState(1);
 
+    useEffect(() => {
+      function syncFs() {
+        setIsFullscreen(document.fullscreenElement === fsRootRef.current);
+      }
+      document.addEventListener('fullscreenchange', syncFs);
+      return () => document.removeEventListener('fullscreenchange', syncFs);
+    }, []);
+
+    async function toggleFullscreen() {
+      const root = fsRootRef.current;
+      if (!root) return;
+      try {
+        if (document.fullscreenElement) {
+          const ex = document.exitFullscreen?.();
+          if (ex) await ex;
+          else (document as Document & { webkitExitFullscreen?: () => void }).webkitExitFullscreen?.();
+        } else {
+          if (root.requestFullscreen) {
+            await root.requestFullscreen();
+          } else {
+            (root as HTMLElement & { webkitRequestFullscreen?: () => void }).webkitRequestFullscreen?.();
+          }
+        }
+      } catch {
+        /* user gesture / browser policy */
+      }
+    }
+
     const previewDraw = useMemo(() => {
       if (currentPath.length !== 1 || !hoverPt) return null;
-      let start = currentPath[0];
+      const anchorsAll = segmentEndpointAnchors(segments);
+      let start = snapPointToNearestAnchorIfClose(currentPath[0], anchorsAll, LAYOUT_SNAP_VERTEX_FT);
       let end = { ...hoverPt };
       if (segments.length > 0) {
         const last = segments[segments.length - 1];
         if (last.length >= 2) {
           const A = last[0];
           const B = last[1];
-          start = snapPointToAnchorIfClose(start, B, LAYOUT_SNAP_VERTEX_FT);
-          const d = deflectionAtVertexDeg(A, B, end);
-          if (d <= LAYOUT_STRAIGHT_MAX_DEG) {
-            end = snapEndColinearWithPrev(A, B, end);
+          const continuesChain = dist(start, B) <= CHAIN_CONTINUE_TOL_FT;
+          if (continuesChain) {
+            const d = deflectionAtVertexDeg(A, B, end);
+            if (d <= LAYOUT_STRAIGHT_MAX_DEG) {
+              end = snapEndColinearWithPrev(A, B, end);
+            }
           }
         }
       }
+      const endAnchors = anchorsAll.filter((a) => dist(a, start) > 0.06);
+      end = snapPointToNearestAnchorIfClose(end, endAnchors, LAYOUT_SNAP_VERTEX_FT);
       return { start, end };
     }, [currentPath, hoverPt, segments]);
 
@@ -351,26 +397,32 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       if (currentPath.length === 0) {
         let p = { x, y };
         if (segments.length > 0) {
-          const last = segments[segments.length - 1];
-          if (last.length >= 2) {
-            p = snapPointToAnchorIfClose(p, last[1], LAYOUT_SNAP_VERTEX_FT);
-          }
+          p = snapPointToNearestAnchorIfClose(p, segmentEndpointAnchors(segments), LAYOUT_SNAP_VERTEX_FT);
         }
         setCurrentPath([p]);
       } else {
-        let start = currentPath[0];
+        const anchorsAll = segmentEndpointAnchors(segments);
+        let start = snapPointToNearestAnchorIfClose(currentPath[0], anchorsAll, LAYOUT_SNAP_VERTEX_FT);
         let end = { x, y };
         if (segments.length > 0) {
           const last = segments[segments.length - 1];
           if (last.length >= 2) {
             const A = last[0];
             const B = last[1];
-            start = snapPointToAnchorIfClose(start, B, LAYOUT_SNAP_VERTEX_FT);
-            const d = deflectionAtVertexDeg(A, B, end);
-            if (d <= LAYOUT_STRAIGHT_MAX_DEG) {
-              end = snapEndColinearWithPrev(A, B, end);
+            const continuesChain = dist(start, B) <= CHAIN_CONTINUE_TOL_FT;
+            if (continuesChain) {
+              const d = deflectionAtVertexDeg(A, B, end);
+              if (d <= LAYOUT_STRAIGHT_MAX_DEG) {
+                end = snapEndColinearWithPrev(A, B, end);
+              }
             }
           }
+        }
+        const endAnchors = anchorsAll.filter((a) => dist(a, start) > 0.06);
+        end = snapPointToNearestAnchorIfClose(end, endAnchors, LAYOUT_SNAP_VERTEX_FT);
+        if (dist(start, end) < MIN_DRAW_SEGMENT_FT) {
+          setHoverPt(null);
+          return;
         }
         setSegments((prev) => [...prev, [start, end]]);
         setLineLengths((prev) => [...prev, '']);
@@ -381,19 +433,28 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
 
     function finishLineAt(hover: { x: number; y: number } | null) {
       if (currentPath.length !== 1 || !hover) return;
-      let start = currentPath[0];
+      const anchorsAll = segmentEndpointAnchors(segments);
+      let start = snapPointToNearestAnchorIfClose(currentPath[0], anchorsAll, LAYOUT_SNAP_VERTEX_FT);
       let end = { ...hover };
       if (segments.length > 0) {
         const last = segments[segments.length - 1];
         if (last.length >= 2) {
           const A = last[0];
           const B = last[1];
-          start = snapPointToAnchorIfClose(start, B, LAYOUT_SNAP_VERTEX_FT);
-          const d = deflectionAtVertexDeg(A, B, end);
-          if (d <= LAYOUT_STRAIGHT_MAX_DEG) {
-            end = snapEndColinearWithPrev(A, B, end);
+          const continuesChain = dist(start, B) <= CHAIN_CONTINUE_TOL_FT;
+          if (continuesChain) {
+            const d = deflectionAtVertexDeg(A, B, end);
+            if (d <= LAYOUT_STRAIGHT_MAX_DEG) {
+              end = snapEndColinearWithPrev(A, B, end);
+            }
           }
         }
+      }
+      const endAnchors = anchorsAll.filter((a) => dist(a, start) > 0.06);
+      end = snapPointToNearestAnchorIfClose(end, endAnchors, LAYOUT_SNAP_VERTEX_FT);
+      if (dist(start, end) < MIN_DRAW_SEGMENT_FT) {
+        setHoverPt(null);
+        return;
       }
       setSegments((prev) => [...prev, [start, end]]);
       setLineLengths((prev) => [...prev, '']);
@@ -437,7 +498,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       onReset?.();
     }
 
-    const baseViewSize = 280;
+    const baseViewSize = 360;
     const viewSize = baseViewSize / zoom;
     const defaultViewBox = `${-viewSize / 2 - pan.x} ${-viewSize / 2 - pan.y} ${viewSize} ${viewSize}`;
 
@@ -475,13 +536,42 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
     }, []);
 
   return (
-    <div className="flex h-full w-full flex-col">
+    <div
+      ref={fsRootRef}
+      className={`flex h-full min-h-0 w-full flex-col ${isFullscreen ? 'bg-slate-50 p-3' : ''}`}
+    >
+      {!readOnly && (
+        <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
+          <span className="text-xs font-medium text-slate-500">
+            {isFullscreen
+              ? 'Press Esc or use the button to exit fullscreen.'
+              : 'Tip: use Fullscreen, or double-click the whiteboard when no line is in progress.'}
+          </span>
+          <button
+            type="button"
+            onClick={() => void toggleFullscreen()}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+          >
+            {isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          </button>
+        </div>
+      )}
       <div
         ref={containerRef}
-        className="relative flex-1 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+        className="relative min-h-[200px] flex-1 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
         style={{
           touchAction: 'none',
         }}
+        onDoubleClick={
+          readOnly
+            ? undefined
+            : (e) => {
+                if (currentPath.length === 0 && mode === 'draw') {
+                  e.preventDefault();
+                  void toggleFullscreen();
+                }
+              }
+        }
       >
           <svg
             ref={svgRef}
@@ -494,7 +584,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
             onPointerCancel={readOnly ? undefined : handlePointerUp}
           >
             {/* Whiteboard Origin Marker */}
-            <circle cx={0} cy={0} r={1.5} fill="#cbd5e1" />
+            <circle cx={0} cy={0} r={2} fill="#cbd5e1" />
 
             {segments.map((seg, si) =>
               seg.length >= 2 ? (
@@ -505,7 +595,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                     x2={seg[1].x}
                     y2={seg[1].y}
                     stroke={strokeForLineMode(lineHighlightModes?.[si])}
-                    strokeWidth={lineHighlightModes?.[si] && lineHighlightModes[si] !== 'none' ? 2.25 : 1.5}
+                    strokeWidth={lineHighlightModes?.[si] && lineHighlightModes[si] !== 'none' ? 2.75 : 2}
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     style={{ filter: 'drop-shadow(0px 1px 1px rgba(0,0,0,0.1))' }}
@@ -515,7 +605,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                       key={pi}
                       cx={p.x}
                       cy={p.y}
-                      r={1.5}
+                      r={2.1}
                       fill={strokeForLineMode(lineHighlightModes?.[si])}
                     />
                   ))}
@@ -526,7 +616,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                     const dy = seg[1].y - seg[0].y;
                     const len = Math.hypot(dx, dy) || 1;
                     if (segments.length > 12 && len < 8) return null; // hide small segment text if drawing is rough
-                    const offset = 12;
+                    const offset = 14;
                     const px = mx + (-dy / len) * offset;
                     const py = my + (dx / len) * offset;
                     const labelText = lineLengths[si]?.trim()
@@ -539,7 +629,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                         textAnchor="middle"
                         dominantBaseline="middle"
                         fill="#0f172a"
-                        fontSize={4}
+                        fontSize={6}
                         fontWeight="600"
                         style={{ filter: 'drop-shadow(0px 1px 2px white)' }}
                       >
@@ -552,7 +642,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
             )}
 
             {currentPath.length > 0 && (
-              <circle cx={currentPath[0].x} cy={currentPath[0].y} r={2} fill="#ef4444" />
+              <circle cx={currentPath[0].x} cy={currentPath[0].y} r={2.6} fill="#ef4444" />
             )}
 
             {previewDraw && (
@@ -699,10 +789,10 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         {segments.length > 0 && (
           <div className="mt-3 space-y-3">
             <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm font-medium text-[var(--muted)]">Lengths (ft):</span>
+              <span className="text-base font-medium text-[var(--muted)]">Lengths (ft):</span>
               {segments.length <= 15 ? segments.map((_, i) => (
                 <div key={i} className="flex items-center gap-1">
-                  <span className="text-sm">Line {i + 1}:</span>
+                  <span className="text-base">Line {i + 1}:</span>
                   <input
                     type="text"
                     value={lineLengths[i] ?? ''}
@@ -715,7 +805,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                       });
                     }}
                     placeholder="ft"
-                    className="w-16 rounded border border-[var(--line)] px-2 py-1 text-sm"
+                    className="w-[4.5rem] rounded border border-[var(--line)] px-2 py-1.5 text-base"
                   />
                 </div>
               )) : (
@@ -738,8 +828,8 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
             </span>
             <span className="flex items-center gap-1">
               <span className="inline-flex h-3 w-3 items-center justify-center rounded-full bg-gray-200 text-[8px]">2</span>
-              Click again to end, or use <strong className="text-slate-700">End line</strong> (snaps to prior end within 2
-              ft; within 10° of straight snaps colinear)
+              Click again to end, or use <strong className="text-slate-700">End line</strong> (snaps to nearby corners
+              within 6 ft; within 10° of straight snaps colinear)
             </span>
             <span className="flex items-center gap-1">
               <span className="inline-flex h-3 w-3 items-center justify-center rounded-full bg-gray-200 text-[8px]">Esc</span>

@@ -9,7 +9,7 @@
 
 import type { FmsPvcFenceLineInput, FmsPvcPanelModule } from '@/lib/fms-pvc-material-calculator';
 
-export const LAYOUT_SNAP_VERTEX_FT = 2;
+export const LAYOUT_SNAP_VERTEX_FT = 6;
 export const LAYOUT_STRAIGHT_MAX_DEG = 10;
 
 export type LayoutPt = { x: number; y: number };
@@ -99,6 +99,21 @@ export function snapEndColinearWithPrev(A: LayoutPt, B: LayoutPt, C: LayoutPt): 
 export function snapPointToAnchorIfClose(p: LayoutPt, anchor: LayoutPt, snapFt: number): LayoutPt {
   if (dist(p, anchor) <= snapFt) return { ...anchor };
   return p;
+}
+
+/** If p is within snapFt of any anchor, snap to the closest anchor; else p. */
+export function snapPointToNearestAnchorIfClose(p: LayoutPt, anchors: LayoutPt[], snapFt: number): LayoutPt {
+  if (!anchors.length || snapFt <= 0) return p;
+  let best: LayoutPt | null = null;
+  let bestD = Infinity;
+  for (const a of anchors) {
+    const d = dist(p, a);
+    if (d <= snapFt && d < bestD) {
+      bestD = d;
+      best = a;
+    }
+  }
+  return best ? { ...best } : p;
 }
 
 export interface LayoutSegmentFeet {
