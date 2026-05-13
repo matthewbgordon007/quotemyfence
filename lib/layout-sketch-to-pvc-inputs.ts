@@ -10,7 +10,7 @@
 import type { FmsPvcFenceLineInput, FmsPvcPanelModule } from '@/lib/fms-pvc-material-calculator';
 
 export const LAYOUT_SNAP_VERTEX_FT = 2;
-export const LAYOUT_STRAIGHT_MAX_DEG = 3;
+export const LAYOUT_STRAIGHT_MAX_DEG = 10;
 
 export type LayoutPt = { x: number; y: number };
 

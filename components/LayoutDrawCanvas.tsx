@@ -739,7 +739,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
             <span className="flex items-center gap-1">
               <span className="inline-flex h-3 w-3 items-center justify-center rounded-full bg-gray-200 text-[8px]">2</span>
               Click again to end, or use <strong className="text-slate-700">End line</strong> (snaps to prior end within 2
-              ft; within 3° of straight snaps colinear)
+              ft; within 10° of straight snaps colinear)
             </span>
             <span className="flex items-center gap-1">
               <span className="inline-flex h-3 w-3 items-center justify-center rounded-full bg-gray-200 text-[8px]">Esc</span>
