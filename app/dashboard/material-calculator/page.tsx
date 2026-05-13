@@ -40,6 +40,7 @@ import {
   type FmsWpcCalculatorColour,
 } from '@/lib/fms-calculator-colour-presets';
 import { LayoutDrawCanvas } from '@/components/LayoutDrawCanvas';
+import { SupplierMaterialQuoteRequestWorkspace } from '@/components/dashboard/SupplierMaterialQuoteRequestWorkspace';
 import {
   layoutPointsToSegmentPairs,
   layoutSegmentsToPvcFenceInputsPerSketchSegment,
@@ -399,6 +400,8 @@ export default function MaterialCalculatorHubPage() {
   const searchParams = useSearchParams();
   const tabParam = (searchParams.get('tab') || '').toLowerCase();
   const fromLayoutId = searchParams.get('from_layout');
+  const materialRequestId = (searchParams.get('materialRequest') || '').trim();
+  const showSupplierMaterialRequest = Boolean(materialRequestId);
 
   const [tab, setTab] = useState<StyleTab>('pvc');
   const [jobAddress, setJobAddress] = useState('');
@@ -1256,7 +1259,21 @@ export default function MaterialCalculatorHubPage() {
   }
 
   return (
-    <div className="relative mx-auto max-w-5xl space-y-6 pb-24">
+    <div
+      className={`relative mx-auto pb-24 ${showSupplierMaterialRequest ? 'max-w-[min(96rem,calc(100vw-1.5rem))]' : 'max-w-5xl'}`}
+    >
+      <div
+        className={
+          showSupplierMaterialRequest ? 'flex min-h-0 flex-col gap-8 xl:flex-row xl:items-start' : 'contents'
+        }
+      >
+        {showSupplierMaterialRequest ? (
+          <SupplierMaterialQuoteRequestWorkspace
+            requestId={materialRequestId}
+            calculatorBasePath="/dashboard/material-calculator"
+          />
+        ) : null}
+        <div className={`min-w-0 space-y-6 ${showSupplierMaterialRequest ? 'flex-1' : ''}`}>
       <div>
         <Link href="/dashboard" className="text-sm font-medium text-blue-600 hover:underline">
           ← Dashboard
@@ -2255,6 +2272,8 @@ export default function MaterialCalculatorHubPage() {
         <button type="button" className={btnReset} onClick={resetMaterialCalculator}>
           Reset material calculator
         </button>
+      </div>
+        </div>
       </div>
     </div>
   );

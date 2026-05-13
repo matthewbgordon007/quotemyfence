@@ -168,13 +168,13 @@ export function ContractorQuoteDetailClient() {
           {editing ? (
             <div className="w-full min-w-[240px] max-w-lg space-y-2">
               <Link
-                href={`/dashboard/supplier/embedded-calculator?materialRequest=${encodeURIComponent(request.id)}`}
+                href={`/dashboard/material-calculator?materialRequest=${encodeURIComponent(request.id)}`}
                 className="inline-flex rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500"
               >
-                Sheet calculator + quote
+                Material calculator + quote
               </Link>
               <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Final material list (paste from Sheets — tab-separated rows)
+                Final material list (tab-separated rows; paste from Excel or Google Sheets)
               </label>
               <textarea
                 value={draftMaterialTsv}
@@ -218,10 +218,10 @@ export function ContractorQuoteDetailClient() {
           ) : (
             <div className="flex flex-wrap items-center gap-2">
               <Link
-                href={`/dashboard/supplier/embedded-calculator?materialRequest=${encodeURIComponent(request.id)}`}
+                href={`/dashboard/material-calculator?materialRequest=${encodeURIComponent(request.id)}`}
                 className="shrink-0 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500"
               >
-                Sheet calculator + quote
+                Material calculator + quote
               </Link>
               <button
                 type="button"

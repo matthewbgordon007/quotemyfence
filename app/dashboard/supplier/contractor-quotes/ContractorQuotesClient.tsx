@@ -89,8 +89,8 @@ export function ContractorQuotesClient() {
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Contractor quotes</h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
           Material layout requests from contractors. Each row is a short summary—open one for the full drawing, specs, and
-          your response. Use <span className="font-medium text-slate-800">Sheet calculator + quote</span> on the detail page
-          to work beside your embedded sheet.
+          your response. Use <span className="font-medium text-slate-800">Material calculator + quote</span> on the detail page
+          to work beside the FMS material calculator.
         </p>
         {unreadCount > 0 && (
           <p className="mt-3 inline-flex items-center rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-800">

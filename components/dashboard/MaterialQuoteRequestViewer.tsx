@@ -11,7 +11,7 @@ const FenceDrawingMap = dynamic(
 
 type Props = {
   request: MaterialQuoteRequestDto;
-  /** Tighter spacing when used in the sheet-calculator side rail */
+  /** Tighter spacing when used beside the material calculator */
   compact?: boolean;
 };
 

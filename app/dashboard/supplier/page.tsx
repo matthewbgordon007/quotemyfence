@@ -159,8 +159,8 @@ export default async function SupplierDashboardHomePage() {
               )}
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
-              Linked contractors send material layout requests here. Review new quotes, manage relationships, and use your
-              sheet calculator—all in one place. Your contractor-facing tools stay in the sidebar under{' '}
+              Linked contractors send material layout requests here. Review new quotes, manage relationships, and use the
+              material calculator—all in one place. Your contractor-facing tools stay in the sidebar under{' '}
               <span className="font-medium text-slate-800">Contractor workspace</span>.
             </p>
           </div>
@@ -186,11 +186,11 @@ export default async function SupplierDashboardHomePage() {
               Contractors ({linkedCount})
             </Link>
             <Link
-              href="/dashboard/supplier/embedded-calculator"
+              href="/dashboard/material-calculator"
               className="inline-flex items-center justify-center rounded-xl border bg-white/90 px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm backdrop-blur-sm transition hover:bg-white"
               style={{ borderColor: 'var(--dashboard-line)' }}
             >
-              Sheet calculator
+              Material calculator
             </Link>
             {quotePageUrl ? (
               <a
@@ -439,12 +439,13 @@ export default async function SupplierDashboardHomePage() {
           </li>
           <li>
             <Link
-              href="/dashboard/supplier/embedded-calculator"
+              href="/dashboard/material-calculator"
               className="flex h-full flex-col rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm transition hover:border-indigo-200 hover:shadow-md"
             >
-              <h3 className="font-semibold text-slate-900">Sheet calculator</h3>
+              <h3 className="font-semibold text-slate-900">Material calculator</h3>
               <p className="mt-2 flex-1 text-sm text-slate-600">
-                Embed Google Sheets or Excel; saved links are shared with everyone on your supplier account.
+                FMS-style PVC, chain, and hybrid takeoffs; reply to contractor material requests from the same page when
+                you open a request.
               </p>
               <span className="mt-4 text-sm font-semibold text-indigo-600">Open →</span>
             </Link>
