@@ -130,20 +130,16 @@ function nearestLineIndexForPoint(
   return bestI;
 }
 
-/** Drop gates that are not still on some segment (after undo / delete). */
-function filterGatesToValidSegments(
-  gates: { type: 'single' | 'double'; x: number; y: number }[],
-  segs: { x: number; y: number }[][],
-  hitThreshold: number
-): { type: 'single' | 'double'; x: number; y: number }[] {
-  if (segs.length === 0) return [];
-  const thr = hitThreshold * 1.5;
-  return gates.filter((g) => {
-    const i = nearestLineIndexForPoint({ x: g.x, y: g.y }, segs);
-    const seg = segs[i];
-    if (!seg || seg.length < 2) return false;
-    return pointToSegmentDist({ x: g.x, y: g.y }, seg[0], seg[1]) <= thr;
-  });
+type PlacedGate = { type: 'single' | 'double'; x: number; y: number; line_index: number };
+
+/** After removing segment index `removed`, drop its gates and shift indices for segments that moved. */
+function adjustPlacedGatesAfterSegmentRemoved(
+  gates: PlacedGate[],
+  removed: number
+): PlacedGate[] {
+  return gates
+    .filter((g) => g.line_index !== removed)
+    .map((g) => (g.line_index > removed ? { ...g, line_index: g.line_index - 1 } : g));
 }
 
 function strokeForLineMode(mode: LineHighlightMode | undefined): string {
@@ -221,7 +217,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
     const pointerDownTime = useRef(0);
     const isPanning = useRef(false);
     const [pan, setPan] = useState({ x: 0, y: 0 });
-    const [placedGates, setPlacedGates] = useState<{ type: 'single' | 'double'; x: number; y: number }[]>(() => {
+    const [placedGates, setPlacedGates] = useState<PlacedGate[]>(() => {
       const gates = initialDrawing?.gates ?? [];
       const pts = initialDrawing?.points ?? [];
       const segLens = initialDrawing?.segments ?? [];
@@ -237,25 +233,33 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
               type: t,
               x: (seg[0].x + seg[1].x) / 2,
               y: (seg[0].y + seg[1].y) / 2,
+              line_index: li,
             };
           }
-          return { type: t, x: 0, y: 0 };
+          return { type: t, x: 0, y: 0, line_index: li };
         });
       }
-      const result: { type: 'single' | 'double'; x: number; y: number }[] = [];
+      const result: PlacedGate[] = [];
       const anchor =
         initSegs.length > 0 && initSegs[initSegs.length - 1].length >= 2
           ? initSegs[initSegs.length - 1][1]
           : pts.length >= 1
             ? pts[pts.length - 1]
             : { x: 0, y: 0 };
+      const defaultLine =
+        initSegs.length > 0 ? Math.max(0, initSegs.length - 1) : 0;
       let i = 0;
       for (const g of gates) {
         for (let q = 0; q < (g.quantity || 0); q++) {
+          const x = anchor.x + 2 * (i % 3);
+          const y = anchor.y + 2 * Math.floor(i / 3);
+          const line_index =
+            initSegs.length > 0 ? nearestLineIndexForPoint({ x, y }, initSegs) : defaultLine;
           result.push({
             type: g.type as 'single' | 'double',
-            x: anchor.x + 2 * (i % 3),
-            y: anchor.y + 2 * Math.floor(i / 3),
+            x,
+            y,
+            line_index,
           });
           i++;
         }
@@ -338,7 +342,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
     function buildData(
       segs: { x: number; y: number }[][],
       lengths: string[],
-      gates: { type: 'single' | 'double'; x: number; y: number }[]
+      gates: PlacedGate[]
     ) {
       const segLengths: { length_ft: number }[] = [];
       let total = 0;
@@ -361,7 +365,8 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       ];
       const gate_placements: LayoutGatePlacement[] = gates.map((g) => ({
         type: g.type,
-        line_index: nearestLineIndexForPoint({ x: g.x, y: g.y }, segs),
+        line_index:
+          segs.length > 0 ? Math.max(0, Math.min(segs.length - 1, g.line_index)) : 0,
       }));
       return {
         points: flatPts,
@@ -488,7 +493,15 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
           }
         });
         if (best) {
-          setPlacedGates((prev) => [...prev, { type: mode === 'place_double_gate' ? 'double' : 'single', x: best!.point.x, y: best!.point.y }]);
+          setPlacedGates((prev) => [
+            ...prev,
+            {
+              type: mode === 'place_double_gate' ? 'double' : 'single',
+              x: best!.point.x,
+              y: best!.point.y,
+              line_index: best!.segIdx,
+            },
+          ]);
           setMode('draw');
         }
         return;
@@ -588,10 +601,11 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         setCurrentPath([]);
         setHoverPt(null);
       } else if (segments.length > 0) {
+        const removedIdx = segments.length - 1;
         const newSegs = segments.slice(0, -1);
         setSegments(newSegs);
         setLineLengths((prev) => prev.slice(0, -1));
-        setPlacedGates((prev) => filterGatesToValidSegments(prev, newSegs, HIT_THRESHOLD));
+        setPlacedGates((prev) => adjustPlacedGatesAfterSegmentRemoved(prev, removedIdx));
       }
     }
 
@@ -610,7 +624,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       if (willBeEmpty) {
         setPlacedGates([]);
       } else {
-        setPlacedGates((prev) => filterGatesToValidSegments(prev, newSegs, HIT_THRESHOLD));
+        setPlacedGates((prev) => adjustPlacedGatesAfterSegmentRemoved(prev, segmentIndex));
       }
     }
 
