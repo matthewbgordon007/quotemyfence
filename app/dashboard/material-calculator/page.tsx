@@ -43,6 +43,11 @@ import { LayoutDrawCanvas } from '@/components/LayoutDrawCanvas';
 import { SupplierMaterialQuoteRequestWorkspace } from '@/components/dashboard/SupplierMaterialQuoteRequestWorkspace';
 import type { MaterialQuoteRequestDto } from '@/lib/supplier-material-quote-requests-enrich';
 import {
+  mapFenceSegmentsToLayoutDrawing,
+  type MapFenceGate,
+  type MapFenceSegment,
+} from '@/lib/map-fence-to-layout-drawing';
+import {
   layoutPointsToSegmentPairs,
   layoutSegmentsToPvcFenceInputsPerSketchSegment,
 } from '@/lib/layout-sketch-to-pvc-inputs';
@@ -329,6 +334,24 @@ function parseLayoutSketch(raw: unknown): LayoutSketchDrawingPayload | null {
   return { points: pts, segments, gates, gate_placements, total_length_ft };
 }
 
+/** Saved layout drawing, or map segments + gates when no plan-view layout row exists. */
+function layoutSketchFromMaterialQuoteProject(
+  project: MaterialQuoteRequestDto['project'] | null | undefined
+): LayoutSketchDrawingPayload | null {
+  if (!project) return null;
+  const fromLayout = parseLayoutSketch(project.drawing_data ?? null);
+  if (fromLayout) return fromLayout;
+  const segs = project.segments;
+  if (!Array.isArray(segs) || segs.length === 0) return null;
+  const totalFt = Number(project.total_length_ft) || 0;
+  const dd = mapFenceSegmentsToLayoutDrawing(
+    segs as MapFenceSegment[],
+    totalFt,
+    (project.gates ?? []) as MapFenceGate[]
+  );
+  return parseLayoutSketch(dd);
+}
+
 function parsePvcGateRows(raw: unknown): PvcGateRow[] | null {
   if (!Array.isArray(raw)) return null;
   const out: PvcGateRow[] = [];
@@ -499,14 +522,16 @@ export default function MaterialCalculatorHubPage() {
 
   useEffect(() => {
     if (!contractorId) return;
-    const hydrateKey = `${contractorId}|${fromLayoutId ?? ''}|${fromMaterialQuoteId ?? ''}|${fromMaterialSketchSaveId ?? ''}`;
+    const hydrateKey = `${contractorId}|${fromLayoutId ?? ''}|${fromMaterialQuoteId ?? ''}|${fromMaterialSketchSaveId ?? ''}|${materialRequestId}`;
     if (materialCalcHydrateKeyRef.current === hydrateKey) return;
 
     const hasUrlTab = tabParam === 'chain' || tabParam === 'hybrid' || tabParam === 'pvc';
     const urlPvcCol = coerceFmsPvcCalculatorColour(searchParams.get('pvc_colour'));
     const urlHwCol = coerceFmsWpcCalculatorColour(searchParams.get('hybrid_wpc'));
     const urlHpCol = coerceFmsPvcCalculatorColour(searchParams.get('hybrid_pvc'));
-    const skipPvcLinesAndSketch = Boolean(fromLayoutId || fromMaterialQuoteId || fromMaterialSketchSaveId);
+    const skipPvcLinesAndSketch = Boolean(
+      fromLayoutId || fromMaterialQuoteId || fromMaterialSketchSaveId || materialRequestId
+    );
 
     const markHydrated = () => {
       materialCalcHydrateKeyRef.current = hydrateKey;
@@ -560,7 +585,7 @@ export default function MaterialCalculatorHubPage() {
             : sketch?.gate_placements?.length ?? 0;
         sketchSyncedGatePlacementCountRef.current = syncFromCount;
       } else {
-        if (!fromMaterialQuoteId && !fromMaterialSketchSaveId) {
+        if (!fromMaterialQuoteId && !fromMaterialSketchSaveId && !materialRequestId) {
           const sh = parsePvcGateRows(d.shortGates);
           if (sh) setShortGates(sh);
           const si = parsePvcGateRows(d.singleGates);
@@ -607,7 +632,7 @@ export default function MaterialCalculatorHubPage() {
     } catch {
       markHydrated();
     }
-  }, [contractorId, fromLayoutId, fromMaterialQuoteId, fromMaterialSketchSaveId, tabParam, searchParams]);
+  }, [contractorId, fromLayoutId, fromMaterialQuoteId, fromMaterialSketchSaveId, materialRequestId, tabParam, searchParams]);
 
   useLayoutEffect(() => {
     if (!contractorId) {
@@ -814,7 +839,7 @@ export default function MaterialCalculatorHubPage() {
   }, [contractorId]);
 
   useEffect(() => {
-    if (fromMaterialQuoteId || fromMaterialSketchSaveId) return;
+    if (fromMaterialQuoteId || fromMaterialSketchSaveId || materialRequestId) return;
     if (!fromLayoutId) return;
     let cancelled = false;
     fetch(`/api/contractor/layouts/${encodeURIComponent(fromLayoutId)}`, { credentials: 'include' })
@@ -850,18 +875,25 @@ export default function MaterialCalculatorHubPage() {
     return () => {
       cancelled = true;
     };
-  }, [fromLayoutId, fromMaterialQuoteId, fromMaterialSketchSaveId]);
+  }, [fromLayoutId, fromMaterialQuoteId, fromMaterialSketchSaveId, materialRequestId]);
 
-  /** Contractor material quote request → layout sketch + PVC tab (plan view, lengths, gates). */
+  /** Material quote request (contractor `from_material_quote` or supplier `materialRequest`) → sketch + PVC tab. */
   useEffect(() => {
     if (fromMaterialSketchSaveId) return;
-    if (!fromMaterialQuoteId) {
+    const fromContractor = fromMaterialQuoteId.trim();
+    const fromSupplier = materialRequestId.trim();
+    if (!fromContractor && !fromSupplier) {
       setMaterialQuoteSketchLoadState('idle');
       return;
     }
+    const useSupplierApi = !fromContractor && Boolean(fromSupplier);
+    const url = useSupplierApi
+      ? `/api/supplier/material-quote-requests/${encodeURIComponent(fromSupplier)}`
+      : `/api/contractor/material-quote-requests/${encodeURIComponent(fromContractor)}`;
+
     setMaterialQuoteSketchLoadState('loading');
     let cancelled = false;
-    fetch(`/api/contractor/material-quote-requests/${encodeURIComponent(fromMaterialQuoteId)}`, {
+    fetch(url, {
       credentials: 'include',
       cache: 'no-store',
     })
@@ -875,7 +907,7 @@ export default function MaterialCalculatorHubPage() {
         const req = json.request;
         const summary = req.project?.design_summary?.trim();
         if (summary) setJobAddress((prev) => (prev.trim() ? prev : summary));
-        const sketch = parseLayoutSketch(req.project?.drawing_data ?? null);
+        const sketch = layoutSketchFromMaterialQuoteProject(req.project);
         setShortGates([]);
         setSingleGates([]);
         setDoubleGates([]);
@@ -899,7 +931,7 @@ export default function MaterialCalculatorHubPage() {
     return () => {
       cancelled = true;
     };
-  }, [fromMaterialQuoteId, fromMaterialSketchSaveId]);
+  }, [fromMaterialQuoteId, fromMaterialSketchSaveId, materialRequestId]);
 
   /** Profile-saved map sketch → PVC tab. */
   useEffect(() => {
@@ -907,7 +939,7 @@ export default function MaterialCalculatorHubPage() {
       setProfileSketchSaveLoadState('idle');
       return;
     }
-    if (fromMaterialQuoteId) {
+    if (fromMaterialQuoteId || materialRequestId) {
       setProfileSketchSaveLoadState('idle');
       return;
     }
@@ -950,7 +982,7 @@ export default function MaterialCalculatorHubPage() {
     return () => {
       cancelled = true;
     };
-  }, [fromMaterialSketchSaveId, fromMaterialQuoteId]);
+  }, [fromMaterialSketchSaveId, fromMaterialQuoteId, materialRequestId]);
 
   /** Layout sketch geometry → PVC fence line rows (lengths and corner logic match Excel apply). */
   useEffect(() => {
@@ -1394,15 +1426,15 @@ export default function MaterialCalculatorHubPage() {
           ← Dashboard
         </Link>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">Material calculator (FMS)</h1>
-        {fromMaterialQuoteId ? (
+        {fromMaterialQuoteId || materialRequestId ? (
           <div className="mt-3 max-w-3xl space-y-2">
             <div className="rounded-xl border border-violet-200/90 bg-violet-50/90 px-4 py-3 text-sm text-violet-950">
               {materialQuoteSketchLoadState === 'loading' ? (
                 <span className="font-semibold">Loading layout from material request…</span>
               ) : (
                 <>
-                  <span className="font-semibold">Material request import.</span> The PVC tab uses the drawing saved on
-                  that request when available.{' '}
+                  <span className="font-semibold">Material request import.</span> The PVC tab loads the plan sketch or
+                  map fence lines from this request when available.{' '}
                   <Link
                     href="/dashboard/material-calculator"
                     className="font-semibold text-violet-800 underline hover:text-violet-950"
@@ -1414,14 +1446,13 @@ export default function MaterialCalculatorHubPage() {
             </div>
             {materialQuoteSketchLoadState === 'none' ? (
               <div className="rounded-xl border border-amber-200/90 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
-                No plan-view sketch was found on this material request (or the request could not be loaded). Line lengths
-                and gates from the map-only flow are not shown here yet; you can draw or enter runs manually, or open the
-                job&apos;s layout drawing if you saved one.
+                No fence geometry was found on this material request (or the request could not be loaded). You can draw
+                the plan or enter runs manually.
               </div>
             ) : null}
           </div>
         ) : null}
-        {fromMaterialSketchSaveId && !fromMaterialQuoteId ? (
+        {fromMaterialSketchSaveId && !fromMaterialQuoteId && !materialRequestId ? (
           <div className="mt-3 max-w-3xl space-y-2">
             <div className="rounded-xl border border-teal-200/90 bg-teal-50/90 px-4 py-3 text-sm text-teal-950">
               {profileSketchSaveLoadState === 'loading' ? (
