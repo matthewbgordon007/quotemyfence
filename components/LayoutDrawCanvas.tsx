@@ -488,6 +488,22 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       }
     }
 
+    function confirmDeleteSegment(segmentIndex: number) {
+      if (readOnly) return;
+      if (segmentIndex < 0 || segmentIndex >= segments.length) return;
+      const ok = window.confirm(
+        'Are you sure you want to delete this line?\n\nClick OK (Yes) to remove it from the sketch, or Cancel to keep it.'
+      );
+      if (!ok) return;
+
+      const willBeEmpty = segments.length <= 1;
+      setSegments((prev) => prev.filter((_, j) => j !== segmentIndex));
+      setLineLengths((prev) => prev.filter((_, j) => j !== segmentIndex));
+      if (willBeEmpty) {
+        setPlacedGates([]);
+      }
+    }
+
     function reset() {
       setSegments([]);
       setLineLengths([]);
@@ -791,7 +807,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
             <div className="flex flex-wrap items-center gap-3">
               <span className="text-base font-medium text-[var(--muted)]">Lengths (ft):</span>
               {segments.length <= 15 ? segments.map((_, i) => (
-                <div key={i} className="flex items-center gap-1">
+                <div key={i} className="flex flex-wrap items-center gap-1.5">
                   <span className="text-base">Line {i + 1}:</span>
                   <input
                     type="text"
@@ -807,6 +823,13 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                     placeholder="ft"
                     className="w-[4.5rem] rounded border border-[var(--line)] px-2 py-1.5 text-base"
                   />
+                  <button
+                    type="button"
+                    onClick={() => confirmDeleteSegment(i)}
+                    className="rounded border border-red-200 bg-white px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-50"
+                  >
+                    Delete
+                  </button>
                 </div>
               )) : (
                 <span className="text-sm text-[var(--muted)] italic">Too many lines to edit individually. Use Undo to redraw, or see total above.</span>
