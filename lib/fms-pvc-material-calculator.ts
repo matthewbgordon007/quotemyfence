@@ -9,7 +9,7 @@ export { excelRound, excelRoundUp } from '@/lib/fms-excel-math';
 
 export type FmsPvcPanelModule = 'nominal_7ft' | 'nominal_6ft';
 
-/** Divisors from the workbook (ft per nominal panel bay). */
+/** Divisors from the workbook — use the same literals as Excel formulas (e.g. `=C5/8.20833333`, `=H5/6.75`). */
 export const FMS_PVC_PANEL_FT: Record<FmsPvcPanelModule, number> = {
   nominal_7ft: 8.20833333,
   nominal_6ft: 6.75,

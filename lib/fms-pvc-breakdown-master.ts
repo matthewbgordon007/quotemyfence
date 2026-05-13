@@ -61,7 +61,7 @@ export function buildPvcAdobeBreakdown(
     a[row] = (a[row] ?? 0) + rv;
   }
 
-  a[17] = gateWidthInchesSum > 0 ? gateWidthInchesSum / 12 : 0;
+  a[17] = gateWidthInchesSum > 0 ? excelRound(gateWidthInchesSum / 12, 4) : 0;
 
   return a;
 }
@@ -78,26 +78,28 @@ export function computePvcMasterColumn(
 ): FmsPvcMasterRow[] {
   const e = extras;
   const x = (m?: number) => (m != null && Number.isFinite(m) ? m : 0);
+  /** Master sheet cells typically show 4 decimal places in the FMS workbook. */
+  const q4 = (n: number) => excelRound(n, 4);
 
   const hPost = j(adobe, 4) + j(adobe, 19) + x(e.m10);
-  const concrete = excelRound(hPost * 2.5, 4);
+  const concrete = q4(hPost * 2.5);
 
-  const rail = j(adobe, 6) + j(adobe, 21) + x(e.m6);
-  const railStiff = j(adobe, 7) + j(adobe, 22) + x(e.m7);
-  const board = j(adobe, 8) + j(adobe, 23) + x(e.m8);
-  const boardStiff = j(adobe, 9) + j(adobe, 24) + x(e.m9);
-  const uChannel = j(adobe, 13) + j(adobe, 28) + x(e.m12);
-  const hPostStiff = j(adobe, 14) + j(adobe, 33) + x(e.m13);
-  const overhead = j(adobe, 30) + x(e.m15);
-  const diagonal = j(adobe, 29) + x(e.m16);
-  const postCap = j(adobe, 5) + j(adobe, 20) + x(e.m19);
-  const holePlug = j(adobe, 12) + j(adobe, 27) + 10 + x(e.m20);
-  const largeScrew = j(adobe, 10) + j(adobe, 26) + 10 + x(e.m21);
-  const shortScrew = j(adobe, 11) + j(adobe, 25) + x(e.m22);
-  const latch = j(adobe, 31) + x(e.m23);
-  const hinge = j(adobe, 32) + x(e.m24);
+  const rail = q4(j(adobe, 6) + j(adobe, 21) + x(e.m6));
+  const railStiff = q4(j(adobe, 7) + j(adobe, 22) + x(e.m7));
+  const board = q4(j(adobe, 8) + j(adobe, 23) + x(e.m8));
+  const boardStiff = q4(j(adobe, 9) + j(adobe, 24) + x(e.m9));
+  const uChannel = q4(j(adobe, 13) + j(adobe, 28) + x(e.m12));
+  const hPostStiff = q4(j(adobe, 14) + j(adobe, 33) + x(e.m13));
+  const overhead = q4(j(adobe, 30) + x(e.m15));
+  const diagonal = q4(j(adobe, 29) + x(e.m16));
+  const postCap = q4(j(adobe, 5) + j(adobe, 20) + x(e.m19));
+  const holePlug = q4(j(adobe, 12) + j(adobe, 27) + 10 + x(e.m20));
+  const largeScrew = q4(j(adobe, 10) + j(adobe, 26) + 10 + x(e.m21));
+  const shortScrew = q4(j(adobe, 11) + j(adobe, 25) + x(e.m22));
+  const latch = q4(j(adobe, 31) + x(e.m23));
+  const hinge = q4(j(adobe, 32) + x(e.m24));
 
-  const totalPanels = j(adobe, 2);
+  const totalPanels = q4(j(adobe, 2));
 
   return [
     { label: 'Concrete', qty: concrete },
@@ -105,8 +107,8 @@ export function computePvcMasterColumn(
     { label: 'Rail Stiffener', qty: railStiff },
     { label: 'Board', qty: board },
     { label: 'Board Stiffener', qty: boardStiff },
-    { label: 'H-Post', qty: hPost },
-    { label: 'Galvanized Post', qty: j(adobe, 3) + j(adobe, 18) + x(e.m11) },
+    { label: 'H-Post', qty: q4(hPost) },
+    { label: 'Galvanized Post', qty: q4(j(adobe, 3) + j(adobe, 18) + x(e.m11)) },
     { label: 'U-Channel', qty: uChannel },
     { label: 'H-Post Stiffener', qty: hPostStiff },
     { label: 'Post Filler', qty: 0 },
@@ -167,6 +169,6 @@ export function adobeBreakdownToRows(adobe: Record<number, number>): { label: st
     .map((row) => ({
       row,
       label: labels[row] ?? `Row ${row}`,
-      qty: adobe[row] ?? 0,
+      qty: excelRound(adobe[row] ?? 0, 4),
     }));
 }

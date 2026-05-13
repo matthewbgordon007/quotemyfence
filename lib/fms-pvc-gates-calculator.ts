@@ -3,8 +3,9 @@
  * Outputs map Adobe "Material List Breakdown" gate rows 18–33 (J column equivalents).
  */
 
-import { excelRoundUp } from '@/lib/fms-excel-math';
+import { excelRound, excelRoundUp } from '@/lib/fms-excel-math';
 
+/** Gate block uses the same 7′ nominal divisor literal as the PVC sheet (`/8.20833333`). */
 const PANEL_FT = 8.20833333;
 
 export type FmsPvcGatePosts = 0 | 1 | 2;
@@ -70,7 +71,7 @@ export function computeFmsPvcShortGate(input: FmsPvcShortGateInput): {
     33: 1,
   };
 
-  return { adobe_gate_rows: adobe, j17_linear_piece: w / 12 };
+  return { adobe_gate_rows: adobe, j17_linear_piece: excelRound(w / 12, 4) };
 }
 
 /** Single gate (min 65.5") — columns G/H. */
@@ -120,7 +121,7 @@ export function computeFmsPvcSingleGate(input: FmsPvcSingleGateInput): {
     33: 1,
   };
 
-  return { adobe_gate_rows: adobe, j17_linear_piece: h28 / 12 };
+  return { adobe_gate_rows: adobe, j17_linear_piece: excelRound(h28 / 12, 4) };
 }
 
 /** Double gate (min 106") — columns K/L. */
@@ -170,7 +171,7 @@ export function computeFmsPvcDoubleGate(input: FmsPvcDoubleGateInput): {
     33: 2,
   };
 
-  return { adobe_gate_rows: adobe, j17_linear_piece: l28 / 12 };
+  return { adobe_gate_rows: adobe, j17_linear_piece: excelRound(l28 / 12, 4) };
 }
 
 export function sumGateAdobeRows(
@@ -179,21 +180,22 @@ export function sumGateAdobeRows(
   doubleGates: FmsPvcDoubleGateInput[]
 ): { merged: FmsPvcAdobeGateMap; j17_total: number } {
   const parts: FmsPvcAdobeGateMap[] = [];
-  let j17 = 0;
+  let widthInSum = 0;
   for (const g of shortGates) {
     const r = computeFmsPvcShortGate(g);
     parts.push(r.adobe_gate_rows);
-    j17 += r.j17_linear_piece;
+    widthInSum += Math.max(0, Number(g.gate_width_in) || 0);
   }
   for (const g of singleGates) {
     const r = computeFmsPvcSingleGate(g);
     parts.push(r.adobe_gate_rows);
-    j17 += r.j17_linear_piece;
+    widthInSum += Math.max(0, Number(g.gate_width_in) || 0);
   }
   for (const g of doubleGates) {
     const r = computeFmsPvcDoubleGate(g);
     parts.push(r.adobe_gate_rows);
-    j17 += r.j17_linear_piece;
+    widthInSum += Math.max(0, Number(g.gate_width_in) || 0);
   }
+  const j17 = widthInSum > 0 ? excelRound(widthInSum / 12, 4) : 0;
   return { merged: mergeGateMaps(parts), j17_total: j17 };
 }

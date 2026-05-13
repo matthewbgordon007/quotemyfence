@@ -9,6 +9,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "verify:fms": "node scripts/verify-fms-excel-parity.mjs",
     "setup-hooks": "cp githooks/post-commit .git/hooks/post-commit && chmod +x .git/hooks/post-commit && echo 'Auto-push enabled: commits will push to origin automatically.'"
   },
   "dependencies": {
