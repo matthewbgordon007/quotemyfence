@@ -448,11 +448,10 @@ export default function MaterialCalculatorHubPage() {
   const materialCalcDraftSnapshotRef = useRef<Record<string, unknown> | null>(null);
   const materialCalcSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const materialCalcHydrateKeyRef = useRef<string>('');
-  /** Last PVC material TSV successfully written to the clipboard (auto or manual). */
-  const lastPvcBomClipboardRef = useRef<string | null>(null);
-  const pvcBomAutoClipboardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [pvcTsvCopyToast, setPvcTsvCopyToast] = useState<string | null>(null);
-  const pvcTsvCopyToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Dedupe layout sketch → fence line sync when canvas re-notifies with the same geometry. */
+  const sketchToLinesSyncKeyRef = useRef<string>('');
+  /** True after the canvas has had at least one segment this session (avoids clearing imported layout lines). */
+  const sketchHadSegmentsRef = useRef(false);
 
   useEffect(() => {
     if (tabParam === 'chain' || tabParam === 'hybrid' || tabParam === 'pvc') {
@@ -756,6 +755,8 @@ export default function MaterialCalculatorHubPage() {
       }
     }
     sketchSyncedGatePlacementCountRef.current = 0;
+    sketchHadSegmentsRef.current = false;
+    sketchToLinesSyncKeyRef.current = '';
     setTab('pvc');
     setJobAddress('');
     setPvcBreakdownColour('Adobe');
@@ -829,6 +830,34 @@ export default function MaterialCalculatorHubPage() {
     };
   }, [fromLayoutId]);
 
+  /** Layout sketch geometry → PVC fence line rows (lengths and corner logic match Excel apply). */
+  useEffect(() => {
+    if (tab !== 'pvc') return;
+    const payload = layoutSketchData;
+    if (!payload?.segments?.length) {
+      if (sketchHadSegmentsRef.current) {
+        sketchHadSegmentsRef.current = false;
+        sketchToLinesSyncKeyRef.current = '';
+        setLines((prev) => (prev.length > 0 && prev.every((l) => l.fromSketch) ? defaultPvcLines() : prev));
+      }
+      return;
+    }
+    sketchHadSegmentsRef.current = true;
+    const key = JSON.stringify({ p: payload.points, s: payload.segments });
+    if (key === sketchToLinesSyncKeyRef.current) return;
+    sketchToLinesSyncKeyRef.current = key;
+    setLines((prev) => {
+      const panelModule = prev[0]?.panel_module ?? 'nominal_7ft';
+      const next = drawingDataToPvcLineRows(payload, panelModule);
+      if (!next?.length) return prev;
+      return next.map((row, i) => {
+        const old = prev[i];
+        if (old?.fromSketch) return { ...row, id: old.id, label: old.label };
+        return row;
+      });
+    });
+  }, [tab, layoutSketchData]);
+
   /** New gates placed on the layout sketch → PVC gate calculator rows + scroll to Gates. */
   useEffect(() => {
     if (tab !== 'pvc') return;
@@ -892,11 +921,6 @@ export default function MaterialCalculatorHubPage() {
     return o;
   }, [masterExtras]);
 
-  const bomTsvWorthCopying = useMemo(
-    () => pvcInputs.length > 0 || gateCount > 0 || Object.keys(extrasParsed).length > 0,
-    [pvcInputs.length, gateCount, extrasParsed]
-  );
-
   const pvcAdobe = useMemo(
     () => buildPvcAdobeBreakdown(pvcJob.lines, gateMerge.merged, gateWidthInchesSum),
     [pvcJob.lines, gateMerge.merged, gateWidthInchesSum]
@@ -937,45 +961,51 @@ export default function MaterialCalculatorHubPage() {
     return [head, colourLine, '', fenceHdr, hdr, ...fenceRows, extra, concF, '', adobeH, 'Row\tItem\tQty', ...adobeBody, '', masterH, hdr, ...masterBody].join('\n');
   }, [pvcJob, jobAddress, pvcBreakdownColour, adobeRows, pvcMaster]);
 
-  useEffect(() => {
-    if (tab !== 'pvc' || !bomTsvWorthCopying) return;
-    if (bomTsv === lastPvcBomClipboardRef.current) return;
-    if (pvcBomAutoClipboardTimerRef.current != null) clearTimeout(pvcBomAutoClipboardTimerRef.current);
-    pvcBomAutoClipboardTimerRef.current = setTimeout(() => {
-      pvcBomAutoClipboardTimerRef.current = null;
-      const text = bomTsv;
-      if (text === lastPvcBomClipboardRef.current) return;
-      void navigator.clipboard
-        .writeText(text)
-        .then(() => {
-          lastPvcBomClipboardRef.current = text;
-        })
-        .catch(() => {
-          /* Clipboard may require a direct gesture in some browsers; manual Copy TSV still works. */
-        });
-    }, 900);
-    return () => {
-      if (pvcBomAutoClipboardTimerRef.current != null) {
-        clearTimeout(pvcBomAutoClipboardTimerRef.current);
-        pvcBomAutoClipboardTimerRef.current = null;
-      }
-    };
-  }, [tab, bomTsv, bomTsvWorthCopying]);
-
   const copyBom = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(bomTsv);
-      lastPvcBomClipboardRef.current = bomTsv;
-      if (pvcTsvCopyToastTimerRef.current != null) clearTimeout(pvcTsvCopyToastTimerRef.current);
-      setPvcTsvCopyToast('Copied material summary (TSV) to clipboard.');
-      pvcTsvCopyToastTimerRef.current = setTimeout(() => {
-        pvcTsvCopyToastTimerRef.current = null;
-        setPvcTsvCopyToast(null);
-      }, 2800);
+      alert('Copied material summary as TSV.');
     } catch {
       prompt('Copy:', bomTsv);
     }
   }, [bomTsv]);
+
+  const downloadMasterMaterialListPdf = useCallback(async () => {
+    const { buildMasterMaterialListPdfRows } = await import('@/lib/master-material-list-pdf-data');
+    const rows = buildMasterMaterialListPdfRows(pvcAdobe, extrasParsed, gateCount);
+    const activeMod =
+      lines.find((l) => Math.max(0, Number(String(l.length_ft).replace(/,/g, '')) || 0) > 0)?.panel_module ??
+      lines[0]?.panel_module ??
+      'nominal_7ft';
+    const heightLabel = activeMod === 'nominal_7ft' ? "7'" : "6'";
+    const subtitle = `${pvcBreakdownColour} – ${heightLabel}`;
+    const [{ pdf }, { MasterMaterialListPdfDocument }] = await Promise.all([
+      import('@react-pdf/renderer'),
+      import('@/lib/master-material-list-pdf-document'),
+    ]);
+    const blob = await pdf(
+      <MasterMaterialListPdfDocument
+        subtitle={subtitle}
+        addressLine={jobAddress.trim() || '—'}
+        colourColumnTitle={pvcBreakdownColour}
+        rows={rows}
+      />
+    ).toBlob();
+    const slug = (jobAddress || 'master-material-list')
+      .replace(/[^\w\s-]/g, '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .slice(0, 72);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${slug || 'master-material-list'}.pdf`;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, [pvcAdobe, extrasParsed, gateCount, lines, pvcBreakdownColour, jobAddress]);
 
   /** Chain link aggregates */
   const chainFenceInputs: FmsChainLinkFenceInput[] = useMemo(() => {
@@ -1112,13 +1142,6 @@ export default function MaterialCalculatorHubPage() {
     hybVDoubleW,
     hybVDoubleP,
   ]);
-
-  const applyLayoutSketchToLines = useCallback(() => {
-    if (!layoutSketchData?.segments?.length) return;
-    const panelModule = lines[0]?.panel_module ?? 'nominal_7ft';
-    const next = drawingDataToPvcLineRows(layoutSketchData, panelModule);
-    if (next?.length) setLines(next);
-  }, [layoutSketchData, lines]);
 
   function addLine() {
     setLines((p) => [
@@ -1290,17 +1313,10 @@ export default function MaterialCalculatorHubPage() {
               <h2 className={h2}>Job</h2>
               <p className="mt-1 text-xs text-slate-500">
                 Same browser draft as the rest of this calculator (auto-saves when you leave the page). Not stored in
-                the database. On the PVC tab, the full material summary TSV (same as the tables below) copies to your
-                clipboard automatically about a second after you change fence lines, gates, extras, or this job label,
-                whenever there is takeoff data—no need to scroll to the copy button.
+                the database.
               </p>
             </div>
             <div className="grid gap-4 p-5 sm:grid-cols-2">
-              {pvcTsvCopyToast && (
-                <div className="sm:col-span-2 rounded-lg border border-emerald-200 bg-emerald-50/90 px-3 py-2 text-xs font-medium text-emerald-900">
-                  {pvcTsvCopyToast}
-                </div>
-              )}
               <div className="sm:col-span-2">
                 <label className="mb-1 block text-sm font-medium text-slate-700">Address / label</label>
                 <input
@@ -1337,11 +1353,10 @@ export default function MaterialCalculatorHubPage() {
             <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-violet-50/25 px-5 py-4">
               <h2 className={h2}>Layout sketch</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Draw the fence in plan view, enter each segment length in feet, then apply. New segments snap to nearby
-                corners within 6 ft; if the next segment is within 25° of straight, it snaps colinear. Sharper
-                corners are treated as a U-channel on the run that ends there; nearly straight joints stay on a
-                continuous H-post run. Use Single gate / Double gate on the canvas to add matching rows under Gates
-                (width from that line&apos;s length in feet).
+                Draw the fence in plan view and enter each segment length in feet—runs appear automatically in Fence
+                lines below with the same corner / U-channel logic as Excel. New segments snap to nearby corners within
+                6 ft; if the next segment is within 25° of straight, it snaps colinear. Use Single gate / Double gate on
+                the canvas to add matching rows under Gates (width from that line&apos;s length in feet).
               </p>
             </div>
             <div className="space-y-4 p-5">
@@ -1363,14 +1378,6 @@ export default function MaterialCalculatorHubPage() {
                 />
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  className={btn}
-                  disabled={!layoutSketchData?.segments?.length}
-                  onClick={applyLayoutSketchToLines}
-                >
-                  Apply sketch to fence runs
-                </button>
                 {lines.some((l) => l.fromSketch) && (
                   <button
                     type="button"
@@ -1388,7 +1395,8 @@ export default function MaterialCalculatorHubPage() {
             <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-blue-50/30 px-5 py-4">
               <h2 className={h2}>Fence lines</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Use the layout sketch above to drive runs and U-channels at corners, or set lines manually.{' '}
+                Runs and lengths from the layout sketch sync here automatically; you can still edit or add lines by hand.
+                Clear the sketch to return to a single blank run if everything was sketch-driven.{' '}
                 <strong className="text-slate-700">H-post end</strong> = Excel D6=1, D7=0 (continuous line on slit
                 post). <strong className="text-slate-700">U-channel end</strong> = D6=1, D7=1 (terminal U).{' '}
                 <em className="not-italic text-slate-600">Custom</em> covers other workbook 0/1/2 + U values.
@@ -1670,13 +1678,8 @@ export default function MaterialCalculatorHubPage() {
               </table>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button type="button" onClick={copyBom} className={btn}>
-                  Copy TSV again (fence + {pvcBreakdownColour} breakdown + Master)
+                  Copy TSV (fence + {pvcBreakdownColour} breakdown + Master)
                 </button>
-                <span className="max-w-xl self-center text-xs text-slate-500">
-                  The same TSV is copied to your clipboard automatically about a second after you pause editing, whenever
-                  there is fence, gate, or optional M takeoff. Use this button if your browser blocked that or you need
-                  another copy.
-                </span>
               </div>
             </div>
           </section>
@@ -1723,6 +1726,21 @@ export default function MaterialCalculatorHubPage() {
                   )}
                 </tbody>
               </table>
+            </div>
+          </section>
+
+          <section className={card}>
+            <div className="border-b border-slate-100 px-5 py-4">
+              <h2 className={h2}>Master material list (PDF)</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Download a printable Master Material List matching the Excel layout: colour column, Extras (column M
+                adders when entered above), and section shading.
+              </p>
+            </div>
+            <div className="p-5">
+              <button type="button" className={btn} onClick={() => void downloadMasterMaterialListPdf()}>
+                Download Master Material List PDF
+              </button>
             </div>
           </section>
         </>
