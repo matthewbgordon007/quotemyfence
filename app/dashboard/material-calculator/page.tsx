@@ -1360,9 +1360,10 @@ export default function MaterialCalculatorHubPage() {
               </p>
             </div>
             <div className="space-y-4 p-5">
-              <div className="flex min-h-[400px] h-[min(640px,80vh)] w-full flex-col">
+              <div className="flex w-full flex-col gap-3">
                 <LayoutDrawCanvas
                   key={layoutCanvasRemountKey}
+                  fillParent={false}
                   initialDrawing={
                     layoutSketchData
                       ? {
@@ -1376,16 +1377,16 @@ export default function MaterialCalculatorHubPage() {
                   }
                   onDrawingChange={setLayoutSketchData}
                 />
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
                 {lines.some((l) => l.fromSketch) && (
-                  <button
-                    type="button"
-                    className={btnGhost}
-                    onClick={() => setLines((prev) => prev.map((l) => ({ ...l, fromSketch: false })))}
-                  >
-                    Unlock line ends (manual D6 / D7)
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+                    <button
+                      type="button"
+                      className={btnGhost}
+                      onClick={() => setLines((prev) => prev.map((l) => ({ ...l, fromSketch: false })))}
+                    >
+                      Unlock line ends (manual D6 / D7)
+                    </button>
+                  </div>
                 )}
               </div>
             </div>

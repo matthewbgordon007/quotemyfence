@@ -43,6 +43,11 @@ export interface LayoutDrawCanvasProps {
     total_length_ft: number;
   }) => void;
   onReset?: () => void;
+  /**
+   * When true (default), stretch to fill a flex parent (layout editor). When false, use a fixed drawing height and
+   * let the toolbar / length rows grow below so siblings (e.g. Unlock) are not painted over.
+   */
+  fillParent?: boolean;
 }
 
 function dist(a: { x: number; y: number }, b: { x: number; y: number }): number {
@@ -103,7 +108,10 @@ function strokeForLineMode(mode: LineHighlightMode | undefined): string {
 }
 
 export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvasProps>(
-  function LayoutDrawCanvas({ initialDrawing, readOnly, lineHighlightModes, onDrawingChange, onReset }, ref) {
+  function LayoutDrawCanvas(
+    { initialDrawing, readOnly, lineHighlightModes, onDrawingChange, onReset, fillParent = true },
+    ref
+  ) {
     const fsRootRef = useRef<HTMLDivElement>(null);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -554,7 +562,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
   return (
     <div
       ref={fsRootRef}
-      className={`flex h-full min-h-0 w-full flex-col ${isFullscreen ? 'bg-slate-50 p-3' : ''}`}
+      className={`flex min-h-0 w-full flex-col ${isFullscreen ? 'h-full bg-slate-50 p-3' : fillParent ? 'h-full' : 'h-auto'}`}
     >
       {!readOnly && (
         <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
@@ -574,7 +582,13 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       )}
       <div
         ref={containerRef}
-        className="relative min-h-[200px] flex-1 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+        className={`relative overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm ${
+          isFullscreen
+            ? 'min-h-[200px] flex-1'
+            : fillParent
+              ? 'min-h-[200px] flex-1'
+              : 'h-[min(520px,62vh)] min-h-[260px] w-full flex-shrink-0'
+        }`}
         style={{
           touchAction: 'none',
         }}
