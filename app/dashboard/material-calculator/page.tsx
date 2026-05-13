@@ -880,9 +880,9 @@ export default function MaterialCalculatorHubPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {pvcMaster.map((r) => (
-                        <tr key={r.label} className="border-b border-slate-100">
-                          <td className="px-2 py-1.5 font-medium text-slate-800">{r.label}</td>
+                      {pvcMaster.map((r, idx) => (
+                        <tr key={`${idx}-${r.label || 'row'}`} className="border-b border-slate-100">
+                          <td className="px-2 py-1.5 font-medium text-slate-800">{r.label || '\u00a0'}</td>
                           <td className="px-2 py-1.5 text-right tabular-nums text-slate-900">{r.qty}</td>
                         </tr>
                       ))}

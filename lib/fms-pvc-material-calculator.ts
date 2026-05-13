@@ -168,7 +168,7 @@ export interface FmsPvcJobTotals {
   sum_whole_panels: number;
   /** Sum of H posts — Master sheet concrete row uses H-post totals × 2.5. */
   sum_h_post: number;
-  /** Concrete factor from Master list row B5: `C10*2.5` style (here: 2.5 × total H posts). */
+  /** Same as Master `C5`: `=C10*2.5` where `C10` is total H-post (fence + gate + M10). No ROUND in Excel. */
   concrete_bags_est: number;
   sku_rows: { label: string; quantity: number }[];
 }
@@ -177,14 +177,11 @@ export function aggregateFmsPvcFenceLines(lines: FmsPvcFenceLineInput[]): FmsPvc
   const results = lines.filter((l) => l.length_ft > 0).map((l) => computeFmsPvcFenceLine(l));
   const sumWhole = results.reduce((a, r) => a + r.total_whole_panels, 0);
   const sumH = results.reduce((a, r) => a + r.h_post, 0);
-  const concrete = excelRound(sumH * 2.5, 4);
+  const concrete = sumH * 2.5;
 
   const sku_rows = PVC_SKU_ROWS.map(({ key, label }) => ({
     label,
-    quantity: excelRound(
-      results.reduce((a, r) => a + (Number(r[key]) || 0), 0),
-      4
-    ),
+    quantity: results.reduce((a, r) => a + (Number(r[key]) || 0), 0),
   }));
 
   return {

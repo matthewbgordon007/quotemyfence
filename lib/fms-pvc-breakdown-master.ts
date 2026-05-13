@@ -1,11 +1,19 @@
 /**
- * Adobe colour breakdown (J-column style totals) + Master Material List column C math for PVC,
- * from `Adobe - Material List Breakdown` and `Master Material List` sheets.
+ * Adobe colour breakdown (J-column style totals) + Master Material List column C math for PVC.
+ *
+ * Formulas are taken verbatim from `Adobe - Material List Breakdown` and `Master Material List`
+ * in `docs/2026 FMS - Fencing Material Calculator.xlsx` (openpyxl extraction). Master column C
+ * does **not** wrap these sums in `ROUND` — values are raw IEEE doubles like Excel.
+ *
+ * Key references:
+ * - Adobe J2…J14, J17…J33: `=SUM(Bn:In)` (row 17: `=SUM(B17:I17)/12`).
+ * - Master C5: `=C10*2.5` where C10 is H-Post row (`J4+J19+M10`).
+ * - Master C27: `'Adobe - Material List Breakdown'!J2+'Adobe - Material List Breakdown'!J17`
+ * - Master C28: `=COUNT('Adobe - Material List Breakdown'!B17:E17)` (we pass gate count from the app).
  */
 
 import type { FmsPvcAdobeGateMap } from '@/lib/fms-pvc-gates-calculator';
 import type { FmsPvcFenceLineResult } from '@/lib/fms-pvc-material-calculator';
-import { excelRound } from '@/lib/fms-excel-math';
 
 /** Optional manual adders from Master sheet column M (same row as the formula row). */
 export interface FmsPvcMasterExtras {
@@ -31,7 +39,7 @@ function j(adobe: Record<number, number>, row: number): number {
   return adobe[row] ?? 0;
 }
 
-/** Sum fence lines into Adobe rows 2–14; gates into 17–33; row 17 = SUM(gate widths in) / 12. */
+/** Sum fence lines into Adobe rows 2–14; gates into 17–33; row 17 = SUM(gate widths in) / 12 (no ROUND in Excel). */
 export function buildPvcAdobeBreakdown(
   fenceLines: FmsPvcFenceLineResult[],
   gateRows: FmsPvcAdobeGateMap,
@@ -61,7 +69,7 @@ export function buildPvcAdobeBreakdown(
     a[row] = (a[row] ?? 0) + rv;
   }
 
-  a[17] = gateWidthInchesSum > 0 ? excelRound(gateWidthInchesSum / 12, 4) : 0;
+  a[17] = gateWidthInchesSum > 0 ? gateWidthInchesSum / 12 : 0;
 
   return a;
 }
@@ -78,28 +86,26 @@ export function computePvcMasterColumn(
 ): FmsPvcMasterRow[] {
   const e = extras;
   const x = (m?: number) => (m != null && Number.isFinite(m) ? m : 0);
-  /** Master sheet cells typically show 4 decimal places in the FMS workbook. */
-  const q4 = (n: number) => excelRound(n, 4);
 
   const hPost = j(adobe, 4) + j(adobe, 19) + x(e.m10);
-  const concrete = q4(hPost * 2.5);
+  const concrete = hPost * 2.5;
 
-  const rail = q4(j(adobe, 6) + j(adobe, 21) + x(e.m6));
-  const railStiff = q4(j(adobe, 7) + j(adobe, 22) + x(e.m7));
-  const board = q4(j(adobe, 8) + j(adobe, 23) + x(e.m8));
-  const boardStiff = q4(j(adobe, 9) + j(adobe, 24) + x(e.m9));
-  const uChannel = q4(j(adobe, 13) + j(adobe, 28) + x(e.m12));
-  const hPostStiff = q4(j(adobe, 14) + j(adobe, 33) + x(e.m13));
-  const overhead = q4(j(adobe, 30) + x(e.m15));
-  const diagonal = q4(j(adobe, 29) + x(e.m16));
-  const postCap = q4(j(adobe, 5) + j(adobe, 20) + x(e.m19));
-  const holePlug = q4(j(adobe, 12) + j(adobe, 27) + 10 + x(e.m20));
-  const largeScrew = q4(j(adobe, 10) + j(adobe, 26) + 10 + x(e.m21));
-  const shortScrew = q4(j(adobe, 11) + j(adobe, 25) + x(e.m22));
-  const latch = q4(j(adobe, 31) + x(e.m23));
-  const hinge = q4(j(adobe, 32) + x(e.m24));
+  const rail = j(adobe, 6) + j(adobe, 21) + x(e.m6);
+  const railStiff = j(adobe, 7) + j(adobe, 22) + x(e.m7);
+  const board = j(adobe, 8) + j(adobe, 23) + x(e.m8);
+  const boardStiff = j(adobe, 9) + j(adobe, 24) + x(e.m9);
+  const uChannel = j(adobe, 13) + j(adobe, 28) + x(e.m12);
+  const hPostStiff = j(adobe, 14) + j(adobe, 33) + x(e.m13);
+  const overhead = j(adobe, 30) + x(e.m15);
+  const diagonal = j(adobe, 29) + x(e.m16);
+  const postCap = j(adobe, 5) + j(adobe, 20) + x(e.m19);
+  const holePlug = j(adobe, 12) + j(adobe, 27) + 10 + x(e.m20);
+  const largeScrew = j(adobe, 10) + j(adobe, 26) + 10 + x(e.m21);
+  const shortScrew = j(adobe, 11) + j(adobe, 25) + x(e.m22);
+  const latch = j(adobe, 31) + x(e.m23);
+  const hinge = j(adobe, 32) + x(e.m24);
 
-  const totalPanels = q4(j(adobe, 2));
+  const totalLinearFt = j(adobe, 2) + j(adobe, 17);
 
   return [
     { label: 'Concrete', qty: concrete },
@@ -107,8 +113,8 @@ export function computePvcMasterColumn(
     { label: 'Rail Stiffener', qty: railStiff },
     { label: 'Board', qty: board },
     { label: 'Board Stiffener', qty: boardStiff },
-    { label: 'H-Post', qty: q4(hPost) },
-    { label: 'Galvanized Post', qty: q4(j(adobe, 3) + j(adobe, 18) + x(e.m11)) },
+    { label: 'H-Post', qty: hPost },
+    { label: 'Galvanized Post', qty: j(adobe, 3) + j(adobe, 18) + x(e.m11) },
     { label: 'U-Channel', qty: uChannel },
     { label: 'H-Post Stiffener', qty: hPostStiff },
     { label: 'Post Filler', qty: 0 },
@@ -123,13 +129,13 @@ export function computePvcMasterColumn(
     { label: '*PREMIUM*Latch', qty: latch },
     { label: '*PREMIUM*Hinge', qty: hinge },
     { label: 'Drop Rod/Sleeve', qty: 0 },
-    { label: '—', qty: 0 },
-    { label: 'Total Panels', qty: totalPanels },
+    { label: '', qty: 0 },
+    { label: 'Total Linear Ft', qty: totalLinearFt },
     { label: 'Total Gates', qty: gateCount },
   ];
 }
 
-/** Human-readable Adobe J totals for UI / TSV export. */
+/** Human-readable Adobe J totals for UI / TSV export (raw numeric values, no extra rounding). */
 export function adobeBreakdownToRows(adobe: Record<number, number>): { label: string; row: number; qty: number }[] {
   const labels: Record<number, string> = {
     2: 'Panels',
@@ -169,6 +175,6 @@ export function adobeBreakdownToRows(adobe: Record<number, number>): { label: st
     .map((row) => ({
       row,
       label: labels[row] ?? `Row ${row}`,
-      qty: excelRound(adobe[row] ?? 0, 4),
+      qty: adobe[row] ?? 0,
     }));
 }

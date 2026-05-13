@@ -4,7 +4,7 @@
  * Hybrid master concrete uses cap totals × 2.5 (Hybrid `C5=C7*2.5`).
  */
 
-import { excelCeiling, excelIfHPostTypeAdjustLongScrew, excelRound, excelRoundUp } from '@/lib/fms-excel-math';
+import { excelCeiling, excelIfHPostTypeAdjustLongScrew, excelRoundUp } from '@/lib/fms-excel-math';
 
 /** Horizontal 6′ WPC — Excel literal divisor from `Horizontal Material Calculator` (=C6/6.0833). */
 const PANEL_6 = 6.0833;
@@ -211,25 +211,23 @@ export function combineHybridMasterPreview(args: {
     args.verticalFence.small_black_screw +
     (args.verticalGateDouble ? 16 : 8);
 
-  const q4 = (n: number) => excelRound(n, 4);
-
   return [
-    { label: 'Concrete', qty: q4(concrete) },
-    { label: 'Aluminum HPost 120"', qty: q4(hAlu) },
-    { label: 'Aluminum HPost Cap', qty: q4(hAluCap) },
-    { label: '3" Aluminum Pocket Rail 72" / pocket rail mix', qty: q4(pocket72) },
-    { label: 'Board', qty: q4(board) },
-    { label: 'Outer U-Channel', qty: q4(outerU) },
-    { label: 'Inner U-Channel', qty: q4(innerU) },
-    { label: 'Long Black Screw (2.5")', qty: q4(longScr) },
-    { label: 'Rail Screw / U-channel screw (combined preview)', qty: q4(longScr * 2) },
-    { label: 'Plugs (7/8")', qty: q4(longScr * 2) },
-    { label: 'Gate Screw (1.5")', qty: q4(args.verticalFence.u_channel * 6) },
-    { label: 'U-Channel Screw (3/4")', qty: q4(uScr) },
-    { label: 'Aluminum Gate Side Frame', qty: q4((args.horizontalGate?.gate_side_frame ?? 0) + (args.verticalGateSingle ? 2 : 0)) },
-    { label: 'Aluminum Gate Post Cap', qty: q4((args.horizontalGate?.small_cap ?? 0) + (args.verticalGateSingle?.small_cap ?? 0)) },
-    { label: 'Adjustable Aluminum Gate Brace', qty: q4((args.horizontalGate?.gate_cross_brace ?? 0) + (args.verticalGateDouble?.gate_cross_brace ?? 0)) },
-    { label: 'Latch kit', qty: q4((args.horizontalGate?.latch ?? 0) + (args.verticalGateSingle?.latch ?? 0)) },
-    { label: 'Hinge Kit', qty: q4((args.horizontalGate?.hinge ?? 0) + (args.verticalGateSingle?.hinge ?? 0) + (args.verticalGateDouble?.hinge ?? 0)) },
+    { label: 'Concrete', qty: concrete },
+    { label: 'Aluminum HPost 120"', qty: hAlu },
+    { label: 'Aluminum HPost Cap', qty: hAluCap },
+    { label: '3" Aluminum Pocket Rail 72" / pocket rail mix', qty: pocket72 },
+    { label: 'Board', qty: board },
+    { label: 'Outer U-Channel', qty: outerU },
+    { label: 'Inner U-Channel', qty: innerU },
+    { label: 'Long Black Screw (2.5")', qty: longScr },
+    { label: 'Rail Screw / U-channel screw (combined preview)', qty: longScr * 2 },
+    { label: 'Plugs (7/8")', qty: longScr * 2 },
+    { label: 'Gate Screw (1.5")', qty: args.verticalFence.u_channel * 6 },
+    { label: 'U-Channel Screw (3/4")', qty: uScr },
+    { label: 'Aluminum Gate Side Frame', qty: (args.horizontalGate?.gate_side_frame ?? 0) + (args.verticalGateSingle ? 2 : 0) },
+    { label: 'Aluminum Gate Post Cap', qty: (args.horizontalGate?.small_cap ?? 0) + (args.verticalGateSingle?.small_cap ?? 0) },
+    { label: 'Adjustable Aluminum Gate Brace', qty: (args.horizontalGate?.gate_cross_brace ?? 0) + (args.verticalGateDouble?.gate_cross_brace ?? 0) },
+    { label: 'Latch kit', qty: (args.horizontalGate?.latch ?? 0) + (args.verticalGateSingle?.latch ?? 0) },
+    { label: 'Hinge Kit', qty: (args.horizontalGate?.hinge ?? 0) + (args.verticalGateSingle?.hinge ?? 0) + (args.verticalGateDouble?.hinge ?? 0) },
   ];
 }

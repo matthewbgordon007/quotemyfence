@@ -4,6 +4,7 @@
  * Run: node scripts/verify-fms-excel-parity.mjs
  *
  * Keep in sync with `lib/fms-excel-math.ts` (ROUND / ROUNDUP).
+ * Master Material List column C sums do not use ROUND in the FMS workbook — do not add rounding there in TS.
  */
 
 function excelRound(value, digits) {

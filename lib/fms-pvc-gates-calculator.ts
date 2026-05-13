@@ -3,7 +3,7 @@
  * Outputs map Adobe "Material List Breakdown" gate rows 18–33 (J column equivalents).
  */
 
-import { excelRound, excelRoundUp } from '@/lib/fms-excel-math';
+import { excelRoundUp } from '@/lib/fms-excel-math';
 
 /** Gate block uses the same 7′ nominal divisor literal as the PVC sheet (`/8.20833333`). */
 const PANEL_FT = 8.20833333;
@@ -71,7 +71,7 @@ export function computeFmsPvcShortGate(input: FmsPvcShortGateInput): {
     33: 1,
   };
 
-  return { adobe_gate_rows: adobe, j17_linear_piece: excelRound(w / 12, 4) };
+  return { adobe_gate_rows: adobe, j17_linear_piece: w / 12 };
 }
 
 /** Single gate (min 65.5") — columns G/H. */
@@ -121,7 +121,7 @@ export function computeFmsPvcSingleGate(input: FmsPvcSingleGateInput): {
     33: 1,
   };
 
-  return { adobe_gate_rows: adobe, j17_linear_piece: excelRound(h28 / 12, 4) };
+  return { adobe_gate_rows: adobe, j17_linear_piece: h28 / 12 };
 }
 
 /** Double gate (min 106") — columns K/L. */
@@ -171,7 +171,7 @@ export function computeFmsPvcDoubleGate(input: FmsPvcDoubleGateInput): {
     33: 2,
   };
 
-  return { adobe_gate_rows: adobe, j17_linear_piece: excelRound(l28 / 12, 4) };
+  return { adobe_gate_rows: adobe, j17_linear_piece: l28 / 12 };
 }
 
 export function sumGateAdobeRows(
@@ -196,6 +196,6 @@ export function sumGateAdobeRows(
     parts.push(r.adobe_gate_rows);
     widthInSum += Math.max(0, Number(g.gate_width_in) || 0);
   }
-  const j17 = widthInSum > 0 ? excelRound(widthInSum / 12, 4) : 0;
+  const j17 = widthInSum > 0 ? widthInSum / 12 : 0;
   return { merged: mergeGateMaps(parts), j17_total: j17 };
 }
