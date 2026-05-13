@@ -41,6 +41,7 @@ import {
 } from '@/lib/fms-calculator-colour-presets';
 import { LayoutDrawCanvas } from '@/components/LayoutDrawCanvas';
 import { SupplierMaterialQuoteRequestWorkspace } from '@/components/dashboard/SupplierMaterialQuoteRequestWorkspace';
+import type { MaterialQuoteLine } from '@/lib/material-quote-lines';
 import type { MaterialQuoteRequestDto } from '@/lib/supplier-material-quote-requests-enrich';
 import {
   mapFenceSegmentsToLayoutDrawing,
@@ -1397,6 +1398,74 @@ export default function MaterialCalculatorHubPage() {
     hybVDoubleP,
   ]);
 
+  const buildSupplierMaterialQuoteLines = useCallback((): MaterialQuoteLine[] => {
+    const rows: MaterialQuoteLine[] = [];
+    const add = (description: string, qty: unknown) => {
+      const q = typeof qty === 'number' ? qty : Number(qty);
+      if (!description.trim() || !Number.isFinite(q) || q === 0) return;
+      rows.push({ description: description.trim(), qty: q });
+    };
+
+    if (tab === 'pvc') {
+      for (const r of pvcJob.sku_rows) add(`PVC fence — ${r.label}`, r.quantity);
+      for (const r of adobeRows) add(`${pvcBreakdownColour} (breakdown) — ${r.label}`, r.qty);
+      for (const r of pvcMaster) {
+        if (r.label?.trim()) add(`Master — ${r.label}`, r.qty);
+      }
+      return rows;
+    }
+
+    if (tab === 'chain') {
+      if (chainFenceAgg) {
+        (
+          [
+            ['Terminal post', chainFenceAgg.terminal_post],
+            ['Line post', chainFenceAgg.line_post],
+            ['Terminal post cap', chainFenceAgg.terminal_post_cap],
+            ['Line post loop cap', chainFenceAgg.line_post_loop_cap],
+            ['Rail end', chainFenceAgg.rail_end],
+            ['Rail', chainFenceAgg.rail],
+            ['Center band', chainFenceAgg.center_band],
+            ['Offset band', chainFenceAgg.offset_band],
+            ['Tension bar', chainFenceAgg.tension_bar],
+            ['Mesh (rolls)', chainFenceAgg.mesh],
+            ['Bottom wire (ft)', chainFenceAgg.bottom_wire],
+            ['Ties (est.)', chainFenceAgg.ties],
+            ['Carriage bolt + nut', chainFenceAgg.carriage_bolt_nut],
+            ['Hog rings (note L/2)', chainFenceAgg.hog_rings_note],
+          ] as const
+        ).forEach(([label, qty]) => add(`Chain link — ${label}`, qty));
+      }
+      if (chainGateAgg) {
+        (
+          [
+            ['Pre-assembled frame', chainGateAgg.pre_assembled_frame],
+            ['Post', chainGateAgg.post],
+            ['End post cap', chainGateAgg.end_post_cap],
+            ['Gate extension kit', chainGateAgg.gate_extension_kit],
+            ['Hardware kit', chainGateAgg.hardware_kit],
+          ] as const
+        ).forEach(([label, qty]) => add(`Chain gate — ${label}`, qty));
+      }
+      return rows;
+    }
+
+    if (tab === 'hybrid' && hybridPreview) {
+      for (const r of hybridPreview) add(`Hybrid — ${r.label}`, r.qty);
+    }
+
+    return rows;
+  }, [
+    tab,
+    pvcJob,
+    adobeRows,
+    pvcMaster,
+    pvcBreakdownColour,
+    chainFenceAgg,
+    chainGateAgg,
+    hybridPreview,
+  ]);
+
   function addLine() {
     setLines((p) => [
       ...p,
@@ -1518,6 +1587,10 @@ export default function MaterialCalculatorHubPage() {
           <SupplierMaterialQuoteRequestWorkspace
             requestId={materialRequestId}
             calculatorBasePath="/dashboard/material-calculator"
+            onDownloadMasterPdf={() => void downloadMasterMaterialListPdf()}
+            masterPdfAvailable={tab === 'pvc'}
+            buildMaterialRowsForQuote={buildSupplierMaterialQuoteLines}
+            quoteDetailHref={`/dashboard/supplier/contractor-quotes/${encodeURIComponent(materialRequestId)}`}
           />
         ) : null}
         <div className={`min-w-0 space-y-6 ${showSupplierMaterialRequest ? 'flex-1' : ''}`}>
