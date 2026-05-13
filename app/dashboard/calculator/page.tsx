@@ -291,6 +291,8 @@ export default function CalculatorPage() {
   const [linkedQuoteSessionId, setLinkedQuoteSessionId] = useState<string | null>(null);
   /** Quote session when opened via supplier material quote bootstrap. */
   const [materialQuoteBootstrapSessionId, setMaterialQuoteBootstrapSessionId] = useState<string | null>(null);
+  const [materialExportModalOpen, setMaterialExportModalOpen] = useState(false);
+  const [savingSketchToProfile, setSavingSketchToProfile] = useState(false);
   const [exportingMapToMaterial, setExportingMapToMaterial] = useState(false);
   /** Supplier BOM / notes pasted on calculator (saved with quote / customer). */
   const [materialBomTsv, setMaterialBomTsv] = useState('');
@@ -1243,7 +1245,7 @@ export default function CalculatorPage() {
   const activeTemplate = baseTemplate.replaceAll('[[HEIGHT]]', inferredHeight);
   const quoteText = composeQuoteText(activeTemplate, quoteTokenValues);
 
-  const handleExportMapToMaterialCalculator = useCallback(async () => {
+  const performExportMapToMaterialCalculator = useCallback(async () => {
     const sid = exportQuoteSessionId;
     if (!sid || customerSegments.length === 0) {
       alert(
@@ -1266,6 +1268,7 @@ export default function CalculatorPage() {
       const json = (await res.json()) as { error?: string; id?: string };
       if (!res.ok) throw new Error(json.error || 'Failed to create material request');
       if (!json.id) throw new Error('No material request id returned');
+      setMaterialExportModalOpen(false);
       window.location.href = `/dashboard/material-calculator?from_material_quote=${encodeURIComponent(String(json.id))}`;
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Failed to open material calculator');
@@ -1273,6 +1276,33 @@ export default function CalculatorPage() {
       setExportingMapToMaterial(false);
     }
   }, [exportQuoteSessionId, customerSegments.length]);
+
+  const handleSaveMapSketchToProfile = useCallback(async () => {
+    const sid = exportQuoteSessionId;
+    if (!sid) return;
+    setSavingSketchToProfile(true);
+    try {
+      const res = await fetch('/api/contractor/material-list-saves', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          quote_session_id: sid,
+          title: quoteAddress.trim() || undefined,
+        }),
+      });
+      const json = (await res.json()) as { error?: string; id?: string };
+      if (!res.ok) throw new Error(json.error || 'Failed to save');
+      alert(
+        `Saved under your account as “${quoteAddress.trim() || 'Material list'}”. Open Account → Material lists to reopen this sketch, or continue to the calculator when you are ready.`,
+      );
+      setMaterialExportModalOpen(false);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to save');
+    } finally {
+      setSavingSketchToProfile(false);
+    }
+  }, [exportQuoteSessionId, quoteAddress]);
 
   async function copyQuote() {
     try {
@@ -1416,6 +1446,7 @@ export default function CalculatorPage() {
   }
 
   return (
+    <>
     <div className="relative mx-auto w-full max-w-6xl space-y-10 pb-10">
       <div className="pointer-events-none absolute -right-24 -top-20 h-72 w-72 rounded-full bg-blue-500/[0.07] blur-3xl" aria-hidden />
       <div className="pointer-events-none absolute -left-20 top-40 h-56 w-56 rounded-full bg-indigo-500/[0.06] blur-3xl" aria-hidden />
@@ -2071,16 +2102,16 @@ export default function CalculatorPage() {
                 {exportQuoteSessionId ? (
                   <div className="mt-4 flex flex-col gap-2 rounded-xl border border-slate-200/90 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs leading-relaxed text-slate-600">
-                      <span className="font-semibold text-slate-800">FMS material list.</span> Save the map fence to this
-                      lead, then open the material calculator with the same lines, lengths, and gate pins (plan sketch).
+                      <span className="font-semibold text-slate-800">FMS material list.</span> Opens a confirmation first so
+                      you can save this map to your profile or continue to the calculator when you are ready.
                     </p>
                     <button
                       type="button"
                       disabled={exportingMapToMaterial || customerSegments.length === 0}
-                      onClick={() => void handleExportMapToMaterialCalculator()}
+                      onClick={() => setMaterialExportModalOpen(true)}
                       className="shrink-0 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {exportingMapToMaterial ? 'Opening…' : 'Open material calculator from map'}
+                      Open material calculator from map
                     </button>
                   </div>
                 ) : null}
@@ -2478,5 +2509,58 @@ export default function CalculatorPage() {
         </div>
       </div>
     </div>
+    {materialExportModalOpen ? (
+      <div className="fixed inset-0 z-[70] flex items-end justify-center p-4 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="material-export-modal-title">
+        <button
+          type="button"
+          className="absolute inset-0 bg-slate-900/50"
+          aria-label="Close dialog"
+          disabled={exportingMapToMaterial || savingSketchToProfile}
+          onClick={() => setMaterialExportModalOpen(false)}
+        />
+        <div className="relative w-full max-w-md rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xl shadow-slate-900/15">
+          <h2 id="material-export-modal-title" className="text-lg font-bold text-slate-900">
+            Open FMS material calculator?
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed text-slate-600">
+            Leaving this page does <span className="font-semibold text-slate-800">not</span> save your quote work unless
+            you have used <span className="font-semibold">Save to customer</span> or a saved quote. Opening the material
+            calculator also loads a fresh material request and can replace the material draft this browser had open for
+            the same account.
+          </p>
+          <p className="mt-2 text-sm text-slate-600">
+            You can <span className="font-semibold">save this map sketch to your profile</span> first (uses the job
+            address as the title under Account → Material lists), then open the calculator when you are ready.
+          </p>
+          <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+            <button
+              type="button"
+              disabled={exportingMapToMaterial || savingSketchToProfile}
+              onClick={() => setMaterialExportModalOpen(false)}
+              className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={savingSketchToProfile || exportingMapToMaterial || !exportQuoteSessionId}
+              onClick={() => void handleSaveMapSketchToProfile()}
+              className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-900 hover:bg-emerald-100 disabled:opacity-50"
+            >
+              {savingSketchToProfile ? 'Saving…' : 'Save map to my profile first'}
+            </button>
+            <button
+              type="button"
+              disabled={exportingMapToMaterial || savingSketchToProfile || customerSegments.length === 0}
+              onClick={() => void performExportMapToMaterialCalculator()}
+              className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+            >
+              {exportingMapToMaterial ? 'Opening…' : 'Continue and open calculator'}
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null}
+    </>
   );
 }

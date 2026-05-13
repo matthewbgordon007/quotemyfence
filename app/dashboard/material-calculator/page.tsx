@@ -403,6 +403,7 @@ export default function MaterialCalculatorHubPage() {
   const fromLayoutId = searchParams.get('from_layout');
   const materialRequestId = (searchParams.get('materialRequest') || '').trim();
   const fromMaterialQuoteId = (searchParams.get('from_material_quote') || '').trim();
+  const fromMaterialSketchSaveId = (searchParams.get('from_material_sketch_save') || '').trim();
   const showSupplierMaterialRequest = Boolean(materialRequestId);
 
   const [tab, setTab] = useState<StyleTab>('pvc');
@@ -457,6 +458,10 @@ export default function MaterialCalculatorHubPage() {
   const [materialQuoteSketchLoadState, setMaterialQuoteSketchLoadState] = useState<
     'idle' | 'loading' | 'ok' | 'none'
   >('idle');
+  /** Plan sketch from profile snapshot `?from_material_sketch_save=`. */
+  const [profileSketchSaveLoadState, setProfileSketchSaveLoadState] = useState<
+    'idle' | 'loading' | 'ok' | 'none'
+  >('idle');
 
   const [contractorId, setContractorId] = useState<string | null>(null);
   const materialCalcDraftSnapshotRef = useRef<Record<string, unknown> | null>(null);
@@ -494,14 +499,14 @@ export default function MaterialCalculatorHubPage() {
 
   useEffect(() => {
     if (!contractorId) return;
-    const hydrateKey = `${contractorId}|${fromLayoutId ?? ''}|${fromMaterialQuoteId ?? ''}`;
+    const hydrateKey = `${contractorId}|${fromLayoutId ?? ''}|${fromMaterialQuoteId ?? ''}|${fromMaterialSketchSaveId ?? ''}`;
     if (materialCalcHydrateKeyRef.current === hydrateKey) return;
 
     const hasUrlTab = tabParam === 'chain' || tabParam === 'hybrid' || tabParam === 'pvc';
     const urlPvcCol = coerceFmsPvcCalculatorColour(searchParams.get('pvc_colour'));
     const urlHwCol = coerceFmsWpcCalculatorColour(searchParams.get('hybrid_wpc'));
     const urlHpCol = coerceFmsPvcCalculatorColour(searchParams.get('hybrid_pvc'));
-    const skipPvcLinesAndSketch = Boolean(fromLayoutId || fromMaterialQuoteId);
+    const skipPvcLinesAndSketch = Boolean(fromLayoutId || fromMaterialQuoteId || fromMaterialSketchSaveId);
 
     const markHydrated = () => {
       materialCalcHydrateKeyRef.current = hydrateKey;
@@ -555,7 +560,7 @@ export default function MaterialCalculatorHubPage() {
             : sketch?.gate_placements?.length ?? 0;
         sketchSyncedGatePlacementCountRef.current = syncFromCount;
       } else {
-        if (!fromMaterialQuoteId) {
+        if (!fromMaterialQuoteId && !fromMaterialSketchSaveId) {
           const sh = parsePvcGateRows(d.shortGates);
           if (sh) setShortGates(sh);
           const si = parsePvcGateRows(d.singleGates);
@@ -602,7 +607,7 @@ export default function MaterialCalculatorHubPage() {
     } catch {
       markHydrated();
     }
-  }, [contractorId, fromLayoutId, fromMaterialQuoteId, tabParam, searchParams]);
+  }, [contractorId, fromLayoutId, fromMaterialQuoteId, fromMaterialSketchSaveId, tabParam, searchParams]);
 
   useLayoutEffect(() => {
     if (!contractorId) {
@@ -809,7 +814,7 @@ export default function MaterialCalculatorHubPage() {
   }, [contractorId]);
 
   useEffect(() => {
-    if (fromMaterialQuoteId) return;
+    if (fromMaterialQuoteId || fromMaterialSketchSaveId) return;
     if (!fromLayoutId) return;
     let cancelled = false;
     fetch(`/api/contractor/layouts/${encodeURIComponent(fromLayoutId)}`, { credentials: 'include' })
@@ -845,10 +850,11 @@ export default function MaterialCalculatorHubPage() {
     return () => {
       cancelled = true;
     };
-  }, [fromLayoutId, fromMaterialQuoteId]);
+  }, [fromLayoutId, fromMaterialQuoteId, fromMaterialSketchSaveId]);
 
   /** Contractor material quote request → layout sketch + PVC tab (plan view, lengths, gates). */
   useEffect(() => {
+    if (fromMaterialSketchSaveId) return;
     if (!fromMaterialQuoteId) {
       setMaterialQuoteSketchLoadState('idle');
       return;
@@ -893,7 +899,58 @@ export default function MaterialCalculatorHubPage() {
     return () => {
       cancelled = true;
     };
-  }, [fromMaterialQuoteId]);
+  }, [fromMaterialQuoteId, fromMaterialSketchSaveId]);
+
+  /** Profile-saved map sketch → PVC tab. */
+  useEffect(() => {
+    if (!fromMaterialSketchSaveId) {
+      setProfileSketchSaveLoadState('idle');
+      return;
+    }
+    if (fromMaterialQuoteId) {
+      setProfileSketchSaveLoadState('idle');
+      return;
+    }
+    setProfileSketchSaveLoadState('loading');
+    let cancelled = false;
+    fetch(`/api/contractor/material-list-saves/${encodeURIComponent(fromMaterialSketchSaveId)}`, {
+      credentials: 'include',
+      cache: 'no-store',
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json: { save?: { title?: string; drawing_data?: unknown } } | null) => {
+        if (cancelled) return;
+        if (!json?.save?.drawing_data) {
+          setProfileSketchSaveLoadState('none');
+          return;
+        }
+        const title = typeof json.save.title === 'string' ? json.save.title.trim() : '';
+        if (title) setJobAddress((prev) => (prev.trim() ? prev : title));
+        const sketch = parseLayoutSketch(json.save.drawing_data);
+        setShortGates([]);
+        setSingleGates([]);
+        setDoubleGates([]);
+        sketchSyncedGatePlacementCountRef.current = 0;
+        sketchToLinesSyncKeyRef.current = '';
+        if (sketch) {
+          setLayoutSketchData(sketch);
+          setLayoutCanvasRemountKey((k) => k + 1);
+          sketchHadSegmentsRef.current = true;
+          setProfileSketchSaveLoadState('ok');
+        } else {
+          setLayoutSketchData(null);
+          sketchHadSegmentsRef.current = false;
+          setProfileSketchSaveLoadState('none');
+        }
+        setTab('pvc');
+      })
+      .catch(() => {
+        if (!cancelled) setProfileSketchSaveLoadState('none');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fromMaterialSketchSaveId, fromMaterialQuoteId]);
 
   /** Layout sketch geometry → PVC fence line rows (lengths and corner logic match Excel apply). */
   useEffect(() => {
@@ -1360,6 +1417,31 @@ export default function MaterialCalculatorHubPage() {
                 No plan-view sketch was found on this material request (or the request could not be loaded). Line lengths
                 and gates from the map-only flow are not shown here yet; you can draw or enter runs manually, or open the
                 job&apos;s layout drawing if you saved one.
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {fromMaterialSketchSaveId && !fromMaterialQuoteId ? (
+          <div className="mt-3 max-w-3xl space-y-2">
+            <div className="rounded-xl border border-teal-200/90 bg-teal-50/90 px-4 py-3 text-sm text-teal-950">
+              {profileSketchSaveLoadState === 'loading' ? (
+                <span className="font-semibold">Loading saved map sketch…</span>
+              ) : (
+                <>
+                  <span className="font-semibold">Saved material list.</span> This sketch came from your account
+                  snapshots (address as title).{' '}
+                  <Link
+                    href="/dashboard/material-calculator"
+                    className="font-semibold text-teal-900 underline hover:text-teal-950"
+                  >
+                    Clear import
+                  </Link>
+                </>
+              )}
+            </div>
+            {profileSketchSaveLoadState === 'none' ? (
+              <div className="rounded-xl border border-amber-200/90 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
+                That snapshot could not be loaded or no longer has drawing data.
               </div>
             ) : null}
           </div>
