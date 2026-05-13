@@ -96,6 +96,15 @@ type LayoutSketchDrawingPayload = {
   total_length_ft: number;
 };
 
+type ChainLineRow = {
+  id: string;
+  label: string;
+  length_ft: string;
+  terminal_post: string;
+  /** When true, lengths / D6 came from the layout sketch (same corner logic as PVC). */
+  fromSketch?: boolean;
+};
+
 function drawingDataToPvcLineRows(
   drawing: { points: { x: number; y: number }[]; segments: { length_ft?: number }[] },
   panelModule: FmsPvcPanelModule
@@ -119,6 +128,30 @@ function drawingDataToPvcLineRows(
     end_preset: 'custom',
     h_post_type: inp.fence_terminated_h_post_type as 0 | 1 | 2,
     u_channel: String(inp.fence_terminated_u_channel),
+    fromSketch: true,
+  }));
+}
+
+/** Same segment geometry as PVC; chain link uses Excel D6 per run (`terminal_post`). */
+function drawingDataToChainLineRows(
+  drawing: { points: { x: number; y: number }[]; segments: { length_ft?: number }[] },
+  panelModule: FmsPvcPanelModule
+): ChainLineRow[] | null {
+  const pairs = layoutPointsToSegmentPairs(drawing.points, drawing.segments);
+  if (pairs.length === 0) return null;
+  const lengthPerSeg = pairs.map((pair, i) => {
+    const raw = drawing.segments[i]?.length_ft;
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) return n;
+    const d = Math.hypot(pair[1].x - pair[0].x, pair[1].y - pair[0].y);
+    return Math.max(1e-6, d);
+  });
+  const inputs = layoutSegmentsToPvcFenceInputsPerSketchSegment(pairs, lengthPerSeg, panelModule);
+  return inputs.map((inp, i) => ({
+    id: newLineId(),
+    label: `Run ${i + 1}`,
+    length_ft: String(inp.length_ft),
+    terminal_post: String(inp.fence_terminated_h_post_type),
     fromSketch: true,
   }));
 }
@@ -184,6 +217,14 @@ function pvcGateFromSketchPlacement(
   }
   const w = widthRaw > 0 ? Math.max(widthRaw, PVC_SINGLE_GATE_MIN_IN) : PVC_SINGLE_GATE_MIN_IN;
   return { kind: 'single', row: { id: newLineId(), width_in: wStr(w), posts: 1 } };
+}
+
+function chainGateRowFromSketchPlacement(
+  placement: { type: 'single' | 'double'; line_index: number },
+  segments: { length_ft: number }[]
+): { id: string; width_in: string; posts: FmsPvcGatePosts; opening_in: string } {
+  const { row } = pvcGateFromSketchPlacement(placement, segments);
+  return { id: newLineId(), width_in: row.width_in, posts: row.posts, opening_in: '45' };
 }
 
 function parseGateRowsShort(rows: PvcGateRow[]) {
@@ -254,7 +295,7 @@ function defaultPvcLines(): PvcLineRow[] {
   ];
 }
 
-function defaultChainLines(): { id: string; label: string; length_ft: string; terminal_post: string }[] {
+function defaultChainLines(): ChainLineRow[] {
   return [{ id: newLineId(), label: 'Run 1', length_ft: '', terminal_post: '2' }];
 }
 
@@ -369,11 +410,9 @@ function parsePvcGateRows(raw: unknown): PvcGateRow[] | null {
   return out;
 }
 
-function parseChainLines(
-  raw: unknown
-): { id: string; label: string; length_ft: string; terminal_post: string }[] | null {
+function parseChainLines(raw: unknown): ChainLineRow[] | null {
   if (!Array.isArray(raw)) return null;
-  const out: { id: string; label: string; length_ft: string; terminal_post: string }[] = [];
+  const out: ChainLineRow[] = [];
   for (const row of raw) {
     if (!row || typeof row !== 'object') continue;
     const o = row as Record<string, unknown>;
@@ -383,6 +422,7 @@ function parseChainLines(
       length_ft: typeof o.length_ft === 'string' || typeof o.length_ft === 'number' ? String(o.length_ft) : '',
       terminal_post:
         typeof o.terminal_post === 'string' || typeof o.terminal_post === 'number' ? String(o.terminal_post) : '2',
+      fromSketch: o.fromSketch === true,
     });
   }
   return out.length ? out : null;
@@ -444,19 +484,23 @@ export default function MaterialCalculatorHubPage() {
   /** How many sketch `gate_placements` we have already mirrored into PVC gate rows (append-only). */
   const sketchSyncedGatePlacementCountRef = useRef(0);
   const pvcGatesSectionRef = useRef<HTMLElement | null>(null);
+  const chainGatesSectionRef = useRef<HTMLElement | null>(null);
   const [masterExtrasOpen, setMasterExtrasOpen] = useState(false);
   const [masterExtras, setMasterExtras] = useState<Partial<Record<keyof FmsPvcMasterExtras, string>>>({});
 
   /** Chain link */
-  const [chainLines, setChainLines] = useState<
-    { id: string; label: string; length_ft: string; terminal_post: string }[]
-  >(() => defaultChainLines());
+  const [chainLines, setChainLines] = useState<ChainLineRow[]>(() => defaultChainLines());
   const [chainRailFt, setChainRailFt] = useState('10');
   const [chainMeshFt, setChainMeshFt] = useState('50');
   const [chainTiesPerBag, setChainTiesPerBag] = useState('100');
   const [chainGates, setChainGates] = useState<
     { id: string; width_in: string; posts: FmsPvcGatePosts; opening_in: string }[]
   >([]);
+
+  const pvcPanelModuleForSketch = useMemo(
+    () => lines[0]?.panel_module ?? 'nominal_7ft',
+    [lines]
+  );
 
   /** Hybrid */
   const [hybHLen, setHybHLen] = useState('');
@@ -492,6 +536,7 @@ export default function MaterialCalculatorHubPage() {
   const materialCalcHydrateKeyRef = useRef<string>('');
   /** Dedupe layout sketch → fence line sync when canvas re-notifies with the same geometry. */
   const sketchToLinesSyncKeyRef = useRef<string>('');
+  const sketchToHybridSyncKeyRef = useRef<string>('');
   /** True after the canvas has had at least one segment this session (avoids clearing imported layout lines). */
   const sketchHadSegmentsRef = useRef(false);
 
@@ -803,6 +848,7 @@ export default function MaterialCalculatorHubPage() {
     sketchSyncedGatePlacementCountRef.current = 0;
     sketchHadSegmentsRef.current = false;
     sketchToLinesSyncKeyRef.current = '';
+    sketchToHybridSyncKeyRef.current = '';
     setTab('pvc');
     setJobAddress('');
     setPvcBreakdownColour('Adobe');
@@ -911,8 +957,10 @@ export default function MaterialCalculatorHubPage() {
         setShortGates([]);
         setSingleGates([]);
         setDoubleGates([]);
+        setChainGates([]);
         sketchSyncedGatePlacementCountRef.current = 0;
         sketchToLinesSyncKeyRef.current = '';
+        sketchToHybridSyncKeyRef.current = '';
         if (sketch) {
           setLayoutSketchData(sketch);
           setLayoutCanvasRemountKey((k) => k + 1);
@@ -962,8 +1010,10 @@ export default function MaterialCalculatorHubPage() {
         setShortGates([]);
         setSingleGates([]);
         setDoubleGates([]);
+        setChainGates([]);
         sketchSyncedGatePlacementCountRef.current = 0;
         sketchToLinesSyncKeyRef.current = '';
+        sketchToHybridSyncKeyRef.current = '';
         if (sketch) {
           setLayoutSketchData(sketch);
           setLayoutCanvasRemountKey((k) => k + 1);
@@ -984,15 +1034,16 @@ export default function MaterialCalculatorHubPage() {
     };
   }, [fromMaterialSketchSaveId, fromMaterialQuoteId, materialRequestId]);
 
-  /** Layout sketch geometry → PVC fence line rows (lengths and corner logic match Excel apply). */
+  /** Layout sketch geometry → PVC and chain link fence runs (same corner / D6 logic per segment). */
   useEffect(() => {
-    if (tab !== 'pvc') return;
     const payload = layoutSketchData;
     if (!payload?.segments?.length) {
       if (sketchHadSegmentsRef.current) {
         sketchHadSegmentsRef.current = false;
         sketchToLinesSyncKeyRef.current = '';
+        sketchToHybridSyncKeyRef.current = '';
         setLines((prev) => (prev.length > 0 && prev.every((l) => l.fromSketch) ? defaultPvcLines() : prev));
+        setChainLines((prev) => (prev.length > 0 && prev.every((l) => l.fromSketch) ? defaultChainLines() : prev));
       }
       return;
     }
@@ -1000,8 +1051,10 @@ export default function MaterialCalculatorHubPage() {
     const key = JSON.stringify({ p: payload.points, s: payload.segments });
     if (key === sketchToLinesSyncKeyRef.current) return;
     sketchToLinesSyncKeyRef.current = key;
+
+    const panelModule = pvcPanelModuleForSketch;
+
     setLines((prev) => {
-      const panelModule = prev[0]?.panel_module ?? 'nominal_7ft';
       const next = drawingDataToPvcLineRows(payload, panelModule);
       if (!next?.length) return prev;
       return next.map((row, i) => {
@@ -1010,11 +1063,56 @@ export default function MaterialCalculatorHubPage() {
         return row;
       });
     });
-  }, [tab, layoutSketchData]);
+    setChainLines((prev) => {
+      const next = drawingDataToChainLineRows(payload, panelModule);
+      if (!next?.length) return prev;
+      return next.map((row, i) => {
+        const old = prev[i];
+        if (old?.fromSketch) return { ...row, id: old.id, label: old.label };
+        return row;
+      });
+    });
+  }, [layoutSketchData, pvcPanelModuleForSketch]);
 
-  /** New gates placed on the layout sketch → PVC gate calculator rows + scroll to Gates. */
+  /** Vertical hybrid length + end posts from sketch (horizontal WPC length stays manual). */
   useEffect(() => {
-    if (tab !== 'pvc') return;
+    const payload = layoutSketchData;
+    if (!payload?.segments?.length) return;
+    const key = JSON.stringify({
+      p: payload.points,
+      s: payload.segments,
+      hybrid: 1,
+      pm: pvcPanelModuleForSketch,
+    });
+    if (key === sketchToHybridSyncKeyRef.current) return;
+    sketchToHybridSyncKeyRef.current = key;
+    const sum = payload.segments.reduce((a, s) => a + (Number(s.length_ft) || 0), 0);
+    if (sum > 0) setHybVLen(String(Math.round(sum * 1000) / 1000));
+    const pairs = layoutPointsToSegmentPairs(payload.points, payload.segments);
+    if (pairs.length === 0) return;
+    const lengthPerSeg = pairs.map((pair, i) => {
+      const raw = payload.segments[i]?.length_ft;
+      const n = Number(raw);
+      if (Number.isFinite(n) && n > 0) return n;
+      const d = Math.hypot(pair[1].x - pair[0].x, pair[1].y - pair[0].y);
+      return Math.max(1e-6, d);
+    });
+    const inputs = layoutSegmentsToPvcFenceInputsPerSketchSegment(
+      pairs,
+      lengthPerSeg,
+      pvcPanelModuleForSketch
+    );
+    const last = inputs[inputs.length - 1];
+    if (last) {
+      const h = Math.max(0, Math.min(2, Math.round(Number(last.fence_terminated_h_post_type) || 0)));
+      setHybVHPost(h as 0 | 1 | 2);
+      const u = Math.max(0, Math.min(2, Math.round(Number(last.fence_terminated_u_channel) || 0)));
+      setHybVU(u as 0 | 1 | 2);
+    }
+  }, [layoutSketchData, pvcPanelModuleForSketch]);
+
+  /** New gates placed on the layout sketch → PVC + chain link gate rows; scroll to the active tab’s gate block. */
+  useEffect(() => {
     const drawing = layoutSketchData;
     const gp = drawing?.gate_placements;
     const segs = drawing?.segments;
@@ -1035,12 +1133,14 @@ export default function MaterialCalculatorHubPage() {
       if (kind === 'short') setShortGates((p) => [...p, row]);
       else if (kind === 'single') setSingleGates((p) => [...p, row]);
       else setDoubleGates((p) => [...p, row]);
+      setChainGates((p) => [...p, chainGateRowFromSketchPlacement(placement, segs)]);
     }
     sketchSyncedGatePlacementCountRef.current = gp.length;
 
     if (newPlacements.length > 0) {
       requestAnimationFrame(() => {
-        pvcGatesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        if (tab === 'chain') chainGatesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        else pvcGatesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       });
     }
   }, [layoutSketchData, tab]);
@@ -1478,10 +1578,10 @@ export default function MaterialCalculatorHubPage() {
           </div>
         ) : null}
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
-          Takeoff aligned to the 2026 FMS workbook: PVC includes fence lines, short / single / double gates (Excel gate
-          block), per-colour Material List Breakdown labels (pick the same colour tab you use in Excel), Master column C
-          totals with optional column M adders, and hybrid horizontal WPC + vertical PVC colours. Chain link and
-          hybrid tabs run the ported formula modules from their calculator sheets.
+          One plan sketch drives PVC fence lines and gates, chain link runs and gates, and hybrid vertical length (plus
+          end posts). Pick a style tab for the workbook block you are filling: PVC includes per-colour Material List
+          Breakdown and Master column C; chain link and hybrid use the ported formula modules from their calculator
+          sheets.
         </p>
         <p className="mt-2 text-xs text-slate-500">
           For a configurable per-panel BOM (rails rule, custom items), use{' '}
@@ -1525,89 +1625,95 @@ export default function MaterialCalculatorHubPage() {
         </button>
       </div>
 
+      <section className={card}>
+        <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-emerald-50/30 px-5 py-4">
+          <h2 className={h2}>Job</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Same browser draft for every style tab (auto-saves when you leave the page). Not stored in the database.
+          </p>
+        </div>
+        <div className="p-5">
+          <label className="mb-1 block text-sm font-medium text-slate-700">Address / label</label>
+          <input
+            type="text"
+            value={jobAddress}
+            onChange={(e) => setJobAddress(e.target.value)}
+            placeholder="e.g. 53 Rothesay"
+            className={`${field} w-full max-w-xl`}
+          />
+        </div>
+      </section>
+
+      <section className={card}>
+        <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-violet-50/25 px-5 py-4">
+          <h2 className={h2}>Layout sketch</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Plan view for the whole job: segment lengths and gates sync to the <strong className="font-medium text-slate-700">PVC</strong>,{' '}
+            <strong className="font-medium text-slate-700">Chain link</strong>, and <strong className="font-medium text-slate-700">Hybrid</strong>{' '}
+            tabs (PVC fence lines + gates; chain runs + D6 + chain gates; hybrid vertical length and end posts from the
+            same geometry). Horizontal hybrid WPC length stays manual. New segments snap within 6 ft; within 25° of
+            straight they stay colinear. Use Single / Double gate on the canvas to add gate rows on PVC and chain.
+          </p>
+        </div>
+        <div className="space-y-4 p-5">
+          <div className="flex w-full flex-col gap-3">
+            <LayoutDrawCanvas
+              key={layoutCanvasRemountKey}
+              fillParent={false}
+              initialDrawing={
+                layoutSketchData
+                  ? {
+                      points: layoutSketchData.points,
+                      segments: layoutSketchData.segments,
+                      gates: layoutSketchData.gates ?? [],
+                      total_length_ft: layoutSketchData.total_length_ft,
+                      gate_placements: layoutSketchData.gate_placements ?? [],
+                    }
+                  : null
+              }
+              onDrawingChange={setLayoutSketchData}
+            />
+            {(lines.some((l) => l.fromSketch) || chainLines.some((l) => l.fromSketch)) && (
+              <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+                <button
+                  type="button"
+                  className={btnGhost}
+                  onClick={() => {
+                    setLines((prev) => prev.map((l) => ({ ...l, fromSketch: false })));
+                    setChainLines((prev) => prev.map((l) => ({ ...l, fromSketch: false })));
+                  }}
+                >
+                  Unlock sketch-driven rows (PVC line ends + chain D6)
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
       {tab === 'pvc' && (
         <>
           <section className={card}>
             <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-emerald-50/30 px-5 py-4">
-              <h2 className={h2}>Job</h2>
+              <h2 className={h2}>PVC colour</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Same browser draft as the rest of this calculator (auto-saves when you leave the page). Not stored in
-                the database.
+                Matches the per-colour &quot;Material List Breakdown&quot; sheet name in Excel. Optional URL:{' '}
+                <code className="rounded bg-slate-100 px-1 text-[11px]">?tab=pvc&amp;pvc_colour=Moonlit</code>
               </p>
             </div>
-            <div className="grid gap-4 p-5 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <label className="mb-1 block text-sm font-medium text-slate-700">Address / label</label>
-                <input
-                  type="text"
-                  value={jobAddress}
-                  onChange={(e) => setJobAddress(e.target.value)}
-                  placeholder="e.g. 53 Rothesay"
-                  className={`${field} w-full max-w-xl`}
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">PVC colour (breakdown tab)</label>
-                <select
-                  value={pvcBreakdownColour}
-                  onChange={(e) => setPvcBreakdownColour(e.target.value as FmsPvcCalculatorColour)}
-                  className={`${field} w-full max-w-xs`}
-                >
-                  {FMS_PVC_CALCULATOR_COLOURS.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1 text-xs text-slate-500">
-                  Matches the per-colour &quot;Material List Breakdown&quot; sheet name in Excel. Line math is shared
-                  across colours; use this so headings and TSV match the tab you are filling in. Optional URL:{' '}
-                  <code className="rounded bg-slate-100 px-1 text-[11px]">?tab=pvc&amp;pvc_colour=Moonlit</code>
-                </p>
-              </div>
-            </div>
-          </section>
-
-          <section className={card}>
-            <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-violet-50/25 px-5 py-4">
-              <h2 className={h2}>Layout sketch</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Draw the fence in plan view and enter each segment length in feet—runs appear automatically in Fence
-                lines below with the same corner / U-channel logic as Excel. New segments snap to nearby corners within
-                6 ft; if the next segment is within 25° of straight, it snaps colinear. Use Single gate / Double gate on
-                the canvas to add matching rows under Gates (width from that line&apos;s length in feet).
-              </p>
-            </div>
-            <div className="space-y-4 p-5">
-              <div className="flex w-full flex-col gap-3">
-                <LayoutDrawCanvas
-                  key={layoutCanvasRemountKey}
-                  fillParent={false}
-                  initialDrawing={
-                    layoutSketchData
-                      ? {
-                          points: layoutSketchData.points,
-                          segments: layoutSketchData.segments,
-                          gates: layoutSketchData.gates ?? [],
-                          total_length_ft: layoutSketchData.total_length_ft,
-                          gate_placements: layoutSketchData.gate_placements ?? [],
-                        }
-                      : null
-                  }
-                  onDrawingChange={setLayoutSketchData}
-                />
-                {lines.some((l) => l.fromSketch) && (
-                  <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-                    <button
-                      type="button"
-                      className={btnGhost}
-                      onClick={() => setLines((prev) => prev.map((l) => ({ ...l, fromSketch: false })))}
-                    >
-                      Unlock line ends (manual D6 / D7)
-                    </button>
-                  </div>
-                )}
-              </div>
+            <div className="p-5">
+              <label className="mb-1 block text-sm font-medium text-slate-700">PVC colour (breakdown tab)</label>
+              <select
+                value={pvcBreakdownColour}
+                onChange={(e) => setPvcBreakdownColour(e.target.value as FmsPvcCalculatorColour)}
+                className={`${field} w-full max-w-xs`}
+              >
+                {FMS_PVC_CALCULATOR_COLOURS.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
             </div>
           </section>
 
@@ -1972,8 +2078,9 @@ export default function MaterialCalculatorHubPage() {
             <div className="border-b border-slate-100 px-5 py-4">
               <h2 className={h2}>Chain link fence</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Primary block from Material Calculator — Chain link (rows 10–27). Terminal post type is Excel D6;
-                rail / mesh / ties divisors match D7–D9.
+                Primary block from Material Calculator — Chain link (rows 10–27). Runs and D6 terminal post type sync
+                from the layout sketch above (same segment geometry as PVC). Terminal post type is Excel D6; rail / mesh /
+                ties divisors match D7–D9.
               </p>
             </div>
             <div className="space-y-4 p-5">
@@ -2012,20 +2119,26 @@ export default function MaterialCalculatorHubPage() {
                   />
                 </div>
               </div>
-              {chainLines.map((row, idx) => (
+              {chainLines.map((row) => (
                 <div
                   key={row.id}
                   className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-100 bg-slate-50/40 p-4"
                 >
+                  {row.fromSketch ? (
+                    <p className="mb-2 w-full rounded-lg border border-violet-100 bg-violet-50/80 px-3 py-2 text-xs text-violet-900">
+                      From layout sketch: D6 matches corner logic shared with PVC (same segment geometry).
+                    </p>
+                  ) : null}
                   <div>
                     <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">Label</label>
                     <input
                       type="text"
                       value={row.label}
+                      disabled={row.fromSketch}
                       onChange={(e) =>
                         setChainLines((rows) => rows.map((r) => (r.id === row.id ? { ...r, label: e.target.value } : r)))
                       }
-                      className={`${field} w-32`}
+                      className={`${field} w-32 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70`}
                     />
                   </div>
                   <div>
@@ -2035,12 +2148,13 @@ export default function MaterialCalculatorHubPage() {
                       min={0}
                       step={0.1}
                       value={row.length_ft}
+                      disabled={row.fromSketch}
                       onChange={(e) =>
                         setChainLines((rows) =>
                           rows.map((r) => (r.id === row.id ? { ...r, length_ft: e.target.value } : r))
                         )
                       }
-                      className={`${field} w-28`}
+                      className={`${field} w-28 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70`}
                     />
                   </div>
                   <div>
@@ -2050,12 +2164,13 @@ export default function MaterialCalculatorHubPage() {
                       min={0}
                       step={1}
                       value={row.terminal_post}
+                      disabled={row.fromSketch}
                       onChange={(e) =>
                         setChainLines((rows) =>
                           rows.map((r) => (r.id === row.id ? { ...r, terminal_post: e.target.value } : r))
                         )
                       }
-                      className={`${field} w-24`}
+                      className={`${field} w-24 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70`}
                     />
                   </div>
                   <button
@@ -2083,10 +2198,12 @@ export default function MaterialCalculatorHubPage() {
             </div>
           </section>
 
-          <section className={card}>
+          <section ref={chainGatesSectionRef} className={card}>
             <div className="border-b border-slate-100 px-5 py-4">
               <h2 className={h2}>Chain link gates</h2>
-              <p className="mt-1 text-xs text-slate-500">Gate block (sheet rows 37–45 style): frame, posts, extension, hardware.</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Gate block (sheet rows 37–45 style). Sketch gates add rows here with the same widths as PVC.
+              </p>
             </div>
             <div className="p-5">
               <button
@@ -2235,7 +2352,9 @@ export default function MaterialCalculatorHubPage() {
               <h2 className={h2}>{fmsWpcHorizontalCalculatorTitle(hybridWpcColour)}</h2>
               <p className="mt-1 text-xs text-slate-600">
                 From Horizontal Material Calculator. Leave length blank or zero to omit horizontal from the combined
-                preview. Pick the WPC colour tab you use in Excel for this run.
+                preview. Pick the WPC colour tab you use in Excel for this run.{' '}
+                <span className="font-medium text-slate-800">Horizontal length is not auto-filled from the sketch</span>
+                (enter the WPC run separately).
               </p>
             </div>
             <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -2324,7 +2443,9 @@ export default function MaterialCalculatorHubPage() {
               <h2 className={h2}>{fmsPvcVerticalCalculatorTitle(hybridPvcColour)}</h2>
               <p className="mt-1 text-xs text-slate-600">
                 From Vertical Material Calculator (8 ft panel divisor). Choose the PVC colour sheet that matches this
-                vertical section.
+                vertical section. <span className="font-medium text-slate-800">Length, H-post type, and U-channel</span>{' '}
+                update from the layout sketch (sum of segment lengths; end post from the last segment). Adjust manually
+                if your vertical run differs from the full sketch perimeter.
               </p>
             </div>
             <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
