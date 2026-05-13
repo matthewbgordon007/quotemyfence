@@ -13,11 +13,11 @@ import {
 import {
   deflectionAtVertexDeg,
   LAYOUT_CHAIN_ALIGN_FT,
-  LAYOUT_SNAP_VERTEX_FT,
   LAYOUT_STRAIGHT_MAX_DEG,
   layoutPointsToSegmentPairs,
+  segmentEndpointAnchors,
   snapEndColinearWithPrev,
-  snapPointToNearestAnchorIfClose,
+  snapPointToSketchGeometry,
 } from '@/lib/layout-sketch-to-pvc-inputs';
 
 // Canvas uses feet as coordinate system. Origin at center.
@@ -64,17 +64,6 @@ export interface LayoutDrawCanvasProps {
 
 function dist(a: { x: number; y: number }, b: { x: number; y: number }): number {
   return Math.hypot(b.x - a.x, b.y - a.y);
-}
-
-/** All segment endpoints for vertex snapping. */
-function segmentEndpointAnchors(segs: { x: number; y: number }[][]): { x: number; y: number }[] {
-  const out: { x: number; y: number }[] = [];
-  for (const seg of segs) {
-    if (seg.length >= 2) {
-      out.push(seg[0], seg[1]);
-    }
-  }
-  return out;
 }
 
 function nearestPointOnSegment(
@@ -294,7 +283,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
     const previewDraw = useMemo(() => {
       if (currentPath.length !== 1 || !hoverPt) return null;
       const anchorsAll = segmentEndpointAnchors(segments);
-      let start = snapPointToNearestAnchorIfClose(currentPath[0], anchorsAll, LAYOUT_SNAP_VERTEX_FT);
+      let start = snapPointToSketchGeometry(currentPath[0], segments);
       let end = { ...hoverPt };
       if (segments.length > 0) {
         const last = segments[segments.length - 1];
@@ -311,7 +300,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         }
       }
       const endAnchors = anchorsAll.filter((a) => dist(a, start) > 0.06);
-      end = snapPointToNearestAnchorIfClose(end, endAnchors, LAYOUT_SNAP_VERTEX_FT);
+      end = snapPointToSketchGeometry(end, segments, { vertexAnchors: endAnchors });
       return { start, end };
     }, [currentPath, hoverPt, segments]);
 
@@ -480,12 +469,12 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       if (currentPath.length === 0) {
         let p = { x, y };
         if (segments.length > 0) {
-          p = snapPointToNearestAnchorIfClose(p, segmentEndpointAnchors(segments), LAYOUT_SNAP_VERTEX_FT);
+          p = snapPointToSketchGeometry(p, segments);
         }
         setCurrentPath([p]);
       } else {
         const anchorsAll = segmentEndpointAnchors(segments);
-        let start = snapPointToNearestAnchorIfClose(currentPath[0], anchorsAll, LAYOUT_SNAP_VERTEX_FT);
+        let start = snapPointToSketchGeometry(currentPath[0], segments);
         let end = { x, y };
         if (segments.length > 0) {
           const last = segments[segments.length - 1];
@@ -502,7 +491,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
           }
         }
         const endAnchors = anchorsAll.filter((a) => dist(a, start) > 0.06);
-        end = snapPointToNearestAnchorIfClose(end, endAnchors, LAYOUT_SNAP_VERTEX_FT);
+        end = snapPointToSketchGeometry(end, segments, { vertexAnchors: endAnchors });
         if (dist(start, end) < MIN_DRAW_SEGMENT_FT) {
           setHoverPt(null);
           return;
@@ -517,7 +506,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
     function finishLineAt(hover: { x: number; y: number } | null) {
       if (currentPath.length !== 1 || !hover) return;
       const anchorsAll = segmentEndpointAnchors(segments);
-      let start = snapPointToNearestAnchorIfClose(currentPath[0], anchorsAll, LAYOUT_SNAP_VERTEX_FT);
+      let start = snapPointToSketchGeometry(currentPath[0], segments);
       let end = { ...hover };
       if (segments.length > 0) {
         const last = segments[segments.length - 1];
@@ -534,7 +523,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         }
       }
       const endAnchors = anchorsAll.filter((a) => dist(a, start) > 0.06);
-      end = snapPointToNearestAnchorIfClose(end, endAnchors, LAYOUT_SNAP_VERTEX_FT);
+      end = snapPointToSketchGeometry(end, segments, { vertexAnchors: endAnchors });
       if (dist(start, end) < MIN_DRAW_SEGMENT_FT) {
         setHoverPt(null);
         return;
@@ -947,7 +936,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
           <div className="mt-3 space-y-3">
             <div className="flex flex-wrap items-center gap-3">
               <span className="text-base font-medium text-[var(--muted)]">Lengths (ft):</span>
-              {segments.length <= 15 ? segments.map((_, i) => (
+              {segments.length <= 40 ? segments.map((_, i) => (
                 <div key={i} className="flex flex-wrap items-center gap-1.5">
                   <span className="text-base">Line {i + 1}:</span>
                   <input

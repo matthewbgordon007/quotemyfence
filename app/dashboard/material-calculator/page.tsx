@@ -40,7 +40,10 @@ import {
   type FmsWpcCalculatorColour,
 } from '@/lib/fms-calculator-colour-presets';
 import { LayoutDrawCanvas } from '@/components/LayoutDrawCanvas';
-import { layoutPointsToSegmentPairs, layoutSegmentsToPvcFenceInputs } from '@/lib/layout-sketch-to-pvc-inputs';
+import {
+  layoutPointsToSegmentPairs,
+  layoutSegmentsToPvcFenceInputsPerSketchSegment,
+} from '@/lib/layout-sketch-to-pvc-inputs';
 
 const card =
   'overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-md shadow-slate-900/[0.04] ring-1 ring-slate-900/[0.03]';
@@ -92,6 +95,7 @@ function drawingDataToPvcLineRows(
 ): PvcLineRow[] | null {
   const pairs = layoutPointsToSegmentPairs(drawing.points, drawing.segments);
   if (pairs.length === 0) return null;
+  // One calculator row per drawn segment (do not merge colinear runs — matches sketch line count).
   const lengthPerSeg = pairs.map((pair, i) => {
     const raw = drawing.segments[i]?.length_ft;
     const n = Number(raw);
@@ -99,7 +103,7 @@ function drawingDataToPvcLineRows(
     const d = Math.hypot(pair[1].x - pair[0].x, pair[1].y - pair[0].y);
     return Math.max(1e-6, d);
   });
-  const inputs = layoutSegmentsToPvcFenceInputs(pairs, lengthPerSeg, panelModule);
+  const inputs = layoutSegmentsToPvcFenceInputsPerSketchSegment(pairs, lengthPerSeg, panelModule);
   return inputs.map((inp, i) => ({
     id: newLineId(),
     label: `Run ${i + 1}`,

@@ -127,6 +127,71 @@ export function snapPointToNearestAnchorIfClose(p: LayoutPt, anchors: LayoutPt[]
   return best ? { ...best } : p;
 }
 
+/** All segment endpoints (for vertex snapping). */
+export function segmentEndpointAnchors(segments: LayoutPt[][]): LayoutPt[] {
+  const out: LayoutPt[] = [];
+  for (const seg of segments) {
+    if (seg.length >= 2) {
+      out.push(seg[0], seg[1]);
+    }
+  }
+  return out;
+}
+
+function nearestPointOnSegment(p: LayoutPt, a: LayoutPt, b: LayoutPt): LayoutPt {
+  const vx = b.x - a.x;
+  const vy = b.y - a.y;
+  const v2 = vx * vx + vy * vy;
+  if (v2 < 1e-10) return { ...a };
+  let t = ((p.x - a.x) * vx + (p.y - a.y) * vy) / v2;
+  t = Math.max(0, Math.min(1, t));
+  return { x: a.x + t * vx, y: a.y + t * vy };
+}
+
+/**
+ * Prefer snapping to a vertex within `vertexSnapFt` (closest such vertex wins).
+ * Otherwise snap to the closest point on any segment within `edgeSnapFt`.
+ * If `vertexAnchors` is set, only those points are considered for vertex snap (e.g. exclude line start).
+ */
+export function snapPointToSketchGeometry(
+  p: LayoutPt,
+  segments: LayoutPt[][],
+  opts?: {
+    vertexSnapFt?: number;
+    edgeSnapFt?: number;
+    vertexAnchors?: LayoutPt[];
+  }
+): LayoutPt {
+  const vs = opts?.vertexSnapFt ?? LAYOUT_SNAP_VERTEX_FT;
+  const es = opts?.edgeSnapFt ?? LAYOUT_SNAP_VERTEX_FT;
+  const anchors = opts?.vertexAnchors ?? segmentEndpointAnchors(segments);
+
+  let bestA: LayoutPt | null = null;
+  let bestAD = Infinity;
+  for (const a of anchors) {
+    const d = dist(p, a);
+    if (d <= vs && d < bestAD) {
+      bestAD = d;
+      bestA = a;
+    }
+  }
+  if (bestA) return { ...bestA };
+
+  let bestP: LayoutPt | null = null;
+  let bestD = Infinity;
+  for (const seg of segments) {
+    if (seg.length < 2) continue;
+    const np = nearestPointOnSegment(p, seg[0], seg[1]);
+    const d = dist(p, np);
+    if (d <= es && d < bestD) {
+      bestD = d;
+      bestP = np;
+    }
+  }
+  if (bestP) return { ...bestP };
+  return p;
+}
+
 export interface LayoutSegmentFeet {
   a: LayoutPt;
   b: LayoutPt;
@@ -218,4 +283,36 @@ export function layoutSegmentsToPvcFenceInputs(
     fence_terminated_u_channel: r.uEnd,
     panel_module: panelModule,
   }));
+}
+
+/**
+ * One PVC fence line per drawn sketch segment (no merging of nearly straight runs).
+ * D7 = 1 on a segment when the deflection to the next segment exceeds the straight band (same corner U rule).
+ */
+export function layoutSegmentsToPvcFenceInputsPerSketchSegment(
+  segments: LayoutPt[][],
+  lengthPerSegmentFt: number[],
+  panelModule: FmsPvcPanelModule,
+  opts?: { snapStraightDeg?: number; chainAlignFt?: number; minSegFt?: number }
+): FmsPvcFenceLineInput[] {
+  const straightMax = opts?.snapStraightDeg ?? LAYOUT_STRAIGHT_MAX_DEG;
+  const chainAlign = opts?.chainAlignFt ?? LAYOUT_CHAIN_ALIGN_FT;
+  const minSeg = opts?.minSegFt ?? LAYOUT_MIN_SKETCH_SEGMENT_FT;
+
+  const segs = alignChainedSketchSegments(segments, lengthPerSegmentFt, chainAlign, minSeg);
+  if (segs.length === 0) return [];
+
+  return segs.map((seg, i) => {
+    let uEnd = 0;
+    if (i < segs.length - 1) {
+      const d = deflectionAtVertexDeg(segs[i].a, segs[i].b, segs[i + 1].b);
+      if (d > straightMax) uEnd = 1;
+    }
+    return {
+      length_ft: seg.length_ft,
+      fence_terminated_h_post_type: 1,
+      fence_terminated_u_channel: uEnd,
+      panel_module: panelModule,
+    };
+  });
 }
