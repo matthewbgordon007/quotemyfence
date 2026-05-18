@@ -3,7 +3,9 @@
 import Link from 'next/link';
 import { motion, useReducedMotion, useScroll, useSpring, useTransform } from 'framer-motion';
 
-const DEMO_URL = 'https://www.quotemyfence.ca/estimate/demo-fence-inc/contact';
+import { publicDemoEstimateContactUrl } from '@/lib/public-demo';
+
+const DEMO_URL = publicDemoEstimateContactUrl();
 const SCHEDULE_CALL_URL = 'https://calendar.app.google/vuWD6xi7CfNptAon9';
 
 export function DesktopCTARail() {

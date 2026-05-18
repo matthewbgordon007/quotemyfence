@@ -52,8 +52,12 @@ import {
 } from '@/lib/map-fence-to-layout-drawing';
 import {
   adjustLayoutDrawingSegmentLength,
+  alignChainedSketchSegments,
   layoutPointsToSegmentPairs,
   layoutSegmentsToPvcFenceInputsPerSketchSegment,
+  LAYOUT_CHAIN_ALIGN_FT,
+  LAYOUT_MIN_SKETCH_SEGMENT_FT,
+  type SketchJointTermination,
 } from '@/lib/layout-sketch-to-pvc-inputs';
 
 const card =
@@ -98,6 +102,8 @@ type LayoutSketchDrawingPayload = {
   gates: { type: 'single' | 'double'; quantity: number }[];
   gate_placements: { type: 'single' | 'double'; line_index: number }[];
   total_length_ft: number;
+  /** Per vertex (count = segments + 1): explicit H-post / U-channel for PVC D6/D7 at each corner or open end. */
+  joint_terminations?: SketchJointTermination[];
 };
 
 type ChainLineRow = {
@@ -110,7 +116,11 @@ type ChainLineRow = {
 };
 
 function drawingDataToPvcLineRows(
-  drawing: { points: { x: number; y: number }[]; segments: { length_ft?: number }[] },
+  drawing: {
+    points: { x: number; y: number }[];
+    segments: { length_ft?: number }[];
+    joint_terminations?: SketchJointTermination[] | null;
+  },
   panelModule: FmsPvcPanelModule
 ): PvcLineRow[] | null {
   const pairs = layoutPointsToSegmentPairs(drawing.points, drawing.segments);
@@ -123,7 +133,9 @@ function drawingDataToPvcLineRows(
     const d = Math.hypot(pair[1].x - pair[0].x, pair[1].y - pair[0].y);
     return Math.max(1e-6, d);
   });
-  const inputs = layoutSegmentsToPvcFenceInputsPerSketchSegment(pairs, lengthPerSeg, panelModule);
+  const inputs = layoutSegmentsToPvcFenceInputsPerSketchSegment(pairs, lengthPerSeg, panelModule, {
+    jointTerminations: drawing.joint_terminations ?? null,
+  });
   return inputs.map((inp, i) => ({
     id: newLineId(),
     label: `Run ${i + 1}`,
@@ -138,7 +150,11 @@ function drawingDataToPvcLineRows(
 
 /** Same segment geometry as PVC; chain link uses Excel D6 per run (`terminal_post`). */
 function drawingDataToChainLineRows(
-  drawing: { points: { x: number; y: number }[]; segments: { length_ft?: number }[] },
+  drawing: {
+    points: { x: number; y: number }[];
+    segments: { length_ft?: number }[];
+    joint_terminations?: SketchJointTermination[] | null;
+  },
   panelModule: FmsPvcPanelModule
 ): ChainLineRow[] | null {
   const pairs = layoutPointsToSegmentPairs(drawing.points, drawing.segments);
@@ -150,7 +166,9 @@ function drawingDataToChainLineRows(
     const d = Math.hypot(pair[1].x - pair[0].x, pair[1].y - pair[0].y);
     return Math.max(1e-6, d);
   });
-  const inputs = layoutSegmentsToPvcFenceInputsPerSketchSegment(pairs, lengthPerSeg, panelModule);
+  const inputs = layoutSegmentsToPvcFenceInputsPerSketchSegment(pairs, lengthPerSeg, panelModule, {
+    jointTerminations: drawing.joint_terminations ?? null,
+  });
   return inputs.map((inp, i) => ({
     id: newLineId(),
     label: `Run ${i + 1}`,
@@ -373,10 +391,44 @@ function parseLayoutSketch(raw: unknown): LayoutSketchDrawingPayload | null {
       return { type: type as 'single' | 'double', line_index };
     })
     .filter((_, i) => i < 500);
+  const jtRaw = Array.isArray(o.joint_terminations) ? o.joint_terminations : null;
+  let joint_terminations: SketchJointTermination[] | undefined;
+  if (jtRaw && segments.length > 0) {
+    const pairs = layoutPointsToSegmentPairs(pts, segments);
+    if (pairs.length === segments.length) {
+      const lengthPerSeg = segments.map((s, i) => {
+        const n = Number(s.length_ft);
+        const pair = pairs[i];
+        if (Number.isFinite(n) && n > 0) return n;
+        if (pair && pair.length >= 2) return Math.hypot(pair[1].x - pair[0].x, pair[1].y - pair[0].y);
+        return 0;
+      });
+      const al = alignChainedSketchSegments(
+        pairs,
+        lengthPerSeg,
+        LAYOUT_CHAIN_ALIGN_FT,
+        LAYOUT_MIN_SKETCH_SEGMENT_FT
+      );
+      const expectedAligned = al.length + 1;
+      const expectedRaw = segments.length + 1;
+      const lenOk =
+        jtRaw.length === expectedAligned ||
+        (jtRaw.length === expectedRaw && al.length === segments.length);
+      if (lenOk) {
+        joint_terminations = jtRaw.slice(0, expectedAligned).map((row) => {
+          const q = row && typeof row === 'object' ? (row as Record<string, unknown>) : {};
+          return {
+            h_post: q.h_post !== false,
+            u_channel: q.u_channel === true,
+          };
+        });
+      }
+    }
+  }
   const total = Number(o.total_length_ft);
   const total_length_ft = Number.isFinite(total) ? total : 0;
   if (pts.length === 0 && segments.length === 0 && gates.length === 0 && gate_placements.length === 0) return null;
-  return { points: pts, segments, gates, gate_placements, total_length_ft };
+  return { points: pts, segments, gates, gate_placements, total_length_ft, ...(joint_terminations ? { joint_terminations } : {}) };
 }
 
 /** Saved layout drawing, or map segments + gates when no plan-view layout row exists. */
@@ -1158,7 +1210,8 @@ export default function MaterialCalculatorHubPage() {
     const inputs = layoutSegmentsToPvcFenceInputsPerSketchSegment(
       pairs,
       lengthPerSeg,
-      pvcPanelModuleForSketch
+      pvcPanelModuleForSketch,
+      { jointTerminations: payload.joint_terminations ?? null }
     );
     const last = inputs[inputs.length - 1];
     if (last) {
@@ -1822,6 +1875,7 @@ export default function MaterialCalculatorHubPage() {
             tabs (PVC fence lines + gates; chain runs + D6 + chain gates; hybrid vertical length and end posts from the
             same geometry). Horizontal hybrid WPC length stays manual. New segments snap within 6 ft; within 25° of
             straight they stay colinear. Use Single / Double gate on the canvas to add gate rows on PVC and chain.
+            Use <strong className="font-medium text-slate-700">Line ends (PVC)</strong> to set H-post and U-channel at each corner or open end (Excel D6/D7).
           </p>
         </div>
         <div className="space-y-4 p-5">
@@ -1837,6 +1891,9 @@ export default function MaterialCalculatorHubPage() {
                       gates: layoutSketchData.gates ?? [],
                       total_length_ft: layoutSketchData.total_length_ft,
                       gate_placements: layoutSketchData.gate_placements ?? [],
+                      ...(layoutSketchData.joint_terminations?.length
+                        ? { joint_terminations: layoutSketchData.joint_terminations }
+                        : {}),
                     }
                   : null
               }

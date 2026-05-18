@@ -25,6 +25,9 @@ export const LAYOUT_MIN_SKETCH_SEGMENT_FT = 0.08;
 
 export type LayoutPt = { x: number; y: number };
 
+/** Per vertex along the chained sketch: open ends + corners. Index 0 = first point; index m = last point (m = segment count). */
+export type SketchJointTermination = { h_post: boolean; u_channel: boolean };
+
 /**
  * Rebuild segment pairs from saved layout `points` + `segments` metadata
  * (same rules as `LayoutDrawCanvas` / layout save).
@@ -81,6 +84,7 @@ export function adjustLayoutDrawingSegmentLength<
     gates?: { type: 'single' | 'double'; quantity: number }[];
     gate_placements?: { type: 'single' | 'double'; line_index: number }[];
     total_length_ft?: number;
+    joint_terminations?: SketchJointTermination[];
   },
 >(drawing: T, segmentIndex: number, newLengthFt: number): T | null {
   const m = drawing.segments.length;
@@ -281,6 +285,21 @@ export interface LayoutSegmentFeet {
   length_ft: number;
 }
 
+/** Defaults: H-post at every joint; U only where turn exceeds straight band (legacy auto rule). */
+export function defaultJointTerminationsFromAligned(al: LayoutSegmentFeet[]): SketchJointTermination[] {
+  const n = al.length;
+  if (n === 0) return [];
+  const out: SketchJointTermination[] = [];
+  out.push({ h_post: true, u_channel: false });
+  for (let i = 1; i < n; i++) {
+    const d = deflectionAtVertexDeg(al[i - 1].a, al[i - 1].b, al[i].b);
+    const u = d > LAYOUT_STRAIGHT_MAX_DEG;
+    out.push({ h_post: true, u_channel: u });
+  }
+  out.push({ h_post: true, u_channel: false });
+  return out;
+}
+
 /**
  * Snap each segment’s start to the previous end when close, then drop micro-segments.
  * Ensures one physical corner → one joint angle → one U (on the ending run only).
@@ -376,25 +395,42 @@ export function layoutSegmentsToPvcFenceInputsPerSketchSegment(
   segments: LayoutPt[][],
   lengthPerSegmentFt: number[],
   panelModule: FmsPvcPanelModule,
-  opts?: { snapStraightDeg?: number; chainAlignFt?: number; minSegFt?: number }
+  opts?: {
+    snapStraightDeg?: number;
+    chainAlignFt?: number;
+    minSegFt?: number;
+    /** When length is `alignedSegments.length + 1`, overrides corner-angle U logic for each vertex. */
+    jointTerminations?: SketchJointTermination[] | null;
+  }
 ): FmsPvcFenceLineInput[] {
   const straightMax = opts?.snapStraightDeg ?? LAYOUT_STRAIGHT_MAX_DEG;
   const chainAlign = opts?.chainAlignFt ?? LAYOUT_CHAIN_ALIGN_FT;
   const minSeg = opts?.minSegFt ?? LAYOUT_MIN_SKETCH_SEGMENT_FT;
+  const jointTerminations = opts?.jointTerminations;
 
   const segs = alignChainedSketchSegments(segments, lengthPerSegmentFt, chainAlign, minSeg);
   if (segs.length === 0) return [];
 
+  const useJoints = jointTerminations && jointTerminations.length === segs.length + 1;
+
   return segs.map((seg, i) => {
-    let uEnd = 0;
-    if (i < segs.length - 1) {
-      const d = deflectionAtVertexDeg(segs[i].a, segs[i].b, segs[i + 1].b);
-      if (d > straightMax) uEnd = 1;
+    let d6: 0 | 1 | 2 = 1;
+    let d7 = 0;
+    if (useJoints) {
+      const cap = jointTerminations![i + 1];
+      d6 = (cap?.h_post ? 1 : 0) as 0 | 1 | 2;
+      d7 = cap?.u_channel ? 1 : 0;
+    } else {
+      if (i < segs.length - 1) {
+        const d = deflectionAtVertexDeg(segs[i].a, segs[i].b, segs[i + 1].b);
+        if (d > straightMax) d7 = 1;
+      }
+      d6 = 1;
     }
     return {
       length_ft: seg.length_ft,
-      fence_terminated_h_post_type: 1,
-      fence_terminated_u_channel: uEnd,
+      fence_terminated_h_post_type: d6,
+      fence_terminated_u_channel: d7,
       panel_module: panelModule,
     };
   });

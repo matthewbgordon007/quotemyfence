@@ -5,7 +5,9 @@ import { JsonLd } from '@/components/JsonLd';
 import { SITE_URL, canonical, SEO_DEFAULTS } from '@/lib/seo';
 
 const SCHEDULE_CALL_URL = 'https://calendar.app.google/vuWD6xi7CfNptAon9';
-const DEMO_URL = 'https://www.quotemyfence.ca/estimate/demo-fence-inc/contact';
+import { publicDemoEstimateContactUrl } from '@/lib/public-demo';
+
+const DEMO_URL = publicDemoEstimateContactUrl();
 
 export const metadata: Metadata = {
   title: 'Blog | Fence Contractor Tips, Guides & Lead Generation | QuoteMyFence',

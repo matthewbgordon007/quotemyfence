@@ -11,13 +11,17 @@ import {
   useState,
 } from 'react';
 import {
+  alignChainedSketchSegments,
+  defaultJointTerminationsFromAligned,
   deflectionAtVertexDeg,
   LAYOUT_CHAIN_ALIGN_FT,
+  LAYOUT_MIN_SKETCH_SEGMENT_FT,
   LAYOUT_STRAIGHT_MAX_DEG,
   layoutPointsToSegmentPairs,
   segmentEndpointAnchors,
   snapEndColinearWithPrev,
   snapPointToSketchGeometry,
+  type SketchJointTermination,
 } from '@/lib/layout-sketch-to-pvc-inputs';
 
 // Canvas uses feet as coordinate system. Origin at center.
@@ -54,6 +58,8 @@ export interface LayoutDrawCanvasProps {
     total_length_ft: number;
     /** Nearest line index per placed gate (export / calculator). */
     gate_placements?: LayoutGatePlacement[];
+    /** One per chained vertex (aligned segment count + 1); drives PVC D6/D7 per sketch segment. */
+    joint_terminations?: SketchJointTermination[];
   } | null;
   /** When true, fit view to drawing and hide editing controls */
   readOnly?: boolean;
@@ -65,6 +71,7 @@ export interface LayoutDrawCanvasProps {
     gates: { type: 'single' | 'double'; quantity: number }[];
     gate_placements: LayoutGatePlacement[];
     total_length_ft: number;
+    joint_terminations?: SketchJointTermination[];
   }) => void;
   onReset?: () => void;
   /**
@@ -76,6 +83,26 @@ export interface LayoutDrawCanvasProps {
 
 function dist(a: { x: number; y: number }, b: { x: number; y: number }): number {
   return Math.hypot(b.x - a.x, b.y - a.y);
+}
+
+function lengthNumsForAlign(segs: { x: number; y: number }[][], lengths: string[]): number[] {
+  return lengths.map((s, i) => {
+    const seg = segs[i];
+    const typed = parseFloat(s || '');
+    if (Number.isFinite(typed) && typed > 0) return typed;
+    if (seg && seg.length >= 2) return dist(seg[0], seg[1]);
+    return 0;
+  });
+}
+
+/** Vertices along the chained sketch after the same align step used for PVC (open ends + corners). */
+function alignedFootVertices(segs: { x: number; y: number }[][], lengths: string[]): { x: number; y: number }[] {
+  const nums = lengthNumsForAlign(segs, lengths);
+  const al = alignChainedSketchSegments(segs, nums, LAYOUT_CHAIN_ALIGN_FT, LAYOUT_MIN_SKETCH_SEGMENT_FT);
+  if (al.length === 0) return [];
+  const pts: { x: number; y: number }[] = [{ ...al[0].a }];
+  for (const s of al) pts.push({ ...s.b });
+  return pts;
 }
 
 const LAYOUT_LABEL_VERTEX_EPS_FT = 0.4;
@@ -266,8 +293,11 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       }
       return result;
     });
-    const [mode, setMode] = useState<'draw' | 'place_single_gate' | 'place_double_gate'>('draw');
+    const [mode, setMode] = useState<
+      'draw' | 'place_single_gate' | 'place_double_gate' | 'assign_line_ends'
+    >('draw');
     const HIT_THRESHOLD = 8;
+    const JOINT_HIT_FT = 8;
     const [hoverPt, setHoverPt] = useState<{ x: number; y: number } | null>(null);
     const [lineLengths, setLineLengths] = useState<string[]>(() => {
       const pts = initialDrawing?.points ?? [];
@@ -282,6 +312,26 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         return dist(seg[0], seg[1]).toFixed(1);
       });
     });
+    const [jointTerminations, setJointTerminations] = useState<SketchJointTermination[]>(() => {
+      const pts = initialDrawing?.points ?? [];
+      const segLens = initialDrawing?.segments ?? [];
+      const initSegs = layoutPointsToSegmentPairs(pts, segLens);
+      if (initSegs.length === 0) return [];
+      const initLens = Array.from({ length: initSegs.length }, (_, i) => {
+        if (segLens[i]?.length_ft != null) return String(segLens[i].length_ft);
+        const seg = initSegs[i];
+        if (seg.length < 2) return '';
+        return dist(seg[0], seg[1]).toFixed(1);
+      });
+      const nums = lengthNumsForAlign(initSegs, initLens);
+      const al = alignChainedSketchSegments(initSegs, nums, LAYOUT_CHAIN_ALIGN_FT, LAYOUT_MIN_SKETCH_SEGMENT_FT);
+      const jt = initialDrawing?.joint_terminations;
+      if (jt && jt.length === al.length + 1) {
+        return jt.map((j) => ({ h_post: j.h_post !== false, u_channel: j.u_channel === true }));
+      }
+      return defaultJointTerminationsFromAligned(al);
+    });
+    const [selectedJointIndex, setSelectedJointIndex] = useState<number | null>(null);
     const [zoom, setZoom] = useState(1);
 
     useEffect(() => {
@@ -342,7 +392,8 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
     function buildData(
       segs: { x: number; y: number }[][],
       lengths: string[],
-      gates: PlacedGate[]
+      gates: PlacedGate[],
+      joints: SketchJointTermination[]
     ) {
       const segLengths: { length_ft: number }[] = [];
       let total = 0;
@@ -368,30 +419,72 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         line_index:
           segs.length > 0 ? Math.max(0, Math.min(segs.length - 1, g.line_index)) : 0,
       }));
-      return {
+      const nums = lengthNumsForAlign(segs, lengths);
+      const al = alignChainedSketchSegments(segs, nums, LAYOUT_CHAIN_ALIGN_FT, LAYOUT_MIN_SKETCH_SEGMENT_FT);
+      const base = {
         points: flatPts,
         segments: segLengths,
         gates: gateList,
         gate_placements,
         total_length_ft: Math.round(total * 100) / 100,
       };
+      if (joints.length > 0 && al.length > 0 && joints.length === al.length + 1) {
+        return {
+          ...base,
+          joint_terminations: joints.map((j) => ({ h_post: j.h_post, u_channel: j.u_channel })),
+        };
+      }
+      return base;
     }
 
     const placedGatesRef = useRef(placedGates);
     placedGatesRef.current = placedGates;
 
     const notify = useCallback(() => {
-      const d = buildData(segmentsRef.current, lineLengthsRef.current, placedGatesRef.current);
+      const d = buildData(
+        segmentsRef.current,
+        lineLengthsRef.current,
+        placedGatesRef.current,
+        jointTerminationsRef.current
+      );
       onDrawingChange?.(d);
     }, [onDrawingChange]);
 
     const lineLengthsRef = useRef(lineLengths);
     lineLengthsRef.current = lineLengths;
 
+    const jointTerminationsRef = useRef(jointTerminations);
+    jointTerminationsRef.current = jointTerminations;
+
+    useEffect(() => {
+      const m = segments.length;
+      if (m === 0) {
+        setJointTerminations([]);
+        return;
+      }
+      const nums = lengthNumsForAlign(segments, lineLengths);
+      const al = alignChainedSketchSegments(segments, nums, LAYOUT_CHAIN_ALIGN_FT, LAYOUT_MIN_SKETCH_SEGMENT_FT);
+      const def = defaultJointTerminationsFromAligned(al);
+      if (def.length === 0) {
+        setJointTerminations([]);
+        return;
+      }
+      setJointTerminations((prev) => {
+        if (prev.length === def.length) return prev;
+        if (prev.length === 0) return def.map((d) => ({ ...d }));
+        if (prev.length > def.length) return prev.slice(0, def.length).map((p) => ({ ...p }));
+        return [...prev.map((p) => ({ ...p })), ...def.slice(prev.length).map((d) => ({ ...d }))];
+      });
+    }, [segments, lineLengths]);
+
+    useEffect(() => {
+      setSelectedJointIndex((j) => (j != null && j >= jointTerminations.length ? null : j));
+    }, [jointTerminations.length]);
+
     useEffect(() => {
       const t = setTimeout(notify, 100);
       return () => clearTimeout(t);
-    }, [segments, lineLengths, placedGates, notify]);
+    }, [segments, lineLengths, placedGates, jointTerminations, notify]);
 
     const totalFeet = segments.reduce((acc, seg, i) => {
       if (seg.length < 2) return acc;
@@ -399,6 +492,14 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       const ft = Number.isFinite(typed) && typed > 0 ? typed : dist(seg[0], seg[1]);
       return acc + ft;
     }, 0);
+
+    const jointVerts = useMemo(
+      () => alignedFootVertices(segments, lineLengths),
+      [segments, lineLengths]
+    );
+
+    const jointMarkersReady =
+      jointVerts.length > 0 && jointVerts.length === jointTerminations.length;
 
     useImperativeHandle(ref, () => ({
       appendSegmentByLength(lengthFt: number) {
@@ -439,7 +540,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
     function handlePointerMove(e: React.PointerEvent<SVGSVGElement>) {
       const pt = clientToFeet(e.clientX, e.clientY);
 
-      if (mode === 'place_single_gate' || mode === 'place_double_gate') {
+      if (mode === 'place_single_gate' || mode === 'place_double_gate' || mode === 'assign_line_ends') {
         return;
       }
 
@@ -482,6 +583,21 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
 
     function handleClickInternal(pt: { x: number; y: number }) {
       const { x, y } = pt;
+
+      if (mode === 'assign_line_ends') {
+        const verts = alignedFootVertices(segments, lineLengths);
+        let bestI = -1;
+        let bestD = JOINT_HIT_FT;
+        for (let j = 0; j < verts.length; j++) {
+          const d = dist(pt, verts[j]);
+          if (d < bestD) {
+            bestD = d;
+            bestI = j;
+          }
+        }
+        if (bestI >= 0) setSelectedJointIndex(bestI);
+        return;
+      }
 
       if (mode === 'place_single_gate' || mode === 'place_double_gate') {
         let best: { segIdx: number; point: { x: number; y: number }; d: number } | null = null;
@@ -584,6 +700,16 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       function onKey(ev: KeyboardEvent) {
         if (readOnly) return;
         if (ev.key === 'Escape') {
+          if (selectedJointIndex != null) {
+            ev.preventDefault();
+            setSelectedJointIndex(null);
+            return;
+          }
+          if (mode === 'assign_line_ends') {
+            ev.preventDefault();
+            setMode('draw');
+            return;
+          }
           if (mode === 'place_single_gate' || mode === 'place_double_gate') {
             ev.preventDefault();
             setMode('draw');
@@ -594,7 +720,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       }
       window.addEventListener('keydown', onKey);
       return () => window.removeEventListener('keydown', onKey);
-    }, [readOnly, mode]);
+    }, [readOnly, mode, selectedJointIndex]);
 
     function undo() {
       if (currentPath.length === 1) {
@@ -631,6 +757,8 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
     function reset() {
       setSegments([]);
       setLineLengths([]);
+      setJointTerminations([]);
+      setSelectedJointIndex(null);
       setPlacedGates([]);
       setCurrentPath([]);
       setHoverPt(null);
@@ -998,6 +1126,41 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                 </g>
               );
             })}
+
+            {jointMarkersReady &&
+              jointVerts.map((v, ji) => {
+                const cap = jointTerminations[ji];
+                const selected = mode === 'assign_line_ends' && selectedJointIndex === ji;
+                const r = selected ? 3.4 : 2.5;
+                const tag =
+                  !cap.h_post && !cap.u_channel ? '—' : `${cap.h_post ? 'H' : ''}${cap.u_channel ? 'U' : ''}`;
+                return (
+                  <g key={`joint-cap-${ji}`}>
+                    <circle
+                      cx={v.x}
+                      cy={v.y}
+                      r={r}
+                      fill={selected ? '#ede9fe' : 'rgba(248,250,252,0.92)'}
+                      stroke={selected ? '#6d28d9' : '#94a3b8'}
+                      strokeWidth={selected ? 0.65 : 0.45}
+                      style={{ pointerEvents: 'none' }}
+                    />
+                    <text
+                      x={v.x}
+                      y={v.y}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fill="#334155"
+                      fontSize={selected ? 3.1 : 2.65}
+                      fontWeight="700"
+                      fontFamily="system-ui, -apple-system, sans-serif"
+                      style={{ userSelect: 'none' }}
+                    >
+                      {tag}
+                    </text>
+                  </g>
+                );
+              })}
           </svg>
         </div>
 
@@ -1016,7 +1179,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
           <button
             type="button"
             onClick={() => finishLineAt(hoverPt)}
-            disabled={currentPath.length !== 1 || !hoverPt}
+            disabled={currentPath.length !== 1 || !hoverPt || mode !== 'draw'}
             className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-sm font-medium text-emerald-800 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             End line
@@ -1024,7 +1187,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
           <button
             type="button"
             onClick={cancelCurrentLine}
-            disabled={currentPath.length !== 1}
+            disabled={currentPath.length !== 1 || mode !== 'draw'}
             className="rounded-lg border border-[var(--line)] bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Cancel line (Esc)
@@ -1050,6 +1213,26 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
             }`}
           >
             Double gate
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (mode === 'assign_line_ends') {
+                setMode('draw');
+              } else {
+                setCurrentPath([]);
+                setHoverPt(null);
+                setMode('assign_line_ends');
+              }
+            }}
+            disabled={segments.length === 0}
+            className={`rounded-lg border px-3 py-1.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${
+              mode === 'assign_line_ends'
+                ? 'border-violet-600 bg-violet-100 text-violet-900'
+                : 'border-violet-200 bg-white text-violet-900 hover:bg-violet-50'
+            }`}
+          >
+            Line ends (PVC)
           </button>
           <button
             type="button"
@@ -1128,6 +1311,62 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                 <span className="text-sm text-[var(--muted)] italic">Too many lines to edit individually. Use Undo to redraw, or see total above.</span>
               )}
             </div>
+            {!readOnly &&
+              selectedJointIndex != null &&
+              jointTerminations[selectedJointIndex] &&
+              jointMarkersReady && (
+                <div className="rounded-lg border border-violet-200 bg-violet-50/60 p-4 text-sm text-slate-800">
+                  <div className="font-semibold text-slate-900">
+                    Vertex {selectedJointIndex + 1} of {jointVerts.length}
+                  </div>
+                  <p className="mt-1 text-xs text-slate-600">
+                    Each point is an open end or corner along the fence (after the same chain snap used for PVC). The
+                    end of drawn line <em>i</em> uses vertex <em>i + 1</em> for H-post (D6) and U-channel (D7). You can
+                    enable both, one, or neither.
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-4">
+                    <label className="flex cursor-pointer items-center gap-2 font-medium">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-slate-300"
+                        checked={jointTerminations[selectedJointIndex].h_post}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          const i = selectedJointIndex;
+                          if (i == null) return;
+                          setJointTerminations((prev) =>
+                            prev.map((p, j) => (j === i ? { ...p, h_post: checked } : p))
+                          );
+                        }}
+                      />
+                      H-post (D6)
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-2 font-medium">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-slate-300"
+                        checked={jointTerminations[selectedJointIndex].u_channel}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          const i = selectedJointIndex;
+                          if (i == null) return;
+                          setJointTerminations((prev) =>
+                            prev.map((p, j) => (j === i ? { ...p, u_channel: checked } : p))
+                          );
+                        }}
+                      />
+                      U-channel (D7)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedJointIndex(null)}
+                      className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-50"
+                    >
+                      Clear selection
+                    </button>
+                  </div>
+                </div>
+              )}
           </div>
         )}
         {mode === 'place_single_gate' && (
@@ -1158,6 +1397,24 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
             </button>
           </div>
         )}
+        {mode === 'assign_line_ends' && (
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <p className="text-sm text-[var(--muted)]">
+              Click a numbered vertex (H = H-post, U = U-channel). Toggle each corner or open end for PVC line ends
+              (Excel D6 / D7). Press Esc to exit.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedJointIndex(null);
+                setMode('draw');
+              }}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+            >
+              Done
+            </button>
+          </div>
+        )}
         {mode === 'draw' && (
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]">
             <span className="flex items-center gap-1">
@@ -1176,6 +1433,10 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
             <span className="flex items-center gap-1">
               <span className="inline-flex h-3 w-3 items-center justify-center rounded-full bg-gray-200 text-[8px]">Pan</span>
               Drag on empty canvas (no line started) to pan
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-flex h-3 w-3 items-center justify-center rounded-full bg-violet-200 text-[8px]">PVC</span>
+              Use <strong className="text-slate-700">Line ends (PVC)</strong> to set H-post and U-channel at each corner or open end
             </span>
           </div>
         )}

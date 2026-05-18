@@ -14,6 +14,20 @@ try {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async redirects() {
+    return [
+      {
+        source: '/estimate/demo-fence-inc/:path*',
+        destination: '/estimate/gordon-landscaping/:path*',
+        permanent: true,
+      },
+      {
+        source: '/estimate/demo-fence/:path*',
+        destination: '/estimate/gordon-landscaping/:path*',
+        permanent: true,
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       // Exact project host — wildcards like *.supabase.co are not reliable for next/image in all versions.

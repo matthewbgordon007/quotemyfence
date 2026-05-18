@@ -11,9 +11,10 @@ import { TestimonialsCarousel } from '@/components/TestimonialsCarousel';
 import { DesktopCTARail } from '@/components/DesktopCTARail';
 import { StickyMobileCTA } from '@/components/StickyMobileCTA';
 import { SITE_URL, canonical, SEO_DEFAULTS } from '@/lib/seo';
+import { publicDemoEstimateContactUrl } from '@/lib/public-demo';
 
 const SCHEDULE_CALL_URL = 'https://calendar.app.google/vuWD6xi7CfNptAon9';
-const DEMO_URL = 'https://www.quotemyfence.ca/estimate/demo-fence-inc/contact';
+const DEMO_URL = publicDemoEstimateContactUrl();
 const CONTACT_EMAIL = 'info@quotemyfence.ca';
 
 const HOME_SECTION_KEYWORDS = [

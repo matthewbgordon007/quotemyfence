@@ -103,6 +103,18 @@ export function MaterialQuoteRequestViewer({ request: selectedRequest, compact }
                   points: selectedRequest.project.drawing_data.points ?? [],
                   segments: selectedRequest.project.drawing_data.segments ?? [],
                   gates: selectedRequest.project.drawing_data.gates ?? [],
+                  gate_placements: selectedRequest.project.drawing_data.gate_placements ?? [],
+                  joint_terminations: Array.isArray(
+                    (selectedRequest.project.drawing_data as { joint_terminations?: unknown }).joint_terminations
+                  )
+                    ? ((selectedRequest.project.drawing_data as { joint_terminations?: unknown }).joint_terminations as {
+                        h_post?: boolean;
+                        u_channel?: boolean;
+                      }[]).map((j) => ({
+                        h_post: j.h_post !== false,
+                        u_channel: j.u_channel === true,
+                      }))
+                    : undefined,
                   total_length_ft:
                     (selectedRequest.project.drawing_data.total_length_ft ??
                       Number(selectedRequest.project.total_length_ft)) ||

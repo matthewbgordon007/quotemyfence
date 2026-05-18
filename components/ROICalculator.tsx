@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { publicDemoEstimateContactPath } from '@/lib/public-demo';
 
 const MONTHLY_PRICE = 199.99;
 
@@ -68,7 +69,7 @@ export function ROICalculator() {
               Conservative model based on your numbers. Actual results depend on market, pricing, and follow-up speed.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
-              <a href="https://www.quotemyfence.ca/estimate/demo-fence-inc/contact" className="rounded-xl bg-blue-600 px-5 py-3 font-bold text-white transition-all hover:bg-blue-500">Try live demo</a>
+              <a href={publicDemoEstimateContactPath()} className="rounded-xl bg-blue-600 px-5 py-3 font-bold text-white transition-all hover:bg-blue-500">Try live demo</a>
               <Link href="/signup" className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-bold text-slate-800 transition-all hover:bg-slate-50">Get started</Link>
             </div>
           </div>
