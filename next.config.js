@@ -18,12 +18,12 @@ const nextConfig = {
     return [
       {
         source: '/estimate/demo-fence-inc/:path*',
-        destination: '/estimate/gordon-landscaping/:path*',
+        destination: '/estimate/gordon-landscaping/:path*?demo=1',
         permanent: true,
       },
       {
         source: '/estimate/demo-fence/:path*',
-        destination: '/estimate/gordon-landscaping/:path*',
+        destination: '/estimate/gordon-landscaping/:path*?demo=1',
         permanent: true,
       },
     ];

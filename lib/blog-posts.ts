@@ -44,7 +44,7 @@ Use these ranges as your baseline, not your final quote. The goal is to give hom
 **Next step for contractors**
 Turn this pricing guide into a lead magnet: offer an instant estimate link directly on your homepage and Google profile so homeowners can price their project right away.
 
-Demo link: https://www.quotemyfence.ca/estimate/gordon-landscaping/contact
+Demo link: https://www.quotemyfence.ca/estimate/gordon-landscaping/contact?demo=1
 Sign up: https://www.quotemyfence.ca/signup
     `.trim(),
   },
@@ -87,7 +87,7 @@ The best software is the one your team will actually use every day and your cust
 **Next step for your business**
 Pick one workflow to test this week: homeowner opens link, draws fence, gets estimate, submits details. If that flow is fast and clear, you are on the right platform.
 
-Try a live demo: https://www.quotemyfence.ca/estimate/gordon-landscaping/contact
+Try a live demo: https://www.quotemyfence.ca/estimate/gordon-landscaping/contact?demo=1
     `.trim(),
   },
   {
@@ -128,7 +128,7 @@ Spring rewards prepared teams. If your pricing is clean, your lead flow is strea
 **Next step before demand spikes**
 Run a full test from your own website and Google profile as if you were a homeowner. Time the experience from click to estimate, then tighten any weak spots before peak weeks hit.
 
-Demo link: https://www.quotemyfence.ca/estimate/gordon-landscaping/contact
+Demo link: https://www.quotemyfence.ca/estimate/gordon-landscaping/contact?demo=1
     `.trim(),
   },
   {
@@ -170,7 +170,7 @@ Quoting faster is not about rushing. It is about removing delay from the top of 
 **Next step**
 If your first quote still takes days, start with one instant estimate flow for your most common fence package and publish that link everywhere buyers already find you.
 
-Start here: https://www.quotemyfence.ca/estimate/gordon-landscaping/contact
+Start here: https://www.quotemyfence.ca/estimate/gordon-landscaping/contact?demo=1
     `.trim(),
   },
   {
@@ -209,7 +209,7 @@ Instant quoting does not replace contractor expertise. It removes unnecessary fr
 **Next step for implementation**
 Keep your current site-visit process for final scope, but add instant estimating to your first-touch funnel so your team spends time on better opportunities.
 
-See example flow: https://www.quotemyfence.ca/estimate/gordon-landscaping/contact
+See example flow: https://www.quotemyfence.ca/estimate/gordon-landscaping/contact?demo=1
     `.trim(),
   },
   {
@@ -247,7 +247,7 @@ You win more fence leads online by reducing decision friction. Give people a cle
 **Next step this week**
 Choose your top 3 traffic sources (website, Google, social) and place the same quote link in all three. Measure lead volume and response time after 14 days.
 
-Demo link: https://www.quotemyfence.ca/estimate/gordon-landscaping/contact
+Demo link: https://www.quotemyfence.ca/estimate/gordon-landscaping/contact?demo=1
     `.trim(),
   },
   {
@@ -288,7 +288,7 @@ Instant quoting is quickly becoming the baseline expectation in fence sales. Ear
 **Next step**
 Launch with your core products, keep pricing simple, and iterate weekly. Consistency beats perfection when you are modernizing your sales process.
 
-Try the experience: https://www.quotemyfence.ca/estimate/gordon-landscaping/contact
+Try the experience: https://www.quotemyfence.ca/estimate/gordon-landscaping/contact?demo=1
     `.trim(),
   },
 ];

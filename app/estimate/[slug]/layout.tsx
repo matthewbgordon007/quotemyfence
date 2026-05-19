@@ -4,6 +4,10 @@ import { getContractorPublicConfig } from '@/lib/contractor';
 import { EstimateProvider } from './EstimateContext';
 import { EstimateSessionHydration } from './EstimateSessionHydration';
 import { EstimateStepIndicator } from './EstimateStepIndicator';
+import {
+  EstimatePublicDemoHomeButton,
+  EstimatePublicDemoTracker,
+} from '@/components/estimate/EstimatePublicDemoChrome';
 
 export default async function EstimateLayout({
   children,
@@ -23,6 +27,7 @@ export default async function EstimateLayout({
   return (
     <EstimateProvider config={config}>
       <Suspense fallback={null}>
+        <EstimatePublicDemoTracker />
         <EstimateSessionHydration slug={slug} />
       </Suspense>
       <div
@@ -55,7 +60,10 @@ export default async function EstimateLayout({
                 {contractor.company_name}
               </span>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-4">
+              <Suspense fallback={null}>
+                <EstimatePublicDemoHomeButton />
+              </Suspense>
               <EstimateStepIndicator />
               <a
                 href="/"
