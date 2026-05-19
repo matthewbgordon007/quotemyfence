@@ -82,7 +82,8 @@ export interface FmsPvcMasterRow {
 export function computePvcMasterColumn(
   adobe: Record<number, number>,
   extras: FmsPvcMasterExtras,
-  gateCount: number
+  gateCount: number,
+  totalFenceLinearFt?: number
 ): FmsPvcMasterRow[] {
   const e = extras;
   const x = (m?: number) => (m != null && Number.isFinite(m) ? m : 0);
@@ -105,7 +106,11 @@ export function computePvcMasterColumn(
   const latch = j(adobe, 31) + x(e.m23);
   const hinge = j(adobe, 32) + x(e.m24);
 
-  const totalLinearFt = j(adobe, 2) + j(adobe, 17);
+  const fenceLinearFt =
+    Number.isFinite(totalFenceLinearFt) && (totalFenceLinearFt ?? 0) >= 0
+      ? (totalFenceLinearFt as number)
+      : j(adobe, 2);
+  const totalLinearFt = fenceLinearFt + j(adobe, 17);
 
   return [
     { label: 'Concrete', qty: concrete },

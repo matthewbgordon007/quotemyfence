@@ -32,7 +32,8 @@ function extrasCell(m: number): string {
 export function buildMasterMaterialListPdfRows(
   adobe: Record<number, number>,
   extras: FmsPvcMasterExtras,
-  gateCount: number
+  gateCount: number,
+  totalFenceLinearFt?: number
 ): MasterMaterialListPdfRow[] {
   const e = extras;
   const x = (m?: number) => (m != null && Number.isFinite(m) ? m : 0);
@@ -56,7 +57,11 @@ export function buildMasterMaterialListPdfRows(
   const latch = j(adobe, 31) + x(e.m23);
   const hinge = j(adobe, 32) + x(e.m24);
 
-  const totalLinearFt = j(adobe, 2) + j(adobe, 17);
+  const fenceLinearFt =
+    Number.isFinite(totalFenceLinearFt) && (totalFenceLinearFt ?? 0) >= 0
+      ? (totalFenceLinearFt as number)
+      : j(adobe, 2);
+  const totalLinearFt = fenceLinearFt + j(adobe, 17);
 
   const S = 'structure' as const;
   const G = 'accessory' as const;

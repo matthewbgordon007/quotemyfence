@@ -1258,6 +1258,10 @@ export default function MaterialCalculatorHubPage() {
 
   const pvcInputs = useMemo(() => buildInputs(lines), [lines]);
   const pvcJob = useMemo(() => aggregateFmsPvcFenceLines(pvcInputs), [pvcInputs]);
+  const pvcFenceLinearFt = useMemo(
+    () => pvcInputs.reduce((acc, row) => acc + (Number(row.length_ft) || 0), 0),
+    [pvcInputs]
+  );
 
   const shortParsed = useMemo(() => parseGateRowsShort(shortGates), [shortGates]);
   const singleParsed = useMemo(() => parseGateRowsShort(singleGates), [singleGates]);
@@ -1292,8 +1296,8 @@ export default function MaterialCalculatorHubPage() {
   );
 
   const pvcMaster = useMemo(
-    () => computePvcMasterColumn(pvcAdobe, extrasParsed, gateCount),
-    [pvcAdobe, extrasParsed, gateCount]
+    () => computePvcMasterColumn(pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt),
+    [pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt]
   );
 
   const pvcLineDetails = useMemo(() => {
@@ -1337,7 +1341,7 @@ export default function MaterialCalculatorHubPage() {
 
   const downloadMasterMaterialListPdf = useCallback(async () => {
     const { buildMasterMaterialListPdfRows } = await import('@/lib/master-material-list-pdf-data');
-    const rows = buildMasterMaterialListPdfRows(pvcAdobe, extrasParsed, gateCount);
+    const rows = buildMasterMaterialListPdfRows(pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt);
     const activeMod =
       lines.find((l) => Math.max(0, Number(String(l.length_ft).replace(/,/g, '')) || 0) > 0)?.panel_module ??
       lines[0]?.panel_module ??
@@ -1370,7 +1374,7 @@ export default function MaterialCalculatorHubPage() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-  }, [pvcAdobe, extrasParsed, gateCount, lines, pvcBreakdownColour, jobAddress]);
+  }, [pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt, lines, pvcBreakdownColour, jobAddress]);
 
   /** Chain link aggregates */
   const chainFenceInputs: FmsChainLinkFenceInput[] = useMemo(() => {
