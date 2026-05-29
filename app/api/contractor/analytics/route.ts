@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { quoteSessionsHasDemoColumn } from '@/lib/quote-session-demo-filter';
 
 const PERIODS = ['day', 'week', 'month', 'year'] as const;
 type Period = (typeof PERIODS)[number];
@@ -52,11 +53,15 @@ export async function GET(request: NextRequest) {
 
   const { from } = getDateRange(period);
 
-  const { data: sessions } = await supabase
+  let sessionsQuery = supabase
     .from('quote_sessions')
     .select('id, lead_status')
     .eq('contractor_id', userRow.contractor_id)
     .gte('last_active_at', from);
+  if (await quoteSessionsHasDemoColumn(supabase)) {
+    sessionsQuery = sessionsQuery.not('is_demo', 'is', true);
+  }
+  const { data: sessions } = await sessionsQuery;
 
   const sessionIds = (sessions ?? []).map((s) => s.id);
   const statusOrder = ['new', 'contacted', 'quoted', 'won', 'lost'] as const;

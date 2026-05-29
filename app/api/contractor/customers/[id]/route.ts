@@ -61,6 +61,10 @@ export async function GET(
   if (sessionError || !session)
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
+  // Demo quotes belong to the master Demos page, not a contractor's pipeline.
+  if ((session as { is_demo?: boolean }).is_demo === true)
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
   const [
     { data: customer },
     { data: property },

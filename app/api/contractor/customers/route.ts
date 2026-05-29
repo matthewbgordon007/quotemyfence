@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { quoteSessionsHasDemoColumn } from '@/lib/quote-session-demo-filter';
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -23,6 +24,10 @@ export async function GET(request: NextRequest) {
   const leadFilter = searchParams.get('lead_filter'); // 'new' | 'contacted' | 'quoted' | 'won' | 'lost' | null (all)
   const searchQ = (searchParams.get('q') || '').trim();
   const searchLimit = Math.min(Math.max(parseInt(searchParams.get('limit') || '24', 10), 1), 50);
+
+  // Demo quotes (started from the public homepage demo) are tracked on the master
+  // Demos page and must not pollute a contractor's own lead pipeline.
+  const excludeDemos = await quoteSessionsHasDemoColumn(supabase);
 
   /** Lightweight search for linking layouts / adding project members (not the main pipeline list). */
   if (searchQ.length >= 2) {
@@ -74,13 +79,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ customers: [], unviewed_count: 0, counts: {} });
     }
 
-    const { data: sessions } = await supabase
+    let searchSessionsQuery = supabase
       .from('quote_sessions')
       .select('id, status, current_step, started_at, last_active_at, completed_at, contractor_viewed_at, lead_status')
       .eq('contractor_id', cid)
       .in('id', sessionIdsFound)
       .order('last_active_at', { ascending: false })
       .limit(searchLimit);
+    if (excludeDemos) searchSessionsQuery = searchSessionsQuery.not('is_demo', 'is', true);
+    const { data: sessions } = await searchSessionsQuery;
 
     const { data: properties } = await supabase
       .from('properties')
@@ -150,6 +157,7 @@ export async function GET(request: NextRequest) {
     .select('id, status, current_step, started_at, last_active_at, completed_at, contractor_viewed_at, lead_status')
     .eq('contractor_id', userRow.contractor_id)
     .order('last_active_at', { ascending: false });
+  if (excludeDemos) query = query.not('is_demo', 'is', true);
 
   const validStatuses = ['new', 'contacted', 'quoted', 'won', 'lost'];
   if (leadFilter && validStatuses.includes(leadFilter)) {
@@ -161,12 +169,15 @@ export async function GET(request: NextRequest) {
     query = query.limit(n);
   }
 
+  let statusesQuery = supabase
+    .from('quote_sessions')
+    .select('lead_status')
+    .eq('contractor_id', userRow.contractor_id);
+  if (excludeDemos) statusesQuery = statusesQuery.not('is_demo', 'is', true);
+
   const [ { data: sessions }, { data: allStatuses } ] = await Promise.all([
     query,
-    supabase
-      .from('quote_sessions')
-      .select('lead_status')
-      .eq('contractor_id', userRow.contractor_id)
+    statusesQuery,
   ]);
 
   const counts: Record<string, number> = {
@@ -187,11 +198,13 @@ export async function GET(request: NextRequest) {
 
   let unviewed_count = 0;
   if (needUnviewedCount) {
-    const { count } = await supabase
+    let unviewedQuery = supabase
       .from('quote_sessions')
       .select('*', { count: 'exact', head: true })
       .eq('contractor_id', userRow.contractor_id)
       .is('contractor_viewed_at', null);
+    if (excludeDemos) unviewedQuery = unviewedQuery.not('is_demo', 'is', true);
+    const { count } = await unviewedQuery;
     unviewed_count = count ?? 0;
   }
 
