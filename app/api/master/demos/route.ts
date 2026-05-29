@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { getSessionMasterAdmin } from '@/lib/master-auth';
-import { PUBLIC_DEMO_CONTRACTOR_SLUG } from '@/lib/public-demo';
 
 type DemoSessionRow = {
   id: string;
@@ -37,35 +36,25 @@ export async function GET() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  // Demos run on the dedicated demo catalog account (FMS). Also include any
-  // sessions explicitly flagged is_demo (e.g. demos run on a real contractor's link).
-  const { data: demoContractor } = await supabaseAdmin
-    .from('contractors')
-    .select('id')
-    .eq('slug', PUBLIC_DEMO_CONTRACTOR_SLUG)
-    .maybeSingle();
-
-  const byId = new Map<string, DemoSessionRow>();
-
-  if (demoContractor?.id) {
-    const { data, error } = await supabaseAdmin
-      .from('quote_sessions')
-      .select(SELECT)
-      .eq('contractor_id', demoContractor.id)
-      .order('last_active_at', { ascending: false });
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    for (const row of (data ?? []) as DemoSessionRow[]) byId.set(row.id, row);
-  }
-
-  // Flagged demos (ignored gracefully if the is_demo migration hasn't been run yet).
+  // Only quotes that were started from the public homepage demo (?demo=1),
+  // which sets quote_sessions.is_demo = true. Not every quote on the demo
+  // catalog account.
   const flagged = await supabaseAdmin
     .from('quote_sessions')
     .select(SELECT)
     .eq('is_demo', true)
     .order('last_active_at', { ascending: false });
-  if (!flagged.error) {
-    for (const row of (flagged.data ?? []) as DemoSessionRow[]) byId.set(row.id, row);
+
+  if (flagged.error) {
+    // is_demo column not present yet (migration not run).
+    if (/is_demo/.test(flagged.error.message || '')) {
+      return NextResponse.json({ demos: [], migrationNeeded: true });
+    }
+    return NextResponse.json({ error: flagged.error.message }, { status: 500 });
   }
+
+  const byId = new Map<string, DemoSessionRow>();
+  for (const row of (flagged.data ?? []) as DemoSessionRow[]) byId.set(row.id, row);
 
   const demos = Array.from(byId.values())
     .map((row) => {

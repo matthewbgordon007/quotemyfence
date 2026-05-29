@@ -50,6 +50,7 @@ export default function MasterDemosPage() {
   const [rows, setRows] = useState<Demo[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [migrationNeeded, setMigrationNeeded] = useState(false);
   const [query, setQuery] = useState('');
 
   async function load() {
@@ -62,6 +63,7 @@ export default function MasterDemosPage() {
     } else {
       setLoadError(null);
       setRows(data.demos || []);
+      setMigrationNeeded(data.migrationNeeded === true);
     }
     setLoading(false);
   }
@@ -103,11 +105,18 @@ export default function MasterDemosPage() {
           {loadError}
         </div>
       )}
+      {migrationNeeded && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Demo tracking isn&apos;t active yet. Run <code className="font-mono">supabase/quote-session-demo-flag.sql</code>{' '}
+          once to add the <code className="font-mono">is_demo</code> column, then demos started from the homepage will
+          show up here.
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Demos</h1>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            People who tried the public demo, and how far they got through the quote flow.
+            Quotes started from the homepage demo, and how far each person got through the flow.
           </p>
         </div>
         <button
