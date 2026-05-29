@@ -6,6 +6,7 @@ import { estimateStepPath } from '@/lib/estimate-session-url';
 import { useEstimate } from '../EstimateContext';
 import { DesignSimpleOptions } from '../DesignSimpleOptions';
 import { OptimizedProductImage } from '@/components/OptimizedProductImage';
+import { useIsPublicDemo } from '@/components/estimate/EstimatePublicDemoChrome';
 
 type ProductOption = {
   id: string;
@@ -23,6 +24,7 @@ export default function DesignPage() {
   const { config, state, setSelectedProductOptionId, setSelectedColourOptionId, setSelectedFenceStyleId, setTotals } =
     useEstimate();
 
+  const isDemo = useIsPublicDemo();
   const hierarchy = config.productHierarchy;
   const hasHierarchy = hierarchy && hierarchy.fenceTypes?.length > 0;
 
@@ -136,6 +138,11 @@ export default function DesignPage() {
 
   useEffect(() => {
     if (!optionId || !state.sessionId) return;
+    // Demo mode hides pricing entirely, so skip the calculation request.
+    if (isDemo) {
+      setIsCalculating(false);
+      return;
+    }
     setIsCalculating(true);
     const payload = hasHierarchy
       ? selectedColourId
@@ -184,6 +191,7 @@ export default function DesignPage() {
     hasRemoval,
     state.sessionId,
     hasHierarchy,
+    isDemo,
   ]);
 
   useEffect(() => {
@@ -419,20 +427,22 @@ export default function DesignPage() {
             <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
           )}
 
-          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Estimated price</p>
-            {displayTotals ? (
-              <p className="mt-1 text-lg font-semibold text-slate-900">
-                ${displayTotals.total_low.toLocaleString('en-CA', { maximumFractionDigits: 0 })} - $
-                {displayTotals.total_high.toLocaleString('en-CA', { maximumFractionDigits: 0 })}
-              </p>
-            ) : (
-              <p className="mt-1 text-sm text-slate-600">Select a fence option to see pricing.</p>
-            )}
-            {isCalculating && (
-              <p className="mt-1 text-xs text-slate-500">Updating price...</p>
-            )}
-          </div>
+          {!isDemo && (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Estimated price</p>
+              {displayTotals ? (
+                <p className="mt-1 text-lg font-semibold text-slate-900">
+                  ${displayTotals.total_low.toLocaleString('en-CA', { maximumFractionDigits: 0 })} - $
+                  {displayTotals.total_high.toLocaleString('en-CA', { maximumFractionDigits: 0 })}
+                </p>
+              ) : (
+                <p className="mt-1 text-sm text-slate-600">Select a fence option to see pricing.</p>
+              )}
+              {isCalculating && (
+                <p className="mt-1 text-xs text-slate-500">Updating price...</p>
+              )}
+            </div>
+          )}
 
           <button
             type="button"

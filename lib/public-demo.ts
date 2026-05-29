@@ -2,11 +2,14 @@ import { SITE_URL } from '@/lib/seo';
 
 /**
  * Slug for the public try-before-signup estimate flow.
- * Override with NEXT_PUBLIC_DEMO_CONTRACTOR_SLUG if your demo contractor uses another slug.
+ * Demo runs on the QuoteMyFence-owned FMS catalog account (Canadian Fence Material Supply).
+ * Override with NEXT_PUBLIC_DEMO_CONTRACTOR_SLUG if the demo account slug changes.
  */
 export const PUBLIC_DEMO_CONTRACTOR_SLUG =
-  (process.env.NEXT_PUBLIC_DEMO_CONTRACTOR_SLUG || 'gordon-landscaping').trim() ||
-  'gordon-landscaping';
+  (process.env.NEXT_PUBLIC_DEMO_CONTRACTOR_SLUG || 'fms').trim() || 'fms';
+
+/** Booking link shown to demo visitors (also used by marketing CTAs). */
+export const PUBLIC_DEMO_BOOK_CALL_URL = 'https://calendar.app.google/vuWD6xi7CfNptAon9';
 
 /** Query param on marketing “Try demo” links — not used on contractors’ own quote URLs. */
 export const ESTIMATE_PUBLIC_DEMO_QUERY = 'demo';

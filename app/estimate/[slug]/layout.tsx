@@ -5,7 +5,7 @@ import { EstimateProvider } from './EstimateContext';
 import { EstimateSessionHydration } from './EstimateSessionHydration';
 import { EstimateStepIndicator } from './EstimateStepIndicator';
 import {
-  EstimatePublicDemoHomeButton,
+  EstimatePublicDemoFloatingCta,
   EstimatePublicDemoTracker,
 } from '@/components/estimate/EstimatePublicDemoChrome';
 
@@ -61,9 +61,6 @@ export default async function EstimateLayout({
               </span>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-4">
-              <Suspense fallback={null}>
-                <EstimatePublicDemoHomeButton />
-              </Suspense>
               <EstimateStepIndicator />
               <a
                 href="/"
@@ -76,6 +73,9 @@ export default async function EstimateLayout({
         </header>
         {children}
       </div>
+      <Suspense fallback={null}>
+        <EstimatePublicDemoFloatingCta />
+      </Suspense>
     </EstimateProvider>
   );
 }

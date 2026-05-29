@@ -8,6 +8,7 @@ import {
   ESTIMATE_NEW_QUOTE_QUERY,
 } from '@/lib/estimate-session-url';
 import { useEstimate } from '../EstimateContext';
+import { useIsPublicDemo } from '@/components/estimate/EstimatePublicDemoChrome';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -36,6 +37,7 @@ export default function ContactPage() {
   const searchParams = useSearchParams();
   const slug = params.slug as string;
   const { config, state, setContact, setSessionId, resetState } = useEstimate();
+  const isDemo = useIsPublicDemo();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const contactPrefillKeyRef = useRef<string>('');
@@ -101,6 +103,7 @@ export default function ContactPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contractorSlug: slug,
+          demo: isDemo,
           contact: {
             firstName: data.firstName,
             lastName: data.lastName,

@@ -4,7 +4,8 @@ import { createClient } from '@supabase/supabase-js';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { contractorSlug, contact } = body;
+    const { contractorSlug, contact, demo } = body;
+    const isDemo = demo === true || demo === 1 || demo === '1';
 
     if (!contractorSlug || !contact?.firstName || !contact?.lastName || !contact?.email) {
       return NextResponse.json(
@@ -28,16 +29,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Contractor not found' }, { status: 404 });
     }
 
-    const { data: session, error: sessionError } = await supabase
+    const baseSessionRow = {
+      contractor_id: contractor.id,
+      status: 'contact_saved',
+      current_step: 'location',
+      lead_status: 'new',
+    };
+
+    let { data: session, error: sessionError } = await supabase
       .from('quote_sessions')
-      .insert({
-        contractor_id: contractor.id,
-        status: 'contact_saved',
-        current_step: 'location',
-        lead_status: 'new',
-      })
+      .insert(isDemo ? { ...baseSessionRow, is_demo: true } : baseSessionRow)
       .select('id')
       .single();
+
+    // Tolerate environments where the is_demo migration hasn't run yet.
+    if (sessionError && isDemo && /is_demo/.test(sessionError.message || '')) {
+      ({ data: session, error: sessionError } = await supabase
+        .from('quote_sessions')
+        .insert(baseSessionRow)
+        .select('id')
+        .single());
+    }
 
     if (sessionError || !session) {
       console.error('quote_sessions insert error:', sessionError);

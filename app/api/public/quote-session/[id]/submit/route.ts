@@ -8,6 +8,7 @@ import {
   type FenceMapSegment,
 } from '@/lib/static-map-url';
 import { stripSupplierFromTypeName } from '@/lib/supplier-import-label';
+import { PUBLIC_DEMO_CONTRACTOR_SLUG } from '@/lib/public-demo';
 
 function escapeHtmlAttr(s: string): string {
   return s
@@ -174,7 +175,7 @@ export async function POST(
 
     const { data: session, error: sessionError } = await supabase
       .from('quote_sessions')
-      .select('contractor_id')
+      .select('*')
       .eq('id', sessionId)
       .single();
 
@@ -275,8 +276,13 @@ export async function POST(
       'color: #2563eb; text-decoration: none;'
     );
 
+    // Marketing demos shouldn't email the catalog account or fire customer follow-ups.
+    const isDemoSession =
+      (session as { is_demo?: boolean }).is_demo === true ||
+      (contractor as { slug?: string }).slug === PUBLIC_DEMO_CONTRACTOR_SLUG;
+
     const resendKey = process.env.RESEND_API_KEY;
-    if (resendKey) {
+    if (resendKey && !isDemoSession) {
       const resend = new Resend(resendKey);
       const from = process.env.EMAIL_FROM || 'quotes@quotemyfence.com';
 
