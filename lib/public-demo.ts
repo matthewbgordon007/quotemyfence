@@ -3,10 +3,10 @@ import { SITE_URL } from '@/lib/seo';
 /**
  * Slug for the public try-before-signup estimate flow.
  * Demo runs on the QuoteMyFence-owned FMS catalog account (Canadian Fence Material Supply).
- * Override with NEXT_PUBLIC_DEMO_CONTRACTOR_SLUG if the demo account slug changes.
+ * Hardcoded (not env-driven) so a stale NEXT_PUBLIC_DEMO_CONTRACTOR_SLUG on the host
+ * can't silently point the demo at the wrong contractor.
  */
-export const PUBLIC_DEMO_CONTRACTOR_SLUG =
-  (process.env.NEXT_PUBLIC_DEMO_CONTRACTOR_SLUG || 'fms').trim() || 'fms';
+export const PUBLIC_DEMO_CONTRACTOR_SLUG = 'fms';
 
 /** Booking link shown to demo visitors (also used by marketing CTAs). */
 export const PUBLIC_DEMO_BOOK_CALL_URL = 'https://calendar.app.google/vuWD6xi7CfNptAon9';
