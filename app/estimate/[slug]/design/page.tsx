@@ -71,17 +71,21 @@ export default function DesignPage() {
     : [];
 
   const stylePricingRows = hierarchy?.stylePricingRules ?? [];
+  const styleInstallTierRows = hierarchy?.styleInstallTiers ?? [];
   const styleHasPricingRule = (styleId: string | null) =>
-    !!styleId && stylePricingRows.some((r) => r.fence_style_id === styleId);
+    !!styleId &&
+    (stylePricingRows.some((r) => r.fence_style_id === styleId) ||
+      styleInstallTierRows.some((r) => r.fence_style_id === styleId));
 
   const coloursWithPricing = useMemo(() => {
     const colourRules = hierarchy?.colourPricingRules ?? [];
     return coloursForStyle.filter(
       (c) =>
         stylePricingRows.some((r) => r.fence_style_id === c.fence_style_id) ||
+        styleInstallTierRows.some((r) => r.fence_style_id === c.fence_style_id) ||
         colourRules.some((r) => r.colour_option_id === c.id),
     );
-  }, [coloursForStyle, hierarchy?.colourPricingRules, stylePricingRows]);
+  }, [coloursForStyle, hierarchy?.colourPricingRules, stylePricingRows, styleInstallTierRows]);
 
   const needsColourStep = coloursWithPricing.length > 0;
   const hierarchyPriceKey = hasHierarchy

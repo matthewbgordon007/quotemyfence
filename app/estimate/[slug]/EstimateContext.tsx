@@ -30,6 +30,8 @@ export interface ProductHierarchy {
   colourOptions: { id: string; fence_style_id: string; color_name: string; photo_url: string | null }[];
   colourPricingRules: { colour_option_id: string; base_price_per_ft_low: number; base_price_per_ft_high: number }[];
   stylePricingRules?: { fence_style_id: string }[];
+  /** Styles priced via install-length tiers (count as priced even without a style_pricing_rules row). */
+  styleInstallTiers?: { fence_style_id: string }[];
 }
 
 export interface EstimateConfig {

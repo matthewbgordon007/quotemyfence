@@ -69,6 +69,7 @@ export async function getContractorPublicConfig(slug: string) {
   let colourOptions: { id: string; fence_style_id: string; color_name: string; photo_url: string | null }[] = [];
   let colourPricingRules: { colour_option_id: string; [k: string]: unknown }[] = [];
   let stylePricingRules: { fence_style_id: string; [k: string]: unknown }[] = [];
+  let styleInstallTiers: { fence_style_id: string }[] = [];
 
   const { data: types } = await supabase
     .from('fence_types')
@@ -122,6 +123,14 @@ export async function getContractorPublicConfig(slug: string) {
         .in('fence_style_id', styleIds)
         .eq('is_active', true);
       stylePricingRules = rules || [];
+
+      // Styles can also be priced purely via install-length tiers (no style_pricing_rules row).
+      const { data: tiers } = await supabase
+        .from('style_install_length_tiers')
+        .select('fence_style_id')
+        .in('fence_style_id', styleIds)
+        .eq('is_active', true);
+      styleInstallTiers = (tiers || []) as { fence_style_id: string }[];
     }
   }
 
@@ -138,6 +147,7 @@ export async function getContractorPublicConfig(slug: string) {
       colourOptions,
       colourPricingRules,
       stylePricingRules,
+      styleInstallTiers,
     },
   };
 }
