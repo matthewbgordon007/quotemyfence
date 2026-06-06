@@ -71,9 +71,9 @@ const btnGhost = 'rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm 
 const btnReset =
   'rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-50 disabled:opacity-50';
 const tabBase =
-  'rounded-lg px-4 py-2 text-sm font-semibold transition-colors border border-transparent';
-const tabActive = 'bg-slate-900 text-white border-slate-900';
-const tabIdle = 'bg-slate-50 text-slate-700 hover:bg-slate-100 border-slate-200';
+  'flex min-w-[7.5rem] flex-col items-start gap-0.5 rounded-xl px-4 py-2.5 text-left transition-all border';
+const tabActive = 'bg-slate-900 text-white border-slate-900 shadow-md shadow-slate-900/20';
+const tabIdle = 'bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 border-slate-200';
 
 type StyleTab = 'pvc' | 'chain' | 'hybrid';
 
@@ -1732,7 +1732,7 @@ export default function MaterialCalculatorHubPage() {
         <Link href="/dashboard" className="text-sm font-medium text-blue-600 hover:underline">
           ← Dashboard
         </Link>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">Material calculator (FMS)</h1>
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">Material Calculator</h1>
         {fromMaterialQuoteId || materialRequestId ? (
           <div className="mt-3 max-w-3xl space-y-2">
             <div className="rounded-xl border border-violet-200/90 bg-violet-50/90 px-4 py-3 text-sm text-violet-950">
@@ -1785,41 +1785,70 @@ export default function MaterialCalculatorHubPage() {
           </div>
         ) : null}
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
-          One plan sketch drives PVC fence lines and gates, chain link runs and gates, and hybrid vertical length (plus
-          end posts). Pick a style tab for the workbook block you are filling: PVC includes per-colour Material List
-          Breakdown and Master column C; chain link and hybrid use the ported formula modules from their calculator
-          sheets.
+          Draw your fence layout once, choose the type of fence, and get a complete, ready-to-order list of every post,
+          panel, rail, and piece of hardware you&apos;ll need for the job.
         </p>
-        <p className="mt-2 text-xs text-slate-500">
-          For a configurable per-panel BOM (rails rule, custom items), use{' '}
+
+        <div className="mt-4 grid max-w-3xl gap-3 sm:grid-cols-3">
+          {[
+            {
+              n: '1',
+              title: 'Draw the layout',
+              desc: 'Sketch the fence line and drop in gates.',
+            },
+            {
+              n: '2',
+              title: 'Pick the fence type',
+              desc: 'PVC / vinyl, chain link, or hybrid.',
+            },
+            {
+              n: '3',
+              title: 'Get your materials',
+              desc: 'A full parts list you can copy or print.',
+            },
+          ].map((s) => (
+            <div
+              key={s.n}
+              className="flex items-start gap-3 rounded-xl border border-slate-200/70 bg-white p-3 shadow-sm"
+            >
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
+                {s.n}
+              </span>
+              <div>
+                <div className="text-sm font-semibold text-slate-900">{s.title}</div>
+                <div className="text-xs leading-snug text-slate-500">{s.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1">
+          <button type="button" className={btnReset} onClick={resetMaterialCalculator}>
+            Start over
+          </button>
+          <p className="text-xs text-slate-500">
+            {!contractorId
+              ? 'Sign in to automatically save your work in this browser.'
+              : 'Your work saves automatically in this browser. Use “Start over” to clear everything.'}
+          </p>
+        </div>
+        <p className="mt-2 text-xs text-slate-400">
+          Need a per-panel parts list with custom items?{' '}
           <Link href="/dashboard/material-calculator/pvc" className="font-medium text-blue-600 hover:underline">
-            Legacy PVC BOM
+            Open the detailed PVC builder
           </Link>
           .
         </p>
-        <div className="mt-4">
-          <button type="button" className={btnReset} onClick={resetMaterialCalculator}>
-            Reset material calculator
-          </button>
-          {!contractorId ? (
-            <p className="mt-1 text-xs text-slate-500">Sign in to auto-save your draft in this browser.</p>
-          ) : (
-            <p className="mt-1 text-xs text-slate-500">
-              Your entries auto-save in this browser when you leave the page (per account). Use reset to clear
-              everything.
-            </p>
-          )}
-        </div>
       </div>
 
       {fmsQuoteMaterialUnsupported ? (
         <div className="max-w-3xl rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-sm text-amber-950">
-          <p className="font-semibold">No FMS material calculator for this material</p>
+          <p className="font-semibold">This material isn&apos;t supported yet</p>
           <p className="mt-2">
             This quote is recorded as <span className="font-medium text-slate-900">{fmsQuoteMaterialUnsupported}</span>.
-            The hub only supports PVC / vinyl, chain link, and hybrid.
+            The material calculator currently covers PVC / vinyl, chain link, and hybrid fences.
           </p>
-          <p className="mt-2 text-slate-700">The layout sketch and job details above stay available for reference.</p>
+          <p className="mt-2 text-slate-700">Your layout sketch and job details above are still available for reference.</p>
           <Link
             href="/dashboard/material-calculator"
             className="mt-3 inline-block text-sm font-semibold text-amber-900 underline hover:text-amber-950"
@@ -1831,40 +1860,50 @@ export default function MaterialCalculatorHubPage() {
 
       {!fmsQuoteMaterialUnsupported ? (
       <>
-      <div className="flex flex-wrap gap-2">
-        <button type="button" className={`${tabBase} ${tab === 'pvc' ? tabActive : tabIdle}`} onClick={() => setTab('pvc')}>
-          PVC
-        </button>
-        <button
-          type="button"
-          className={`${tabBase} ${tab === 'chain' ? tabActive : tabIdle}`}
-          onClick={() => setTab('chain')}
-        >
-          Chain link
-        </button>
-        <button
-          type="button"
-          className={`${tabBase} ${tab === 'hybrid' ? tabActive : tabIdle}`}
-          onClick={() => setTab('hybrid')}
-        >
-          Hybrid
-        </button>
+      <div>
+        <div className="mb-2 text-sm font-semibold text-slate-700">What type of fence are you building?</div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className={`${tabBase} ${tab === 'pvc' ? tabActive : tabIdle}`}
+            onClick={() => setTab('pvc')}
+          >
+            <span className="text-sm font-semibold">PVC / Vinyl</span>
+            <span className={`text-xs ${tab === 'pvc' ? 'text-white/70' : 'text-slate-500'}`}>Panels & gates</span>
+          </button>
+          <button
+            type="button"
+            className={`${tabBase} ${tab === 'chain' ? tabActive : tabIdle}`}
+            onClick={() => setTab('chain')}
+          >
+            <span className="text-sm font-semibold">Chain Link</span>
+            <span className={`text-xs ${tab === 'chain' ? 'text-white/70' : 'text-slate-500'}`}>Mesh & rails</span>
+          </button>
+          <button
+            type="button"
+            className={`${tabBase} ${tab === 'hybrid' ? tabActive : tabIdle}`}
+            onClick={() => setTab('hybrid')}
+          >
+            <span className="text-sm font-semibold">Hybrid</span>
+            <span className={`text-xs ${tab === 'hybrid' ? 'text-white/70' : 'text-slate-500'}`}>WPC + PVC</span>
+          </button>
+        </div>
       </div>
 
       <section className={card}>
         <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-emerald-50/30 px-5 py-4">
-          <h2 className={h2}>Job</h2>
+          <h2 className={h2}>Job details</h2>
           <p className="mt-1 text-xs text-slate-500">
-            Same browser draft for every style tab (auto-saves when you leave the page). Not stored in the database.
+            Give this job a name so you can recognize it. It stays in your browser and applies to every fence type.
           </p>
         </div>
         <div className="p-5">
-          <label className="mb-1 block text-sm font-medium text-slate-700">Address / label</label>
+          <label className="mb-1 block text-sm font-medium text-slate-700">Job name or address</label>
           <input
             type="text"
             value={jobAddress}
             onChange={(e) => setJobAddress(e.target.value)}
-            placeholder="e.g. 53 Rothesay"
+            placeholder="e.g. 53 Rothesay Ave — backyard"
             className={`${field} w-full max-w-xl`}
           />
         </div>
@@ -1872,14 +1911,15 @@ export default function MaterialCalculatorHubPage() {
 
       <section className={card}>
         <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-violet-50/25 px-5 py-4">
-          <h2 className={h2}>Layout sketch</h2>
+          <h2 className={h2}>Draw your fence layout</h2>
           <p className="mt-1 text-xs text-slate-500">
-            Plan view for the whole job: segment lengths and gates sync to the <strong className="font-medium text-slate-700">PVC</strong>,{' '}
-            <strong className="font-medium text-slate-700">Chain link</strong>, and <strong className="font-medium text-slate-700">Hybrid</strong>{' '}
-            tabs (PVC fence lines + gates; chain runs + D6 + chain gates; hybrid vertical length and end posts from the
-            same geometry). Horizontal hybrid WPC length stays manual. New segments snap within 6 ft; within 25° of
-            straight they stay colinear. Use Single / Double gate on the canvas to add gate rows on PVC and chain.
-            Use <strong className="font-medium text-slate-700">Line ends (PVC)</strong> to set H-post and U-channel at each corner or open end (Excel D6/D7).
+            Sketch the fence line as it runs around the property, then drop in any gates. Whatever you draw here fills in
+            the run lengths and gates for the fence type you pick below — so you only have to measure once.
+          </p>
+          <p className="mt-1.5 text-xs text-slate-400">
+            Tip: tap <span className="font-medium text-slate-500">Single</span> or{' '}
+            <span className="font-medium text-slate-500">Double gate</span> on the canvas to add a gate. Lines snap
+            straight automatically. (Hybrid horizontal sections are still entered by hand below.)
           </p>
         </div>
         <div className="space-y-4 p-5">
@@ -1913,7 +1953,7 @@ export default function MaterialCalculatorHubPage() {
                     setChainLines((prev) => prev.map((l) => ({ ...l, fromSketch: false })));
                   }}
                 >
-                  Unlock sketch-driven rows (PVC line ends + chain D6)
+                  Unlock rows to edit them by hand
                 </button>
               </div>
             )}
@@ -1925,14 +1965,13 @@ export default function MaterialCalculatorHubPage() {
         <>
           <section className={card}>
             <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-emerald-50/30 px-5 py-4">
-              <h2 className={h2}>PVC colour</h2>
+              <h2 className={h2}>Fence color</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Matches the per-colour &quot;Material List Breakdown&quot; sheet name in Excel. Optional URL:{' '}
-                <code className="rounded bg-slate-100 px-1 text-[11px]">?tab=pvc&amp;pvc_colour=Moonlit</code>
+                Choose the PVC color for this job. The material list below is labeled with the color you pick.
               </p>
             </div>
             <div className="p-5">
-              <label className="mb-1 block text-sm font-medium text-slate-700">PVC colour (breakdown tab)</label>
+              <label className="mb-1 block text-sm font-medium text-slate-700">PVC color</label>
               <select
                 value={pvcBreakdownColour}
                 onChange={(e) => setPvcBreakdownColour(e.target.value as FmsPvcCalculatorColour)}
@@ -1949,13 +1988,14 @@ export default function MaterialCalculatorHubPage() {
 
           <section className={card}>
             <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-blue-50/30 px-5 py-4">
-              <h2 className={h2}>Fence lines</h2>
+              <h2 className={h2}>Fence runs</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Runs and lengths from the layout sketch sync here automatically; you can still edit or add lines by hand.
-                Clear the sketch to return to a single blank run if everything was sketch-driven.{' '}
-                <strong className="text-slate-700">H-post end</strong> = Excel D6=1, D7=0 (continuous line on slit
-                post). <strong className="text-slate-700">U-channel end</strong> = D6=1, D7=1 (terminal U).{' '}
-                <em className="not-italic text-slate-600">Custom</em> covers other workbook 0/1/2 + U values.
+                These come straight from your layout sketch — you can fine-tune a length or add a run by hand. For each
+                run, just tell us how it ends:{' '}
+                <strong className="text-slate-700">on an H-post</strong> (the run continues to the next section) or{' '}
+                <strong className="text-slate-700">with a U-channel</strong> (the run stops at a wall or end post).
+                Choose <em className="not-italic text-slate-600">Custom</em> only if you need to match exact workbook
+                values.
               </p>
             </div>
             <div className="space-y-4 p-5">
@@ -1972,9 +2012,8 @@ export default function MaterialCalculatorHubPage() {
                   </div>
                   {row.fromSketch && (
                     <p className="mb-3 rounded-lg border border-violet-100 bg-violet-50/80 px-3 py-2 text-xs text-violet-900">
-                      From layout sketch: U-channel (D7) is set once per corner post (not double-counted): turns
-                      larger than 25° from straight add a U on the run that ends there; the next run starts at the same
-                      post with D7=0. Straighter joints stay one run.
+                      Filled in from your layout sketch. Corners are detected automatically and the right end pieces are
+                      counted once. Unlock the rows above if you need to change anything by hand.
                     </p>
                   )}
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -2004,7 +2043,7 @@ export default function MaterialCalculatorHubPage() {
                     </div>
                     <div>
                       <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Panel module
+                        Panel size
                       </label>
                       <select
                         value={row.panel_module}
@@ -2013,13 +2052,13 @@ export default function MaterialCalculatorHubPage() {
                         }
                         className={`${field} w-full`}
                       >
-                        <option value="nominal_7ft">7&apos; nominal (÷ 8.20833333 ft)</option>
-                        <option value="nominal_6ft">6&apos; nominal (÷ 6.75 ft)</option>
+                        <option value="nominal_7ft">7 ft panels</option>
+                        <option value="nominal_6ft">6 ft panels</option>
                       </select>
                     </div>
                     <div className="sm:col-span-2">
                       <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Line end
+                        How this run ends
                       </label>
                       <select
                         value={row.end_preset}
@@ -2027,9 +2066,9 @@ export default function MaterialCalculatorHubPage() {
                         disabled={row.fromSketch}
                         className={`${field} w-full disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70`}
                       >
-                        <option value="h_continuous">Ends on H-post (continuous / standard)</option>
-                        <option value="u_at_end">Ends with U-channel</option>
-                        <option value="custom">Custom (Excel D6 / D7)</option>
+                        <option value="h_continuous">Continues on an H-post (standard)</option>
+                        <option value="u_at_end">Stops with a U-channel (wall / end)</option>
+                        <option value="custom">Custom (advanced)</option>
                       </select>
                     </div>
                     {row.end_preset === 'custom' && (
@@ -2078,32 +2117,30 @@ export default function MaterialCalculatorHubPage() {
 
           <section ref={pvcGatesSectionRef} className={card}>
             <div className="border-b border-slate-100 bg-gradient-to-r from-amber-50/40 via-white to-slate-50/80 px-5 py-4">
-              <h2 className={h2}>Gates (PVC workbook)</h2>
+              <h2 className={h2}>Gates</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Short (&lt; 59.5&quot;), single (≥ 65.5&quot;), and double (≥ 106&quot;) paths from the Material
-                Calculator — PVC sheet. Width is inside gate in inches; posts matches sheet columns B/G/K. Gate
-                quantities follow the same logic for all PVC colours; your selected colour ({pvcBreakdownColour}) applies
-                to the breakdown and Master sections below. Placing a gate on the layout sketch above adds a row here
-                (width from that segment&apos;s length in feet) and scrolls to this section.
+                Add each gate by its opening width (in inches) and how many posts it needs. Gates you place on the
+                layout sketch show up here automatically. Gates are grouped by size so the right hardware is counted.
               </p>
             </div>
             <div className="space-y-4 p-5">
-              {renderPvcGateSection('Short gates', 'Under 59.5″ opening — columns B/C.', 'short', shortGates)}
-              {renderPvcGateSection('Single gates', '≥ 65.5″ — columns G/H.', 'single', singleGates)}
-              {renderPvcGateSection('Double gates', '≥ 106″ — columns K/L.', 'double', doubleGates)}
+              {renderPvcGateSection('Walk gates (small)', 'Openings under 59.5″.', 'short', shortGates)}
+              {renderPvcGateSection('Single gates', 'Openings 65.5″ and wider.', 'single', singleGates)}
+              {renderPvcGateSection('Double gates', 'Openings 106″ and wider.', 'double', doubleGates)}
             </div>
           </section>
 
           <section className={card}>
             <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className={h2}>Optional Master column M adders</h2>
+              <h2 className={h2}>Extra items <span className="font-normal text-slate-400">(optional)</span></h2>
               <p className="mt-1 text-xs text-slate-500">
-                Same-row manual quantities from the Master sheet (added inside the C formulas). Leave blank for zero.
+                Add extra quantities of specific items if this job needs more than the standard count. Leave anything
+                blank to skip it.
               </p>
             </div>
             <div className="p-5">
               <button type="button" className={btnGhost} onClick={() => setMasterExtrasOpen((o) => !o)}>
-                {masterExtrasOpen ? 'Hide' : 'Show'} M6–M24 fields
+                {masterExtrasOpen ? 'Hide extra items' : 'Add extra items'}
               </button>
               {masterExtrasOpen && (
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -2129,17 +2166,17 @@ export default function MaterialCalculatorHubPage() {
 
           <section className={card}>
             <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className={h2}>{fmsPvcMaterialListBreakdownTitle(pvcBreakdownColour)} + Master column C</h2>
+              <h2 className={h2}>Material list</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Fence rows 2–14 sum all lines; gate rows 18–33 sum all gates; row 17 is total gate width (in) ÷ 12.
-                Master list includes +10 on hole plugs and large screws per workbook. J-column totals are labelled for
-                your selected Excel colour tab.
+                Your complete parts list for this job in {pvcBreakdownColour}, combining every fence run and gate.
+                The left column is the itemized breakdown; the right column is the consolidated order quantity for each
+                part.
               </p>
             </div>
             <div className="grid gap-6 p-5 lg:grid-cols-2">
               <div>
                 <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
-                  {pvcBreakdownColour} — J totals (breakdown sheet)
+                  Itemized breakdown — {pvcBreakdownColour}
                 </h3>
                 <div className="overflow-x-auto rounded-lg border border-slate-100">
                   <table className="w-full text-sm">
@@ -2171,7 +2208,7 @@ export default function MaterialCalculatorHubPage() {
               </div>
               <div>
                 <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
-                  Master material (C) — {pvcBreakdownColour}
+                  Order quantities — {pvcBreakdownColour}
                 </h3>
                 <div className="overflow-x-auto rounded-lg border border-slate-100">
                   <table className="w-full text-sm">
@@ -2197,17 +2234,17 @@ export default function MaterialCalculatorHubPage() {
 
           <section className={card}>
             <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className={h2}>Fence-only SKU rollup (Excel block)</h2>
+              <h2 className={h2}>Fence materials summary</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Sums the PVC calculator fence columns only (no gates). Use Master table above for full job order qty
-                including gates.
+                A quick roll-up of the fence parts only (gates not included). For the full order including gates, use
+                the material list above.
               </p>
             </div>
             <div className="overflow-x-auto p-5">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    <th className="px-2 py-2">SKU</th>
+                    <th className="px-2 py-2">Item</th>
                     <th className="px-2 py-2 text-right">Qty</th>
                   </tr>
                 </thead>
@@ -2219,13 +2256,13 @@ export default function MaterialCalculatorHubPage() {
                     </tr>
                   ))}
                   <tr className="border-b border-slate-100 bg-slate-50/80">
-                    <td className="px-2 py-2 font-medium text-slate-800">Whole panels (Σ Excel D9)</td>
+                    <td className="px-2 py-2 font-medium text-slate-800">Total panels</td>
                     <td className="px-2 py-2 text-right tabular-nums font-semibold text-slate-900">
                       {pvcJob.sum_whole_panels}
                     </td>
                   </tr>
                   <tr className="border-b border-slate-100 bg-slate-50/80">
-                    <td className="px-2 py-2 font-medium text-slate-800">Concrete bags (fence H-post × 2.5)</td>
+                    <td className="px-2 py-2 font-medium text-slate-800">Concrete bags (est.)</td>
                     <td className="px-2 py-2 text-right tabular-nums font-semibold text-slate-900">
                       {pvcJob.concrete_bags_est}
                     </td>
@@ -2234,7 +2271,7 @@ export default function MaterialCalculatorHubPage() {
               </table>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button type="button" onClick={copyBom} className={btn}>
-                  Copy TSV (fence + {pvcBreakdownColour} breakdown + Master)
+                  Copy full list to clipboard
                 </button>
               </div>
             </div>
@@ -2242,18 +2279,19 @@ export default function MaterialCalculatorHubPage() {
 
           <section className={card}>
             <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className={h2}>Per-line detail</h2>
+              <h2 className={h2}>Run-by-run breakdown</h2>
+              <p className="mt-1 text-xs text-slate-500">Parts needed for each individual run of fence.</p>
             </div>
             <div className="overflow-x-auto p-5">
               <table className="w-full min-w-[720px] text-xs">
                 <thead>
                   <tr className="border-b border-slate-200 text-left font-semibold uppercase tracking-wide text-slate-500">
-                    <th className="px-2 py-2">Label</th>
-                    <th className="px-2 py-2 text-right">ft</th>
-                    <th className="px-2 py-2">Module</th>
-                    <th className="px-2 py-2 text-right">D9</th>
+                    <th className="px-2 py-2">Run</th>
+                    <th className="px-2 py-2 text-right">Length (ft)</th>
+                    <th className="px-2 py-2">Panel</th>
+                    <th className="px-2 py-2 text-right">Panels</th>
                     <th className="px-2 py-2 text-right">H-post</th>
-                    <th className="px-2 py-2 text-right">U</th>
+                    <th className="px-2 py-2 text-right">U-channel</th>
                     <th className="px-2 py-2 text-right">Rail</th>
                     <th className="px-2 py-2 text-right">Board</th>
                   </tr>
@@ -2287,15 +2325,15 @@ export default function MaterialCalculatorHubPage() {
 
           <section className={card}>
             <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className={h2}>Master material list (PDF)</h2>
+              <h2 className={h2}>Printable material list (PDF)</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Download a printable Master Material List matching the Excel layout: colour column, Extras (column M
-                adders when entered above), and section shading.
+                Download a clean, printable parts list for this job — including the fence color and any extra items you
+                added — ready to hand to your supplier or crew.
               </p>
             </div>
             <div className="p-5">
               <button type="button" className={btn} onClick={() => void downloadMasterMaterialListPdf()}>
-                Download Master Material List PDF
+                Download material list (PDF)
               </button>
             </div>
           </section>
@@ -2308,15 +2346,14 @@ export default function MaterialCalculatorHubPage() {
             <div className="border-b border-slate-100 px-5 py-4">
               <h2 className={h2}>Chain link fence</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Primary block from Material Calculator — Chain link (rows 10–27). Runs and D6 terminal post type sync
-                from the layout sketch above (same segment geometry as PVC). Terminal post type is Excel D6; rail / mesh /
-                ties divisors match D7–D9.
+                Your fence runs come from the layout sketch above. The settings below control how rails, mesh, and ties
+                are counted — the defaults match standard stock, so most jobs can leave them as-is.
               </p>
             </div>
             <div className="space-y-4 p-5">
               <div className="grid gap-3 sm:grid-cols-3">
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-500">Rail length divisor (ft)</label>
+                  <label className="mb-1 block text-xs font-semibold text-slate-500">Rail length (ft)</label>
                   <input
                     type="number"
                     min={0.01}
@@ -2327,7 +2364,7 @@ export default function MaterialCalculatorHubPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-500">Mesh roll divisor (ft)</label>
+                  <label className="mb-1 block text-xs font-semibold text-slate-500">Mesh roll length (ft)</label>
                   <input
                     type="number"
                     min={0.01}
@@ -2356,7 +2393,7 @@ export default function MaterialCalculatorHubPage() {
                 >
                   {row.fromSketch ? (
                     <p className="mb-2 w-full rounded-lg border border-violet-100 bg-violet-50/80 px-3 py-2 text-xs text-violet-900">
-                      From layout sketch: D6 matches corner logic shared with PVC (same segment geometry).
+                      Filled in from your layout sketch. Unlock the rows above to edit by hand.
                     </p>
                   ) : null}
                   <div>
@@ -2388,7 +2425,7 @@ export default function MaterialCalculatorHubPage() {
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">Terminal post (D6)</label>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">End posts</label>
                     <input
                       type="number"
                       min={0}
@@ -2432,7 +2469,7 @@ export default function MaterialCalculatorHubPage() {
             <div className="border-b border-slate-100 px-5 py-4">
               <h2 className={h2}>Chain link gates</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Gate block (sheet rows 37–45 style). Sketch gates add rows here with the same widths as PVC.
+                Add each gate by its opening width. Gates you place on the layout sketch show up here automatically.
               </p>
             </div>
             <div className="p-5">
@@ -2581,10 +2618,10 @@ export default function MaterialCalculatorHubPage() {
             <div className="border-b border-amber-100 bg-amber-50/30 px-5 py-4">
               <h2 className={h2}>{fmsWpcHorizontalCalculatorTitle(hybridWpcColour)}</h2>
               <p className="mt-1 text-xs text-slate-600">
-                From Horizontal Material Calculator. Leave length blank or zero to omit horizontal from the combined
-                preview. Pick the WPC colour tab you use in Excel for this run.{' '}
-                <span className="font-medium text-slate-800">Horizontal length is not auto-filled from the sketch</span>
-                (enter the WPC run separately).
+                For the horizontal-board (WPC) portion of a hybrid fence. Pick the color and enter the run length — leave
+                the length blank to skip it.{' '}
+                <span className="font-medium text-slate-800">Enter this length by hand</span> (it isn&apos;t taken from
+                the layout sketch).
               </p>
             </div>
             <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -2672,10 +2709,9 @@ export default function MaterialCalculatorHubPage() {
             <div className="border-b border-blue-100 bg-blue-50/20 px-5 py-4">
               <h2 className={h2}>{fmsPvcVerticalCalculatorTitle(hybridPvcColour)}</h2>
               <p className="mt-1 text-xs text-slate-600">
-                From Vertical Material Calculator (8 ft panel divisor). Choose the PVC colour sheet that matches this
-                vertical section. <span className="font-medium text-slate-800">Length, H-post type, and U-channel</span>{' '}
-                update from the layout sketch (sum of segment lengths; end post from the last segment). Adjust manually
-                if your vertical run differs from the full sketch perimeter.
+                For the vertical-panel (PVC) portion of a hybrid fence. The{' '}
+                <span className="font-medium text-slate-800">length and end posts</span> are filled in from your layout
+                sketch — adjust them if the vertical section is shorter than the full perimeter.
               </p>
             </div>
             <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -2783,18 +2819,15 @@ export default function MaterialCalculatorHubPage() {
 
           <section className={card}>
             <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className={h2}>Hybrid master preview</h2>
+              <h2 className={h2}>Combined material list</h2>
               <p className="mt-1 text-xs text-slate-600">
-                Colours for this preview: <strong className="font-medium text-slate-800">{hybridWpcColour}</strong>{' '}
-                (horizontal WPC) · <strong className="font-medium text-slate-800">{hybridPvcColour}</strong> (vertical
-                PVC). Use the same pairing you use on the hybrid master / colour sheets in Excel. Optional URL:{' '}
-                <code className="rounded bg-slate-100 px-1 text-[11px]">
-                  ?tab=hybrid&amp;hybrid_wpc=Walnut&amp;hybrid_pvc=Adobe
-                </code>
+                The full parts list for the hybrid fence, combining{' '}
+                <strong className="font-medium text-slate-800">{hybridWpcColour}</strong> horizontal boards and{' '}
+                <strong className="font-medium text-slate-800">{hybridPvcColour}</strong> vertical panels.
               </p>
               <p className="mt-2 text-xs text-amber-800/90">
-                Simplified combined list: concrete uses total caps × 2.5 (Hybrid C5=C7×2.5). Some screw and U-channel
-                lines are merged approximations — verify against the full hybrid master workbook for exact row parity.
+                This is a simplified combined estimate. For large or unusual hybrid jobs, double-check the totals before
+                ordering.
               </p>
             </div>
             <div className="p-5">
@@ -2819,7 +2852,7 @@ export default function MaterialCalculatorHubPage() {
 
       <div className="border-t border-slate-200 pt-8">
         <button type="button" className={btnReset} onClick={resetMaterialCalculator}>
-          Reset material calculator
+          Start over
         </button>
       </div>
       </>
