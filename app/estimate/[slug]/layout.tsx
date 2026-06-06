@@ -8,6 +8,7 @@ import {
   EstimatePublicDemoFloatingCta,
   EstimatePublicDemoTracker,
 } from '@/components/estimate/EstimatePublicDemoChrome';
+import { EstimateHelpButton } from '@/components/estimate/EstimateHelpButton';
 
 export default async function EstimateLayout({
   children,
@@ -73,6 +74,7 @@ export default async function EstimateLayout({
         </header>
         {children}
       </div>
+      <EstimateHelpButton />
       <Suspense fallback={null}>
         <EstimatePublicDemoFloatingCta />
       </Suspense>
