@@ -222,6 +222,39 @@ function normalizeBoundsSpan(box: FeetBBox): FeetBBox {
   };
 }
 
+/**
+ * Center the given sketch and pick a zoom that fits it on screen. Used both for the
+ * one-time framing on mount and for the manual "Fit" button. We deliberately do NOT
+ * keep re-fitting while drawing (that caused jarring auto zoom in/out).
+ */
+function fitViewForSketch(
+  segments: { x: number; y: number }[][],
+  placedGates: { x: number; y: number }[]
+): { zoom: number; pan: { x: number; y: number } } {
+  const raw = boundsFromSketch(segments, placedGates, [], null);
+  if (!raw) return { zoom: 1, pan: { x: 0, y: 0 } };
+  const b0 = normalizeBoundsSpan(raw);
+  const spanX = b0.maxX - b0.minX;
+  const spanY = b0.maxY - b0.minY;
+  const cx = (b0.minX + b0.maxX) / 2;
+  const cy = (b0.minY + b0.maxY) / 2;
+  const span = Math.max(spanX, spanY);
+  const pad = Math.max(12, span * 0.14);
+  const needed = Math.max(span + 2 * pad, 1);
+  const zoom = Math.min(3, Math.max(0.25, BASE_VIEW_FT / needed));
+  return { zoom, pan: { x: -cx, y: -cy } };
+}
+
+/** One-time framing for an existing/imported sketch on mount. */
+function computeInitialFitView(
+  initialDrawing: LayoutDrawCanvasProps['initialDrawing']
+): { zoom: number; pan: { x: number; y: number } } {
+  const pts = initialDrawing?.points ?? [];
+  const segLens = initialDrawing?.segments ?? [];
+  const segs = layoutPointsToSegmentPairs(pts, segLens);
+  return fitViewForSketch(segs, []);
+}
+
 export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvasProps>(
   function LayoutDrawCanvas(
     { initialDrawing, readOnly, lineHighlightModes, onDrawingChange, onReset, fillParent = true },
@@ -231,6 +264,9 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
     const [isFullscreen, setIsFullscreen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const svgRef = useRef<SVGSVGElement>(null);
+    // Frame any existing/imported sketch once on mount. The component remounts (via key)
+    // when a new sketch is imported, so this re-runs for fresh imports.
+    const initialViewRef = useRef(computeInitialFitView(initialDrawing));
     // Each segment is exactly one line: [start, end]
     const [segments, setSegments] = useState<{ x: number; y: number }[][]>(() => {
       const pts = initialDrawing?.points ?? [];
@@ -243,7 +279,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
     const pointerDownPan = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
     const pointerDownTime = useRef(0);
     const isPanning = useRef(false);
-    const [pan, setPan] = useState({ x: 0, y: 0 });
+    const [pan, setPan] = useState(initialViewRef.current.pan);
     const [placedGates, setPlacedGates] = useState<PlacedGate[]>(() => {
       const gates = initialDrawing?.gates ?? [];
       const pts = initialDrawing?.points ?? [];
@@ -332,7 +368,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       return defaultJointTerminationsFromAligned(al);
     });
     const [selectedJointIndex, setSelectedJointIndex] = useState<number | null>(null);
-    const [zoom, setZoom] = useState(1);
+    const [zoom, setZoom] = useState(initialViewRef.current.zoom);
 
     useEffect(() => {
       function syncFs() {
@@ -782,34 +818,25 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
     }, []);
 
     const mapView = useMemo(() => {
-      const emptySpan = BASE_VIEW_FT / zoom;
-      const raw = boundsFromSketch(segments, placedGates, currentPath, previewDraw);
-      if (!raw) {
-        return {
-          viewBox: `${-emptySpan / 2 - pan.x} ${-emptySpan / 2 - pan.y} ${emptySpan} ${emptySpan}`,
-          vw: emptySpan,
-          vh: emptySpan,
-          contentCx: 0,
-          contentCy: 0,
-        };
-      }
-      const b0 = normalizeBoundsSpan(raw);
-      const spanX = b0.maxX - b0.minX;
-      const spanY = b0.maxY - b0.minY;
-      const contentCx = (b0.minX + b0.maxX) / 2;
-      const contentCy = (b0.minY + b0.maxY) / 2;
-      const pad = Math.max(12, Math.max(spanX, spanY) * 0.14);
-      let bw0 = spanX + 2 * pad;
-      let bh0 = spanY + 2 * pad;
+      // Fixed visible span driven only by the manual zoom level — it does NOT grow or
+      // shrink with the drawing's bounds, so the canvas no longer auto zooms in/out as
+      // you draw. Panning/zooming is fully under the user's control.
       const ar = mapAspect > 0.25 ? mapAspect : 1;
-      let vw = bw0;
-      let vh = bh0;
+      let vw = BASE_VIEW_FT / zoom;
+      let vh = BASE_VIEW_FT / zoom;
       if (vw / vh > ar) vh = vw / ar;
       else vw = vh * ar;
-      vw /= zoom;
-      vh /= zoom;
+      // Content center is still useful for pushing length labels to the outside.
+      const raw = boundsFromSketch(segments, placedGates, currentPath, previewDraw);
+      let contentCx = 0;
+      let contentCy = 0;
+      if (raw) {
+        const b0 = normalizeBoundsSpan(raw);
+        contentCx = (b0.minX + b0.maxX) / 2;
+        contentCy = (b0.minY + b0.maxY) / 2;
+      }
       return {
-        viewBox: `${contentCx - vw / 2 - pan.x} ${contentCy - vh / 2 - pan.y} ${vw} ${vh}`,
+        viewBox: `${-vw / 2 - pan.x} ${-vh / 2 - pan.y} ${vw} ${vh}`,
         vw,
         vh,
         contentCx,
@@ -818,6 +845,13 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
     }, [segments, placedGates, currentPath, previewDraw, pan.x, pan.y, zoom, mapAspect]);
 
     const viewBox = mapView.viewBox;
+
+    /** Re-center and zoom so the whole drawing is in view (manual, on demand). */
+    function fitView() {
+      const next = fitViewForSketch(segments, placedGates);
+      setZoom(next.zoom);
+      setPan(next.pan);
+    }
 
     /** Midpoint labels with collision separation (L / T junctions no longer stack). */
     const segmentLabelPlacements = useMemo(() => {
@@ -1260,6 +1294,15 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
               −
             </button>
             <span className="text-xs text-[var(--muted)]">Zoom</span>
+            <button
+              type="button"
+              onClick={fitView}
+              disabled={segments.length === 0 && placedGates.length === 0}
+              className="ml-1 rounded-lg border border-[var(--line)] bg-white px-2.5 py-1 text-sm font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              title="Center and fit the drawing in view"
+            >
+              Fit
+            </button>
           </div>
         </div>
         {!readOnly && segments.length > 0 && (
