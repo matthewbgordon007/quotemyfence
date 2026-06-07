@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { inferFmsHubMaterialFromQuoteProject } from '@/lib/material-quote-fms-calculator-style';
@@ -74,6 +74,45 @@ const tabBase =
   'flex min-w-[7.5rem] flex-col items-start gap-0.5 rounded-xl px-4 py-2.5 text-left transition-all border';
 const tabActive = 'bg-slate-900 text-white border-slate-900 shadow-md shadow-slate-900/20';
 const tabIdle = 'bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 border-slate-200';
+
+/** Small label that breaks the page into clear stages (Build vs. Results). */
+const stageLabel = 'flex items-center gap-3 pt-1 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400';
+
+/**
+ * Card whose body is hidden by default behind a "Show / Hide" toggle.
+ * Used for secondary panels so the main flow stays short. Uses native <details>
+ * so it needs no extra state.
+ */
+function CollapsibleCard({
+  title,
+  subtitle,
+  children,
+  defaultOpen = false,
+}: {
+  title: string;
+  subtitle?: string;
+  children: ReactNode;
+  defaultOpen?: boolean;
+}) {
+  return (
+    <details className={`${card} group`} {...(defaultOpen ? { open: true } : {})}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 [&::-webkit-details-marker]:hidden">
+        <div>
+          <h2 className={h2}>{title}</h2>
+          {subtitle ? <p className="mt-1 text-xs text-slate-500">{subtitle}</p> : null}
+        </div>
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 group-hover:bg-slate-50">
+          <span className="group-open:hidden">Show</span>
+          <span className="hidden group-open:inline">Hide</span>
+          <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5 transition-transform group-open:rotate-180">
+            <path d="M5 7.5 10 12.5 15 7.5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
+      </summary>
+      <div className="border-t border-slate-100">{children}</div>
+    </details>
+  );
+}
 
 type StyleTab = 'pvc' | 'chain' | 'hybrid';
 
@@ -1787,8 +1826,7 @@ export default function MaterialCalculatorHubPage() {
           </div>
         ) : null}
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
-          Draw your fence layout once, choose the type of fence, and get a complete, ready-to-order list of every post,
-          panel, rail, and piece of hardware you&apos;ll need for the job.
+          Draw your fence, pick the type, and get a ready-to-order parts list.
         </p>
 
         <div className="mt-4 grid max-w-3xl gap-3 sm:grid-cols-3">
@@ -1862,66 +1900,82 @@ export default function MaterialCalculatorHubPage() {
 
       {!fmsQuoteMaterialUnsupported ? (
       <>
-      <div>
-        <div className="mb-2 text-sm font-semibold text-slate-700">What type of fence are you building?</div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className={`${tabBase} ${tab === 'pvc' ? tabActive : tabIdle}`}
-            onClick={() => setTab('pvc')}
-          >
-            <span className="text-sm font-semibold">PVC / Vinyl</span>
-            <span className={`text-xs ${tab === 'pvc' ? 'text-white/70' : 'text-slate-500'}`}>Panels & gates</span>
-          </button>
-          <button
-            type="button"
-            className={`${tabBase} ${tab === 'chain' ? tabActive : tabIdle}`}
-            onClick={() => setTab('chain')}
-          >
-            <span className="text-sm font-semibold">Chain Link</span>
-            <span className={`text-xs ${tab === 'chain' ? 'text-white/70' : 'text-slate-500'}`}>Mesh & rails</span>
-          </button>
-          <button
-            type="button"
-            className={`${tabBase} ${tab === 'hybrid' ? tabActive : tabIdle}`}
-            onClick={() => setTab('hybrid')}
-          >
-            <span className="text-sm font-semibold">Hybrid</span>
-            <span className={`text-xs ${tab === 'hybrid' ? 'text-white/70' : 'text-slate-500'}`}>WPC + PVC</span>
-          </button>
-        </div>
-      </div>
-
       <section className={card}>
-        <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-emerald-50/30 px-5 py-4">
-          <h2 className={h2}>Job details</h2>
-          <p className="mt-1 text-xs text-slate-500">
-            Give this job a name so you can recognize it. It stays in your browser and applies to every fence type.
-          </p>
-        </div>
-        <div className="p-5">
-          <label className="mb-1 block text-sm font-medium text-slate-700">Job name or address</label>
-          <input
-            type="text"
-            value={jobAddress}
-            onChange={(e) => setJobAddress(e.target.value)}
-            placeholder="e.g. 53 Rothesay Ave — backyard"
-            className={`${field} w-full max-w-xl`}
-          />
+        <div className="space-y-4 p-5">
+          <div>
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Fence type</div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={`${tabBase} ${tab === 'pvc' ? tabActive : tabIdle}`}
+                onClick={() => setTab('pvc')}
+              >
+                <span className="text-sm font-semibold">PVC / Vinyl</span>
+                <span className={`text-xs ${tab === 'pvc' ? 'text-white/70' : 'text-slate-500'}`}>Panels & gates</span>
+              </button>
+              <button
+                type="button"
+                className={`${tabBase} ${tab === 'chain' ? tabActive : tabIdle}`}
+                onClick={() => setTab('chain')}
+              >
+                <span className="text-sm font-semibold">Chain Link</span>
+                <span className={`text-xs ${tab === 'chain' ? 'text-white/70' : 'text-slate-500'}`}>Mesh & rails</span>
+              </button>
+              <button
+                type="button"
+                className={`${tabBase} ${tab === 'hybrid' ? tabActive : tabIdle}`}
+                onClick={() => setTab('hybrid')}
+              >
+                <span className="text-sm font-semibold">Hybrid</span>
+                <span className={`text-xs ${tab === 'hybrid' ? 'text-white/70' : 'text-slate-500'}`}>WPC + PVC</span>
+              </button>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Job name or address
+              </label>
+              <input
+                type="text"
+                value={jobAddress}
+                onChange={(e) => setJobAddress(e.target.value)}
+                placeholder="e.g. 53 Rothesay Ave — backyard"
+                className={`${field} w-full`}
+              />
+            </div>
+            {tab === 'pvc' ? (
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Fence color
+                </label>
+                <select
+                  value={pvcBreakdownColour}
+                  onChange={(e) => setPvcBreakdownColour(e.target.value as FmsPvcCalculatorColour)}
+                  className={`${field} w-full`}
+                >
+                  {FMS_PVC_CALCULATOR_COLOURS.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+          </div>
         </div>
       </section>
+
+      <div className={stageLabel}>
+        <span>Build your fence</span>
+        <span className="h-px flex-1 bg-slate-200" />
+      </div>
 
       <section className={card}>
         <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-violet-50/25 px-5 py-4">
           <h2 className={h2}>Draw your fence layout</h2>
           <p className="mt-1 text-xs text-slate-500">
-            Sketch the fence line as it runs around the property, then drop in any gates. Whatever you draw here fills in
-            the run lengths and gates for the fence type you pick below — so you only have to measure once.
-          </p>
-          <p className="mt-1.5 text-xs text-slate-400">
-            Tip: tap <span className="font-medium text-slate-500">Single</span> or{' '}
-            <span className="font-medium text-slate-500">Double gate</span> on the canvas to add a gate. Lines snap
-            straight automatically. (Hybrid horizontal sections are still entered by hand below.)
+            Sketch each run and tap to drop in gates — the lengths fill in below automatically, so you only measure once.
           </p>
         </div>
         <div className="space-y-4 p-5">
@@ -1955,7 +2009,7 @@ export default function MaterialCalculatorHubPage() {
                     setChainLines((prev) => prev.map((l) => ({ ...l, fromSketch: false })));
                   }}
                 >
-                  Unlock rows to edit them by hand
+                  Edit runs by hand
                 </button>
               </div>
             )}
@@ -1966,42 +2020,29 @@ export default function MaterialCalculatorHubPage() {
       {tab === 'pvc' && (
         <>
           <section className={card}>
-            <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-emerald-50/30 px-5 py-4">
-              <h2 className={h2}>Fence color</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Choose the PVC color for this job. The material list below is labeled with the color you pick.
-              </p>
-            </div>
-            <div className="p-5">
-              <label className="mb-1 block text-sm font-medium text-slate-700">PVC color</label>
-              <select
-                value={pvcBreakdownColour}
-                onChange={(e) => setPvcBreakdownColour(e.target.value as FmsPvcCalculatorColour)}
-                className={`${field} w-full max-w-xs`}
-              >
-                {FMS_PVC_CALCULATOR_COLOURS.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </section>
-
-          <section className={card}>
             <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-blue-50/30 px-5 py-4">
               <h2 className={h2}>Fence runs</h2>
               <p className="mt-1 text-xs text-slate-500">
-                These come straight from your layout sketch — you can fine-tune a length or add a run by hand. For each
-                run, just tell us how it ends:{' '}
-                <strong className="text-slate-700">on an H-post</strong> (the run continues to the next section) or{' '}
-                <strong className="text-slate-700">with a U-channel</strong> (the run stops at a wall or end post).
-                Choose <em className="not-italic text-slate-600">Custom</em> only if you need to match exact workbook
-                values.
+                Filled in from your sketch. Adjust a length or add a run by hand if needed.
               </p>
             </div>
             <div className="space-y-4 p-5">
-              {lines.map((row, idx) => (
+              {lines.map((row, idx) =>
+                row.fromSketch ? (
+                  <div
+                    key={row.id}
+                    className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border border-slate-100 bg-slate-50/40 px-4 py-3 ring-1 ring-slate-900/[0.03]"
+                  >
+                    <span className="text-sm font-semibold text-slate-800">{row.label || `Run ${idx + 1}`}</span>
+                    <span className="text-sm text-slate-600">
+                      {Number(row.length_ft) || 0} ft · {row.panel_module === 'nominal_7ft' ? '7 ft' : '6 ft'} panels
+                      {Number(row.u_channel) > 0 ? ' · ends at a wall' : ''}
+                    </span>
+                    <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-800">
+                      From sketch
+                    </span>
+                  </div>
+                ) : (
                 <div
                   key={row.id}
                   className="rounded-xl border border-slate-100 bg-slate-50/40 p-4 ring-1 ring-slate-900/[0.03]"
@@ -2012,12 +2053,6 @@ export default function MaterialCalculatorHubPage() {
                       Remove
                     </button>
                   </div>
-                  {row.fromSketch && (
-                    <p className="mb-3 rounded-lg border border-violet-100 bg-violet-50/80 px-3 py-2 text-xs text-violet-900">
-                      Filled in from your layout sketch. Corners are detected automatically and the right end pieces are
-                      counted once. Unlock the rows above if you need to change anything by hand.
-                    </p>
-                  )}
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div className="sm:col-span-2">
                       <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -2121,8 +2156,7 @@ export default function MaterialCalculatorHubPage() {
             <div className="border-b border-slate-100 bg-gradient-to-r from-amber-50/40 via-white to-slate-50/80 px-5 py-4">
               <h2 className={h2}>Gates</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Add each gate by its opening width (in inches) and how many posts it needs. Gates you place on the
-                layout sketch show up here automatically. Gates are grouped by size so the right hardware is counted.
+                Enter each gate&apos;s opening width and posts. Gates from your sketch appear here automatically.
               </p>
             </div>
             <div className="space-y-4 p-5">
@@ -2166,13 +2200,17 @@ export default function MaterialCalculatorHubPage() {
             </div>
           </section>
 
+          <div className={stageLabel}>
+            <span>Your materials</span>
+            <span className="h-px flex-1 bg-slate-200" />
+          </div>
+
           <section className={card}>
             <div className="border-b border-slate-100 px-5 py-4">
               <h2 className={h2}>Material list</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Your complete parts list for this job in {pvcBreakdownColour}, combining every fence run and gate.
-                The left column is the itemized breakdown; the right column is the consolidated order quantity for each
-                part.
+                Your full parts list in {pvcBreakdownColour}. Left is the itemized breakdown; right is the order quantity
+                per part.
               </p>
             </div>
             <div className="grid gap-6 p-5 lg:grid-cols-2">
@@ -2232,16 +2270,20 @@ export default function MaterialCalculatorHubPage() {
                 </div>
               </div>
             </div>
+            <div className="flex flex-wrap gap-2 border-t border-slate-100 px-5 py-4">
+              <button type="button" onClick={copyBom} className={btn}>
+                Copy list
+              </button>
+              <button type="button" className={btnGhost} onClick={() => void downloadMasterMaterialListPdf()}>
+                Download PDF
+              </button>
+            </div>
           </section>
 
-          <section className={card}>
-            <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className={h2}>Fence materials summary</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                A quick roll-up of the fence parts only (gates not included). For the full order including gates, use
-                the material list above.
-              </p>
-            </div>
+          <CollapsibleCard
+            title="Fence parts summary"
+            subtitle="Fence parts only (no gates), with total panels and estimated concrete."
+          >
             <div className="overflow-x-auto p-5">
               <table className="w-full text-sm">
                 <thead>
@@ -2271,19 +2313,10 @@ export default function MaterialCalculatorHubPage() {
                   </tr>
                 </tbody>
               </table>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button type="button" onClick={copyBom} className={btn}>
-                  Copy full list to clipboard
-                </button>
-              </div>
             </div>
-          </section>
+          </CollapsibleCard>
 
-          <section className={card}>
-            <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className={h2}>Run-by-run breakdown</h2>
-              <p className="mt-1 text-xs text-slate-500">Parts needed for each individual run of fence.</p>
-            </div>
+          <CollapsibleCard title="Run-by-run breakdown" subtitle="Parts needed for each individual run of fence.">
             <div className="overflow-x-auto p-5">
               <table className="w-full min-w-[720px] text-xs">
                 <thead>
@@ -2323,22 +2356,7 @@ export default function MaterialCalculatorHubPage() {
                 </tbody>
               </table>
             </div>
-          </section>
-
-          <section className={card}>
-            <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className={h2}>Printable material list (PDF)</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Download a clean, printable parts list for this job — including the fence color and any extra items you
-                added — ready to hand to your supplier or crew.
-              </p>
-            </div>
-            <div className="p-5">
-              <button type="button" className={btn} onClick={() => void downloadMasterMaterialListPdf()}>
-                Download material list (PDF)
-              </button>
-            </div>
-          </section>
+          </CollapsibleCard>
         </>
       )}
 
@@ -2348,12 +2366,18 @@ export default function MaterialCalculatorHubPage() {
             <div className="border-b border-slate-100 px-5 py-4">
               <h2 className={h2}>Chain link fence</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Your fence runs come from the layout sketch above. The settings below control how rails, mesh, and ties
-                are counted — the defaults match standard stock, so most jobs can leave them as-is.
+                Runs come from your sketch. Adjust a length or add a run by hand if needed.
               </p>
             </div>
             <div className="space-y-4 p-5">
-              <div className="grid gap-3 sm:grid-cols-3">
+              <details className="group rounded-xl border border-slate-100 bg-slate-50/40">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500 [&::-webkit-details-marker]:hidden">
+                  <span>Stock sizes (rails, mesh, ties)</span>
+                  <span className="text-[11px] font-medium normal-case tracking-normal text-slate-400">
+                    Defaults fit most jobs
+                  </span>
+                </summary>
+                <div className="grid gap-3 px-4 pb-4 sm:grid-cols-3">
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-slate-500">Rail length (ft)</label>
                   <input
@@ -2388,16 +2412,24 @@ export default function MaterialCalculatorHubPage() {
                   />
                 </div>
               </div>
-              {chainLines.map((row) => (
+              </details>
+              {chainLines.map((row, idx) =>
+                row.fromSketch ? (
+                  <div
+                    key={row.id}
+                    className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border border-slate-100 bg-slate-50/40 px-4 py-3"
+                  >
+                    <span className="text-sm font-semibold text-slate-800">{row.label || `Run ${idx + 1}`}</span>
+                    <span className="text-sm text-slate-600">{Number(row.length_ft) || 0} ft</span>
+                    <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-800">
+                      From sketch
+                    </span>
+                  </div>
+                ) : (
                 <div
                   key={row.id}
                   className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-100 bg-slate-50/40 p-4"
                 >
-                  {row.fromSketch ? (
-                    <p className="mb-2 w-full rounded-lg border border-violet-100 bg-violet-50/80 px-3 py-2 text-xs text-violet-900">
-                      Filled in from your layout sketch. Unlock the rows above to edit by hand.
-                    </p>
-                  ) : null}
                   <div>
                     <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">Label</label>
                     <input
@@ -2543,6 +2575,11 @@ export default function MaterialCalculatorHubPage() {
             </div>
           </section>
 
+          <div className={stageLabel}>
+            <span>Your materials</span>
+            <span className="h-px flex-1 bg-slate-200" />
+          </div>
+
           <section className={card}>
             <div className="border-b border-slate-100 px-5 py-4">
               <h2 className={h2}>Totals</h2>
@@ -2620,10 +2657,8 @@ export default function MaterialCalculatorHubPage() {
             <div className="border-b border-amber-100 bg-amber-50/30 px-5 py-4">
               <h2 className={h2}>{fmsWpcHorizontalCalculatorTitle(hybridWpcColour)}</h2>
               <p className="mt-1 text-xs text-slate-600">
-                For the horizontal-board (WPC) portion of a hybrid fence. Pick the color and enter the run length — leave
-                the length blank to skip it.{' '}
-                <span className="font-medium text-slate-800">Enter this length by hand</span> (it isn&apos;t taken from
-                the layout sketch).
+                Horizontal-board (WPC) section. Enter the length by hand — it isn&apos;t taken from the sketch. Leave
+                blank to skip.
               </p>
             </div>
             <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -2711,9 +2746,8 @@ export default function MaterialCalculatorHubPage() {
             <div className="border-b border-blue-100 bg-blue-50/20 px-5 py-4">
               <h2 className={h2}>{fmsPvcVerticalCalculatorTitle(hybridPvcColour)}</h2>
               <p className="mt-1 text-xs text-slate-600">
-                For the vertical-panel (PVC) portion of a hybrid fence. The{' '}
-                <span className="font-medium text-slate-800">length and end posts</span> are filled in from your layout
-                sketch — adjust them if the vertical section is shorter than the full perimeter.
+                Vertical-panel (PVC) section. Length and end posts come from your sketch — adjust if the vertical run is
+                shorter than the full perimeter.
               </p>
             </div>
             <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -2819,17 +2853,21 @@ export default function MaterialCalculatorHubPage() {
             </div>
           </section>
 
+          <div className={stageLabel}>
+            <span>Your materials</span>
+            <span className="h-px flex-1 bg-slate-200" />
+          </div>
+
           <section className={card}>
             <div className="border-b border-slate-100 px-5 py-4">
               <h2 className={h2}>Combined material list</h2>
               <p className="mt-1 text-xs text-slate-600">
-                The full parts list for the hybrid fence, combining{' '}
+                Full parts list combining{' '}
                 <strong className="font-medium text-slate-800">{hybridWpcColour}</strong> horizontal boards and{' '}
                 <strong className="font-medium text-slate-800">{hybridPvcColour}</strong> vertical panels.
               </p>
               <p className="mt-2 text-xs text-amber-800/90">
-                This is a simplified combined estimate. For large or unusual hybrid jobs, double-check the totals before
-                ordering.
+                Simplified estimate — double-check totals on large or unusual hybrid jobs before ordering.
               </p>
             </div>
             <div className="p-5">
