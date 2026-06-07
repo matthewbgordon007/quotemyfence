@@ -185,7 +185,9 @@ interface PvcGateRow {
 }
 
 function presetToExcel(preset: LineEndPreset, h: 0 | 1 | 2, uStr: string): { d6: 0 | 1 | 2; d7: number } {
-  if (preset === 'h_continuous') return { d6: 1, d7: 0 };
+  // A standalone run needs a post at each end, so a P-panel run = P + 1 posts (D6 = 2).
+  if (preset === 'h_continuous') return { d6: 2, d7: 0 };
+  // One end butts to a wall / U-channel, so only the far end adds a post (D6 = 1).
   if (preset === 'u_at_end') return { d6: 1, d7: 1 };
   const d7 = Math.max(0, Number(uStr) || 0);
   return { d6: h, d7: d7 };
@@ -2066,8 +2068,8 @@ export default function MaterialCalculatorHubPage() {
                         disabled={row.fromSketch}
                         className={`${field} w-full disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70`}
                       >
-                        <option value="h_continuous">Continues on an H-post (standard)</option>
-                        <option value="u_at_end">Stops with a U-channel (wall / end)</option>
+                        <option value="h_continuous">Stands on its own — post at each end (standard)</option>
+                        <option value="u_at_end">One end butts to a wall (U-channel)</option>
                         <option value="custom">Custom (advanced)</option>
                       </select>
                     </div>

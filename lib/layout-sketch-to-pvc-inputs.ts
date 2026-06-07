@@ -379,9 +379,11 @@ export function layoutSegmentsToPvcFenceInputs(
   }
   runs.push(cur);
 
-  return runs.map((r) => ({
+  return runs.map((r, i) => ({
     length_ft: r.length_ft,
-    fence_terminated_h_post_type: 1,
+    // First run owns the leading post of the chain (start + end); later runs share their start
+    // post with the previous run, so they only add the post at their own end.
+    fence_terminated_h_post_type: (i === 0 ? 2 : 1) as 0 | 1 | 2,
     fence_terminated_u_channel: r.uEnd,
     panel_module: panelModule,
   }));
@@ -418,14 +420,21 @@ export function layoutSegmentsToPvcFenceInputsPerSketchSegment(
     let d7 = 0;
     if (useJoints) {
       const cap = jointTerminations![i + 1];
-      d6 = (cap?.h_post ? 1 : 0) as 0 | 1 | 2;
+      const endPost = cap?.h_post ? 1 : 0;
+      // Each run "owns" the post at its end joint; its start post is owned by the previous run.
+      // The very first run has no previous run, so it must also count the post at joint 0
+      // (otherwise the leading post of the whole chain is never counted — e.g. a single 2-panel
+      // run would report 2 posts instead of the 3 it physically needs).
+      const startPost = i === 0 && jointTerminations![0]?.h_post ? 1 : 0;
+      d6 = (endPost + startPost) as 0 | 1 | 2;
       d7 = cap?.u_channel ? 1 : 0;
     } else {
       if (i < segs.length - 1) {
         const d = deflectionAtVertexDeg(segs[i].a, segs[i].b, segs[i + 1].b);
         if (d > straightMax) d7 = 1;
       }
-      d6 = 1;
+      // First run counts both its start and end posts; later runs share the start with the prior run.
+      d6 = i === 0 ? 2 : 1;
     }
     return {
       length_ft: seg.length_ft,
