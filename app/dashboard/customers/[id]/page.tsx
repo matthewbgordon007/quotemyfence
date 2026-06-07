@@ -66,6 +66,8 @@ export default function CustomerDetailPage() {
   const [linkedSuppliers, setLinkedSuppliers] = useState<{ id: string; company_name: string }[]>([]);
   const [exportSupplierId, setExportSupplierId] = useState<string>('master');
   const [exportAttachment, setExportAttachment] = useState<File | null>(null);
+  const [isSupplier, setIsSupplier] = useState(false);
+  const [buildingList, setBuildingList] = useState(false);
   const [customerNotes, setCustomerNotes] = useState('');
   const [notesStatus, setNotesStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const notesDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -186,6 +188,30 @@ export default function CustomerDetailPage() {
     }
   };
 
+  // Supplier-only: turn this lead into the supplier's own material quote and open the
+  // material calculator with its layout, so suppliers can build material lists for their
+  // own jobs (not just respond to contractor requests). The request is self-owned
+  // (no target supplier), so it never lands in the contractor-request inbox.
+  const handleBuildMaterialList = async () => {
+    setBuildingList(true);
+    try {
+      const res = await fetch('/api/contractor/material-quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ quote_session_id: id, supplier_contractor_id: 'master' }),
+      });
+      const d = (await res.json()) as { error?: string; id?: string };
+      if (!res.ok || !d.id) {
+        throw new Error(d.error || 'Could not start a material list for this job.');
+      }
+      window.location.href = `/dashboard/material-calculator?from_material_quote=${encodeURIComponent(d.id)}`;
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Could not start a material list for this job.');
+      setBuildingList(false);
+    }
+  };
+
   const handleDeleteQuote = async (quoteId: string) => {
     if (!confirm('Delete this quote?')) return;
     setDeletingQuoteId(quoteId);
@@ -225,6 +251,13 @@ export default function CustomerDetailPage() {
         setLinkedSuppliers(d.linkedSuppliers || []);
       })
       .catch(() => setLinkedSuppliers([]));
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/contractor/me', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : Promise.resolve({})))
+      .then((d: { account_type?: string | null }) => setIsSupplier(d.account_type === 'supplier'))
+      .catch(() => setIsSupplier(false));
   }, []);
 
   useEffect(() => {
@@ -658,18 +691,28 @@ export default function CustomerDetailPage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              {(layoutDrawing || segments.length > 0 || fence) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setExportSupplierId(linkedSuppliers[0]?.id ?? 'master');
-                    setShowExportToAdmin(true);
-                  }}
-                  className="rounded-xl border border-amber-500 bg-amber-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-600"
-                >
-                  Send fence layout to supplier →
-                </button>
-              )}
+              {(layoutDrawing || segments.length > 0 || fence) &&
+                (isSupplier ? (
+                  <button
+                    type="button"
+                    onClick={handleBuildMaterialList}
+                    disabled={buildingList}
+                    className="rounded-xl border border-indigo-600 bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-60"
+                  >
+                    {buildingList ? 'Opening material list…' : 'Build material list →'}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExportSupplierId(linkedSuppliers[0]?.id ?? 'master');
+                      setShowExportToAdmin(true);
+                    }}
+                    className="rounded-xl border border-amber-500 bg-amber-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-600"
+                  >
+                    Send fence layout to supplier →
+                  </button>
+                ))}
               <button
                 type="button"
                 onClick={() => router.push(`/dashboard/calculator?from=${id}`)}

@@ -159,9 +159,9 @@ export default async function SupplierDashboardHomePage() {
               )}
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
-              Linked contractors send material layout requests here. Review new quotes, manage relationships, and use the
-              material calculator—all in one place. Your contractor-facing tools stay in the sidebar under{' '}
-              <span className="font-medium text-slate-800">Contractor workspace</span>.
+              Linked contractors send material layout requests here. You can also run your own business: capture your own
+              leads, and build material lists for your own jobs straight from a lead. Your contractor-facing tools stay in
+              the sidebar under <span className="font-medium text-slate-800">Contractor workspace</span>.
             </p>
           </div>
           <div className="flex flex-shrink-0 flex-wrap gap-2">
@@ -416,7 +416,19 @@ export default async function SupplierDashboardHomePage() {
       {/* Quick tools */}
       <section className="mt-12">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Quick tools</h2>
-        <ul className="mt-4 grid gap-4 sm:grid-cols-3">
+        <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <li>
+            <Link
+              href="/dashboard/customers"
+              className="flex h-full flex-col rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm transition hover:border-indigo-200 hover:shadow-md"
+            >
+              <h3 className="font-semibold text-slate-900">Your leads &amp; jobs</h3>
+              <p className="mt-2 flex-1 text-sm text-slate-600">
+                Your own customer leads. Open any lead to build a material list for that job in one click.
+              </p>
+              <span className="mt-4 text-sm font-semibold text-indigo-600">Open →</span>
+            </Link>
+          </li>
           <li>
             <Link
               href="/dashboard/supplier/contractor-quotes"
@@ -444,8 +456,7 @@ export default async function SupplierDashboardHomePage() {
             >
               <h3 className="font-semibold text-slate-900">Material calculator</h3>
               <p className="mt-2 flex-1 text-sm text-slate-600">
-                FMS-style PVC, chain, and hybrid takeoffs; reply to contractor material requests from the same page when
-                you open a request.
+                PVC, chain, and hybrid takeoffs for your own jobs, and to reply to contractor material requests.
               </p>
               <span className="mt-4 text-sm font-semibold text-indigo-600">Open →</span>
             </Link>
