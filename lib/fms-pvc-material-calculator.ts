@@ -99,10 +99,10 @@ export function computeFmsPvcFenceLine(raw: FmsPvcFenceLineInput): FmsPvcFenceLi
   const d16 = excelRoundUp(c16, 0);
 
   const c17 = c8 * B.board;
-  const d17 = excelRoundUp(c17, 10);
+  const d17 = excelRoundUp(c17, 0);
 
   const c18 = c8 * B.board_stiffener;
-  const d18 = excelRoundUp(c18, 1);
+  const d18 = excelRoundUp(c18, 0);
 
   const c19 = d9 * B.long_screw;
   const d19 = c19;

@@ -82,8 +82,8 @@ export function fmsHybridVeHhPvcColorLineFinals(
   const { c8, c9, d9, d6, b20 } = z;
   const post = d9 + d6 - 1;
   const rail = excelRoundUp(c9 * 1 * 2, 0);
-  const board = boardPerCeilPanel * c9;
-  const boardStiff = excelRoundUp(3 * c8, 1);
+  const board = excelRoundUp(boardPerCeilPanel * c9, 0);
+  const boardStiff = excelRoundUp(3 * c8, 0);
   const c17 = 4 * d9;
   const d17 = fmsHhPvcScrewIf3(c17, b20, 'plus4');
   const c18 = 2 * d9;

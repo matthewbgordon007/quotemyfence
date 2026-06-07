@@ -50,8 +50,8 @@ export function fmsVerticalHybridColorLineFinals(line: FmsVerticalHybridLineInpu
   const { c60, c61, d61, d58, b71 } = z;
   const post = d61 + d58 - 1;
   const rail8 = excelRoundUp(c61 * 2, 0);
-  const board72 = excelRoundUp(c60 * 16, 10);
-  const boardStiff = excelRoundUp(c60 * 3, 1);
+  const board72 = excelRoundUp(c60 * 16, 0);
+  const boardStiff = excelRoundUp(c60 * 3, 0);
   const c69 = 4 * d61;
   const d69 = vhScrewIf3(c69, b71, 'plus4');
   const c70 = 2 * d61;
