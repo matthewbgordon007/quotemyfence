@@ -266,6 +266,31 @@ export function removeLayoutDrawingSegment<
   };
 }
 
+/** Remove one sketch gate marker (by placement index) and refresh aggregate gate counts. */
+export function removeLayoutDrawingGatePlacement<
+  T extends {
+    points: LayoutPt[];
+    segments: { length_ft: number }[];
+    gates?: { type: 'single' | 'double'; quantity: number }[];
+    gate_placements?: { type: 'single' | 'double'; line_index: number }[];
+    total_length_ft?: number;
+    joint_terminations?: SketchJointTermination[];
+  },
+>(drawing: T, placementIndex: number): T | null {
+  const gp = drawing.gate_placements;
+  if (!gp || placementIndex < 0 || placementIndex >= gp.length) return null;
+
+  const gate_placements = gp.filter((_, i) => i !== placementIndex);
+  const singleCount = gate_placements.filter((g) => g.type === 'single').length;
+  const doubleCount = gate_placements.filter((g) => g.type === 'double').length;
+  const gates = [
+    ...(singleCount > 0 ? [{ type: 'single' as const, quantity: singleCount }] : []),
+    ...(doubleCount > 0 ? [{ type: 'double' as const, quantity: doubleCount }] : []),
+  ];
+
+  return { ...drawing, gate_placements, gates };
+}
+
 function norm(v: { x: number; y: number }): { x: number; y: number } {
   const h = hypot(v.x, v.y);
   if (h < 1e-9) return { x: 0, y: 0 };

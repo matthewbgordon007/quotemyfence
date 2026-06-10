@@ -70,6 +70,7 @@ import {
   layoutPointsToSegmentPairs,
   layoutSegmentsToPvcFenceInputsPerSketchSegment,
   netFenceLengthFtForSegment,
+  removeLayoutDrawingGatePlacement,
   removeLayoutDrawingSegment,
   sketchGateWidthInches,
   LAYOUT_CHAIN_ALIGN_FT,
@@ -241,6 +242,7 @@ type HybridHGateRow = {
   posts: 0 | 1 | 2;
   /** Adjacent: 0=adjoining yes, 1=no, 2=gate in middle. Double: 0=yes, 1=no. */
   adjoining: 0 | 1 | 2;
+  sketchPlacementIndex?: number;
 };
 
 type HybridVGateRow = {
@@ -248,6 +250,7 @@ type HybridVGateRow = {
   kind: 'single' | 'double';
   width_in: string;
   posts: 0 | 1 | 2;
+  sketchPlacementIndex?: number;
 };
 
 function drawingDataToPvcLineRows(
@@ -351,6 +354,35 @@ interface PvcGateRow {
   id: string;
   width_in: string;
   posts: FmsPvcGatePosts;
+  /** Index in layout `gate_placements` when this row was created from the sketch. */
+  sketchPlacementIndex?: number;
+}
+
+type ChainGateRow = {
+  id: string;
+  width_in: string;
+  posts: FmsPvcGatePosts;
+  opening_in: string;
+  sketchPlacementIndex?: number;
+};
+
+function parseSketchPlacementIndex(o: Record<string, unknown>): number | undefined {
+  const n = Number(o.sketchPlacementIndex);
+  if (Number.isFinite(n) && n >= 0) return Math.floor(n);
+  return undefined;
+}
+
+function shiftGatePlacementIndices<T extends { sketchPlacementIndex?: number }>(
+  rows: T[],
+  removedIndex: number
+): T[] {
+  return rows
+    .filter((r) => r.sketchPlacementIndex !== removedIndex)
+    .map((r) => {
+      const idx = r.sketchPlacementIndex;
+      if (idx == null || idx < removedIndex) return r;
+      return { ...r, sketchPlacementIndex: idx - 1 };
+    });
 }
 
 function presetToExcel(preset: LineEndPreset, h: 0 | 1 | 2, uStr: string): { d6: 0 | 1 | 2; d7: number } {
@@ -938,6 +970,7 @@ function parsePvcGateRows(raw: unknown): PvcGateRow[] | null {
       id: typeof o.id === 'string' && o.id ? o.id : newLineId(),
       width_in: typeof o.width_in === 'string' || typeof o.width_in === 'number' ? String(o.width_in) : '',
       posts: p,
+      sketchPlacementIndex: parseSketchPlacementIndex(o),
     });
   }
   return out;
@@ -961,11 +994,9 @@ function parseChainLines(raw: unknown): ChainLineRow[] | null {
   return out.length ? out : null;
 }
 
-function parseChainGates(
-  raw: unknown
-): { id: string; width_in: string; posts: FmsPvcGatePosts; opening_in: string }[] | null {
+function parseChainGates(raw: unknown): ChainGateRow[] | null {
   if (!Array.isArray(raw)) return null;
-  const out: { id: string; width_in: string; posts: FmsPvcGatePosts; opening_in: string }[] = [];
+  const out: ChainGateRow[] = [];
   for (const row of raw) {
     if (!row || typeof row !== 'object') continue;
     const o = row as Record<string, unknown>;
@@ -977,6 +1008,7 @@ function parseChainGates(
       posts: p,
       opening_in:
         typeof o.opening_in === 'string' || typeof o.opening_in === 'number' ? String(o.opening_in) : '45',
+      sketchPlacementIndex: parseSketchPlacementIndex(o),
     });
   }
   return out;
@@ -1013,6 +1045,7 @@ function parseHybridHGates(raw: unknown): HybridHGateRow[] | null {
       width_in: typeof o.width_in === 'string' || typeof o.width_in === 'number' ? String(o.width_in) : '',
       posts: coerceH012(o.posts),
       adjoining: coerceH012(o.adjoining ?? 0),
+      sketchPlacementIndex: parseSketchPlacementIndex(o),
     });
   }
   return out;
@@ -1029,6 +1062,7 @@ function parseHybridVGates(raw: unknown): HybridVGateRow[] | null {
       kind: o.kind === 'double' ? 'double' : 'single',
       width_in: typeof o.width_in === 'string' || typeof o.width_in === 'number' ? String(o.width_in) : '',
       posts: coerceH012(o.posts),
+      sketchPlacementIndex: parseSketchPlacementIndex(o),
     });
   }
   return out;
@@ -1093,9 +1127,7 @@ export default function MaterialCalculatorHubPage() {
   const [chainRailFt, setChainRailFt] = useState('10');
   const [chainMeshFt, setChainMeshFt] = useState('50');
   const [chainTiesPerBag, setChainTiesPerBag] = useState('100');
-  const [chainGates, setChainGates] = useState<
-    { id: string; width_in: string; posts: FmsPvcGatePosts; opening_in: string }[]
-  >([]);
+  const [chainGates, setChainGates] = useState<ChainGateRow[]>([]);
 
   const applyPvcPanelModule = useCallback((module: FmsPvcPanelModule) => {
     setPvcPanelModule(module);
@@ -1760,14 +1792,26 @@ export default function MaterialCalculatorHubPage() {
 
     const start = sketchSyncedGatePlacementCountRef.current;
     const newPlacements = gp.slice(start);
-    for (const placement of newPlacements) {
+    for (let j = 0; j < newPlacements.length; j++) {
+      const placement = newPlacements[j];
+      const placementIndex = start + j;
       const { kind, row } = pvcGateFromSketchPlacement(placement, segs);
-      if (kind === 'short') setShortGates((p) => [...p, row]);
-      else if (kind === 'single') setSingleGates((p) => [...p, row]);
-      else setDoubleGates((p) => [...p, row]);
-      setChainGates((p) => [...p, chainGateRowFromSketchPlacement(placement, segs)]);
-      setHybVGates((p) => [...p, hybVGateRowFromSketchPlacement(placement, segs)]);
-      setHybHGates((p) => [...p, hybHGateRowFromSketchPlacement(placement, segs)]);
+      const tagged = { ...row, sketchPlacementIndex: placementIndex };
+      if (kind === 'short') setShortGates((p) => [...p, tagged]);
+      else if (kind === 'single') setSingleGates((p) => [...p, tagged]);
+      else setDoubleGates((p) => [...p, tagged]);
+      setChainGates((p) => [
+        ...p,
+        { ...chainGateRowFromSketchPlacement(placement, segs), sketchPlacementIndex: placementIndex },
+      ]);
+      setHybVGates((p) => [
+        ...p,
+        { ...hybVGateRowFromSketchPlacement(placement, segs), sketchPlacementIndex: placementIndex },
+      ]);
+      setHybHGates((p) => [
+        ...p,
+        { ...hybHGateRowFromSketchPlacement(placement, segs), sketchPlacementIndex: placementIndex },
+      ]);
     }
     sketchSyncedGatePlacementCountRef.current = gp.length;
 
@@ -2341,6 +2385,29 @@ export default function MaterialCalculatorHubPage() {
     });
   }
 
+  function removeSketchLinkedGate(placementIndex: number) {
+    const sketch = layoutSketchDataRef.current;
+    if (!sketch?.gate_placements?.length) return;
+    if (placementIndex < 0 || placementIndex >= sketch.gate_placements.length) return;
+
+    const updated = removeLayoutDrawingGatePlacement(sketch, placementIndex);
+    if (!updated) return;
+
+    setShortGates((rows) => shiftGatePlacementIndices(rows, placementIndex));
+    setSingleGates((rows) => shiftGatePlacementIndices(rows, placementIndex));
+    setDoubleGates((rows) => shiftGatePlacementIndices(rows, placementIndex));
+    setChainGates((rows) => shiftGatePlacementIndices(rows, placementIndex));
+    setHybVGates((rows) => shiftGatePlacementIndices(rows, placementIndex));
+    setHybHGates((rows) => shiftGatePlacementIndices(rows, placementIndex));
+
+    sketchSyncedGatePlacementCountRef.current = updated.gate_placements?.length ?? 0;
+    sketchToLinesSyncKeyRef.current = '';
+    queueMicrotask(() => {
+      setLayoutSketchData(updated as LayoutSketchDrawingPayload);
+      setLayoutCanvasRemountKey((k) => k + 1);
+    });
+  }
+
   function syncSketchAfterSegmentRemoved(segmentIndex: number) {
     const sketch = layoutSketchDataRef.current;
     if (!sketch?.segments?.length || segmentIndex < 0 || segmentIndex >= sketch.segments.length) return;
@@ -2419,10 +2486,43 @@ export default function MaterialCalculatorHubPage() {
   }
 
   function removePvcGate(kind: 'short' | 'single' | 'double', id: string) {
-    const fn = (rows: PvcGateRow[]) => rows.filter((r) => r.id !== id);
+    const rows = kind === 'short' ? shortGates : kind === 'single' ? singleGates : doubleGates;
+    const row = rows.find((r) => r.id === id);
+    if (row?.sketchPlacementIndex != null) {
+      removeSketchLinkedGate(row.sketchPlacementIndex);
+      return;
+    }
+    const fn = (gateRows: PvcGateRow[]) => gateRows.filter((r) => r.id !== id);
     if (kind === 'short') setShortGates(fn);
     else if (kind === 'single') setSingleGates(fn);
     else setDoubleGates(fn);
+  }
+
+  function removeChainGate(id: string) {
+    const row = chainGates.find((r) => r.id === id);
+    if (row?.sketchPlacementIndex != null) {
+      removeSketchLinkedGate(row.sketchPlacementIndex);
+      return;
+    }
+    setChainGates((rows) => rows.filter((r) => r.id !== id));
+  }
+
+  function removeHybVGate(id: string) {
+    const row = hybVGates.find((r) => r.id === id);
+    if (row?.sketchPlacementIndex != null) {
+      removeSketchLinkedGate(row.sketchPlacementIndex);
+      return;
+    }
+    setHybVGates((rows) => rows.filter((r) => r.id !== id));
+  }
+
+  function removeHybHGate(id: string) {
+    const row = hybHGates.find((r) => r.id === id);
+    if (row?.sketchPlacementIndex != null) {
+      removeSketchLinkedGate(row.sketchPlacementIndex);
+      return;
+    }
+    setHybHGates((rows) => rows.filter((r) => r.id !== id));
   }
 
   function renderPvcGateSection(
@@ -3467,7 +3567,7 @@ export default function MaterialCalculatorHubPage() {
                         className={`${field} w-24`}
                       />
                     </div>
-                    <button type="button" className={btnGhost} onClick={() => setChainGates((rows) => rows.filter((r) => r.id !== g.id))}>
+                    <button type="button" className={btnGhost} onClick={() => removeChainGate(g.id)}>
                       Remove
                     </button>
                   </div>
@@ -3807,7 +3907,7 @@ export default function MaterialCalculatorHubPage() {
                     <button
                       type="button"
                       className={btnGhost}
-                      onClick={() => setHybHGates((rows2) => rows2.filter((r) => r.id !== g.id))}
+                      onClick={() => removeHybHGate(g.id)}
                     >
                       Remove
                     </button>
@@ -4096,7 +4196,7 @@ export default function MaterialCalculatorHubPage() {
                     <button
                       type="button"
                       className={btnGhost}
-                      onClick={() => setHybVGates((rows2) => rows2.filter((r) => r.id !== g.id))}
+                      onClick={() => removeHybVGate(g.id)}
                     >
                       Remove
                     </button>
