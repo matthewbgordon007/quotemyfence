@@ -1227,7 +1227,10 @@ export default function CalculatorPage() {
         : `- Removal Cost: ${fmtFeet(removalLengthFt)} × ${moneyCAD(effectiveRemovalPricePerFt)}/ft = ${moneyCAD(removalTotal)} + Tax`
       : null;
   const sharedSectionLines = [...sharedQuoteLines];
-  if (removalQuoteLine) sharedSectionLines.push(removalQuoteLine);
+  if (removalQuoteLine) {
+    if (sharedSectionLines.length > 0) sharedSectionLines.push('');
+    sharedSectionLines.push(removalQuoteLine);
+  }
 
   const quoteTokenValues: Record<QuoteTokenId, string> = {
     brand: contractorBrand || '—',
