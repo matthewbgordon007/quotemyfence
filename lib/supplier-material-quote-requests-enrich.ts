@@ -1,3 +1,4 @@
+import { getLayoutDrawingFootage } from '@/lib/layout-drawing-footage';
 import { normalizeMaterialListJson, type MaterialQuoteLine } from '@/lib/material-quote-lines';
 import { stripSupplierFromTypeName } from '@/lib/supplier-import-label';
 
@@ -356,8 +357,11 @@ export async function enrichMaterialQuoteRequests(supabase: any, rows: RawMateri
         designOptionFromFence ?? (await getDesignOptionFromSupplierSelection(supabase, r));
       const designOption = designOptionFromSupplier;
       const layout = r.layout_drawing_id ? layoutById.get(r.layout_drawing_id) || null : null;
+      const layoutFootage = layout?.drawing_data ? getLayoutDrawingFootage(layout.drawing_data) : null;
       const fenceId = r.quote_session_id ? fenceIdBySessionId.get(r.quote_session_id) || null : null;
       const homeAddress = r.quote_session_id ? homeAddressBySessionId.get(r.quote_session_id) ?? null : null;
+      const mapSegments = fenceId ? segmentsByFenceId.get(fenceId) || [] : [];
+      const mapGates = fenceId ? gatesByFenceId.get(fenceId) || [] : [];
       const { supplier_material_list_json, ...rest } = r;
       return {
         ...rest,
@@ -369,13 +373,16 @@ export async function enrichMaterialQuoteRequests(supabase: any, rows: RawMateri
           phone: null,
         },
         project: {
-          total_length_ft: fence?.total_length_ft ?? null,
+          total_length_ft:
+            fence?.total_length_ft != null
+              ? Number(fence.total_length_ft)
+              : layoutFootage?.total_length_ft ?? null,
           home_address: homeAddress,
           design_summary: designSummary,
           design_option: designOption,
           has_removal: fence?.has_removal ?? false,
-          segments: fenceId ? segmentsByFenceId.get(fenceId) || [] : [],
-          gates: fenceId ? gatesByFenceId.get(fenceId) || [] : [],
+          segments: mapSegments,
+          gates: mapGates.length > 0 ? mapGates : layoutFootage?.gates ?? [],
           image_data_url: layout?.image_data_url ?? null,
           drawing_data: (layout?.drawing_data as MaterialQuoteRequestProject['drawing_data']) ?? null,
         },

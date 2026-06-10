@@ -7,6 +7,7 @@ import {
   type MapFenceSegment,
 } from '@/lib/map-fence-to-layout-drawing';
 import { createServiceRoleClient } from '@/lib/supabase-service-role';
+import { formatLayoutFootageSummary, getLayoutDrawingFootage } from '@/lib/layout-drawing-footage';
 import { validateSupplierProductSelection } from '@/lib/validate-supplier-product-selection';
 
 async function getContractorId(supabase: Awaited<ReturnType<typeof createClient>>) {
@@ -226,6 +227,18 @@ export async function POST(request: NextRequest) {
   }
   if (jobSiteAddress && !descriptionForInsert.includes(jobSiteAddress)) {
     descriptionForInsert = `${descriptionForInsert}\n\n— Job site: ${jobSiteAddress}`;
+  }
+
+  const { data: layoutWithDrawing } = await supabase
+    .from('layout_drawings')
+    .select('drawing_data')
+    .eq('id', layoutId)
+    .eq('contractor_id', contractorId)
+    .single();
+  const layoutFootage = getLayoutDrawingFootage(layoutWithDrawing?.drawing_data);
+  const footageLine = layoutFootage ? formatLayoutFootageSummary(layoutFootage) : '';
+  if (footageLine && !descriptionForInsert.includes('Linear footage')) {
+    descriptionForInsert = `${descriptionForInsert}\n\n${footageLine}`;
   }
 
   const { data: req, error } = await supabase

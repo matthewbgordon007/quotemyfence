@@ -1,6 +1,7 @@
 'use client';
 
 import { LayoutDrawCanvas } from '@/components/LayoutDrawCanvas';
+import { getLayoutDrawingFootage } from '@/lib/layout-drawing-footage';
 import { lineHighlightModesFromDrawing, parseSavedLayoutDrawing } from '@/lib/layout-drawing-view';
 import type { MaterialQuoteRequestDto } from '@/lib/supplier-material-quote-requests-enrich';
 import dynamic from 'next/dynamic';
@@ -26,6 +27,22 @@ export function MaterialQuoteRequestViewer({ request: selectedRequest, compact }
     ? lineHighlightModesFromDrawing(selectedRequest.project.drawing_data)
     : undefined;
   const hasLayoutPlanView = !!savedLayoutSketch;
+  const layoutFootage = selectedRequest.project?.drawing_data
+    ? getLayoutDrawingFootage(selectedRequest.project.drawing_data)
+    : null;
+  const mapSegments = selectedRequest.project?.segments || [];
+  const displayLineLengths =
+    mapSegments.length > 0
+      ? mapSegments.map((seg) => seg.length_ft)
+      : layoutFootage?.line_lengths_ft ?? [];
+  const displayTotalFt =
+    selectedRequest.project?.total_length_ft != null && Number(selectedRequest.project.total_length_ft) > 0
+      ? Number(selectedRequest.project.total_length_ft)
+      : layoutFootage?.total_length_ft ?? 0;
+  const displayGates =
+    (selectedRequest.project?.gates?.length ?? 0) > 0
+      ? selectedRequest.project?.gates || []
+      : layoutFootage?.gates ?? [];
 
   return (
     <div className={compact ? 'text-sm' : ''}>
@@ -51,8 +68,19 @@ export function MaterialQuoteRequestViewer({ request: selectedRequest, compact }
             Material selection: {selectedRequest.project?.design_summary || 'Not selected'}
           </p>
           <p className="mt-1 text-slate-800">
-            Total footage: {Math.round(Number(selectedRequest.project?.total_length_ft || 0))} ft
+            Total footage: {displayTotalFt > 0 ? `${displayTotalFt.toFixed(1)} ft` : '—'}
           </p>
+          {displayLineLengths.some((ft) => ft != null && Number(ft) > 0) && (
+            <p className="mt-1 text-slate-800">
+              Line lengths:{' '}
+              {displayLineLengths
+                .map((ft, i) =>
+                  ft != null && Number(ft) > 0 ? `Line ${i + 1}: ${Number(ft).toFixed(1)} ft` : null
+                )
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
+          )}
           {selectedRequest.project?.has_removal ? <p className="mt-1 text-slate-600">Removal included</p> : null}
           <p className="mt-2 text-xs font-medium text-slate-500">
             Status: <span className="text-slate-800">{selectedRequest.status}</span>
@@ -106,27 +134,29 @@ export function MaterialQuoteRequestViewer({ request: selectedRequest, compact }
               />
             </div>
           ) : null}
-          {((selectedRequest.project?.segments?.length ?? 0) > 0 || selectedRequest.project?.total_length_ft) && (
+          {(displayLineLengths.length > 0 || displayTotalFt > 0 || displayGates.length > 0) && (
             <div className="mt-3 space-y-2">
-              {(selectedRequest.project?.segments?.length ?? 0) > 0 && (
+              {displayLineLengths.length > 0 && (
                 <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                   <span className="font-medium">Segment lengths:</span>
-                  {(selectedRequest.project?.segments || []).map((seg, i) => (
+                  {displayLineLengths.map((ft, i) => (
                     <span key={i} className="text-slate-600">
-                      Line {i + 1}: {seg.length_ft != null ? `${Number(seg.length_ft).toFixed(1)} ft` : '—'}
+                      Line {i + 1}: {ft != null && Number(ft) > 0 ? `${Number(ft).toFixed(1)} ft` : '—'}
                     </span>
                   ))}
                 </div>
               )}
               <div className="flex flex-wrap gap-3">
-                <span>
-                  <strong>Total length:</strong> {Number(selectedRequest.project?.total_length_ft || 0).toFixed(1)} ft
-                </span>
+                {displayTotalFt > 0 && (
+                  <span>
+                    <strong>Total length:</strong> {displayTotalFt.toFixed(1)} ft
+                  </span>
+                )}
                 {selectedRequest.project?.has_removal && <span className="text-slate-600">Removal included</span>}
-                {(selectedRequest.project?.gates?.length ?? 0) > 0 && (
+                {displayGates.length > 0 && (
                   <span>
                     <strong>Gates:</strong>{' '}
-                    {(selectedRequest.project?.gates || []).map((g) => `${g.quantity} ${g.gate_type}`).join(', ')}
+                    {displayGates.map((g) => `${g.quantity} ${g.gate_type}`).join(', ')}
                   </span>
                 )}
               </div>
