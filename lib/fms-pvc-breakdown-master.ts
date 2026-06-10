@@ -13,6 +13,7 @@
  */
 
 import { excelRoundUp } from '@/lib/fms-excel-math';
+import { LARGE_WARE_TITLE, SMALL_WARE_TITLE, splitWare } from '@/lib/material-ware';
 import type { FmsPvcAdobeGateMap } from '@/lib/fms-pvc-gates-calculator';
 import type { FmsPvcFenceLineResult } from '@/lib/fms-pvc-material-calculator';
 
@@ -96,6 +97,8 @@ export function buildPvcAdobeBreakdown(
 export interface FmsPvcMasterRow {
   label: string;
   qty: number;
+  /** Section divider row ("Large ware" / "Small ware") — no quantity. */
+  header?: boolean;
 }
 
 /** Extra boards added by a percentage uplift (e.g. 5 → +5% boards, rounded up to whole boards). */
@@ -141,7 +144,7 @@ export function computePvcMasterColumn(
       : j(adobe, 2);
   const totalLinearFt = fenceLinearFt + j(adobe, 17);
 
-  return [
+  const items: FmsPvcMasterRow[] = [
     { label: 'Concrete', qty: concrete },
     { label: 'Rail', qty: rail },
     { label: 'Rail Stiffener', qty: railStiff },
@@ -163,6 +166,14 @@ export function computePvcMasterColumn(
     { label: '*PREMIUM*Latch', qty: latch },
     { label: '*PREMIUM*Hinge', qty: hinge },
     { label: 'Drop Rod/Sleeve', qty: 0 },
+  ];
+  const { large, small } = splitWare(items, (r) => r.label);
+
+  return [
+    { label: LARGE_WARE_TITLE, qty: 0, header: true },
+    ...large,
+    { label: SMALL_WARE_TITLE, qty: 0, header: true },
+    ...small,
     { label: '', qty: 0 },
     { label: 'Total Linear Ft', qty: totalLinearFt },
     { label: 'Total Gates', qty: gateCount },

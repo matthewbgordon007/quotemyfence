@@ -1,11 +1,33 @@
 import { excelRoundUp } from '@/lib/fms-excel-math';
 import { pvcBoardsPercentAdd, type FmsPvcMasterExtras } from '@/lib/fms-pvc-breakdown-master';
+import { LARGE_WARE_TITLE, SMALL_WARE_TITLE, splitWare } from '@/lib/material-ware';
 
 function j(adobe: Record<number, number>, row: number): number {
   return adobe[row] ?? 0;
 }
 
-export type MasterMaterialListPdfSection = 'structure' | 'accessory' | 'hardware' | 'spacer' | 'totals' | 'taxRow';
+export type MasterMaterialListPdfSection =
+  | 'structure'
+  | 'accessory'
+  | 'hardware'
+  | 'wareHeader'
+  | 'spacer'
+  | 'totals'
+  | 'taxRow';
+
+/** Divider rows so every master list reads Large ware first, then Small ware. */
+export function wareHeaderPdfRow(title: string): MasterMaterialListPdfRow {
+  return { label: title, adobe: '', extras: '', section: 'wareHeader' };
+}
+
+/**
+ * Group item rows into Large ware / Small ware (original order kept inside each group),
+ * with a divider row above each group.
+ */
+export function groupPdfRowsByWare(items: MasterMaterialListPdfRow[]): MasterMaterialListPdfRow[] {
+  const { large, small } = splitWare(items, (r) => r.label);
+  return [wareHeaderPdfRow(LARGE_WARE_TITLE), ...large, wareHeaderPdfRow(SMALL_WARE_TITLE), ...small];
+}
 
 export interface MasterMaterialListPdfRow {
   label: string;
@@ -71,7 +93,7 @@ export function buildMasterMaterialListPdfRows(
   const G = 'accessory' as const;
   const H = 'hardware' as const;
 
-  return [
+  const items: MasterMaterialListPdfRow[] = [
     { label: 'Concrete', adobe: fmtQty(concrete), extras: '', section: S },
     { label: 'Rail', adobe: fmtQty(rail), extras: extrasCell(x(e.m6)), section: S },
     { label: 'Rail Stiffener', adobe: fmtQty(railStiff), extras: extrasCell(x(e.m7)), section: S },
@@ -93,6 +115,10 @@ export function buildMasterMaterialListPdfRows(
     { label: '*PREMIUM*Latch', adobe: fmtQty(latch), extras: extrasCell(x(e.m23)), section: H },
     { label: '*PREMIUM*Hinge', adobe: fmtQty(hinge), extras: extrasCell(x(e.m24)), section: H },
     { label: 'Drop Rod/Sleeve', adobe: fmtQty(0, true), extras: '', section: H },
+  ];
+
+  return [
+    ...groupPdfRowsByWare(items),
     { label: '', adobe: '', extras: '', section: 'spacer' },
     { label: 'Total Linear Ft', adobe: fmtQty(totalLinearFt), extras: '', section: 'totals' },
     { label: 'Total Gates', adobe: fmtQty(gateCount), extras: '', section: 'totals' },

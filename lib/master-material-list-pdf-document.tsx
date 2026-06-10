@@ -6,6 +6,7 @@ const COL_ADOBE = '#F4D4A4';
 const COL_GREEN = '#92D050';
 const COL_BLUE = '#B7DEE8';
 const COL_WHITE = '#FFFFFF';
+const COL_WARE = '#404040';
 
 const styles = StyleSheet.create({
   page: {
@@ -86,6 +87,8 @@ function rowBg(section: MasterMaterialListPdfSection): string {
       return COL_GREEN;
     case 'hardware':
       return COL_BLUE;
+    case 'wareHeader':
+      return COL_WARE;
     case 'spacer':
     case 'taxRow':
       return COL_WHITE;
@@ -130,6 +133,8 @@ export function MasterMaterialListPdfDocument({
           {rows.map((r, i) => {
             const bg = rowBg(r.section);
             const isSpacer = r.section === 'spacer';
+            const isWareHeader = r.section === 'wareHeader';
+            const headerText = isWareHeader ? { color: '#FFFFFF', fontWeight: 'bold' as const } : {};
             return (
                 <View
                 key={`${i}-${r.label || 'sp'}`}
@@ -139,7 +144,7 @@ export function MasterMaterialListPdfDocument({
                 ]}
               >
                 <View style={[styles.cellLabel, { backgroundColor: bg }]}>
-                  <Text>{r.label}</Text>
+                  <Text style={headerText}>{r.label}</Text>
                 </View>
                 <View style={[styles.cellAdobe, { backgroundColor: bg }]}>
                   <Text>{r.adobe}</Text>

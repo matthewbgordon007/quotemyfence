@@ -16,6 +16,7 @@ import {
   pvcBoardsPercentAdd,
   type FmsPvcMasterExtras,
 } from '@/lib/fms-pvc-breakdown-master';
+import { LARGE_WARE_TITLE, SMALL_WARE_TITLE, splitWare } from '@/lib/material-ware';
 import { sumGateAdobeRows, type FmsPvcGatePosts } from '@/lib/fms-pvc-gates-calculator';
 import {
   aggregateFmsChainLinkFenceLines,
@@ -129,7 +130,25 @@ function fmtQty(n: number): string {
 }
 
 /** Item / Final table mirroring the Excel block layout. */
-function HybridItemTable({ rows }: { rows: FmsHybridItemRow[] }) {
+function WareHeaderTr({ title }: { title: string }) {
+  return (
+    <tr className="border-b border-slate-200 bg-slate-100">
+      <td colSpan={2} className="py-1.5 px-1 text-[11px] font-bold uppercase tracking-wide text-slate-600">
+        {title}
+      </td>
+    </tr>
+  );
+}
+
+function HybridItemTable({ rows, groupWare = false }: { rows: FmsHybridItemRow[]; groupWare?: boolean }) {
+  const body = groupWare ? splitWare(rows, (r) => r.item) : null;
+  const renderRows = (rs: FmsHybridItemRow[]) =>
+    rs.map((r) => (
+      <tr key={r.item} className="border-b border-slate-100">
+        <td className="py-1.5 font-medium text-slate-800">{r.item}</td>
+        <td className="py-1.5 text-right tabular-nums">{fmtQty(r.final)}</td>
+      </tr>
+    ));
   return (
     <table className="w-full max-w-md text-sm">
       <thead>
@@ -139,12 +158,16 @@ function HybridItemTable({ rows }: { rows: FmsHybridItemRow[] }) {
         </tr>
       </thead>
       <tbody>
-        {rows.map((r) => (
-          <tr key={r.item} className="border-b border-slate-100">
-            <td className="py-1.5 font-medium text-slate-800">{r.item}</td>
-            <td className="py-1.5 text-right tabular-nums">{fmtQty(r.final)}</td>
-          </tr>
-        ))}
+        {body ? (
+          <>
+            <WareHeaderTr title={LARGE_WARE_TITLE} />
+            {renderRows(body.large)}
+            <WareHeaderTr title={SMALL_WARE_TITLE} />
+            {renderRows(body.small)}
+          </>
+        ) : (
+          renderRows(rows)
+        )}
       </tbody>
     </table>
   );
@@ -1786,7 +1809,7 @@ export default function MaterialCalculatorHubPage() {
     const adobeH = [`${fmsPvcMaterialListBreakdownTitle(pvcBreakdownColour)} (J row → qty)`, '', '', ''].join('\t');
     const adobeBody = adobeRows.map((r) => `${r.row}\t${r.label}\t${r.qty}`);
     const masterH = [`Master column C — ${pvcBreakdownColour} (optional M adders)`, '', '', ''].join('\t');
-    const masterBody = pvcMaster.map((r) => `${r.label}\t${r.qty}`);
+    const masterBody = pvcMaster.map((r) => (r.header ? `— ${r.label} —` : `${r.label}\t${r.qty}`));
     return [head, colourLine, '', fenceHdr, hdr, ...fenceRows, extra, concF, '', adobeH, 'Row\tItem\tQty', ...adobeBody, '', masterH, hdr, ...masterBody].join('\n');
   }, [pvcJob, jobAddress, pvcBreakdownColour, adobeRows, pvcMaster]);
 
@@ -1938,19 +1961,22 @@ export default function MaterialCalculatorHubPage() {
       const r = Math.round(n * 100) / 100;
       return Number.isFinite(r) ? String(r) : '';
     };
+    const itemRows = [
+      ...chainFenceRows.map((r) => ({ key: r.key, label: r.label, qty: r.qty })),
+      ...(chainGateRows ?? []).map((r) => ({ key: r.key, label: `Gate — ${r.label}`, qty: r.qty })),
+    ];
+    const { large, small } = splitWare(itemRows, (r) => r.label);
+    const toPdfRow = (r: { key: string; label: string; qty: number }, section: 'structure' | 'hardware') => ({
+      label: r.label,
+      adobe: fmt(r.qty),
+      extras: ex(r.key) > 0 ? fmt(ex(r.key)) : '',
+      section,
+    });
     const pdfRows: import('@/lib/master-material-list-pdf-data').MasterMaterialListPdfRow[] = [
-      ...chainFenceRows.map((r) => ({
-        label: r.label,
-        adobe: fmt(r.qty),
-        extras: ex(r.key) > 0 ? fmt(ex(r.key)) : '',
-        section: 'structure' as const,
-      })),
-      ...(chainGateRows ?? []).map((r) => ({
-        label: `Gate — ${r.label}`,
-        adobe: fmt(r.qty),
-        extras: ex(r.key) > 0 ? fmt(ex(r.key)) : '',
-        section: 'hardware' as const,
-      })),
+      { label: LARGE_WARE_TITLE, adobe: '', extras: '', section: 'wareHeader' as const },
+      ...large.map((r) => toPdfRow(r, 'structure')),
+      { label: SMALL_WARE_TITLE, adobe: '', extras: '', section: 'wareHeader' as const },
+      ...small.map((r) => toPdfRow(r, 'hardware')),
       { label: '', adobe: '', extras: '', section: 'spacer' as const },
       { label: 'Total Linear Ft', adobe: fmt(chainFenceAgg.total_linear_ft), extras: '', section: 'totals' as const },
       { label: 'Total Gates', adobe: fmt(chainGateResults.length), extras: '', section: 'totals' as const },
@@ -2079,13 +2105,18 @@ export default function MaterialCalculatorHubPage() {
       const linearFt = lines.reduce((a, r) => a + (Number(String(r.length_ft).replace(/,/g, '')) || 0), 0);
       const gateCount = job.gates.filter((g) => g.rows).length;
       const fmt = (n: number) => String(Math.round(n * 100) / 100);
+      const { large, small } = splitWare(job.master, (r) => r.item);
+      const toPdfRow = (r: FmsHybridItemRow, section: 'structure' | 'hardware') => ({
+        label: r.item,
+        adobe: fmt(r.final),
+        extras: extrasByItem.get(r.item.toLowerCase()) ? fmt(extrasByItem.get(r.item.toLowerCase())!) : '',
+        section,
+      });
       const pdfRows: import('@/lib/master-material-list-pdf-data').MasterMaterialListPdfRow[] = [
-        ...job.master.map((r) => ({
-          label: r.item,
-          adobe: fmt(r.final),
-          extras: extrasByItem.get(r.item.toLowerCase()) ? fmt(extrasByItem.get(r.item.toLowerCase())!) : '',
-          section: 'structure' as const,
-        })),
+        { label: LARGE_WARE_TITLE, adobe: '', extras: '', section: 'wareHeader' as const },
+        ...large.map((r) => toPdfRow(r, 'structure')),
+        { label: SMALL_WARE_TITLE, adobe: '', extras: '', section: 'wareHeader' as const },
+        ...small.map((r) => toPdfRow(r, 'hardware')),
         { label: '', adobe: '', extras: '', section: 'spacer' as const },
         { label: 'Total Linear Ft', adobe: fmt(linearFt), extras: '', section: 'totals' as const },
         { label: 'Total Gates', adobe: fmt(gateCount), extras: '', section: 'totals' as const },
@@ -2146,7 +2177,7 @@ export default function MaterialCalculatorHubPage() {
       for (const r of pvcJob.sku_rows) add(`PVC fence — ${r.label}`, r.quantity);
       for (const r of adobeRows) add(`${pvcBreakdownColour} (breakdown) — ${r.label}`, r.qty);
       for (const r of pvcMaster) {
-        if (r.label?.trim()) add(`Master — ${r.label}`, r.qty);
+        if (r.label?.trim() && !r.header) add(`Master — ${r.label}`, r.qty);
       }
       return rows;
     }
@@ -2991,12 +3022,23 @@ export default function MaterialCalculatorHubPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {pvcMaster.map((r, idx) => (
-                        <tr key={`${idx}-${r.label || 'row'}`} className="border-b border-slate-100">
-                          <td className="px-2 py-1.5 font-medium text-slate-800">{r.label || '\u00a0'}</td>
-                          <td className="px-2 py-1.5 text-right tabular-nums text-slate-900">{r.qty}</td>
-                        </tr>
-                      ))}
+                      {pvcMaster.map((r, idx) =>
+                        r.header ? (
+                          <tr key={`${idx}-${r.label}`} className="border-b border-slate-200 bg-slate-100">
+                            <td
+                              colSpan={2}
+                              className="px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-600"
+                            >
+                              {r.label}
+                            </td>
+                          </tr>
+                        ) : (
+                          <tr key={`${idx}-${r.label || 'row'}`} className="border-b border-slate-100">
+                            <td className="px-2 py-1.5 font-medium text-slate-800">{r.label || '\u00a0'}</td>
+                            <td className="px-2 py-1.5 text-right tabular-nums text-slate-900">{r.qty}</td>
+                          </tr>
+                        )
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -3340,17 +3382,26 @@ export default function MaterialCalculatorHubPage() {
               ) : (
                 <table className="w-full max-w-xl text-sm">
                   <tbody>
-                    {[
-                      { key: '_posts', label: 'Posts (all runs)', qty: chainFenceAgg.posts },
-                      ...chainMasterRows,
-                      { key: '_lin_ft', label: 'Total linear ft', qty: chainFenceAgg.total_linear_ft },
-                      { key: '_gates', label: 'Total gates', qty: chainGateResults.length },
-                    ].map((r) => (
-                      <tr key={r.key} className="border-b border-slate-100">
-                        <td className="py-1.5 font-medium text-slate-800">{r.label}</td>
-                        <td className="py-1.5 text-right tabular-nums">{r.qty}</td>
-                      </tr>
-                    ))}
+                    {(() => {
+                      const { large, small } = splitWare(chainMasterRows, (r) => r.label);
+                      const itemRow = (r: { key: string; label: string; qty: number }) => (
+                        <tr key={r.key} className="border-b border-slate-100">
+                          <td className="py-1.5 font-medium text-slate-800">{r.label}</td>
+                          <td className="py-1.5 text-right tabular-nums">{r.qty}</td>
+                        </tr>
+                      );
+                      return (
+                        <>
+                          {itemRow({ key: '_posts', label: 'Posts (all runs)', qty: chainFenceAgg.posts })}
+                          <WareHeaderTr title={LARGE_WARE_TITLE} />
+                          {large.map(itemRow)}
+                          <WareHeaderTr title={SMALL_WARE_TITLE} />
+                          {small.map(itemRow)}
+                          {itemRow({ key: '_lin_ft', label: 'Total linear ft', qty: chainFenceAgg.total_linear_ft })}
+                          {itemRow({ key: '_gates', label: 'Total gates', qty: chainGateResults.length })}
+                        </>
+                      );
+                    })()}
                   </tbody>
                 </table>
               )}
@@ -3683,7 +3734,7 @@ export default function MaterialCalculatorHubPage() {
                       (plus matching plugs), concrete = 2.5 per post. Cut stock (rails, boards, stiffeners) is shared
                       across runs and rounded up once for the whole job to minimize scrap.
                     </p>
-                    <HybridItemTable rows={hybridHJob.master} />
+                    <HybridItemTable rows={hybridHJob.master} groupWare />
                   </div>
                   <details className="rounded-xl border border-slate-100 bg-slate-50/40">
                     <summary className="cursor-pointer list-none px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500 [&::-webkit-details-marker]:hidden">
@@ -3972,7 +4023,7 @@ export default function MaterialCalculatorHubPage() {
                       (plus matching plugs), concrete = 2.5 per post. Cut stock (rails, boards, stiffeners) is shared
                       across runs and rounded up once for the whole job to minimize scrap.
                     </p>
-                    <HybridItemTable rows={hybridVJob.master} />
+                    <HybridItemTable rows={hybridVJob.master} groupWare />
                   </div>
                   <details className="rounded-xl border border-slate-100 bg-slate-50/40">
                     <summary className="cursor-pointer list-none px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500 [&::-webkit-details-marker]:hidden">
