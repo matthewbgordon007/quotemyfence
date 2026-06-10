@@ -395,6 +395,20 @@ function hybVGateRowFromSketchPlacement(
   return { id: newLineId(), kind: placement.type, width_in: row.width_in, posts: 1 };
 }
 
+function hybHGateRowFromSketchPlacement(
+  placement: { type: 'single' | 'double'; line_index: number },
+  segments: { length_ft: number }[]
+): HybridHGateRow {
+  const { row } = pvcGateFromSketchPlacement(placement, segments);
+  return {
+    id: newLineId(),
+    kind: placement.type === 'double' ? 'double' : 'simple',
+    width_in: row.width_in,
+    posts: 1,
+    adjoining: 1,
+  };
+}
+
 function parseGateRowsShort(rows: PvcGateRow[]) {
   return rows
     .map((r) => {
@@ -1588,6 +1602,7 @@ export default function MaterialCalculatorHubPage() {
         setLines((prev) => (prev.length > 0 && prev.every((l) => l.fromSketch) ? defaultPvcLines() : prev));
         setChainLines((prev) => (prev.length > 0 && prev.every((l) => l.fromSketch) ? defaultChainLines() : prev));
         setHybVLines((prev) => (prev.length > 0 && prev.every((l) => l.fromSketch) ? defaultHybridLines() : prev));
+        setHybHLines((prev) => (prev.length > 0 && prev.every((l) => l.fromSketch) ? defaultHybridLines() : prev));
       }
       return;
     }
@@ -1625,6 +1640,16 @@ export default function MaterialCalculatorHubPage() {
         return row;
       });
     });
+    // Hybrid horizontal shares the same per-segment geometry (H post / U channel ends).
+    setHybHLines((prev) => {
+      const next = drawingDataToHybridVLineRows(payload, panelModule);
+      if (!next?.length) return prev;
+      return next.map((row, i) => {
+        const old = prev[i];
+        if (old?.fromSketch) return { ...row, id: old.id, label: old.label };
+        return row;
+      });
+    });
   }, [layoutSketchData, pvcPanelModuleForSketch]);
 
   /** New gates placed on the layout sketch → PVC + chain link gate rows; scroll to the active tab’s gate block. */
@@ -1651,6 +1676,7 @@ export default function MaterialCalculatorHubPage() {
       else setDoubleGates((p) => [...p, row]);
       setChainGates((p) => [...p, chainGateRowFromSketchPlacement(placement, segs)]);
       setHybVGates((p) => [...p, hybVGateRowFromSketchPlacement(placement, segs)]);
+      setHybHGates((p) => [...p, hybHGateRowFromSketchPlacement(placement, segs)]);
     }
     sketchSyncedGatePlacementCountRef.current = gp.length;
 
@@ -2029,6 +2055,85 @@ export default function MaterialCalculatorHubPage() {
     return { runs, gates, totals, master, hasAny };
   }, [hybVLines, hybVGates, hybVExtras]);
 
+  const downloadHybridMasterListPdf = useCallback(
+    async (which: 'h' | 'v') => {
+      const job = which === 'h' ? hybridHJob : hybridVJob;
+      if (!job.hasAny) return;
+      const defs = which === 'h' ? HYBRID_H_EXTRA_ITEMS : HYBRID_V_EXTRA_ITEMS;
+      const values = which === 'h' ? hybHExtras : hybVExtras;
+      const lines = which === 'h' ? hybHLines : hybVLines;
+      const colour = which === 'h' ? hybridWpcColour : hybridPvcColour;
+      const subtitle = which === 'h' ? fmsHybridHoBlockTitle(hybHFamily, hybHHeight) : FMS_HYBRID_VE_BLOCK_TITLE;
+
+      // Extras column: how much of each master row came from the extra-item inputs.
+      const extrasByItem = new Map<string, number>();
+      for (const def of defs) {
+        const v = styleExtraValue(values, def.key);
+        if (v <= 0 || !def.targets) continue;
+        for (const t of def.targets) {
+          const k = t.item.toLowerCase();
+          extrasByItem.set(k, (extrasByItem.get(k) ?? 0) + v * t.per);
+        }
+      }
+
+      const linearFt = lines.reduce((a, r) => a + (Number(String(r.length_ft).replace(/,/g, '')) || 0), 0);
+      const gateCount = job.gates.filter((g) => g.rows).length;
+      const fmt = (n: number) => String(Math.round(n * 100) / 100);
+      const pdfRows: import('@/lib/master-material-list-pdf-data').MasterMaterialListPdfRow[] = [
+        ...job.master.map((r) => ({
+          label: r.item,
+          adobe: fmt(r.final),
+          extras: extrasByItem.get(r.item.toLowerCase()) ? fmt(extrasByItem.get(r.item.toLowerCase())!) : '',
+          section: 'structure' as const,
+        })),
+        { label: '', adobe: '', extras: '', section: 'spacer' as const },
+        { label: 'Total Linear Ft', adobe: fmt(linearFt), extras: '', section: 'totals' as const },
+        { label: 'Total Gates', adobe: fmt(gateCount), extras: '', section: 'totals' as const },
+        { label: 'Total B4 Tax', adobe: '', extras: '', section: 'taxRow' as const },
+      ];
+
+      const [{ pdf }, { MasterMaterialListPdfDocument }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('@/lib/master-material-list-pdf-document'),
+      ]);
+      const blob = await pdf(
+        <MasterMaterialListPdfDocument
+          subtitle={subtitle}
+          addressLine={jobAddress.trim() || '—'}
+          colourColumnTitle={colour}
+          rows={pdfRows}
+        />
+      ).toBlob();
+      const slug = (jobAddress || `hybrid-${which === 'h' ? 'horizontal' : 'vertical'}-material-list`)
+        .replace(/[^\w\s-]/g, '')
+        .trim()
+        .replace(/\s+/g, '-')
+        .slice(0, 72);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${slug || 'hybrid-material-list'}.pdf`;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    },
+    [
+      hybridHJob,
+      hybridVJob,
+      hybHExtras,
+      hybVExtras,
+      hybHLines,
+      hybVLines,
+      hybridWpcColour,
+      hybridPvcColour,
+      hybHFamily,
+      hybHHeight,
+      jobAddress,
+    ]
+  );
+
   const buildSupplierMaterialQuoteLines = useCallback((): MaterialQuoteLine[] => {
     const rows: MaterialQuoteLine[] = [];
     const add = (description: string, qty: unknown) => {
@@ -2163,6 +2268,15 @@ export default function MaterialCalculatorHubPage() {
 
   function removeHybVLine(id: string) {
     setHybVLines((rows) => {
+      const idx = rows.findIndex((r) => r.id === id);
+      if (idx < 0) return rows;
+      syncSketchAfterSegmentRemoved(idx);
+      return rows.filter((r) => r.id !== id);
+    });
+  }
+
+  function removeHybHLine(id: string) {
+    setHybHLines((rows) => {
       const idx = rows.findIndex((r) => r.id === id);
       if (idx < 0) return rows;
       syncSketchAfterSegmentRemoved(idx);
@@ -3257,8 +3371,8 @@ export default function MaterialCalculatorHubPage() {
             <div className="border-b border-amber-100 bg-amber-50/30 px-5 py-4">
               <h2 className={h2}>{fmsHybridHoBlockTitle(hybHFamily, hybHHeight)}</h2>
               <p className="mt-1 text-xs text-slate-600">
-                Horizontal-board hybrid, 6&apos; post spacing. Each run below is one fence-line block on the Excel
-                sheet. Lengths are entered by hand on this tab.
+                Horizontal-board hybrid, 6&apos; post spacing. Runs come from your sketch — adjust or add runs by hand
+                if needed. Each run is one fence-line block on the Excel sheet.
               </p>
             </div>
             <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -3289,8 +3403,20 @@ export default function MaterialCalculatorHubPage() {
               </div>
             </div>
             <div className="space-y-4 border-t border-slate-100 px-5 py-4">
-              {hybridHJob.runs.map(({ row, result }) => (
+              {hybridHJob.runs.map(({ row, result }, idx) => (
                 <div key={row.id} className="rounded-xl border border-slate-100 bg-slate-50/40 p-4">
+                  {row.fromSketch ? (
+                  <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+                    <span className="text-sm font-semibold text-slate-800">{row.label || `Run ${idx + 1}`}</span>
+                    <span className="text-sm text-slate-600">{Number(row.length_ft) || 0} ft</span>
+                    <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-800">
+                      From sketch
+                    </span>
+                    <button type="button" className={btnGhost} onClick={() => removeHybHLine(row.id)}>
+                      Remove
+                    </button>
+                  </div>
+                  ) : (
                   <div className="flex flex-wrap items-end gap-3">
                     <div>
                       <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">Label</label>
@@ -3360,14 +3486,11 @@ export default function MaterialCalculatorHubPage() {
                         <option value={2}>2</option>
                       </select>
                     </div>
-                    <button
-                      type="button"
-                      className={btnGhost}
-                      onClick={() => setHybHLines((rows) => rows.filter((r) => r.id !== row.id))}
-                    >
+                    <button type="button" className={btnGhost} onClick={() => removeHybHLine(row.id)}>
                       Remove
                     </button>
                   </div>
+                  )}
                   {result ? (
                     <div className="mt-3 space-y-2">
                       <p className="text-xs text-slate-500">
@@ -3571,6 +3694,13 @@ export default function MaterialCalculatorHubPage() {
                 </>
               )}
             </div>
+            {hybridHJob.hasAny ? (
+              <div className="flex flex-wrap gap-2 border-t border-slate-100 px-5 py-4">
+                <button type="button" className={btnGhost} onClick={() => void downloadHybridMasterListPdf('h')}>
+                  Download PDF
+                </button>
+              </div>
+            ) : null}
           </section>
         </>
       )}
@@ -3852,6 +3982,13 @@ export default function MaterialCalculatorHubPage() {
                 </>
               )}
             </div>
+            {hybridVJob.hasAny ? (
+              <div className="flex flex-wrap gap-2 border-t border-slate-100 px-5 py-4">
+                <button type="button" className={btnGhost} onClick={() => void downloadHybridMasterListPdf('v')}>
+                  Download PDF
+                </button>
+              </div>
+            ) : null}
           </section>
         </>
       )}
