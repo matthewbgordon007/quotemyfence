@@ -14,8 +14,12 @@
 import type { FmsPvcFenceLineInput, FmsPvcPanelModule } from '@/lib/fms-pvc-material-calculator';
 
 export const LAYOUT_SNAP_VERTEX_FT = 6;
-/** Degrees: colinear snap while drawing, straight merge, and “no U” band share this (larger = more tolerance). */
-export const LAYOUT_STRAIGHT_MAX_DEG = 25;
+/**
+ * Degrees: colinear snap while drawing, straight merge, and “no U” band share this.
+ * Product rule: any line meeting another at more than 10° from straight is a corner —
+ * it needs a post and a U-channel at that point.
+ */
+export const LAYOUT_STRAIGHT_MAX_DEG = 10;
 
 /** Snap sketch segment starts to the prior segment’s end (ft) so one physical post = one vertex. */
 export const LAYOUT_CHAIN_ALIGN_FT = 0.5;
@@ -337,19 +341,43 @@ export interface LayoutSegmentFeet {
   length_ft: number;
 }
 
-/** Defaults: H-post at every joint; U only where turn exceeds straight band (legacy auto rule). */
-export function defaultJointTerminationsFromAligned(al: LayoutSegmentFeet[]): SketchJointTermination[] {
+/**
+ * True when two or more segment endpoints meet at `P` and any pair turns more than
+ * `thresholdDeg` away from a straight continuation. Checks ALL segments (not just
+ * consecutive ones), so a line starting at another line's start/end still counts as a corner.
+ */
+export function isCornerAtPoint(
+  al: LayoutSegmentFeet[],
+  P: LayoutPt,
+  thresholdDeg = LAYOUT_STRAIGHT_MAX_DEG,
+  tolFt = LAYOUT_CHAIN_ALIGN_FT
+): boolean {
+  const dirsAway: { x: number; y: number }[] = [];
+  for (const s of al) {
+    if (dist(s.a, P) <= tolFt) dirsAway.push({ x: s.b.x - s.a.x, y: s.b.y - s.a.y });
+    if (dist(s.b, P) <= tolFt) dirsAway.push({ x: s.a.x - s.b.x, y: s.a.y - s.b.y });
+  }
+  if (dirsAway.length < 2) return false;
+  for (let i = 0; i < dirsAway.length; i++) {
+    for (let j = i + 1; j < dirsAway.length; j++) {
+      // Straight continuation = away-directions are opposite (180° apart).
+      const away = angleBetweenDirectionsDeg(dirsAway[i], dirsAway[j]);
+      if (Math.abs(180 - away) > thresholdDeg) return true;
+    }
+  }
+  return false;
+}
+
+/** Defaults: H-post at every joint; U wherever the lines meeting at that point turn more than the straight band. */
+export function defaultJointTerminationsFromAligned(
+  al: LayoutSegmentFeet[],
+  thresholdDeg = LAYOUT_STRAIGHT_MAX_DEG
+): SketchJointTermination[] {
   const n = al.length;
   if (n === 0) return [];
-  const out: SketchJointTermination[] = [];
-  out.push({ h_post: true, u_channel: false });
-  for (let i = 1; i < n; i++) {
-    const d = deflectionAtVertexDeg(al[i - 1].a, al[i - 1].b, al[i].b);
-    const u = d > LAYOUT_STRAIGHT_MAX_DEG;
-    out.push({ h_post: true, u_channel: u });
-  }
-  out.push({ h_post: true, u_channel: false });
-  return out;
+  // Chain joint positions: joint 0 = start of the first segment, joint i = end of segment i-1.
+  const jointPositions: LayoutPt[] = [al[0].a, ...al.map((s) => s.b)];
+  return jointPositions.map((P) => ({ h_post: true, u_channel: isCornerAtPoint(al, P, thresholdDeg) }));
 }
 
 /**
@@ -466,28 +494,22 @@ export function layoutSegmentsToPvcFenceInputsPerSketchSegment(
   if (segs.length === 0) return [];
 
   const useJoints = jointTerminations && jointTerminations.length === segs.length + 1;
+  // Without explicit overrides, derive joints from topology: any two lines meeting at more
+  // than `straightMax` from straight get a post + U-channel at that point.
+  const joints = useJoints ? jointTerminations! : defaultJointTerminationsFromAligned(segs, straightMax);
 
   return segs.map((seg, i) => {
-    let d6: 0 | 1 | 2 = 1;
-    let d7 = 0;
-    if (useJoints) {
-      const cap = jointTerminations![i + 1];
-      const endPost = cap?.h_post ? 1 : 0;
-      // Each run "owns" the post at its end joint; its start post is owned by the previous run.
-      // The very first run has no previous run, so it must also count the post at joint 0
-      // (otherwise the leading post of the whole chain is never counted — e.g. a single 2-panel
-      // run would report 2 posts instead of the 3 it physically needs).
-      const startPost = i === 0 && jointTerminations![0]?.h_post ? 1 : 0;
-      d6 = (endPost + startPost) as 0 | 1 | 2;
-      d7 = cap?.u_channel ? 1 : 0;
-    } else {
-      if (i < segs.length - 1) {
-        const d = deflectionAtVertexDeg(segs[i].a, segs[i].b, segs[i + 1].b);
-        if (d > straightMax) d7 = 1;
-      }
-      // First run counts both its start and end posts; later runs share the start with the prior run.
-      d6 = i === 0 ? 2 : 1;
-    }
+    const cap = joints[i + 1];
+    const endPost = cap?.h_post ? 1 : 0;
+    // Each run "owns" the post at its end joint; its start post is owned by the previous run.
+    // The very first run has no previous run, so it must also count the post + U at joint 0
+    // (otherwise the leading post of the whole chain is never counted — e.g. a single 2-panel
+    // run would report 2 posts instead of the 3 it physically needs, and a corner where a
+    // later line starts at the first line's start point would never count its U-channel).
+    const startPost = i === 0 && joints[0]?.h_post ? 1 : 0;
+    const startU = i === 0 && joints[0]?.u_channel ? 1 : 0;
+    const d6 = Math.min(2, endPost + startPost) as 0 | 1 | 2;
+    const d7 = (cap?.u_channel ? 1 : 0) + startU;
     return {
       length_ft: seg.length_ft,
       fence_terminated_h_post_type: d6,

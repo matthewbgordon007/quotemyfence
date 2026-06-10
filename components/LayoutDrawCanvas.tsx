@@ -519,10 +519,21 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         return;
       }
       setJointTerminations((prev) => {
-        if (prev.length === def.length) return prev;
         if (prev.length === 0) return def.map((d) => ({ ...d }));
-        if (prev.length > def.length) return prev.slice(0, def.length).map((p) => ({ ...p }));
-        return [...prev.map((p) => ({ ...p })), ...def.slice(prev.length).map((d) => ({ ...d }))];
+        // New geometry can turn an existing joint into a corner (e.g. a new line starting at an
+        // older line's end) — OR in the recomputed auto U so those corners aren't missed.
+        const merged = def.map((d, i) => {
+          const p = prev[i];
+          if (!p) return { ...d };
+          return { h_post: p.h_post, u_channel: p.u_channel || d.u_channel };
+        });
+        if (
+          merged.length === prev.length &&
+          merged.every((m, i) => m.h_post === prev[i].h_post && m.u_channel === prev[i].u_channel)
+        ) {
+          return prev;
+        }
+        return merged;
       });
     }, [segments, lineLengths]);
 
@@ -1500,7 +1511,8 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
             <span className="flex items-center gap-1">
               <span className="inline-flex h-3 w-3 items-center justify-center rounded-full bg-gray-200 text-[8px]">2</span>
               Click again to end, or use <strong className="text-slate-700">End line</strong> (snaps to nearby corners
-              within 6 ft; within 25° of straight snaps colinear)
+              within 6 ft; within {LAYOUT_STRAIGHT_MAX_DEG}° of straight snaps colinear — sharper turns get a corner
+              post + U-channel)
             </span>
             <span className="flex items-center gap-1">
               <span className="inline-flex h-3 w-3 items-center justify-center rounded-full bg-gray-200 text-[8px]">Esc</span>
