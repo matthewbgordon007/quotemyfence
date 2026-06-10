@@ -142,24 +142,6 @@ export function netFenceLengthsFromSketch(
   });
 }
 
-/**
- * Sketch segment that is only a gate opening (net fence length ≈ 0 after subtracting the gate).
- * Excel keeps this row for corner U-channels and rail span, but posts and panel boards come from the gate block (D6=0).
- */
-export function isDedicatedGateSketchSegment(
-  segmentIndex: number,
-  grossLengthFt: number,
-  gatePlacements?: SketchGatePlacement[] | null,
-  segments?: { length_ft?: number }[] | null
-): boolean {
-  if (grossLengthFt <= 0) return false;
-  if (!gatePlacements?.some((g) => g.line_index === segmentIndex)) return false;
-  const net = netFenceLengthFtForSegment(segmentIndex, grossLengthFt, gatePlacements, segments);
-  if (net <= 0) return true;
-  const grossIn = grossLengthFt * 12;
-  return grossIn > 0 && grossIn < PVC_SHORT_GATE_MAX_IN;
-}
-
 /** Stored segment length when set; otherwise sketch geometry (ft). Used for corner alignment — not net-after-gate. */
 export function grossLengthFtForSketchSegment(
   segmentIndex: number,
