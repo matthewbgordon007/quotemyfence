@@ -137,13 +137,13 @@ export function computeFmsPvcFenceLine(raw: FmsPvcFenceLineInput): FmsPvcFenceLi
     const g17In = L * 12 - 2 * d12;
     const h17Ft = g17In / 12;
     c17 = h17Ft * 2;
-    d17 = c17;
+    d17 = excelRoundUp(c17, 0);
     c18 = c8 * B.board_stiffener;
     d18 = excelRoundUp(c18, 1);
   } else {
-    // 7′ block (columns B–D): D17 = ROUNDUP(C17, 10); D18 = ROUNDUP(C18, 1).
+    // 7′ block (columns B–D): boards ROUNDUP to whole; D18 = ROUNDUP(C18, 1).
     c17 = c8 * B.board;
-    d17 = excelRoundUp(c17, 10);
+    d17 = excelRoundUp(c17, 0);
     c18 = c8 * B.board_stiffener;
     d18 = excelRoundUp(c18, 1);
   }

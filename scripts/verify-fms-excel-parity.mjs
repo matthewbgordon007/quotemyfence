@@ -56,10 +56,10 @@ assertClose('PVC7 C8', c8, 0.7309644673019144, 1e-10);
 assertClose('PVC7 C9', excelRound(c8, 4), 0.731, 1e-10);
 assertEq('PVC7 D9', excelRoundUp(excelRound(c8, 4), 0), 1);
 
-// D17 = ROUNDUP(C8*16, 10) for 4′ sample in workbook
+// D17 = ROUNDUP(C8*16, 0) for 4′ sample in workbook
 const c8_4 = 4 / P7;
-const d17_4 = excelRoundUp(c8_4 * 16, 10);
-assertClose('PVC7 D17 (4ft)', d17_4, 7.796954318, 1e-9);
+const d17_4 = excelRoundUp(c8_4 * 16, 0);
+assertEq('PVC7 D17 (4ft)', d17_4, 8);
 const d18_4 = excelRoundUp(c8_4 * 3, 1);
 assertEq('PVC7 D18 (4ft)', d18_4, 1.5);
 

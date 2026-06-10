@@ -3283,7 +3283,7 @@ export default function MaterialCalculatorHubPage() {
             <div className="border-b border-slate-100 bg-gradient-to-r from-amber-50/40 via-white to-slate-50/80 px-5 py-4">
               <h2 className={h2}>Gates</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Enter each gate&apos;s opening width (2 posts per gate). Gates from your sketch appear here automatically.
+                Enter each gate&apos;s opening width (1 post per gate). Gates from your sketch appear here automatically.
               </p>
             </div>
             <div className="space-y-4 p-5">
