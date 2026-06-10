@@ -6,7 +6,8 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { inferFmsHubMaterialFromQuoteProject } from '@/lib/material-quote-fms-calculator-style';
 import {
   aggregateFmsPvcFenceLines,
-  FMS_PVC_PANEL_MODULE_LABELS,
+  FMS_PVC_PANEL_HEIGHT_LABELS,
+  defaultFmsPvcPanelSpacingFt,
   type FmsPvcFenceLineInput,
   type FmsPvcPanelModule,
 } from '@/lib/fms-pvc-material-calculator';
@@ -363,7 +364,20 @@ function presetToExcel(preset: LineEndPreset, h: 0 | 1 | 2, uStr: string): { d6:
   return { d6: h, d7: d7 };
 }
 
-function buildInputs(rows: PvcLineRow[]): FmsPvcFenceLineInput[] {
+function parsePanelSpacingFt(raw: string, module: FmsPvcPanelModule): number {
+  const n = Number(String(raw).replace(/,/g, '').trim());
+  if (Number.isFinite(n) && n > 0) return n;
+  return defaultFmsPvcPanelSpacingFt(module);
+}
+
+function formatPvcPanelSummary(module: FmsPvcPanelModule, spacingFt: number): string {
+  const spacing =
+    Number.isFinite(spacingFt) && spacingFt > 0 ? spacingFt : defaultFmsPvcPanelSpacingFt(module);
+  return `${FMS_PVC_PANEL_HEIGHT_LABELS[module]} (${spacing.toFixed(2)}' spacing)`;
+}
+
+function buildInputs(rows: PvcLineRow[], panelSpacingFt: number): FmsPvcFenceLineInput[] {
+  const spacing = Number.isFinite(panelSpacingFt) && panelSpacingFt > 0 ? panelSpacingFt : undefined;
   return rows
     .map((r) => {
       const L = Math.max(0, Number(String(r.length_ft).replace(/,/g, '')) || 0);
@@ -374,6 +388,7 @@ function buildInputs(rows: PvcLineRow[]): FmsPvcFenceLineInput[] {
         fence_terminated_h_post_type: d6,
         fence_terminated_u_channel: d7,
         panel_module: r.panel_module,
+        ...(spacing ? { panel_spacing_ft: spacing } : {}),
       };
     })
     .filter(Boolean) as FmsPvcFenceLineInput[];
@@ -1049,6 +1064,9 @@ export default function MaterialCalculatorHubPage() {
   /** Matches the Excel per-colour breakdown tab (labels / TSV only; formulas shared). */
   const [pvcBreakdownColour, setPvcBreakdownColour] = useState<FmsPvcCalculatorColour>('Adobe');
   const [pvcPanelModule, setPvcPanelModule] = useState<FmsPvcPanelModule>('nominal_7ft');
+  const [pvcPanelSpacingFt, setPvcPanelSpacingFt] = useState(() =>
+    String(defaultFmsPvcPanelSpacingFt('nominal_7ft'))
+  );
   const [lines, setLines] = useState<PvcLineRow[]>(() => defaultPvcLines());
 
   const [layoutSketchData, setLayoutSketchData] = useState<LayoutSketchDrawingPayload | null>(null);
@@ -1083,6 +1101,7 @@ export default function MaterialCalculatorHubPage() {
 
   const applyPvcPanelModule = useCallback((module: FmsPvcPanelModule) => {
     setPvcPanelModule(module);
+    setPvcPanelSpacingFt(String(defaultFmsPvcPanelSpacingFt(module)));
     sketchToLinesSyncKeyRef.current = '';
     setLines((prev) => prev.map((l) => ({ ...l, panel_module: module })));
   }, []);
@@ -1231,6 +1250,11 @@ export default function MaterialCalculatorHubPage() {
         const pl = parsePvcLines(d.lines);
         if (pl?.[0]) setPvcPanelModule(coercePanelModule(pl[0].panel_module));
       }
+      if (typeof d.pvcPanelSpacingFt === 'string' || typeof d.pvcPanelSpacingFt === 'number') {
+        setPvcPanelSpacingFt(String(d.pvcPanelSpacingFt));
+      } else if (d.pvcPanelModule !== undefined) {
+        setPvcPanelSpacingFt(String(defaultFmsPvcPanelSpacingFt(coercePanelModule(d.pvcPanelModule))));
+      }
       const cx = parseStringRecord(d.chainExtras);
       if (cx) setChainExtras(cx);
       const hhx = parseStringRecord(d.hybHExtras);
@@ -1274,6 +1298,7 @@ export default function MaterialCalculatorHubPage() {
       jobAddress,
       pvcBreakdownColour,
       pvcPanelModule,
+      pvcPanelSpacingFt,
       lines,
       layoutSketchData,
       shortGates,
@@ -1306,6 +1331,7 @@ export default function MaterialCalculatorHubPage() {
     jobAddress,
     pvcBreakdownColour,
     pvcPanelModule,
+    pvcPanelSpacingFt,
     lines,
     layoutSketchData,
     shortGates,
@@ -1755,7 +1781,14 @@ export default function MaterialCalculatorHubPage() {
     }
   }, [layoutSketchData, tab]);
 
-  const pvcInputs = useMemo(() => buildInputs(lines), [lines]);
+  const effectivePvcPanelSpacingFt = useMemo(
+    () => parsePanelSpacingFt(pvcPanelSpacingFt, pvcPanelModule),
+    [pvcPanelSpacingFt, pvcPanelModule]
+  );
+  const pvcInputs = useMemo(
+    () => buildInputs(lines, effectivePvcPanelSpacingFt),
+    [lines, effectivePvcPanelSpacingFt]
+  );
   const pvcJob = useMemo(() => aggregateFmsPvcFenceLines(pvcInputs), [pvcInputs]);
   const pvcFenceLinearFt = useMemo(
     () => pvcInputs.reduce((acc, row) => acc + (Number(row.length_ft) || 0), 0),
@@ -2646,25 +2679,40 @@ export default function MaterialCalculatorHubPage() {
           </div>
           {tab === 'pvc' ? (
             <div className="rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3 ring-1 ring-slate-900/[0.03]">
-              <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
-                <div className="min-w-[12rem] flex-1 sm:max-w-sm">
+              <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
+                <div className="min-w-[10rem] flex-1 sm:max-w-[11rem]">
                   <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Panel spacing
+                    Panel height
                   </label>
                   <select
                     value={pvcPanelModule}
                     onChange={(e) => applyPvcPanelModule(e.target.value as FmsPvcPanelModule)}
                     className={`${field} w-full`}
                   >
-                    {(Object.keys(FMS_PVC_PANEL_MODULE_LABELS) as FmsPvcPanelModule[]).map((m) => (
+                    {(Object.keys(FMS_PVC_PANEL_HEIGHT_LABELS) as FmsPvcPanelModule[]).map((m) => (
                       <option key={m} value={m}>
-                        {FMS_PVC_PANEL_MODULE_LABELS[m]}
+                        {FMS_PVC_PANEL_HEIGHT_LABELS[m]}
                       </option>
                     ))}
                   </select>
                 </div>
+                <div className="min-w-[10rem] flex-1 sm:max-w-[11rem]">
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Post spacing (ft)
+                  </label>
+                  <input
+                    type="number"
+                    min={0.01}
+                    step="any"
+                    value={pvcPanelSpacingFt}
+                    onChange={(e) => setPvcPanelSpacingFt(e.target.value)}
+                    className={`${field} w-full tabular-nums`}
+                  />
+                </div>
                 <p className="pb-2 text-xs text-slate-500 sm:max-w-md">
-                  Panel and post counts for every run update when you change spacing.
+                  Standard spacing is {defaultFmsPvcPanelSpacingFt(pvcPanelModule).toFixed(2)} ft for{' '}
+                  {FMS_PVC_PANEL_HEIGHT_LABELS[pvcPanelModule].toLowerCase()}. Enter any spacing you need — panel and
+                  post counts update for every run.
                 </p>
               </div>
             </div>
@@ -2809,7 +2857,7 @@ export default function MaterialCalculatorHubPage() {
                   >
                     <span className="text-sm font-semibold text-slate-800">{row.label || `Run ${idx + 1}`}</span>
                     <span className="text-sm text-slate-600">
-                      {Number(row.length_ft) || 0} ft · {FMS_PVC_PANEL_MODULE_LABELS[row.panel_module]}
+                      {Number(row.length_ft) || 0} ft · {formatPvcPanelSummary(row.panel_module, effectivePvcPanelSpacingFt)}
                       {Number(row.u_channel) > 0 ? ' · ends at a wall' : ''}
                     </span>
                     <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-800">
@@ -2854,10 +2902,10 @@ export default function MaterialCalculatorHubPage() {
                     </div>
                     <div>
                       <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Panel spacing
+                        Panel height · spacing
                       </label>
                       <p className={`${field} w-full bg-slate-100 text-slate-600`}>
-                        {FMS_PVC_PANEL_MODULE_LABELS[row.panel_module]}
+                        {formatPvcPanelSummary(row.panel_module, effectivePvcPanelSpacingFt)}
                       </p>
                     </div>
                     <div className="sm:col-span-2">
@@ -3191,7 +3239,7 @@ export default function MaterialCalculatorHubPage() {
                       <td className="px-2 py-2 text-slate-800">{label}</td>
                       <td className="px-2 py-2 text-right tabular-nums">{ln.input.length_ft}</td>
                       <td className="px-2 py-2 text-slate-600">
-                        {ln.input.panel_module === 'nominal_7ft' ? "7'" : "6'"}
+                        {formatPvcPanelSummary(ln.input.panel_module, ln.input.panel_spacing_ft ?? effectivePvcPanelSpacingFt)}
                       </td>
                       <td className="px-2 py-2 text-right tabular-nums">{ln.total_whole_panels}</td>
                       <td className="px-2 py-2 text-right tabular-nums">{ln.h_post}</td>

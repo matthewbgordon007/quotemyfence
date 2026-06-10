@@ -20,6 +20,22 @@ export const FMS_PVC_PANEL_MODULE_LABELS: Record<FmsPvcPanelModule, string> = {
   nominal_6ft: "6 ft panels (6.75' spacing)",
 };
 
+/** Panel height presets (spacing is set separately). */
+export const FMS_PVC_PANEL_HEIGHT_LABELS: Record<FmsPvcPanelModule, string> = {
+  nominal_7ft: '7 ft panels',
+  nominal_6ft: '6 ft panels',
+};
+
+export function defaultFmsPvcPanelSpacingFt(module: FmsPvcPanelModule): number {
+  return FMS_PVC_PANEL_FT[module];
+}
+
+export function resolveFmsPvcPanelSpacingFt(input: Pick<FmsPvcFenceLineInput, 'panel_module' | 'panel_spacing_ft'>): number {
+  const custom = Number(input.panel_spacing_ft);
+  if (Number.isFinite(custom) && custom > 0) return custom;
+  return FMS_PVC_PANEL_FT[input.panel_module];
+}
+
 /** Per-panel multipliers from column B (Quantity for 1 Panel) on the PVC sheet. */
 const B = {
   galvanized: 1,
@@ -42,6 +58,8 @@ export interface FmsPvcFenceLineInput {
   /** Excel `D7` / `I7`: "Fence Terminated with U Channel" numeric (often 0 or 1). */
   fence_terminated_u_channel: number;
   panel_module: FmsPvcPanelModule;
+  /** Post spacing in ft (Excel length ÷ spacing). Overrides the module default when set. */
+  panel_spacing_ft?: number;
 }
 
 export interface FmsPvcFenceLineResult {
@@ -92,7 +110,7 @@ export function computeFmsPvcFenceLine(raw: FmsPvcFenceLineInput): FmsPvcFenceLi
   const L = clampNonNeg(raw.length_ft);
   const d6 = clampHType(Math.floor(Number(raw.fence_terminated_h_post_type) || 0)) as 0 | 1 | 2;
   const d7 = clampNonNeg(Number(raw.fence_terminated_u_channel) || 0);
-  const panelFt = FMS_PVC_PANEL_FT[raw.panel_module];
+  const panelFt = resolveFmsPvcPanelSpacingFt(raw);
 
   const c8 = panelFt > 0 ? L / panelFt : 0;
   const c9 = excelRound(c8, 4);
