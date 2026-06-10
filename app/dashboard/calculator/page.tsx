@@ -1206,6 +1206,13 @@ export default function CalculatorPage() {
     .map((ft) => fmtFeet(ft))
     .join(' + ');
 
+  const removalQuoteLine =
+    hasRemoval && removalLengthFt > 0
+      ? `- Removal Cost: ${fmtFeet(removalLengthFt)} × ${moneyCAD(effectiveRemovalPricePerFt)}/ft = ${moneyCAD(removalTotal)} + Tax`
+      : null;
+  const sharedSectionLines = [...sharedQuoteLines];
+  if (removalQuoteLine) sharedSectionLines.push(removalQuoteLine);
+
   const quoteTokenValues: Record<QuoteTokenId, string> = {
     brand: contractorBrand || '—',
     homeowner: homeownerName || '—',
@@ -1216,7 +1223,7 @@ export default function CalculatorPage() {
     gateInstalledLength,
     lengthExpression: lengthExpression || '—',
     privateLengths: privateQuoteLines.length ? privateQuoteLines.join('\n') : '- (No private lengths entered)',
-    sharedLengths: sharedQuoteLines.length ? sharedQuoteLines.join('\n') : '- (No shared lengths entered)',
+    sharedLengths: sharedSectionLines.length ? sharedSectionLines.join('\n') : '- (No shared lengths entered)',
     pricePerLinearFt: moneyCAD(pricePerFt),
     gateKitPrice: moneyCAD(singleGatePrice || doubleGatePrice || 0),
     gates: String(totalGateCount),
