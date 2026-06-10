@@ -499,6 +499,172 @@ function sanitizeExtraInput(raw: string, integerOnly: boolean): string {
   return raw.replace(/[^\d.,]/g, '');
 }
 
+/* ---- Extra items for the non-PVC styles ---- */
+
+type StyleExtraDef = {
+  key: string;
+  label: string;
+  integerOnly?: boolean;
+  /** Master-list rows this extra feeds (hybrids); `per` = added per unit of the input. */
+  targets?: { item: string; per: number }[];
+};
+
+const CHAIN_EXTRA_ITEMS: StyleExtraDef[] = [
+  { key: 'terminal_post', label: 'Terminal post', integerOnly: true },
+  { key: 'line_post', label: 'Line post', integerOnly: true },
+  { key: 'terminal_post_cap', label: 'Terminal post cap', integerOnly: true },
+  { key: 'line_post_loop_cap', label: 'Line post loop cap', integerOnly: true },
+  { key: 'rail_end', label: 'Rail end', integerOnly: true },
+  { key: 'rail', label: 'Rail', integerOnly: true },
+  { key: 'center_band', label: 'Center band', integerOnly: true },
+  { key: 'offset_band', label: 'Offset band', integerOnly: true },
+  { key: 'tension_bar', label: 'Tension bar', integerOnly: true },
+  { key: 'mesh', label: 'Mesh (rolls)', integerOnly: true },
+  { key: 'bottom_wire', label: 'Bottom wire (ft)' },
+  { key: 'ties', label: 'Ties', integerOnly: true },
+  { key: 'carriage_bolt_nut', label: 'Carriage bolt + nut', integerOnly: true },
+  { key: 'hog_rings', label: 'Hog rings', integerOnly: true },
+  { key: 'gate_frame', label: 'Gate frame', integerOnly: true },
+  { key: 'gate_post', label: 'Gate post', integerOnly: true },
+  { key: 'gate_end_post_cap', label: 'Gate end post cap', integerOnly: true },
+  { key: 'gate_extension_kit', label: 'Gate extension kit', integerOnly: true },
+  { key: 'gate_hardware_kit', label: 'Gate hardware kit', integerOnly: true },
+];
+
+const HYBRID_EXTRA_ITEMS_COMMON: StyleExtraDef[] = [
+  {
+    key: 'hpost',
+    label: 'H-post (+ cap & concrete)',
+    integerOnly: true,
+    targets: [
+      { item: 'Aluminum HPost 120"', per: 1 },
+      { item: 'Aluminum HPost Cap', per: 1 },
+      { item: 'Concrete', per: 2.5 },
+    ],
+  },
+  { key: 'rail96', label: '3" Aluminum Pocket Rail 96"', integerOnly: true, targets: [{ item: '3" Aluminum Pocket Rail 96"', per: 1 }] },
+  { key: 'rail72', label: '3" Aluminum Pocket Rail 72"', integerOnly: true, targets: [{ item: '3" Aluminum Pocket Rail 72"', per: 1 }] },
+  { key: 'board', label: 'Board', integerOnly: true, targets: [{ item: 'Board', per: 1 }] },
+  {
+    key: 'uchannel',
+    label: 'U-channel (outer + inner + screws)',
+    integerOnly: true,
+    targets: [
+      { item: 'Outer U-Channel', per: 1 },
+      { item: 'Inner U-Channel', per: 1 },
+      { item: 'U-Channel Screw (3/4")', per: 6 },
+    ],
+  },
+  { key: 'long_screw', label: 'Long Black Screw (2.5")', integerOnly: true, targets: [{ item: 'Long Black Screw (2.5")', per: 1 }] },
+  {
+    key: 'rail_screw',
+    label: 'Rail Screw 1.5" (+ plugs)',
+    integerOnly: true,
+    targets: [
+      { item: 'Rail Screw (1.5" x #10)', per: 1 },
+      { item: 'Plugs (7/8")', per: 1 },
+    ],
+  },
+  { key: 'gate_screw', label: 'Gate Screw (1.5")', integerOnly: true, targets: [{ item: 'Gate Screw (1.5")', per: 1 }] },
+  { key: 'gate_side_frame', label: 'Gate Side Frame', integerOnly: true, targets: [{ item: 'Aluminum Gate Side Frame', per: 1 }] },
+  { key: 'gate_post_cap', label: 'Gate Post Cap', integerOnly: true, targets: [{ item: 'Aluminum Gate Post Cap', per: 1 }] },
+  { key: 'gate_brace', label: 'Adjustable Gate Brace', integerOnly: true, targets: [{ item: 'Adjustable Aluminum Gate Brace', per: 1 }] },
+  { key: 'latch', label: 'Latch Kit', integerOnly: true, targets: [{ item: 'Latch Kit', per: 1 }] },
+  { key: 'hinge', label: 'Hinge Kit', integerOnly: true, targets: [{ item: 'Hinge Kit', per: 1 }] },
+];
+
+const HYBRID_H_EXTRA_ITEMS: StyleExtraDef[] = HYBRID_EXTRA_ITEMS_COMMON;
+
+const HYBRID_V_EXTRA_ITEMS: StyleExtraDef[] = [
+  ...HYBRID_EXTRA_ITEMS_COMMON.slice(0, 4),
+  { key: 'board_stiff', label: 'Board Stiffener', integerOnly: true, targets: [{ item: 'Board Stiffener', per: 1 }] },
+  ...HYBRID_EXTRA_ITEMS_COMMON.slice(4),
+  { key: 'drop_rod', label: 'Drop Rod + Sleeve', integerOnly: true, targets: [{ item: 'Drop Rod + Sleeve', per: 1 }] },
+];
+
+function styleExtraValue(values: Record<string, string>, key: string): number {
+  const n = Number(String(values[key] ?? '').replace(/,/g, ''));
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/** Add hybrid extras onto the master SKU rows (matching rows by label, appending new ones). */
+function applyHybridExtras(
+  rows: FmsHybridItemRow[],
+  defs: StyleExtraDef[],
+  values: Record<string, string>
+): FmsHybridItemRow[] {
+  const out = rows.map((r) => ({ ...r }));
+  for (const def of defs) {
+    const v = styleExtraValue(values, def.key);
+    if (v <= 0 || !def.targets) continue;
+    for (const t of def.targets) {
+      const existing = out.find((r) => r.item.toLowerCase() === t.item.toLowerCase());
+      if (existing) existing.final += v * t.per;
+      else out.push({ item: t.item, final: v * t.per });
+    }
+  }
+  return out;
+}
+
+function StyleExtrasCard({
+  items,
+  values,
+  onChange,
+}: {
+  items: StyleExtraDef[];
+  values: Record<string, string>;
+  onChange: (key: string, value: string) => void;
+}) {
+  const hasAny = items.some((i) => (values[i.key] ?? '') !== '');
+  const [open, setOpen] = useState(hasAny);
+  useEffect(() => {
+    if (hasAny) setOpen(true);
+  }, [hasAny]);
+  return (
+    <section className={card}>
+      <div className="border-b border-slate-100 px-5 py-4">
+        <h2 className={h2}>
+          Extra items <span className="font-normal text-slate-400">(optional)</span>
+        </h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Add extra quantities on top of the calculated list. Leave blank to skip.
+        </p>
+      </div>
+      <div className="p-5">
+        <button type="button" className={btnGhost} onClick={() => setOpen((o) => !o)}>
+          {open ? 'Hide extra items' : 'Add extra items'}
+        </button>
+        {open && (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {items.map((i) => (
+              <div key={i.key}>
+                <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">{i.label}</label>
+                <input
+                  type="text"
+                  inputMode={i.integerOnly ? 'numeric' : 'decimal'}
+                  value={values[i.key] ?? ''}
+                  onChange={(e) => onChange(i.key, sanitizeExtraInput(e.target.value, Boolean(i.integerOnly)))}
+                  className={`${field} w-full`}
+                  placeholder="0"
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function parseStringRecord(x: unknown): Record<string, string> | null {
+  if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(x as Record<string, unknown>)) {
+    if (typeof v === 'string' || typeof v === 'number') out[k] = String(v);
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 const MATERIAL_CALC_DRAFT_VERSION = 1 as const;
 
 function materialCalculatorDraftStorageKey(contractorId: string) {
@@ -841,6 +1007,10 @@ export default function MaterialCalculatorHubPage() {
   const [masterExtras, setMasterExtras] = useState<Partial<Record<keyof FmsPvcMasterExtras, string>>>({});
   /** Percentage uplift applied to the final board count (e.g. "5" → +5% boards, rounded up). */
   const [extraBoardsPct, setExtraBoardsPct] = useState('');
+  /** Extra items for the non-PVC styles (keyed per StyleExtraDef). */
+  const [chainExtras, setChainExtras] = useState<Record<string, string>>({});
+  const [hybHExtras, setHybHExtras] = useState<Record<string, string>>({});
+  const [hybVExtras, setHybVExtras] = useState<Record<string, string>>({});
 
   /** Chain link */
   const [chainLines, setChainLines] = useState<ChainLineRow[]>(() => defaultChainLines());
@@ -994,6 +1164,12 @@ export default function MaterialCalculatorHubPage() {
       if (mx && Object.keys(mx).length > 0) setMasterExtras(mx);
       if (typeof d.extraBoardsPct === 'string' || typeof d.extraBoardsPct === 'number')
         setExtraBoardsPct(String(d.extraBoardsPct));
+      const cx = parseStringRecord(d.chainExtras);
+      if (cx) setChainExtras(cx);
+      const hhx = parseStringRecord(d.hybHExtras);
+      if (hhx) setHybHExtras(hhx);
+      const hvx = parseStringRecord(d.hybVExtras);
+      if (hvx) setHybVExtras(hvx);
 
       const cl = parseChainLines(d.chainLines);
       if (cl) setChainLines(cl);
@@ -1039,6 +1215,9 @@ export default function MaterialCalculatorHubPage() {
       masterExtrasOpen,
       masterExtras,
       extraBoardsPct,
+      chainExtras,
+      hybHExtras,
+      hybVExtras,
       chainLines,
       chainRailFt,
       chainMeshFt,
@@ -1066,6 +1245,9 @@ export default function MaterialCalculatorHubPage() {
     masterExtrasOpen,
     masterExtras,
     extraBoardsPct,
+    chainExtras,
+    hybHExtras,
+    hybVExtras,
     chainLines,
     chainRailFt,
     chainMeshFt,
@@ -1109,6 +1291,9 @@ export default function MaterialCalculatorHubPage() {
     masterExtrasOpen,
     masterExtras,
     extraBoardsPct,
+    chainExtras,
+    hybHExtras,
+    hybVExtras,
     chainLines,
     chainRailFt,
     chainMeshFt,
@@ -1177,6 +1362,9 @@ export default function MaterialCalculatorHubPage() {
     setMasterExtrasOpen(false);
     setMasterExtras({});
     setExtraBoardsPct('');
+    setChainExtras({});
+    setHybHExtras({});
+    setHybVExtras({});
     setChainLines(defaultChainLines());
     setChainRailFt('10');
     setChainMeshFt('50');
@@ -1665,6 +1853,48 @@ export default function MaterialCalculatorHubPage() {
     return sum as unknown as ReturnType<typeof computeFmsChainLinkGate>;
   }, [chainGateResults]);
 
+  /** Chain fence totals (label/qty) with extra items added — shared by the totals table and supplier quote. */
+  const chainFenceRows = useMemo(() => {
+    if (!chainFenceAgg) return null;
+    const ex = (k: string) => styleExtraValue(chainExtras, k);
+    return [
+      ['Terminal post', chainFenceAgg.terminal_post + ex('terminal_post')],
+      ['Line post', chainFenceAgg.line_post + ex('line_post')],
+      ['Terminal post cap', chainFenceAgg.terminal_post_cap + ex('terminal_post_cap')],
+      ['Line post loop cap', chainFenceAgg.line_post_loop_cap + ex('line_post_loop_cap')],
+      ['Rail end', chainFenceAgg.rail_end + ex('rail_end')],
+      [`Rail (total ft ÷ ${chainRailFt || '10'}')`, chainFenceAgg.rail + ex('rail')],
+      ['Center band', chainFenceAgg.center_band + ex('center_band')],
+      ['Offset band', chainFenceAgg.offset_band + ex('offset_band')],
+      ['Tension bar', chainFenceAgg.tension_bar + ex('tension_bar')],
+      [`Mesh rolls (total ft ÷ ${chainMeshFt || '50'}')`, chainFenceAgg.mesh + ex('mesh')],
+      ['Bottom wire (ft)', chainFenceAgg.bottom_wire + ex('bottom_wire')],
+      ['Ties (est.)', chainFenceAgg.ties + ex('ties')],
+      ['Carriage bolt + nut', chainFenceAgg.carriage_bolt_nut + ex('carriage_bolt_nut')],
+      ['Hog rings (note L/2)', chainFenceAgg.hog_rings_note + ex('hog_rings')],
+    ] as [string, number][];
+  }, [chainFenceAgg, chainExtras, chainRailFt, chainMeshFt]);
+
+  /** Chain gate totals (label/qty) with extra items added. */
+  const chainGateRows = useMemo(() => {
+    const ex = (k: string) => styleExtraValue(chainExtras, k);
+    const base = chainGateAgg ?? {
+      pre_assembled_frame: 0,
+      post: 0,
+      end_post_cap: 0,
+      gate_extension_kit: 0,
+      hardware_kit: 0,
+    };
+    const rows = [
+      ['Pre-assembled frame', base.pre_assembled_frame + ex('gate_frame')],
+      ['Post', base.post + ex('gate_post')],
+      ['End post cap', base.end_post_cap + ex('gate_end_post_cap')],
+      ['Gate extension kit', base.gate_extension_kit + ex('gate_extension_kit')],
+      ['Hardware kit', base.hardware_kit + ex('gate_hardware_kit')],
+    ] as [string, number][];
+    return rows.some(([, q]) => q > 0) ? rows : null;
+  }, [chainGateAgg, chainExtras]);
+
   /** Hybrid horizontal — one Excel block result per run, plus gate blocks and summed totals. */
   const hybridHJob = useMemo(() => {
     const runs = hybHLines.map((row) => {
@@ -1703,10 +1933,10 @@ export default function MaterialCalculatorHubPage() {
       ...runs.filter((r) => r.result).map((r) => r.result!.rows),
       ...gates.filter((g) => g.rows).map((g) => g.rows!),
     ]);
-    const master = buildFmsHybridMasterList(totals, 'horizontal');
+    const master = applyHybridExtras(buildFmsHybridMasterList(totals, 'horizontal'), HYBRID_H_EXTRA_ITEMS, hybHExtras);
     const hasAny = runs.some((r) => r.result) || gates.some((g) => g.rows);
     return { runs, gates, totals, master, hasAny };
-  }, [hybHLines, hybHGates, hybHFamily, hybHHeight]);
+  }, [hybHLines, hybHGates, hybHFamily, hybHHeight, hybHExtras]);
 
   /** Hybrid vertical — same structure for the 6'4" PVC sheet. */
   const hybridVJob = useMemo(() => {
@@ -1731,10 +1961,10 @@ export default function MaterialCalculatorHubPage() {
       ...runs.filter((r) => r.result).map((r) => r.result!.rows),
       ...gates.filter((g) => g.rows).map((g) => g.rows!),
     ]);
-    const master = buildFmsHybridMasterList(totals, 'vertical');
+    const master = applyHybridExtras(buildFmsHybridMasterList(totals, 'vertical'), HYBRID_V_EXTRA_ITEMS, hybVExtras);
     const hasAny = runs.some((r) => r.result) || gates.some((g) => g.rows);
     return { runs, gates, totals, master, hasAny };
-  }, [hybVLines, hybVGates]);
+  }, [hybVLines, hybVGates, hybVExtras]);
 
   const buildSupplierMaterialQuoteLines = useCallback((): MaterialQuoteLine[] => {
     const rows: MaterialQuoteLine[] = [];
@@ -1754,36 +1984,11 @@ export default function MaterialCalculatorHubPage() {
     }
 
     if (tab === 'chain') {
-      if (chainFenceAgg) {
-        (
-          [
-            ['Terminal post', chainFenceAgg.terminal_post],
-            ['Line post', chainFenceAgg.line_post],
-            ['Terminal post cap', chainFenceAgg.terminal_post_cap],
-            ['Line post loop cap', chainFenceAgg.line_post_loop_cap],
-            ['Rail end', chainFenceAgg.rail_end],
-            ['Rail', chainFenceAgg.rail],
-            ['Center band', chainFenceAgg.center_band],
-            ['Offset band', chainFenceAgg.offset_band],
-            ['Tension bar', chainFenceAgg.tension_bar],
-            ['Mesh (rolls)', chainFenceAgg.mesh],
-            ['Bottom wire (ft)', chainFenceAgg.bottom_wire],
-            ['Ties (est.)', chainFenceAgg.ties],
-            ['Carriage bolt + nut', chainFenceAgg.carriage_bolt_nut],
-            ['Hog rings (note L/2)', chainFenceAgg.hog_rings_note],
-          ] as const
-        ).forEach(([label, qty]) => add(`Chain link — ${label}`, qty));
+      if (chainFenceRows) {
+        chainFenceRows.forEach(([label, qty]) => add(`Chain link — ${label}`, qty));
       }
-      if (chainGateAgg) {
-        (
-          [
-            ['Pre-assembled frame', chainGateAgg.pre_assembled_frame],
-            ['Post', chainGateAgg.post],
-            ['End post cap', chainGateAgg.end_post_cap],
-            ['Gate extension kit', chainGateAgg.gate_extension_kit],
-            ['Hardware kit', chainGateAgg.hardware_kit],
-          ] as const
-        ).forEach(([label, qty]) => add(`Chain gate — ${label}`, qty));
+      if (chainGateRows) {
+        chainGateRows.forEach(([label, qty]) => add(`Chain gate — ${label}`, qty));
       }
       return rows;
     }
@@ -1803,8 +2008,8 @@ export default function MaterialCalculatorHubPage() {
     adobeRows,
     pvcMaster,
     pvcBreakdownColour,
-    chainFenceAgg,
-    chainGateAgg,
+    chainFenceRows,
+    chainGateRows,
     hybridHJob,
     hybridVJob,
   ]);
@@ -2925,6 +3130,19 @@ export default function MaterialCalculatorHubPage() {
             </div>
           </section>
 
+          <StyleExtrasCard
+            items={CHAIN_EXTRA_ITEMS}
+            values={chainExtras}
+            onChange={(key, v) =>
+              setChainExtras((p) => {
+                const next = { ...p };
+                if (v === '') delete next[key];
+                else next[key] = v;
+                return next;
+              })
+            }
+          />
+
           <div className={stageLabel}>
             <span>Your materials</span>
             <span className="h-px flex-1 bg-slate-200" />
@@ -2947,49 +3165,25 @@ export default function MaterialCalculatorHubPage() {
                     </p>
                     <table className="w-full text-sm">
                       <tbody>
-                        {(
-                          [
-                            ['Posts (all runs)', chainFenceAgg.posts],
-                            ['Terminal post', chainFenceAgg.terminal_post],
-                            ['Line post', chainFenceAgg.line_post],
-                            ['Terminal post cap', chainFenceAgg.terminal_post_cap],
-                            ['Line post loop cap', chainFenceAgg.line_post_loop_cap],
-                            ['Rail end', chainFenceAgg.rail_end],
-                            [`Rail (total ft ÷ ${chainRailFt || '10'}')`, chainFenceAgg.rail],
-                            ['Center band', chainFenceAgg.center_band],
-                            ['Offset band', chainFenceAgg.offset_band],
-                            ['Tension bar', chainFenceAgg.tension_bar],
-                            [`Mesh rolls (total ft ÷ ${chainMeshFt || '50'}')`, chainFenceAgg.mesh],
-                            ['Bottom wire (ft)', chainFenceAgg.bottom_wire],
-                            ['Ties (est.)', chainFenceAgg.ties],
-                            ['Carriage bolt + nut', chainFenceAgg.carriage_bolt_nut],
-                            ['Hog rings (note L/2)', chainFenceAgg.hog_rings_note],
-                          ] as const
-                        ).map(([label, qty]) => (
-                          <tr key={label} className="border-b border-slate-100">
-                            <td className="py-1.5 font-medium text-slate-800">{label}</td>
-                            <td className="py-1.5 text-right tabular-nums">{qty}</td>
-                          </tr>
-                        ))}
+                        {[['Posts (all runs)', chainFenceAgg.posts] as [string, number], ...(chainFenceRows ?? [])].map(
+                          ([label, qty]) => (
+                            <tr key={label} className="border-b border-slate-100">
+                              <td className="py-1.5 font-medium text-slate-800">{label}</td>
+                              <td className="py-1.5 text-right tabular-nums">{qty}</td>
+                            </tr>
+                          )
+                        )}
                       </tbody>
                     </table>
                   </div>
                   <div>
                     <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">Gates (summed)</h3>
-                    {!chainGateAgg ? (
+                    {!chainGateRows ? (
                       <p className="text-xs text-slate-500">No gates with width entered.</p>
                     ) : (
                       <table className="w-full text-sm">
                         <tbody>
-                          {(
-                            [
-                              ['Pre-assembled frame', chainGateAgg.pre_assembled_frame],
-                              ['Post', chainGateAgg.post],
-                              ['End post cap', chainGateAgg.end_post_cap],
-                              ['Gate extension kit', chainGateAgg.gate_extension_kit],
-                              ['Hardware kit', chainGateAgg.hardware_kit],
-                            ] as const
-                          ).map(([label, qty]) => (
+                          {chainGateRows.map(([label, qty]) => (
                             <tr key={label} className="border-b border-slate-100">
                               <td className="py-1.5 font-medium text-slate-800">{label}</td>
                               <td className="py-1.5 text-right tabular-nums">{qty}</td>
@@ -3276,6 +3470,19 @@ export default function MaterialCalculatorHubPage() {
             </div>
           </section>
 
+          <StyleExtrasCard
+            items={HYBRID_H_EXTRA_ITEMS}
+            values={hybHExtras}
+            onChange={(key, v) =>
+              setHybHExtras((p) => {
+                const next = { ...p };
+                if (v === '') delete next[key];
+                else next[key] = v;
+                return next;
+              })
+            }
+          />
+
           <div className={stageLabel}>
             <span>Your materials</span>
             <span className="h-px flex-1 bg-slate-200" />
@@ -3543,6 +3750,19 @@ export default function MaterialCalculatorHubPage() {
               ))}
             </div>
           </section>
+
+          <StyleExtrasCard
+            items={HYBRID_V_EXTRA_ITEMS}
+            values={hybVExtras}
+            onChange={(key, v) =>
+              setHybVExtras((p) => {
+                const next = { ...p };
+                if (v === '') delete next[key];
+                else next[key] = v;
+                return next;
+              })
+            }
+          />
 
           <div className={stageLabel}>
             <span>Your materials</span>
