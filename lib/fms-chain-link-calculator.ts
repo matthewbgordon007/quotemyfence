@@ -89,6 +89,34 @@ export function computeFmsChainLinkFenceLine(input: FmsChainLinkFenceInput): Fms
   };
 }
 
+export interface FmsChainLinkJobAggregate extends FmsChainLinkFenceResult {
+  /** Sum of all run lengths — the basis for the rail and mesh counts. */
+  total_linear_ft: number;
+}
+
+/**
+ * Whole-job aggregate: posts, caps, bands, ties, etc. are calculated per line and summed,
+ * but rails and mesh rolls are cut from stock across the whole job, so they are computed
+ * from the total linear footage (one ROUNDUP for the job instead of one per run).
+ */
+export function aggregateFmsChainLinkFenceLines(inputs: FmsChainLinkFenceInput[]): FmsChainLinkJobAggregate | null {
+  if (!inputs.length) return null;
+  const perLine = inputs.map((i) => computeFmsChainLinkFenceLine(i));
+  const keys = Object.keys(perLine[0]) as (keyof FmsChainLinkFenceResult)[];
+  const sum = {} as Record<keyof FmsChainLinkFenceResult, number>;
+  for (const k of keys) {
+    sum[k] = perLine.reduce((a, r) => a + (Number(r[k]) || 0), 0);
+  }
+
+  const totalFt = inputs.reduce((a, i) => a + Math.max(0, Number(i.length_ft) || 0), 0);
+  const railLen = Math.max(0.01, Number(inputs[0].rail_length_ft) || 10);
+  const meshLen = Math.max(0.01, Number(inputs[0].mesh_roll_ft) || 50);
+  sum.rail = excelRoundUp(totalFt / railLen, 0);
+  sum.mesh = excelRoundUp(totalFt / meshLen, 0);
+
+  return { ...sum, total_linear_ft: totalFt };
+}
+
 export interface FmsChainLinkGateInput {
   gate_width_in: number;
   posts: 0 | 1 | 2;

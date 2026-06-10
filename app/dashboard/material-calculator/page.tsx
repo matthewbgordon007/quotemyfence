@@ -17,6 +17,7 @@ import {
 } from '@/lib/fms-pvc-breakdown-master';
 import { sumGateAdobeRows, type FmsPvcGatePosts } from '@/lib/fms-pvc-gates-calculator';
 import {
+  aggregateFmsChainLinkFenceLines,
   computeFmsChainLinkFenceLine,
   computeFmsChainLinkGate,
   type FmsChainLinkFenceInput,
@@ -1615,16 +1616,8 @@ export default function MaterialCalculatorHubPage() {
       .filter(Boolean) as FmsChainLinkFenceInput[];
   }, [chainLines, chainRailFt, chainMeshFt, chainTiesPerBag]);
 
-  const chainFenceAgg = useMemo(() => {
-    if (!chainFenceInputs.length) return null;
-    const results = chainFenceInputs.map((i) => computeFmsChainLinkFenceLine(i));
-    const keys = Object.keys(results[0]) as (keyof (typeof results)[0])[];
-    const sum: Record<string, number> = {};
-    for (const k of keys) {
-      sum[k] = results.reduce((a, r) => a + (Number(r[k]) || 0), 0);
-    }
-    return sum as unknown as ReturnType<typeof computeFmsChainLinkFenceLine>;
-  }, [chainFenceInputs]);
+  /** Per-line sums for posts/caps/bands/ties; rails + mesh from total linear ft across the job. */
+  const chainFenceAgg = useMemo(() => aggregateFmsChainLinkFenceLines(chainFenceInputs), [chainFenceInputs]);
 
   const chainGateResults = useMemo(() => {
     return chainGates
@@ -2678,49 +2671,51 @@ export default function MaterialCalculatorHubPage() {
               </p>
             </div>
             <div className="space-y-4 p-5">
-              <details className="group rounded-xl border border-slate-100 bg-slate-50/40">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500 [&::-webkit-details-marker]:hidden">
-                  <span>Stock sizes (rails, mesh, ties)</span>
-                  <span className="text-[11px] font-medium normal-case tracking-normal text-slate-400">
-                    Defaults fit most jobs
+              <div className="rounded-xl border border-amber-200/70 bg-amber-50/40 p-4">
+                <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                    Step 1 — Set your stock sizes
                   </span>
-                </summary>
-                <div className="grid gap-3 px-4 pb-4 sm:grid-cols-3">
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-500">Rail length (ft)</label>
-                  <input
-                    type="number"
-                    min={0.01}
-                    step={0.01}
-                    value={chainRailFt}
-                    onChange={(e) => setChainRailFt(e.target.value)}
-                    className={`${field} w-full`}
-                  />
+                  <span className="text-[11px] text-slate-500">
+                    Rails come in different lengths (e.g. 10&apos; regional, 19.33&apos; ours) — set this first.
+                  </span>
                 </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-500">Mesh roll length (ft)</label>
-                  <input
-                    type="number"
-                    min={0.01}
-                    step={0.01}
-                    value={chainMeshFt}
-                    onChange={(e) => setChainMeshFt(e.target.value)}
-                    className={`${field} w-full`}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-500">Ties per bag</label>
-                  <input
-                    type="number"
-                    min={1}
-                    step={1}
-                    value={chainTiesPerBag}
-                    onChange={(e) => setChainTiesPerBag(e.target.value)}
-                    className={`${field} w-full`}
-                  />
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-slate-500">Rail length (ft)</label>
+                    <input
+                      type="number"
+                      min={0.01}
+                      step={0.01}
+                      value={chainRailFt}
+                      onChange={(e) => setChainRailFt(e.target.value)}
+                      className={`${field} w-full`}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-slate-500">Mesh roll length (ft)</label>
+                    <input
+                      type="number"
+                      min={0.01}
+                      step={0.01}
+                      value={chainMeshFt}
+                      onChange={(e) => setChainMeshFt(e.target.value)}
+                      className={`${field} w-full`}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-slate-500">Ties per bag</label>
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={chainTiesPerBag}
+                      onChange={(e) => setChainTiesPerBag(e.target.value)}
+                      className={`${field} w-full`}
+                    />
+                  </div>
                 </div>
               </div>
-              </details>
               {chainLines.map((row, idx) =>
                 row.fromSketch ? (
                   <div
@@ -2898,6 +2893,10 @@ export default function MaterialCalculatorHubPage() {
                 <div className="grid gap-6 lg:grid-cols-2">
                   <div>
                     <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">Fence (summed runs)</h3>
+                    <p className="mb-2 text-[11px] text-slate-500">
+                      Posts, caps, bands &amp; ties are figured per run. Rails &amp; mesh are figured from the job total of{' '}
+                      {chainFenceAgg.total_linear_ft} linear ft.
+                    </p>
                     <table className="w-full text-sm">
                       <tbody>
                         {(
@@ -2908,11 +2907,11 @@ export default function MaterialCalculatorHubPage() {
                             ['Terminal post cap', chainFenceAgg.terminal_post_cap],
                             ['Line post loop cap', chainFenceAgg.line_post_loop_cap],
                             ['Rail end', chainFenceAgg.rail_end],
-                            ['Rail', chainFenceAgg.rail],
+                            [`Rail (total ft ÷ ${chainRailFt || '10'}')`, chainFenceAgg.rail],
                             ['Center band', chainFenceAgg.center_band],
                             ['Offset band', chainFenceAgg.offset_band],
                             ['Tension bar', chainFenceAgg.tension_bar],
-                            ['Mesh (rolls)', chainFenceAgg.mesh],
+                            [`Mesh rolls (total ft ÷ ${chainMeshFt || '50'}')`, chainFenceAgg.mesh],
                             ['Bottom wire (ft)', chainFenceAgg.bottom_wire],
                             ['Ties (est.)', chainFenceAgg.ties],
                             ['Carriage bolt + nut', chainFenceAgg.carriage_bolt_nut],
