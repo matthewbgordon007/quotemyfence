@@ -29,7 +29,15 @@ import {
 } from '@/lib/fms-pvc-breakdown-master';
 import { LARGE_WARE_TITLE, SMALL_WARE_TITLE, splitWare } from '@/lib/material-ware';
 import { boardStiffenersForBoardCount, formatLooseExtra, formatPacksCell } from '@/lib/pvc-material-packs';
-import { sumGateAdobeRows, FMS_GATE_POST_COUNT, type FmsPvcGatePosts } from '@/lib/fms-pvc-gates-calculator';
+import {
+  computeFmsPvcDoubleGate,
+  computeFmsPvcShortGate,
+  computeFmsPvcSingleGate,
+  sumGateAdobeRows,
+  FMS_GATE_POST_COUNT,
+  type FmsPvcAdobeGateMap,
+  type FmsPvcGatePosts,
+} from '@/lib/fms-pvc-gates-calculator';
 import {
   aggregateFmsChainLinkFenceLines,
   computeFmsChainLinkFenceLine,
@@ -481,6 +489,82 @@ function formatPvcPanelSummary(module: FmsPvcPanelModule, spacingFt: number): st
   return `${FMS_PVC_PANEL_HEIGHT_LABELS[module]} (${spacing.toFixed(2)}' spacing)`;
 }
 
+/** Same inclusion rule as `buildInputs` / `aggregateFmsPvcFenceLines`. */
+function pvcLineIncludedInInputs(row: PvcLineRow): boolean {
+  const L = Math.max(0, Number(String(row.length_ft).replace(/,/g, '')) || 0);
+  const { d6, d7 } = presetToExcel(row.end_preset, row.h_post_type, row.u_channel);
+  return L > 0 || d6 > 0 || d7 > 0;
+}
+
+function adobeGateMapToBreakdownCols(adobe: FmsPvcAdobeGateMap) {
+  return {
+    h_post: adobe[19] ?? 0,
+    u_channel: adobe[28] ?? 0,
+    rail: adobe[21] ?? 0,
+    board: adobe[23] ?? 0,
+  };
+}
+
+type PvcRunBreakdownRow =
+  | {
+      kind: 'fence';
+      id: string;
+      label: string;
+      length_ft: number;
+      panelLabel: string;
+      panels: number;
+      h_post: number;
+      u_channel: number;
+      rail: number;
+      board: number;
+    }
+  | {
+      kind: 'gate';
+      id: string;
+      label: string;
+      gateKind: 'short' | 'single' | 'double';
+      length_ft: number;
+      panelLabel: string;
+      h_post: number;
+      u_channel: number;
+      rail: number;
+      board: number;
+    };
+
+function buildPvcGateBreakdownRows(
+  gateKind: 'short' | 'single' | 'double',
+  rows: PvcGateRow[],
+  labelPrefix: string
+): PvcRunBreakdownRow[] {
+  const panelLabel =
+    gateKind === 'short' ? 'Walk gate' : gateKind === 'single' ? 'Single gate' : 'Double gate';
+  const out: PvcRunBreakdownRow[] = [];
+  let n = 0;
+  for (const row of rows) {
+    const w = Math.max(0, Number(String(row.width_in).replace(/,/g, '')) || 0);
+    if (w <= 0) continue;
+    n += 1;
+    const input = { gate_width_in: w, posts: FMS_GATE_POST_COUNT };
+    const adobe =
+      gateKind === 'short'
+        ? computeFmsPvcShortGate(input).adobe_gate_rows
+        : gateKind === 'single'
+          ? computeFmsPvcSingleGate(input).adobe_gate_rows
+          : computeFmsPvcDoubleGate(input).adobe_gate_rows;
+    const cols = adobeGateMapToBreakdownCols(adobe);
+    out.push({
+      kind: 'gate',
+      id: row.id,
+      label: `${labelPrefix} ${n} (${w}″)`,
+      gateKind,
+      length_ft: Math.round((w / 12) * 100) / 100,
+      panelLabel,
+      ...cols,
+    });
+  }
+  return out;
+}
+
 function buildInputs(rows: PvcLineRow[], panelSpacingFt: number): FmsPvcFenceLineInput[] {
   const spacing = Number.isFinite(panelSpacingFt) && panelSpacingFt > 0 ? panelSpacingFt : undefined;
   return rows
@@ -488,7 +572,7 @@ function buildInputs(rows: PvcLineRow[], panelSpacingFt: number): FmsPvcFenceLin
       const L = Math.max(0, Number(String(r.length_ft).replace(/,/g, '')) || 0);
       const { d6, d7 } = presetToExcel(r.end_preset, r.h_post_type, r.u_channel);
       // Gate-only sketch runs can have 0 ft of fence left; keep U-channels but posts are on adjacent runs.
-      if (L <= 0 && d6 <= 0 && d7 <= 0) return null;
+      if (!pvcLineIncludedInInputs(r)) return null;
       return {
         length_ft: L,
         fence_terminated_h_post_type: (L <= 0 ? 0 : d6) as 0 | 1 | 2,
@@ -2013,18 +2097,38 @@ export default function MaterialCalculatorHubPage() {
     [pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt, extraBoardsPctNum]
   );
 
-  const pvcLineDetails = useMemo(() => {
-    const out: { id: string; label: string; result: (typeof pvcJob.lines)[0] }[] = [];
+  const pvcRunBreakdown = useMemo((): PvcRunBreakdownRow[] => {
+    const out: PvcRunBreakdownRow[] = [];
     let j = 0;
-    for (const lr of lines) {
-      const L = Math.max(0, Number(String(lr.length_ft).replace(/,/g, '')) || 0);
-      if (L <= 0) continue;
+    for (let i = 0; i < lines.length; i++) {
+      const lr = lines[i];
+      if (!pvcLineIncludedInInputs(lr)) continue;
       const r = pvcJob.lines[j];
-      if (r) out.push({ id: lr.id, label: lr.label, result: r });
       j += 1;
+      if (!r) continue;
+      out.push({
+        kind: 'fence',
+        id: lr.id,
+        label: lr.label || `Run ${i + 1}`,
+        length_ft: r.input.length_ft,
+        panelLabel: formatPvcPanelSummary(
+          lr.panel_module,
+          r.input.panel_spacing_ft ?? effectivePvcPanelSpacingFt
+        ),
+        panels: r.total_whole_panels,
+        h_post: r.h_post,
+        u_channel: r.u_channel,
+        rail: r.rail,
+        board: r.board,
+      });
     }
+    out.push(
+      ...buildPvcGateBreakdownRows('short', shortGates, 'Walk gate'),
+      ...buildPvcGateBreakdownRows('single', singleGates, 'Single gate'),
+      ...buildPvcGateBreakdownRows('double', doubleGates, 'Double gate')
+    );
     return out;
-  }, [lines, pvcJob.lines]);
+  }, [lines, pvcJob.lines, shortGates, singleGates, doubleGates, effectivePvcPanelSpacingFt]);
 
   const adobeRows = useMemo(() => adobeBreakdownToRows(pvcAdobe), [pvcAdobe]);
 
@@ -3702,14 +3806,17 @@ export default function MaterialCalculatorHubPage() {
             </div>
           </CollapsibleCard>
 
-          <CollapsibleCard title="Run-by-run breakdown" subtitle="Parts needed for each individual run of fence.">
+          <CollapsibleCard
+            title="Run-by-run breakdown"
+            subtitle="Fence runs (including gate-only segments with U-channels) plus each gate opening."
+          >
             <div className="overflow-x-auto p-5">
               <table className="w-full min-w-[720px] text-xs">
                 <thead>
                   <tr className="border-b border-slate-200 text-left font-semibold uppercase tracking-wide text-slate-500">
                     <th className="px-2 py-2">Run</th>
                     <th className="px-2 py-2 text-right">Length (ft)</th>
-                    <th className="px-2 py-2">Panel</th>
+                    <th className="px-2 py-2">Type</th>
                     <th className="px-2 py-2 text-right">Panels</th>
                     <th className="px-2 py-2 text-right">H-post</th>
                     <th className="px-2 py-2 text-right">U-channel</th>
@@ -3718,24 +3825,27 @@ export default function MaterialCalculatorHubPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {pvcLineDetails.map(({ id, label, result: ln }) => (
-                    <tr key={id} className="border-b border-slate-100">
-                      <td className="px-2 py-2 text-slate-800">{label}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">{ln.input.length_ft}</td>
-                      <td className="px-2 py-2 text-slate-600">
-                        {formatPvcPanelSummary(ln.input.panel_module, ln.input.panel_spacing_ft ?? effectivePvcPanelSpacingFt)}
+                  {pvcRunBreakdown.map((row) => (
+                    <tr
+                      key={row.id}
+                      className={`border-b border-slate-100 ${row.kind === 'gate' ? 'bg-violet-50/40' : ''}`}
+                    >
+                      <td className="px-2 py-2 text-slate-800">{row.label}</td>
+                      <td className="px-2 py-2 text-right tabular-nums">{row.length_ft}</td>
+                      <td className="px-2 py-2 text-slate-600">{row.panelLabel}</td>
+                      <td className="px-2 py-2 text-right tabular-nums">
+                        {row.kind === 'fence' ? row.panels : '—'}
                       </td>
-                      <td className="px-2 py-2 text-right tabular-nums">{ln.total_whole_panels}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">{ln.h_post}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">{ln.u_channel}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">{ln.rail}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">{ln.board}</td>
+                      <td className="px-2 py-2 text-right tabular-nums">{row.h_post}</td>
+                      <td className="px-2 py-2 text-right tabular-nums">{row.u_channel}</td>
+                      <td className="px-2 py-2 text-right tabular-nums">{row.rail}</td>
+                      <td className="px-2 py-2 text-right tabular-nums">{row.board}</td>
                     </tr>
                   ))}
-                  {pvcLineDetails.length === 0 && (
+                  {pvcRunBreakdown.length === 0 && (
                     <tr>
                       <td colSpan={8} className="px-2 py-6 text-center text-slate-500">
-                        Enter at least one line length to calculate.
+                        Enter at least one line length or gate to calculate.
                       </td>
                     </tr>
                   )}
