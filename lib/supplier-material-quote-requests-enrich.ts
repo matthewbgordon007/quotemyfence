@@ -1,5 +1,6 @@
 import { getLayoutDrawingFootage } from '@/lib/layout-drawing-footage';
 import { normalizeMaterialListJson, type MaterialQuoteLine } from '@/lib/material-quote-lines';
+import { createServiceRoleClient } from '@/lib/supabase-service-role';
 import { stripSupplierFromTypeName } from '@/lib/supplier-import-label';
 
 export type MaterialQuoteRequestContractor = {
@@ -244,14 +245,18 @@ async function getDesignOptionFromSupplierSelection(
 
 /** Enrich DB rows into the same JSON shape used by supplier material-quote APIs. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function enrichMaterialQuoteRequests(supabase: any, rows: RawMaterialQuoteRow[]): Promise<MaterialQuoteRequestDto[]> {
+export async function enrichMaterialQuoteRequests(_supabase: any, rows: RawMaterialQuoteRow[]): Promise<MaterialQuoteRequestDto[]> {
+  // Layout drawings and lead fence data belong to the buyer contractor — service role loads them
+  // after API routes have already limited rows to authorized material_quote_requests.
+  const db = createServiceRoleClient();
+
   const contractorIds = Array.from(new Set(rows.map((r) => r.contractor_id)));
   const quoteSessionIds = Array.from(new Set(rows.map((r) => r.quote_session_id).filter(Boolean))) as string[];
   const layoutIds = Array.from(new Set(rows.map((r) => r.layout_drawing_id).filter(Boolean))) as string[];
 
   let companyById = new Map<string, MaterialQuoteRequestContractor>();
   if (contractorIds.length > 0) {
-    const { data: cos } = await supabase
+    const { data: cos } = await db
       .from('contractors')
       .select('id, company_name, slug, email, phone')
       .in('id', contractorIds);
@@ -265,7 +270,7 @@ export async function enrichMaterialQuoteRequests(supabase: any, rows: RawMateri
 
   let layoutById = new Map<string, { id: string; drawing_data: unknown; image_data_url?: string | null }>();
   if (layoutIds.length > 0) {
-    const { data: layouts } = await supabase
+    const { data: layouts } = await db
       .from('layout_drawings')
       .select('id, drawing_data, image_data_url')
       .in('id', layoutIds);
@@ -274,7 +279,7 @@ export async function enrichMaterialQuoteRequests(supabase: any, rows: RawMateri
 
   let fenceBySessionId = new Map<string, RawFence>();
   if (quoteSessionIds.length > 0) {
-    const { data: fences } = await supabase
+    const { data: fences } = await db
       .from('fences')
       .select('quote_session_id, total_length_ft, selected_colour_option_id, selected_product_option_id, has_removal')
       .in('quote_session_id', quoteSessionIds);
@@ -293,7 +298,7 @@ export async function enrichMaterialQuoteRequests(supabase: any, rows: RawMateri
 
   let fenceIdBySessionId = new Map<string, string>();
   if (quoteSessionIds.length > 0) {
-    const { data: fenceRows } = await supabase
+    const { data: fenceRows } = await db
       .from('fences')
       .select('id, quote_session_id')
       .in('quote_session_id', quoteSessionIds);
@@ -302,7 +307,7 @@ export async function enrichMaterialQuoteRequests(supabase: any, rows: RawMateri
 
   let homeAddressBySessionId = new Map<string, string>();
   if (quoteSessionIds.length > 0) {
-    const { data: propRows } = await supabase
+    const { data: propRows } = await db
       .from('properties')
       .select('quote_session_id, formatted_address')
       .in('quote_session_id', quoteSessionIds);
@@ -317,12 +322,12 @@ export async function enrichMaterialQuoteRequests(supabase: any, rows: RawMateri
   let gatesByFenceId = new Map<string, MaterialQuoteRequestProject['gates']>();
   if (fenceIds.length > 0) {
     const [{ data: segmentRows }, { data: gateRows }] = await Promise.all([
-      supabase
+      db
         .from('fence_segments')
         .select('fence_id, start_lat, start_lng, end_lat, end_lng, length_ft, sort_order')
         .in('fence_id', fenceIds)
         .order('sort_order', { ascending: true }),
-      supabase.from('gates').select('fence_id, gate_type, quantity, lat, lng').in('fence_id', fenceIds),
+      db.from('gates').select('fence_id, gate_type, quantity, lat, lng').in('fence_id', fenceIds),
     ]);
 
     for (const row of segmentRows || []) {
@@ -351,10 +356,10 @@ export async function enrichMaterialQuoteRequests(supabase: any, rows: RawMateri
   return Promise.all(
     rows.map(async (r) => {
       const fence = r.quote_session_id ? fenceBySessionId.get(r.quote_session_id) || null : null;
-      const designSummary = await getDesignSummary(supabase, fence);
-      const designOptionFromFence = await getDesignOption(supabase, fence);
+      const designSummary = await getDesignSummary(db, fence);
+      const designOptionFromFence = await getDesignOption(db, fence);
       const designOptionFromSupplier =
-        designOptionFromFence ?? (await getDesignOptionFromSupplierSelection(supabase, r));
+        designOptionFromFence ?? (await getDesignOptionFromSupplierSelection(db, r));
       const designOption = designOptionFromSupplier;
       const layout = r.layout_drawing_id ? layoutById.get(r.layout_drawing_id) || null : null;
       const layoutFootage = layout?.drawing_data ? getLayoutDrawingFootage(layout.drawing_data) : null;

@@ -43,6 +43,79 @@ export function MaterialQuoteRequestViewer({ request: selectedRequest, compact }
     (selectedRequest.project?.gates?.length ?? 0) > 0
       ? selectedRequest.project?.gates || []
       : layoutFootage?.gates ?? [];
+  const hasFenceDrawing =
+    hasLayoutPlanView ||
+    !!selectedRequest.project?.image_data_url ||
+    (selectedRequest.project?.segments?.length ?? 0) > 0;
+
+  const layoutDrawingBlock = hasFenceDrawing ? (
+    <div className={`${gap} rounded-lg border border-slate-200 bg-slate-50 ${pad}`}>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Layout drawing</p>
+      <p className="mt-1 text-slate-500">
+        {hasLayoutPlanView
+          ? 'Fence sketch with labeled line lengths (from Draw).'
+          : 'The outline they drew on the map.'}
+      </p>
+      {hasLayoutPlanView && savedLayoutSketch ? (
+        <div className={`mt-3 overflow-hidden rounded-lg border border-slate-200 bg-white ${compact ? '' : 'min-h-[280px]'}`}>
+          <LayoutDrawCanvas
+            initialDrawing={savedLayoutSketch}
+            lineHighlightModes={savedLayoutHighlights}
+            readOnly
+            fillParent={false}
+          />
+        </div>
+      ) : selectedRequest.project?.image_data_url ? (
+        <div className="mt-3 overflow-hidden rounded-lg border border-slate-200 bg-white">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={selectedRequest.project.image_data_url}
+            alt="Fence layout drawing"
+            className="mx-auto max-h-[min(420px,70vh)] w-full object-contain"
+          />
+        </div>
+      ) : null}
+      {(selectedRequest.project?.segments?.length ?? 0) > 0 ? (
+        <div className="mt-3">
+          <p className="mb-2 font-medium text-slate-600">
+            {hasLayoutPlanView ? 'Map view' : 'Fence outline'}
+          </p>
+          <FenceDrawingMap
+            segments={selectedRequest.project?.segments || []}
+            gates={selectedRequest.project?.gates || []}
+            className="min-h-[220px]"
+          />
+        </div>
+      ) : null}
+      {(displayLineLengths.length > 0 || displayTotalFt > 0 || displayGates.length > 0) && (
+        <div className="mt-3 space-y-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5">
+          {displayLineLengths.length > 0 && (
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="font-semibold text-slate-800">Line lengths:</span>
+              {displayLineLengths.map((ft, i) => (
+                <span key={i} className="font-medium text-slate-700">
+                  Line {i + 1}: {ft != null && Number(ft) > 0 ? `${Number(ft).toFixed(1)} ft` : '—'}
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex flex-wrap gap-3 text-slate-800">
+            {displayTotalFt > 0 && (
+              <span>
+                <strong>Total:</strong> {displayTotalFt.toFixed(1)} ft
+              </span>
+            )}
+            {selectedRequest.project?.has_removal && <span className="text-slate-600">Removal included</span>}
+            {displayGates.length > 0 && (
+              <span>
+                <strong>Gates:</strong> {displayGates.map((g) => `${g.quantity} ${g.gate_type}`).join(', ')}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  ) : null;
 
   return (
     <div className={compact ? 'text-sm' : ''}>
@@ -60,6 +133,8 @@ export function MaterialQuoteRequestViewer({ request: selectedRequest, compact }
           <p className="mt-2 font-medium text-slate-900">{selectedRequest.project.home_address}</p>
         </div>
       ) : null}
+
+      {layoutDrawingBlock}
 
       <div className={`${gap} grid gap-3 ${compact ? '' : 'md:grid-cols-2'}`}>
         <div className={`rounded-lg border border-slate-200 bg-slate-50 ${pad}`}>
@@ -105,65 +180,6 @@ export function MaterialQuoteRequestViewer({ request: selectedRequest, compact }
         <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Request notes</p>
         <p className="mt-2 text-slate-800">{selectedRequest.description}</p>
       </div>
-
-      {((selectedRequest.project?.segments?.length ?? 0) > 0 || selectedRequest.project?.drawing_data) && (
-        <div className={`${gap} rounded-lg border border-slate-200 bg-slate-50 ${pad}`}>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Fence drawing</p>
-          <p className="mt-1 text-slate-500">
-            {hasLayoutPlanView ? 'Layout drawing (from Draw).' : 'The outline they drew on the map.'}
-          </p>
-          {hasLayoutPlanView && savedLayoutSketch ? (
-            <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-white">
-              <LayoutDrawCanvas
-                initialDrawing={savedLayoutSketch}
-                lineHighlightModes={savedLayoutHighlights}
-                readOnly
-                fillParent={false}
-              />
-            </div>
-          ) : null}
-          {(selectedRequest.project?.segments?.length ?? 0) > 0 ? (
-            <div className="mt-2">
-              <p className="mb-2 font-medium text-slate-600">
-                {hasLayoutPlanView ? 'Map view' : 'Fence outline'}
-              </p>
-              <FenceDrawingMap
-                segments={selectedRequest.project?.segments || []}
-                gates={selectedRequest.project?.gates || []}
-                className="min-h-[220px]"
-              />
-            </div>
-          ) : null}
-          {(displayLineLengths.length > 0 || displayTotalFt > 0 || displayGates.length > 0) && (
-            <div className="mt-3 space-y-2">
-              {displayLineLengths.length > 0 && (
-                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                  <span className="font-medium">Segment lengths:</span>
-                  {displayLineLengths.map((ft, i) => (
-                    <span key={i} className="text-slate-600">
-                      Line {i + 1}: {ft != null && Number(ft) > 0 ? `${Number(ft).toFixed(1)} ft` : '—'}
-                    </span>
-                  ))}
-                </div>
-              )}
-              <div className="flex flex-wrap gap-3">
-                {displayTotalFt > 0 && (
-                  <span>
-                    <strong>Total length:</strong> {displayTotalFt.toFixed(1)} ft
-                  </span>
-                )}
-                {selectedRequest.project?.has_removal && <span className="text-slate-600">Removal included</span>}
-                {displayGates.length > 0 && (
-                  <span>
-                    <strong>Gates:</strong>{' '}
-                    {displayGates.map((g) => `${g.quantity} ${g.gate_type}`).join(', ')}
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       <div className={`${gap} rounded-lg border border-slate-200 bg-slate-50 ${pad}`}>
         <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Design choice</p>
