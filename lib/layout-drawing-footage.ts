@@ -1,24 +1,43 @@
+import { netFenceLengthsFromSketch, type SketchGatePlacement } from '@/lib/layout-sketch-to-pvc-inputs';
+
 export type LayoutDrawingFootage = {
   total_length_ft: number;
   line_lengths_ft: number[];
   gates: { gate_type: string; quantity: number }[];
 };
 
+function parseGatePlacements(raw: unknown): SketchGatePlacement[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((g) => {
+      if (!g || typeof g !== 'object') return null;
+      const row = g as Record<string, unknown>;
+      const type = row.type === 'double' ? ('double' as const) : ('single' as const);
+      const line_index = Math.max(0, Math.floor(Number(row.line_index) || 0));
+      return { type, line_index };
+    })
+    .filter(Boolean) as SketchGatePlacement[];
+}
+
 /** Per-line lengths and total from a saved `layout_drawings.drawing_data` payload. */
 export function getLayoutDrawingFootage(raw: unknown): LayoutDrawingFootage | null {
   if (!raw || typeof raw !== 'object') return null;
   const o = raw as Record<string, unknown>;
 
-  const line_lengths_ft = Array.isArray(o.segments)
-    ? o.segments.map((s) => {
-        const n = Number((s as { length_ft?: number })?.length_ft);
-        return Number.isFinite(n) && n >= 0 ? n : 0;
-      })
+  const segments = Array.isArray(o.segments)
+    ? o.segments.map((s) => ({
+        length_ft: Number((s as { length_ft?: number })?.length_ft),
+      }))
     : [];
+  const gatePlacements = parseGatePlacements(o.gate_placements);
+
+  const line_lengths_ft =
+    segments.length > 0
+      ? netFenceLengthsFromSketch(segments, gatePlacements)
+      : [];
 
   const sum = line_lengths_ft.reduce((a, b) => a + b, 0);
-  const stored = Number(o.total_length_ft);
-  const total_length_ft = Number.isFinite(stored) && stored > 0 ? stored : sum;
+  const total_length_ft = sum;
 
   const gates: LayoutDrawingFootage['gates'] = [];
   if (Array.isArray(o.gates)) {

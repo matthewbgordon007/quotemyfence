@@ -27,6 +27,13 @@ export const LAYOUT_CHAIN_ALIGN_FT = 0.5;
 /** After chaining, drop links shorter than this (ft) to remove jitter / duplicate dots on one post. */
 export const LAYOUT_MIN_SKETCH_SEGMENT_FT = 0.08;
 
+/** PVC workbook gate width bands (Material Calculator — PVC sheet). */
+export const PVC_SHORT_GATE_MAX_IN = 59.5;
+export const PVC_SINGLE_GATE_MIN_IN = 65.5;
+export const PVC_DOUBLE_GATE_MIN_IN = 106;
+
+export type SketchGatePlacement = { type: 'single' | 'double'; line_index: number };
+
 export type LayoutPt = { x: number; y: number };
 
 /** Per vertex along the chained sketch: open ends + corners. Index 0 = first point; index m = last point (m = segment count). */
@@ -74,6 +81,55 @@ export function layoutPointsToSegmentPairs(
 
 function hypot(a: number, b: number): number {
   return Math.hypot(a, b);
+}
+
+/**
+ * Gate opening width (in) for a sketch placement. Uses that segment's length in feet × 12;
+ * short path if &lt; 59.5″, else single/double minimums from the PVC workbook.
+ */
+export function sketchGateWidthInches(
+  placement: SketchGatePlacement,
+  segments: { length_ft?: number }[]
+): number {
+  const idx = Math.max(0, Math.min(segments.length - 1, Number(placement.line_index) || 0));
+  const lengthFt = Math.max(0, Number(segments[idx]?.length_ft) || 0);
+  const widthRaw = lengthFt * 12;
+
+  if (widthRaw > 0 && widthRaw < PVC_SHORT_GATE_MAX_IN) return widthRaw;
+  if (placement.type === 'double') {
+    return widthRaw > 0 ? Math.max(widthRaw, PVC_DOUBLE_GATE_MIN_IN) : PVC_DOUBLE_GATE_MIN_IN;
+  }
+  return widthRaw > 0 ? Math.max(widthRaw, PVC_SINGLE_GATE_MIN_IN) : PVC_SINGLE_GATE_MIN_IN;
+}
+
+/** Fence run length after subtracting gate openings placed on that segment (avoids double-counting). */
+export function netFenceLengthFtForSegment(
+  segmentIndex: number,
+  grossLengthFt: number,
+  gatePlacements?: SketchGatePlacement[] | null,
+  segments?: { length_ft?: number }[] | null
+): number {
+  if (!gatePlacements?.length || !segments?.length) {
+    return Math.max(0, Math.round(grossLengthFt * 100) / 100);
+  }
+  let subtractFt = 0;
+  for (const g of gatePlacements) {
+    if (g.line_index === segmentIndex) {
+      subtractFt += sketchGateWidthInches(g, segments) / 12;
+    }
+  }
+  const net = grossLengthFt - subtractFt;
+  return Math.max(0, Math.round(net * 100) / 100);
+}
+
+export function netFenceLengthsFromSketch(
+  segments: { length_ft?: number }[],
+  gatePlacements?: SketchGatePlacement[] | null
+): number[] {
+  return segments.map((s, i) => {
+    const gross = Math.max(0, Number(s.length_ft) || 0);
+    return netFenceLengthFtForSegment(i, gross, gatePlacements, segments);
+  });
 }
 
 /**

@@ -67,9 +67,12 @@ import {
   alignChainedSketchSegments,
   layoutPointsToSegmentPairs,
   layoutSegmentsToPvcFenceInputsPerSketchSegment,
+  netFenceLengthFtForSegment,
   removeLayoutDrawingSegment,
+  sketchGateWidthInches,
   LAYOUT_CHAIN_ALIGN_FT,
   LAYOUT_MIN_SKETCH_SEGMENT_FT,
+  type SketchGatePlacement,
   type SketchJointTermination,
 } from '@/lib/layout-sketch-to-pvc-inputs';
 
@@ -249,19 +252,21 @@ function drawingDataToPvcLineRows(
   drawing: {
     points: { x: number; y: number }[];
     segments: { length_ft?: number }[];
+    gate_placements?: SketchGatePlacement[];
     joint_terminations?: SketchJointTermination[] | null;
   },
   panelModule: FmsPvcPanelModule
 ): PvcLineRow[] | null {
   const pairs = layoutPointsToSegmentPairs(drawing.points, drawing.segments);
   if (pairs.length === 0) return null;
+  const gatePlacements = drawing.gate_placements;
   // One calculator row per drawn segment (do not merge colinear runs — matches sketch line count).
   const lengthPerSeg = pairs.map((pair, i) => {
     const raw = drawing.segments[i]?.length_ft;
     const n = Number(raw);
-    if (Number.isFinite(n) && n > 0) return n;
-    const d = Math.hypot(pair[1].x - pair[0].x, pair[1].y - pair[0].y);
-    return Math.max(1e-6, d);
+    const gross =
+      Number.isFinite(n) && n > 0 ? n : Math.max(1e-6, Math.hypot(pair[1].x - pair[0].x, pair[1].y - pair[0].y));
+    return netFenceLengthFtForSegment(i, gross, gatePlacements, drawing.segments);
   });
   const inputs = layoutSegmentsToPvcFenceInputsPerSketchSegment(pairs, lengthPerSeg, panelModule, {
     jointTerminations: drawing.joint_terminations ?? null,
@@ -283,18 +288,20 @@ function drawingDataToChainLineRows(
   drawing: {
     points: { x: number; y: number }[];
     segments: { length_ft?: number }[];
+    gate_placements?: SketchGatePlacement[];
     joint_terminations?: SketchJointTermination[] | null;
   },
   panelModule: FmsPvcPanelModule
 ): ChainLineRow[] | null {
   const pairs = layoutPointsToSegmentPairs(drawing.points, drawing.segments);
   if (pairs.length === 0) return null;
+  const gatePlacements = drawing.gate_placements;
   const lengthPerSeg = pairs.map((pair, i) => {
     const raw = drawing.segments[i]?.length_ft;
     const n = Number(raw);
-    if (Number.isFinite(n) && n > 0) return n;
-    const d = Math.hypot(pair[1].x - pair[0].x, pair[1].y - pair[0].y);
-    return Math.max(1e-6, d);
+    const gross =
+      Number.isFinite(n) && n > 0 ? n : Math.max(1e-6, Math.hypot(pair[1].x - pair[0].x, pair[1].y - pair[0].y));
+    return netFenceLengthFtForSegment(i, gross, gatePlacements, drawing.segments);
   });
   const inputs = layoutSegmentsToPvcFenceInputsPerSketchSegment(pairs, lengthPerSeg, panelModule, {
     jointTerminations: drawing.joint_terminations ?? null,
@@ -313,18 +320,20 @@ function drawingDataToHybridVLineRows(
   drawing: {
     points: { x: number; y: number }[];
     segments: { length_ft?: number }[];
+    gate_placements?: SketchGatePlacement[];
     joint_terminations?: SketchJointTermination[] | null;
   },
   panelModule: FmsPvcPanelModule
 ): HybridLineRow[] | null {
   const pairs = layoutPointsToSegmentPairs(drawing.points, drawing.segments);
   if (pairs.length === 0) return null;
+  const gatePlacements = drawing.gate_placements;
   const lengthPerSeg = pairs.map((pair, i) => {
     const raw = drawing.segments[i]?.length_ft;
     const n = Number(raw);
-    if (Number.isFinite(n) && n > 0) return n;
-    const d = Math.hypot(pair[1].x - pair[0].x, pair[1].y - pair[0].y);
-    return Math.max(1e-6, d);
+    const gross =
+      Number.isFinite(n) && n > 0 ? n : Math.max(1e-6, Math.hypot(pair[1].x - pair[0].x, pair[1].y - pair[0].y));
+    return netFenceLengthFtForSegment(i, gross, gatePlacements, drawing.segments);
   });
   const inputs = layoutSegmentsToPvcFenceInputsPerSketchSegment(pairs, lengthPerSeg, panelModule, {
     jointTerminations: drawing.joint_terminations ?? null,
@@ -374,34 +383,43 @@ function emptyGateRow(): PvcGateRow {
   return { id: newLineId(), width_in: '', posts: 1 };
 }
 
-/** Workbook gate paths (Material Calculator — PVC). */
-const PVC_SHORT_GATE_MAX_IN = 59.5;
-const PVC_SINGLE_GATE_MIN_IN = 65.5;
-const PVC_DOUBLE_GATE_MIN_IN = 106;
-
 /**
  * Map a sketch gate (on a fence segment) to the correct PVC gate calculator row.
  * Width (in) comes from that segment’s length in feet × 12; short path if &lt; 59.5″, else single uses min 65.5″,
  * double uses min 106″ when the user placed a double gate on the sketch.
  */
+/** Calculator rows show net fence length; sketch stores gross segment length including gate openings. */
+function grossLengthFtForSketchEdit(
+  segmentIndex: number,
+  netLengthFt: number,
+  sketch: LayoutSketchDrawingPayload
+): number {
+  const placements = sketch.gate_placements;
+  const segments = sketch.segments;
+  if (!placements?.length || !segments?.length) return netLengthFt;
+  let gateFt = 0;
+  for (const g of placements) {
+    if (g.line_index === segmentIndex) {
+      gateFt += sketchGateWidthInches(g, segments) / 12;
+    }
+  }
+  return Math.round((netLengthFt + gateFt) * 100) / 100;
+}
+
 function pvcGateFromSketchPlacement(
-  placement: { type: 'single' | 'double'; line_index: number },
+  placement: SketchGatePlacement,
   segments: { length_ft: number }[]
 ): { kind: 'short' | 'single' | 'double'; row: PvcGateRow } {
-  const idx = Math.max(0, Math.min(segments.length - 1, Number(placement.line_index) || 0));
-  const lengthFt = Math.max(0, Number(segments[idx]?.length_ft) || 0);
-  const widthRaw = lengthFt * 12;
+  const widthRaw = sketchGateWidthInches(placement, segments);
   const wStr = (n: number) => String(Math.round(n * 100) / 100);
 
-  if (widthRaw > 0 && widthRaw < PVC_SHORT_GATE_MAX_IN) {
+  if (widthRaw > 0 && widthRaw < 59.5) {
     return { kind: 'short', row: { id: newLineId(), width_in: wStr(widthRaw), posts: 1 } };
   }
   if (placement.type === 'double') {
-    const w = widthRaw > 0 ? Math.max(widthRaw, PVC_DOUBLE_GATE_MIN_IN) : PVC_DOUBLE_GATE_MIN_IN;
-    return { kind: 'double', row: { id: newLineId(), width_in: wStr(w), posts: 1 } };
+    return { kind: 'double', row: { id: newLineId(), width_in: wStr(widthRaw), posts: 1 } };
   }
-  const w = widthRaw > 0 ? Math.max(widthRaw, PVC_SINGLE_GATE_MIN_IN) : PVC_SINGLE_GATE_MIN_IN;
-  return { kind: 'single', row: { id: newLineId(), width_in: wStr(w), posts: 1 } };
+  return { kind: 'single', row: { id: newLineId(), width_in: wStr(widthRaw), posts: 1 } };
 }
 
 function chainGateRowFromSketchPlacement(
@@ -1445,10 +1463,14 @@ export default function MaterialCalculatorHubPage() {
         const dd = data.drawing_data as {
           points?: { x: number; y: number }[];
           segments?: { length_ft?: number }[];
+          gate_placements?: SketchGatePlacement[];
         };
         const pts = Array.isArray(dd.points) ? dd.points : [];
         const segMeta = Array.isArray(dd.segments) ? dd.segments : [];
-        const inferred = drawingDataToPvcLineRows({ points: pts, segments: segMeta }, 'nominal_7ft');
+        const inferred = drawingDataToPvcLineRows(
+          { points: pts, segments: segMeta, gate_placements: dd.gate_placements },
+          'nominal_7ft'
+        );
         if (inferred?.length) {
           setLines(inferred);
           return;
@@ -1648,7 +1670,11 @@ export default function MaterialCalculatorHubPage() {
       return;
     }
     sketchHadSegmentsRef.current = true;
-    const key = JSON.stringify({ p: payload.points, s: payload.segments });
+    const key = JSON.stringify({
+      p: payload.points,
+      s: payload.segments,
+      g: payload.gate_placements,
+    });
     if (key === sketchToLinesSyncKeyRef.current) return;
     sketchToLinesSyncKeyRef.current = key;
 
@@ -2269,8 +2295,9 @@ export default function MaterialCalculatorHubPage() {
         'length_ft' in patch
       ) {
         const newL = Math.max(0, Number(String(merged.length_ft).replace(/,/g, '')) || 0);
-        if (newL > 0) {
-          const sk = adjustLayoutDrawingSegmentLength(sketch, idx, newL);
+        const grossL = grossLengthFtForSketchEdit(idx, newL, sketch);
+        if (grossL > 0) {
+          const sk = adjustLayoutDrawingSegmentLength(sketch, idx, grossL);
           if (sk) {
             queueMicrotask(() => {
               setLayoutSketchData(sk as LayoutSketchDrawingPayload);
