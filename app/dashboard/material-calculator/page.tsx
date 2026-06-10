@@ -403,6 +403,25 @@ function drawingDataToHybridVLineRows(
   }));
 }
 
+/** Sketch redraw: refresh linked runs; leave hand-edited runs untouched for the material list. */
+function mergeFenceLineFromSketch<T extends { fromSketch?: boolean; id: string; label: string }>(
+  row: T,
+  old: T | undefined
+): T {
+  if (!old) return row;
+  if (!old.fromSketch) return old;
+  return { ...row, id: old.id, label: old.label || row.label };
+}
+
+function layoutSketchDataKey(data: {
+  points?: { x: number; y: number }[];
+  segments?: { length_ft?: number }[];
+  gate_placements?: unknown[];
+} | null): string {
+  if (!data) return '';
+  return JSON.stringify({ p: data.points, s: data.segments, g: data.gate_placements });
+}
+
 interface PvcGateRow {
   id: string;
   width_in: string;
@@ -1179,6 +1198,8 @@ export default function MaterialCalculatorHubPage() {
   const layoutSketchDataRef = useRef<LayoutSketchDrawingPayload | null>(null);
   layoutSketchDataRef.current = layoutSketchData;
   const [layoutCanvasRemountKey, setLayoutCanvasRemountKey] = useState(0);
+  /** Ignore canvas echo updates briefly after we push sketch geometry from run-table edits. */
+  const programmaticSketchUpdateAtRef = useRef(0);
 
   const [shortGates, setShortGates] = useState<PvcGateRow[]>([]);
   const [singleGates, setSingleGates] = useState<PvcGateRow[]>([]);
@@ -1243,6 +1264,11 @@ export default function MaterialCalculatorHubPage() {
   const sketchToLinesSyncKeyRef = useRef<string>('');
   /** True after the canvas has had at least one segment this session (avoids clearing imported layout lines). */
   const sketchHadSegmentsRef = useRef(false);
+
+  const handleLayoutDrawingChange = useCallback((data: LayoutSketchDrawingPayload) => {
+    if (Date.now() - programmaticSketchUpdateAtRef.current < 400) return;
+    setLayoutSketchData(data);
+  }, []);
 
   useEffect(() => {
     if (isStyleTabParam(tabParam)) {
@@ -1816,11 +1842,7 @@ export default function MaterialCalculatorHubPage() {
       return;
     }
     sketchHadSegmentsRef.current = true;
-    const key = JSON.stringify({
-      p: payload.points,
-      s: payload.segments,
-      g: payload.gate_placements,
-    });
+    const key = layoutSketchDataKey(payload);
     if (key === sketchToLinesSyncKeyRef.current) return;
     sketchToLinesSyncKeyRef.current = key;
 
@@ -1829,39 +1851,23 @@ export default function MaterialCalculatorHubPage() {
     setLines((prev) => {
       const next = drawingDataToPvcLineRows(payload, panelModule);
       if (!next?.length) return prev;
-      return next.map((row, i) => {
-        const old = prev[i];
-        if (old?.fromSketch) return { ...row, id: old.id, label: old.label };
-        return row;
-      });
+      return next.map((row, i) => mergeFenceLineFromSketch(row, prev[i]));
     });
     setChainLines((prev) => {
       const next = drawingDataToChainLineRows(payload, panelModule);
       if (!next?.length) return prev;
-      return next.map((row, i) => {
-        const old = prev[i];
-        if (old?.fromSketch) return { ...row, id: old.id, label: old.label };
-        return row;
-      });
+      return next.map((row, i) => mergeFenceLineFromSketch(row, prev[i]));
     });
     setHybVLines((prev) => {
       const next = drawingDataToHybridVLineRows(payload, panelModule);
       if (!next?.length) return prev;
-      return next.map((row, i) => {
-        const old = prev[i];
-        if (old?.fromSketch) return { ...row, id: old.id, label: old.label };
-        return row;
-      });
+      return next.map((row, i) => mergeFenceLineFromSketch(row, prev[i]));
     });
     // Hybrid horizontal shares the same per-segment geometry (H post / U channel ends).
     setHybHLines((prev) => {
       const next = drawingDataToHybridVLineRows(payload, panelModule);
       if (!next?.length) return prev;
-      return next.map((row, i) => {
-        const old = prev[i];
-        if (old?.fromSketch) return { ...row, id: old.id, label: old.label };
-        return row;
-      });
+      return next.map((row, i) => mergeFenceLineFromSketch(row, prev[i]));
     });
   }, [layoutSketchData, pvcPanelModule]);
 
@@ -2552,6 +2558,7 @@ export default function MaterialCalculatorHubPage() {
     if (grossL <= 0) return;
     const sk = adjustLayoutDrawingSegmentLength(sketch, segmentIndex, grossL);
     if (!sk) return;
+    programmaticSketchUpdateAtRef.current = Date.now();
     queueMicrotask(() => {
       setLayoutSketchData(sk as LayoutSketchDrawingPayload);
       setLayoutCanvasRemountKey((k) => k + 1);
@@ -3167,7 +3174,7 @@ export default function MaterialCalculatorHubPage() {
                     }
                   : null
               }
-              onDrawingChange={setLayoutSketchData}
+              onDrawingChange={handleLayoutDrawingChange}
             />
             {(lines.some((l) => l.fromSketch) || chainLines.some((l) => l.fromSketch)) && (
               <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
