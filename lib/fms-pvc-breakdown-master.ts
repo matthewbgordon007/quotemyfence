@@ -15,6 +15,7 @@
 import { excelRoundUp } from '@/lib/fms-excel-math';
 import { LARGE_WARE_TITLE, SMALL_WARE_TITLE, splitWare } from '@/lib/material-ware';
 import {
+  boardStiffenersForBoardCount,
   splitCoupledPack,
   splitIntoPacks,
   splitPostGalvPack,
@@ -148,8 +149,15 @@ export function computePvcMasterColumn(
   const rail = j(adobe, 6) + j(adobe, 21) + x(e.m6);
   const railStiff = j(adobe, 7) + j(adobe, 22) + x(e.m7);
   const boardBase = j(adobe, 8) + j(adobe, 23) + x(e.m8);
-  const board = boardBase + pvcBoardsPercentAdd(boardBase, boardsPercent);
-  const boardStiff = j(adobe, 9) + j(adobe, 24) + x(e.m9);
+  const boardPctAdd = pvcBoardsPercentAdd(boardBase, boardsPercent);
+  const board = boardBase + boardPctAdd;
+  const boardStiffFromAdobe = j(adobe, 9) + j(adobe, 24) + x(e.m9);
+  // Enforce 3 stiffeners per 16 boards (packaging rule). % uplift boards need matching stiffeners;
+  // fence + gate adobe rows can under-count stiffeners vs total boards when summed separately.
+  const boardStiff = Math.max(
+    boardStiffFromAdobe + boardStiffenersForBoardCount(boardPctAdd),
+    boardStiffenersForBoardCount(board)
+  );
   const uChannel = j(adobe, 13) + j(adobe, 28) + x(e.m12);
   const hPostStiff = j(adobe, 14) + j(adobe, 33) + x(e.m13);
   const postFiller = x(e.m14);

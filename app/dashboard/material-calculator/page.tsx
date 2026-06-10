@@ -28,7 +28,7 @@ import {
   type FmsPvcMasterExtras,
 } from '@/lib/fms-pvc-breakdown-master';
 import { LARGE_WARE_TITLE, SMALL_WARE_TITLE, splitWare } from '@/lib/material-ware';
-import { formatLooseExtra, formatPacksCell } from '@/lib/pvc-material-packs';
+import { boardStiffenersForBoardCount, formatLooseExtra, formatPacksCell } from '@/lib/pvc-material-packs';
 import { sumGateAdobeRows, type FmsPvcGatePosts } from '@/lib/fms-pvc-gates-calculator';
 import {
   aggregateFmsChainLinkFenceLines,
@@ -557,10 +557,6 @@ function parseGateRowsShort(rows: PvcGateRow[]) {
     .filter(Boolean) as { gate_width_in: number; posts: FmsPvcGatePosts }[];
 }
 
-/** Board extra stiffeners: 3 stiffeners for every 16 boards (round up). */
-const BOARD_EXTRA_STIFFENERS_PER = 3;
-const BOARD_EXTRA_BOARDS_PER = 16;
-
 type MasterExtraGroup =
   | { label: string; keys: (keyof FmsPvcMasterExtras)[]; mode: 'same' }
   | {
@@ -602,11 +598,6 @@ const MASTER_EXTRA_KEYS: (keyof FmsPvcMasterExtras)[] = [
   ...MASTER_EXTRA_SOLO.map((s) => s.key),
 ];
 
-function boardExtraStiffenerCount(boards: number): number {
-  if (!Number.isFinite(boards) || boards <= 0) return 0;
-  return Math.ceil((boards * BOARD_EXTRA_STIFFENERS_PER) / BOARD_EXTRA_BOARDS_PER);
-}
-
 function groupedExtraDisplayValue(
   group: MasterExtraGroup,
   extras: Partial<Record<keyof FmsPvcMasterExtras, string>>
@@ -636,7 +627,7 @@ function applyGroupedExtraChange(
     next[group.boardsKey] = v;
     const boards = Number(v.replace(/,/g, ''));
     if (Number.isFinite(boards) && boards > 0) {
-      next[group.stiffKey] = String(boardExtraStiffenerCount(boards));
+      next[group.stiffKey] = String(boardStiffenersForBoardCount(boards));
     } else {
       delete next[group.stiffKey];
     }
@@ -1948,7 +1939,7 @@ export default function MaterialCalculatorHubPage() {
       const boards = Number(String(boardStr).replace(/,/g, ''));
       if (Number.isFinite(boards) && boards > 0) {
         o.m8 = boards;
-        o.m9 = boardExtraStiffenerCount(boards);
+        o.m9 = boardStiffenersForBoardCount(boards);
       }
     }
 
@@ -3295,7 +3286,7 @@ export default function MaterialCalculatorHubPage() {
                   {MASTER_EXTRA_GROUPS.map((g) => {
                     const boardStiffHint =
                       g.mode === 'board_stiffener_ratio' && masterExtras.m8
-                        ? boardExtraStiffenerCount(Number(String(masterExtras.m8).replace(/,/g, '')) || 0)
+                        ? boardStiffenersForBoardCount(Number(String(masterExtras.m8).replace(/,/g, '')) || 0)
                         : 0;
                     return (
                       <div key={g.keys.join('-')}>
