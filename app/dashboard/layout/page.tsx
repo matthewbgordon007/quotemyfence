@@ -397,10 +397,6 @@ export default function LayoutPage() {
 
   async function handleGetMaterialList() {
     const desc = materialDesc.trim();
-    if (!desc) {
-      alert('Please add a description with the specifics of your quote (materials, preferences, etc.) before requesting a material list.');
-      return;
-    }
     if (materialSupplierId !== 'master' && !materialProductReady) {
       alert('Pick a product from the supplier catalog (e.g. PVC, Adobe) before sending.');
       return;
@@ -770,7 +766,7 @@ export default function LayoutPage() {
           <div className="w-full max-w-lg rounded-2xl border border-[var(--line)] bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold">Request material quote</h3>
             <p className="mt-1 text-sm text-[var(--muted)]">
-              Describe materials, preferences, and quantities. Link suppliers under Dashboard → Suppliers.
+              Pick a supplier and product. Notes are optional. Link suppliers under Dashboard → Suppliers.
             </p>
             <label className="mt-4 block text-sm font-medium text-[var(--text)]">Send to</label>
             <select
@@ -800,12 +796,13 @@ export default function LayoutPage() {
                 onReadyChange={setMaterialProductReady}
               />
             )}
+            <label className="mt-4 block text-sm font-medium text-[var(--text)]">Notes (optional)</label>
             <textarea
               value={materialDesc}
               onChange={(e) => setMaterialDesc(e.target.value)}
-              placeholder="e.g. WPC privacy fence, 6 ft height, white. Need H-posts every 8 ft. Include gate hardware."
+              placeholder="e.g. Need gate hardware, include removal, special post spacing…"
               rows={4}
-              className="mt-4 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+              className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
             />
             <label className="mt-4 block text-sm font-medium text-[var(--text)]">Attachment (optional)</label>
             <input
@@ -824,9 +821,7 @@ export default function LayoutPage() {
                 type="button"
                 onClick={handleGetMaterialList}
                 disabled={
-                  submittingMaterial ||
-                  !materialDesc.trim() ||
-                  (materialSupplierId !== 'master' && !materialProductReady)
+                  submittingMaterial || (materialSupplierId !== 'master' && !materialProductReady)
                 }
                 className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50 hover:opacity-90"
               >

@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
   let sessionId = quote_session_id ?? body.quote_session_id;
   const desc = String(description ?? '').trim();
 
-  const descFinal = desc || 'No specifications provided.';
+  const descFinal = desc;
 
   if (sessionId && !layoutId) {
     const { data: sess } = await supabase
@@ -220,8 +220,8 @@ export async function POST(request: NextRequest) {
         .join(' · ')
     : '';
 
-  let descriptionForInsert = descFinal;
-  if (productLine && !descFinal.includes(supplierProductLabels!.type)) {
+  let descriptionForInsert = descFinal || productLine || 'No specifications provided.';
+  if (descFinal && productLine && !descFinal.includes(supplierProductLabels!.type)) {
     descriptionForInsert = `${descFinal}\n\n${productLine}`;
   }
   if (jobSiteAddress && !descriptionForInsert.includes(jobSiteAddress)) {
