@@ -204,7 +204,11 @@ export function adjustLayoutDrawingSegmentLength<
   if (m > 0 && n === 2 * m) {
     pts[segmentIndex * 2 + 1] = { x: nx, y: ny };
     if (segmentIndex + 1 < m) {
-      pts[(segmentIndex + 1) * 2] = { x: nx, y: ny };
+      const nextStartIdx = (segmentIndex + 1) * 2;
+      const oldEnd = { x: bx, y: by };
+      if (dist(oldEnd, pts[nextStartIdx]) <= LAYOUT_ENDPOINT_MERGE_FT) {
+        pts[nextStartIdx] = { x: nx, y: ny };
+      }
     }
   } else if (m > 0 && n === m + 1) {
     pts[segmentIndex + 1] = { x: nx, y: ny };

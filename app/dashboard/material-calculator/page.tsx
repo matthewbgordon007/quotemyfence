@@ -2544,30 +2544,64 @@ export default function MaterialCalculatorHubPage() {
     ]);
   }
 
+  function pushSketchSegmentLength(segmentIndex: number, netLengthFt: number) {
+    const sketch = layoutSketchDataRef.current;
+    if (!sketch?.segments?.length) return;
+    if (segmentIndex < 0 || segmentIndex >= sketch.segments.length) return;
+    const grossL = grossLengthFtForSketchEdit(segmentIndex, netLengthFt, sketch);
+    if (grossL <= 0) return;
+    const sk = adjustLayoutDrawingSegmentLength(sketch, segmentIndex, grossL);
+    if (!sk) return;
+    queueMicrotask(() => {
+      setLayoutSketchData(sk as LayoutSketchDrawingPayload);
+      setLayoutCanvasRemountKey((k) => k + 1);
+    });
+  }
+
   function updateLine(id: string, patch: Partial<PvcLineRow>) {
     setLines((rows) => {
       const next = rows.map((r) => (r.id === id ? { ...r, ...patch } : r));
       const idx = next.findIndex((r) => r.id === id);
-      const merged = idx >= 0 ? next[idx] : null;
-      const sketch = layoutSketchDataRef.current;
-      if (
-        merged?.fromSketch &&
-        sketch?.segments?.length &&
-        idx >= 0 &&
-        idx < sketch.segments.length &&
-        'length_ft' in patch
-      ) {
+      if (idx >= 0 && 'length_ft' in patch) {
+        const merged = next[idx];
         const newL = Math.max(0, Number(String(merged.length_ft).replace(/,/g, '')) || 0);
-        const grossL = grossLengthFtForSketchEdit(idx, newL, sketch);
-        if (grossL > 0) {
-          const sk = adjustLayoutDrawingSegmentLength(sketch, idx, grossL);
-          if (sk) {
-            queueMicrotask(() => {
-              setLayoutSketchData(sk as LayoutSketchDrawingPayload);
-              setLayoutCanvasRemountKey((k) => k + 1);
-            });
-          }
-        }
+        pushSketchSegmentLength(idx, newL);
+      }
+      return next;
+    });
+  }
+
+  function updateChainLine(id: string, patch: Partial<ChainLineRow>) {
+    setChainLines((rows) => {
+      const next = rows.map((r) => (r.id === id ? { ...r, ...patch } : r));
+      const idx = next.findIndex((r) => r.id === id);
+      if (idx >= 0 && 'length_ft' in patch) {
+        const newL = Math.max(0, Number(String(next[idx].length_ft).replace(/,/g, '')) || 0);
+        pushSketchSegmentLength(idx, newL);
+      }
+      return next;
+    });
+  }
+
+  function updateHybHLine(id: string, patch: Partial<HybridLineRow>) {
+    setHybHLines((rows) => {
+      const next = rows.map((r) => (r.id === id ? { ...r, ...patch } : r));
+      const idx = next.findIndex((r) => r.id === id);
+      if (idx >= 0 && 'length_ft' in patch) {
+        const newL = Math.max(0, Number(String(next[idx].length_ft).replace(/,/g, '')) || 0);
+        pushSketchSegmentLength(idx, newL);
+      }
+      return next;
+    });
+  }
+
+  function updateHybVLine(id: string, patch: Partial<HybridLineRow>) {
+    setHybVLines((rows) => {
+      const next = rows.map((r) => (r.id === id ? { ...r, ...patch } : r));
+      const idx = next.findIndex((r) => r.id === id);
+      if (idx >= 0 && 'length_ft' in patch) {
+        const newL = Math.max(0, Number(String(next[idx].length_ft).replace(/,/g, '')) || 0);
+        pushSketchSegmentLength(idx, newL);
       }
       return next;
     });
@@ -3145,7 +3179,7 @@ export default function MaterialCalculatorHubPage() {
                     setChainLines((prev) => prev.map((l) => ({ ...l, fromSketch: false })));
                   }}
                 >
-                  Edit runs by hand
+                  Edit post &amp; end settings
                 </button>
               </div>
             )}
@@ -3167,13 +3201,28 @@ export default function MaterialCalculatorHubPage() {
                 row.fromSketch ? (
                   <div
                     key={row.id}
-                    className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border border-slate-100 bg-slate-50/40 px-4 py-3 ring-1 ring-slate-900/[0.03]"
+                    className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-100 bg-slate-50/40 px-4 py-3 ring-1 ring-slate-900/[0.03]"
                   >
-                    <span className="text-sm font-semibold text-slate-800">{row.label || `Run ${idx + 1}`}</span>
-                    <span className="text-sm text-slate-600">
-                      {Number(row.length_ft) || 0} ft · {formatPvcPanelSummary(row.panel_module, effectivePvcPanelSpacingFt)}
-                      {Number(row.u_channel) > 0 ? ' · ends at a wall' : ''}
-                    </span>
+                    <div className="min-w-[8rem] flex-1">
+                      <span className="text-sm font-semibold text-slate-800">{row.label || `Run ${idx + 1}`}</span>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {formatPvcPanelSummary(row.panel_module, effectivePvcPanelSpacingFt)}
+                        {Number(row.u_channel) > 0 ? ' · ends at a wall' : ''}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
+                        Length (ft)
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.1}
+                        value={row.length_ft}
+                        onChange={(e) => updateLine(row.id, { length_ft: e.target.value })}
+                        className={`${field} w-28`}
+                      />
+                    </div>
                     <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-800">
                       From sketch
                     </span>
@@ -3707,11 +3756,27 @@ export default function MaterialCalculatorHubPage() {
                 row.fromSketch ? (
                   <div
                     key={row.id}
-                    className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border border-slate-100 bg-slate-50/40 px-4 py-3"
+                    className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-100 bg-slate-50/40 px-4 py-3"
                   >
-                    <span className="text-sm font-semibold text-slate-800">{row.label || `Run ${idx + 1}`}</span>
-                    <span className="text-sm text-slate-600">{Number(row.length_ft) || 0} ft</span>
-                    <span className="text-xs text-slate-500">{chainRunInfoText(row.length_ft)}</span>
+                    <div className="min-w-[8rem] flex-1">
+                      <span className="text-sm font-semibold text-slate-800">{row.label || `Run ${idx + 1}`}</span>
+                      {chainRunInfoText(row.length_ft) ? (
+                        <p className="mt-0.5 text-xs text-slate-500">{chainRunInfoText(row.length_ft)}</p>
+                      ) : null}
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
+                        Length (ft)
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.1}
+                        value={row.length_ft}
+                        onChange={(e) => updateChainLine(row.id, { length_ft: e.target.value })}
+                        className={`${field} w-28`}
+                      />
+                    </div>
                     <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-800">
                       From sketch
                     </span>
@@ -3727,9 +3792,7 @@ export default function MaterialCalculatorHubPage() {
                       type="text"
                       value={row.label}
                       disabled={row.fromSketch}
-                      onChange={(e) =>
-                        setChainLines((rows) => rows.map((r) => (r.id === row.id ? { ...r, label: e.target.value } : r)))
-                      }
+                      onChange={(e) => updateChainLine(row.id, { label: e.target.value })}
                       className={`${field} w-32 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70`}
                     />
                   </div>
@@ -3741,11 +3804,7 @@ export default function MaterialCalculatorHubPage() {
                       step={0.1}
                       value={row.length_ft}
                       disabled={row.fromSketch}
-                      onChange={(e) =>
-                        setChainLines((rows) =>
-                          rows.map((r) => (r.id === row.id ? { ...r, length_ft: e.target.value } : r))
-                        )
-                      }
+                      onChange={(e) => updateChainLine(row.id, { length_ft: e.target.value })}
                       className={`${field} w-28 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70`}
                     />
                   </div>
@@ -3757,11 +3816,7 @@ export default function MaterialCalculatorHubPage() {
                       step={1}
                       value={row.terminal_post}
                       disabled={row.fromSketch}
-                      onChange={(e) =>
-                        setChainLines((rows) =>
-                          rows.map((r) => (r.id === row.id ? { ...r, terminal_post: e.target.value } : r))
-                        )
-                      }
+                      onChange={(e) => updateChainLine(row.id, { terminal_post: e.target.value })}
                       className={`${field} w-24 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70`}
                     />
                   </div>
@@ -4013,9 +4068,23 @@ export default function MaterialCalculatorHubPage() {
               {hybridHJob.runs.map(({ row, result }, idx) => (
                 <div key={row.id} className="rounded-xl border border-slate-100 bg-slate-50/40 p-4">
                   {row.fromSketch ? (
-                  <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-                    <span className="text-sm font-semibold text-slate-800">{row.label || `Run ${idx + 1}`}</span>
-                    <span className="text-sm text-slate-600">{Number(row.length_ft) || 0} ft</span>
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div className="min-w-[8rem] flex-1">
+                      <span className="text-sm font-semibold text-slate-800">{row.label || `Run ${idx + 1}`}</span>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
+                        Length (ft)
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.1}
+                        value={row.length_ft}
+                        onChange={(e) => updateHybHLine(row.id, { length_ft: e.target.value })}
+                        className={`${field} w-28`}
+                      />
+                    </div>
                     <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-800">
                       From sketch
                     </span>
@@ -4030,9 +4099,7 @@ export default function MaterialCalculatorHubPage() {
                       <input
                         type="text"
                         value={row.label}
-                        onChange={(e) =>
-                          setHybHLines((rows) => rows.map((r) => (r.id === row.id ? { ...r, label: e.target.value } : r)))
-                        }
+                        onChange={(e) => updateHybHLine(row.id, { label: e.target.value })}
                         className={`${field} w-32`}
                       />
                     </div>
@@ -4045,11 +4112,7 @@ export default function MaterialCalculatorHubPage() {
                         min={0}
                         step={0.1}
                         value={row.length_ft}
-                        onChange={(e) =>
-                          setHybHLines((rows) =>
-                            rows.map((r) => (r.id === row.id ? { ...r, length_ft: e.target.value } : r))
-                          )
-                        }
+                        onChange={(e) => updateHybHLine(row.id, { length_ft: e.target.value })}
                         className={`${field} w-28`}
                       />
                     </div>
@@ -4060,11 +4123,7 @@ export default function MaterialCalculatorHubPage() {
                       <select
                         value={row.h_post}
                         onChange={(e) =>
-                          setHybHLines((rows) =>
-                            rows.map((r) =>
-                              r.id === row.id ? { ...r, h_post: Number(e.target.value) as 0 | 1 | 2 } : r
-                            )
-                          )
+                          updateHybHLine(row.id, { h_post: Number(e.target.value) as 0 | 1 | 2 })
                         }
                         className={`${field} w-20`}
                       >
@@ -4080,11 +4139,7 @@ export default function MaterialCalculatorHubPage() {
                       <select
                         value={row.u_channel}
                         onChange={(e) =>
-                          setHybHLines((rows) =>
-                            rows.map((r) =>
-                              r.id === row.id ? { ...r, u_channel: Number(e.target.value) as 0 | 1 | 2 } : r
-                            )
-                          )
+                          updateHybHLine(row.id, { u_channel: Number(e.target.value) as 0 | 1 | 2 })
                         }
                         className={`${field} w-20`}
                       >
@@ -4329,9 +4384,23 @@ export default function MaterialCalculatorHubPage() {
               {hybridVJob.runs.map(({ row, result }, idx) => (
                 <div key={row.id} className="rounded-xl border border-slate-100 bg-slate-50/40 p-4">
                   {row.fromSketch ? (
-                    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-                      <span className="text-sm font-semibold text-slate-800">{row.label || `Run ${idx + 1}`}</span>
-                      <span className="text-sm text-slate-600">{Number(row.length_ft) || 0} ft</span>
+                    <div className="flex flex-wrap items-end gap-3">
+                      <div className="min-w-[8rem] flex-1">
+                        <span className="text-sm font-semibold text-slate-800">{row.label || `Run ${idx + 1}`}</span>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
+                          Length (ft)
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.1}
+                          value={row.length_ft}
+                          onChange={(e) => updateHybVLine(row.id, { length_ft: e.target.value })}
+                          className={`${field} w-28`}
+                        />
+                      </div>
                       <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-800">
                         From sketch
                       </span>
@@ -4346,11 +4415,7 @@ export default function MaterialCalculatorHubPage() {
                         <input
                           type="text"
                           value={row.label}
-                          onChange={(e) =>
-                            setHybVLines((rows) =>
-                              rows.map((r) => (r.id === row.id ? { ...r, label: e.target.value } : r))
-                            )
-                          }
+                          onChange={(e) => updateHybVLine(row.id, { label: e.target.value })}
                           className={`${field} w-32`}
                         />
                       </div>
@@ -4363,11 +4428,7 @@ export default function MaterialCalculatorHubPage() {
                           min={0}
                           step={0.1}
                           value={row.length_ft}
-                          onChange={(e) =>
-                            setHybVLines((rows) =>
-                              rows.map((r) => (r.id === row.id ? { ...r, length_ft: e.target.value } : r))
-                            )
-                          }
+                          onChange={(e) => updateHybVLine(row.id, { length_ft: e.target.value })}
                           className={`${field} w-28`}
                         />
                       </div>
@@ -4378,11 +4439,7 @@ export default function MaterialCalculatorHubPage() {
                         <select
                           value={row.h_post}
                           onChange={(e) =>
-                            setHybVLines((rows) =>
-                              rows.map((r) =>
-                                r.id === row.id ? { ...r, h_post: Number(e.target.value) as 0 | 1 | 2 } : r
-                              )
-                            )
+                            updateHybVLine(row.id, { h_post: Number(e.target.value) as 0 | 1 | 2 })
                           }
                           className={`${field} w-20`}
                         >
@@ -4398,11 +4455,7 @@ export default function MaterialCalculatorHubPage() {
                         <select
                           value={row.u_channel}
                           onChange={(e) =>
-                            setHybVLines((rows) =>
-                              rows.map((r) =>
-                                r.id === row.id ? { ...r, u_channel: Number(e.target.value) as 0 | 1 | 2 } : r
-                              )
-                            )
+                            updateHybVLine(row.id, { u_channel: Number(e.target.value) as 0 | 1 | 2 })
                           }
                           className={`${field} w-20`}
                         >
