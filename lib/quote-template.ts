@@ -181,6 +181,9 @@ Gates: {{gates}} (installed in {{gateInstalledLength}} length)
 
 Length: {{lengthExpression}}
 
+Private lengths
+{{privateLengths}}
+
 Shared lengths:
 
 {{sharedLengths}}
@@ -215,6 +218,9 @@ Gates: {{gates}} (installed in {{gateInstalledLength}} length)
 
 Length: {{lengthExpression}}
 
+Private lengths
+{{privateLengths}}
+
 Shared lengths:
 
 {{sharedLengths}}
@@ -243,6 +249,10 @@ Gates: {{gates}}
 Footings:
 
 Length: {{lengthExpression}}
+
+Private lengths
+{{privateLengths}}
+
 Shared fence lines:
 
 {{sharedLengths}}
@@ -272,6 +282,9 @@ Gates: {{gates}} (installed in {{gateInstalledLength}} length)
 
 Length: {{lengthExpression}}
 
+Private lengths
+{{privateLengths}}
+
 Shared fence lines:
 
 {{sharedLengths}}
@@ -295,6 +308,10 @@ Color: {{color}}
 Gates: {{gates}}
 
 Length: {{lengthExpression}}
+
+Private lengths
+{{privateLengths}}
+
 Shared Length:
 {{sharedLengths}}
 Total length:
@@ -329,8 +346,57 @@ export function getMaterialQuoteTemplate(typeName?: string | null): string | nul
   return null;
 }
 
+/** Standard length breakdown block — injected when a template is missing these tokens. */
+export const QUOTE_LENGTH_SECTIONS = `Private lengths
+{{privateLengths}}
+
+Shared lengths:
+
+{{sharedLengths}}`;
+
+/**
+ * Material-specific or customized templates may omit length tokens. Ensure private, shared
+ * (and removal via sharedLengths) always render for every contractor user.
+ */
+export function ensureQuoteLengthSections(templateText: string): string {
+  const hasPrivate = /\{\{\s*privateLengths\s*\}\}/.test(templateText);
+  const hasShared = /\{\{\s*sharedLengths\s*\}\}/.test(templateText);
+  if (hasPrivate && hasShared) return templateText;
+
+  const parts: string[] = [];
+  if (!hasPrivate) parts.push('Private lengths\n{{privateLengths}}');
+  if (!hasShared) parts.push('Shared lengths:\n\n{{sharedLengths}}');
+  const block = `\n\n${parts.join('\n\n')}\n`;
+
+  const anchors = [
+    /\n{{pricePerLinearFt}}/,
+    /\nPricing\n/,
+    /\nAdditional details:/i,
+    /\nAdditional Details:/,
+    /\n\*\*LIFETIME Warranty/i,
+    /\n-{3,}/,
+  ];
+  for (const re of anchors) {
+    const m = templateText.match(re);
+    if (m?.index != null) {
+      return `${templateText.slice(0, m.index)}${block}${templateText.slice(m.index)}`;
+    }
+  }
+  return `${templateText.trimEnd()}${block}`;
+}
+
+export function parseQuoteTemplateScoped(raw: unknown): Record<string, string> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof v === 'string') out[k] = v;
+  }
+  return out;
+}
+
 export function composeQuoteText(templateText: string, values: Record<QuoteTokenId, string>): string {
-  const rendered = templateText.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (full, tokenRaw) => {
+  const withSections = ensureQuoteLengthSections(templateText);
+  const rendered = withSections.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (full, tokenRaw) => {
     const token = tokenRaw as QuoteTokenId;
     if (Object.prototype.hasOwnProperty.call(values, token)) return values[token];
     return full;
@@ -353,6 +419,53 @@ export function isQuoteBlocks(input: unknown): input is QuoteBlock[] {
     }
     return false;
   });
+}
+
+/** Prefer server-stored templates so every team member sees the same quote layout. */
+export function loadContractorQuoteTemplates(opts: {
+  contractorId: string;
+  companyName?: string | null;
+  slug?: string | null;
+  serverTemplateText?: string | null;
+  serverScoped?: unknown;
+}): { globalText: string; scoped: Record<string, string> } {
+  const { contractorId, companyName, slug, serverTemplateText, serverScoped } = opts;
+  let globalText =
+    typeof serverTemplateText === 'string' && serverTemplateText.trim() ? serverTemplateText : '';
+  let scoped = parseQuoteTemplateScoped(serverScoped);
+
+  try {
+    if (!globalText) {
+      const raw = localStorage.getItem(quoteTemplateStorageKey(contractorId));
+      if (raw?.trim()) {
+        globalText = raw;
+      } else {
+        const legacyRaw = localStorage.getItem(legacyQuoteBlocksStorageKey(contractorId));
+        if (legacyRaw) {
+          const parsed: unknown = JSON.parse(legacyRaw);
+          if (isQuoteBlocks(parsed)) {
+            globalText = quoteBlocksToTemplateText(parsed);
+          }
+        }
+      }
+    }
+    if (Object.keys(scoped).length === 0) {
+      const scopedRaw = localStorage.getItem(quoteTemplateScopedStorageKey(contractorId));
+      if (scopedRaw) {
+        scoped = parseQuoteTemplateScoped(JSON.parse(scopedRaw));
+      }
+    }
+  } catch {
+    // ignore malformed browser storage
+  }
+
+  if (!globalText) {
+    globalText = isCanadianFenceMaterialSupplyProfile(companyName, slug)
+      ? DEFAULT_QUOTE_TEMPLATE_TEXT
+      : GENERIC_BASE_QUOTE_TEMPLATE_TEXT;
+  }
+
+  return { globalText, scoped };
 }
 
 export function quoteTemplateStorageKey(contractorId: string): string {

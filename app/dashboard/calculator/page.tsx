@@ -9,14 +9,10 @@ import {
   buildTypeScopeKey,
   buildTypeStyleScopeKey,
   DEFAULT_QUOTE_TEMPLATE_TEXT,
-  GENERIC_BASE_QUOTE_TEMPLATE_TEXT,
-  isCanadianFenceMaterialSupplyProfile,
   QuoteTokenId,
   composeQuoteText,
   getMaterialQuoteTemplate,
-  isQuoteBlocks,
-  legacyQuoteBlocksStorageKey,
-  quoteBlocksToTemplateText,
+  loadContractorQuoteTemplates,
   quoteTemplateScopedStorageKey,
   quoteTemplateStorageKey,
 } from '@/lib/quote-template';
@@ -350,31 +346,35 @@ export default function CalculatorPage() {
           const pct = Number(data.quote_deposit_pct);
           setQuoteDepositPct(Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 10);
           try {
-            const raw = localStorage.getItem(quoteTemplateStorageKey(id));
-            if (raw) {
-              setQuoteTemplate(raw);
-            } else {
-              const legacyRaw = localStorage.getItem(legacyQuoteBlocksStorageKey(id));
-              if (legacyRaw) {
-                const parsed: unknown = JSON.parse(legacyRaw);
-                if (isQuoteBlocks(parsed)) {
-                  const migrated = quoteBlocksToTemplateText(parsed);
-                  setQuoteTemplate(migrated);
-                  localStorage.setItem(quoteTemplateStorageKey(id), migrated);
-                }
-              } else if (!isCanadianFenceMaterialSupplyProfile(data.company_name, data.slug)) {
-                setQuoteTemplate(GENERIC_BASE_QUOTE_TEMPLATE_TEXT);
-              }
-            }
-            const scopedRaw = localStorage.getItem(quoteTemplateScopedStorageKey(id));
-            if (scopedRaw) {
-              const parsed = JSON.parse(scopedRaw) as unknown;
-              if (parsed && typeof parsed === 'object') {
-                setScopedTemplates(parsed as Record<string, string>);
-              }
+            const { globalText, scoped } = loadContractorQuoteTemplates({
+              contractorId: id,
+              companyName: data.company_name,
+              slug: data.slug,
+              serverTemplateText: data.quote_template_text,
+              serverScoped: data.quote_template_scoped,
+            });
+            setQuoteTemplate(globalText);
+            setScopedTemplates(scoped);
+            localStorage.setItem(quoteTemplateStorageKey(id), globalText);
+            localStorage.setItem(quoteTemplateScopedStorageKey(id), JSON.stringify(scoped));
+            const serverEmpty =
+              !(typeof data.quote_template_text === 'string' && data.quote_template_text.trim()) &&
+              (!data.quote_template_scoped ||
+                (typeof data.quote_template_scoped === 'object' &&
+                  !Array.isArray(data.quote_template_scoped) &&
+                  Object.keys(data.quote_template_scoped as object).length === 0));
+            if (serverEmpty && (globalText.trim() || Object.keys(scoped).length > 0)) {
+              fetch('/api/contractor/me', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  quote_template_text: globalText,
+                  quote_template_scoped: scoped,
+                }),
+              }).catch(() => {});
             }
           } catch {
-            // ignore bad local template payloads
+            // ignore bad template payloads
           }
         }
       })

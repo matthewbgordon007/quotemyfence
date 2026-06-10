@@ -77,14 +77,19 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  if (!['owner', 'admin'].includes(userRow.role || '')) {
+  const body = await request.json();
+  const templateOnlyKeys = new Set(['quote_template_text', 'quote_template_scoped']);
+  const bodyKeys = Object.keys(body).filter((k) => body[k] !== undefined);
+  const templateOnlyUpdate =
+    bodyKeys.length > 0 && bodyKeys.every((k) => templateOnlyKeys.has(k));
+
+  if (!['owner', 'admin'].includes(userRow.role || '') && !templateOnlyUpdate) {
     return NextResponse.json(
       { error: 'Admin or owner only' },
       { status: 403 }
     );
   }
 
-  const body = await request.json();
   const allowed = [
     'company_name',
     'slug',
@@ -102,6 +107,8 @@ export async function PATCH(request: NextRequest) {
     'quote_notification_email',
     'quote_range_pct',
     'quote_deposit_pct',
+    'quote_template_text',
+    'quote_template_scoped',
   ];
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
   for (const k of allowed) {
@@ -183,6 +190,28 @@ export async function PATCH(request: NextRequest) {
   if (updates.quote_deposit_pct !== undefined) {
     const n = Number(updates.quote_deposit_pct);
     updates.quote_deposit_pct = Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 10;
+  }
+
+  if (updates.quote_template_text !== undefined) {
+    updates.quote_template_text =
+      typeof updates.quote_template_text === 'string' && updates.quote_template_text.trim()
+        ? updates.quote_template_text
+        : null;
+  }
+
+  if (updates.quote_template_scoped !== undefined) {
+    const raw = updates.quote_template_scoped;
+    if (raw === null) {
+      updates.quote_template_scoped = {};
+    } else if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      const scoped: Record<string, string> = {};
+      for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+        if (typeof k === 'string' && typeof v === 'string') scoped[k] = v;
+      }
+      updates.quote_template_scoped = scoped;
+    } else {
+      return NextResponse.json({ error: 'quote_template_scoped must be an object' }, { status: 400 });
+    }
   }
 
   const { data: contractor, error } = await supabase

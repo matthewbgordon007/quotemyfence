@@ -6,15 +6,11 @@ import {
   buildTypeScopeKey,
   buildTypeStyleScopeKey,
   DEFAULT_QUOTE_TEMPLATE_TEXT,
-  GENERIC_BASE_QUOTE_TEMPLATE_TEXT,
   getMaterialQuoteTemplate,
-  isCanadianFenceMaterialSupplyProfile,
-  legacyQuoteBlocksStorageKey,
+  loadContractorQuoteTemplates,
   QUOTE_TOKEN_DEFS,
   QuoteTokenId,
   composeQuoteText,
-  isQuoteBlocks,
-  quoteBlocksToTemplateText,
   quoteTemplateScopedStorageKey,
   quoteTemplateStorageKey,
   tokenPlaceholder,
@@ -97,31 +93,19 @@ export default function QuoteTemplatePage() {
           const id = data.id as string;
           setContractorId(id);
           try {
-            const raw = localStorage.getItem(quoteTemplateStorageKey(id));
-            if (raw) {
-              setGlobalTemplateText(raw);
-            } else {
-              const legacyRaw = localStorage.getItem(legacyQuoteBlocksStorageKey(id));
-              if (legacyRaw) {
-                const parsed: unknown = JSON.parse(legacyRaw);
-                if (isQuoteBlocks(parsed)) {
-                  const migrated = quoteBlocksToTemplateText(parsed);
-                  setGlobalTemplateText(migrated);
-                  localStorage.setItem(quoteTemplateStorageKey(id), migrated);
-                }
-              } else if (!isCanadianFenceMaterialSupplyProfile(data.company_name, data.slug)) {
-                setGlobalTemplateText(GENERIC_BASE_QUOTE_TEMPLATE_TEXT);
-              }
-            }
-            const scopedRaw = localStorage.getItem(quoteTemplateScopedStorageKey(id));
-            if (scopedRaw) {
-              const parsedScoped = JSON.parse(scopedRaw) as unknown;
-              if (parsedScoped && typeof parsedScoped === 'object') {
-                setScopedTemplates(parsedScoped as Record<string, string>);
-              }
-            }
+            const { globalText, scoped } = loadContractorQuoteTemplates({
+              contractorId: id,
+              companyName: data.company_name,
+              slug: data.slug,
+              serverTemplateText: data.quote_template_text,
+              serverScoped: data.quote_template_scoped,
+            });
+            setGlobalTemplateText(globalText);
+            setScopedTemplates(scoped);
+            localStorage.setItem(quoteTemplateStorageKey(id), globalText);
+            localStorage.setItem(quoteTemplateScopedStorageKey(id), JSON.stringify(scoped));
           } catch {
-            // ignore malformed local payloads
+            // ignore malformed template payloads
           }
         }
       })
@@ -210,15 +194,40 @@ export default function QuoteTemplatePage() {
     });
   }
 
-  function saveTemplate() {
+  async function saveTemplate() {
     if (!contractorId) return;
+    const nextScoped = activeScopeKey
+      ? { ...scopedTemplates, [activeScopeKey]: templateText }
+      : scopedTemplates;
+    const nextGlobal = activeScopeKey ? globalTemplateText : templateText;
+
+    try {
+      localStorage.setItem(quoteTemplateStorageKey(contractorId), nextGlobal);
+      localStorage.setItem(quoteTemplateScopedStorageKey(contractorId), JSON.stringify(nextScoped));
+      const res = await fetch('/api/contractor/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          quote_template_text: nextGlobal,
+          quote_template_scoped: nextScoped,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(
+          typeof err.error === 'string'
+            ? err.error
+            : 'Saved on this device only — could not sync to your team (admin may need to run the database update).'
+        );
+      }
+    } catch {
+      alert('Saved on this device only — could not reach the server.');
+    }
+
     if (activeScopeKey) {
-      localStorage.setItem(
-        quoteTemplateScopedStorageKey(contractorId),
-        JSON.stringify({ ...scopedTemplates, [activeScopeKey]: templateText })
-      );
+      setScopedTemplates(nextScoped);
     } else {
-      localStorage.setItem(quoteTemplateStorageKey(contractorId), templateText);
+      setGlobalTemplateText(nextGlobal);
     }
     setSaved(true);
     window.setTimeout(() => setSaved(false), 1800);
