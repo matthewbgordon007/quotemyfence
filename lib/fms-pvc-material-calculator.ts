@@ -60,6 +60,10 @@ export interface FmsPvcFenceLineInput {
   panel_module: FmsPvcPanelModule;
   /** Post spacing in ft (Excel length ÷ spacing). Overrides the module default when set. */
   panel_spacing_ft?: number;
+  /**
+   * Dedicated gate sketch segment: count rail + U at gross length; posts/boards/screws/plugs come from the gate block.
+   */
+  gate_only_fence_line?: boolean;
 }
 
 export interface FmsPvcFenceLineResult {
@@ -117,7 +121,7 @@ export function computeFmsPvcFenceLine(raw: FmsPvcFenceLineInput): FmsPvcFenceLi
   const d9 = excelRoundUp(c9, 0);
   const c10 = excelRoundUp(c9, 0);
 
-  const d12 = d9 + d6 - 1;
+  const d12 = Math.max(0, d9 + d6 - 1);
   const d13 = d12;
   const d14 = d12;
 
@@ -152,6 +156,8 @@ export function computeFmsPvcFenceLine(raw: FmsPvcFenceLineInput): FmsPvcFenceLi
     fence_terminated_h_post_type: d6,
     fence_terminated_u_channel: d7,
     panel_module: raw.panel_module,
+    ...(raw.panel_spacing_ft != null ? { panel_spacing_ft: raw.panel_spacing_ft } : {}),
+    ...(raw.gate_only_fence_line ? { gate_only_fence_line: true } : {}),
   };
 
   return {

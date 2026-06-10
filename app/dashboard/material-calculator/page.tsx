@@ -76,9 +76,12 @@ import {
   adjustLayoutDrawingSegmentLength,
   alignChainedSketchSegments,
   grossLengthFtForSketchSegment,
+  isDedicatedGateSketchSegment,
   layoutPointsToSegmentPairs,
   layoutSegmentsToPvcFenceInputsPerSketchSegment,
   netFenceLengthFtForSegment,
+  PVC_DOUBLE_GATE_MIN_IN,
+  PVC_SHORT_GATE_MAX_IN,
   removeLayoutDrawingGatePlacement,
   removeLayoutDrawingSegment,
   sketchGateWidthInches,
@@ -244,6 +247,8 @@ interface PvcLineRow {
   u_channel: string;
   /** When true, D6/D7 came from the layout sketch (corners vs straight merge). */
   fromSketch?: boolean;
+  /** Gate-only sketch segment: rail + U only; posts from the gate calculator. */
+  gate_only_fence_line?: boolean;
 }
 
 type LayoutSketchDrawingPayload = {
@@ -325,16 +330,25 @@ function drawingDataToPvcLineRows(
   const inputs = layoutSegmentsToPvcFenceInputsPerSketchSegment(pairs, grossPerSeg, panelModule, {
     jointTerminations: drawing.joint_terminations ?? null,
   });
-  return inputs.map((inp, i) => ({
-    id: newLineId(),
-    label: `Run ${i + 1}`,
-    length_ft: String(netPerSeg[i] ?? 0),
-    panel_module: panelModule,
-    end_preset: 'custom',
-    h_post_type: inp.fence_terminated_h_post_type as 0 | 1 | 2,
-    u_channel: String(inp.fence_terminated_u_channel),
-    fromSketch: true,
-  }));
+  return inputs.map((inp, i) => {
+    const gross = grossPerSeg[i] ?? 0;
+    const gateOnly = Boolean(
+      gatePlacements?.length &&
+        isDedicatedGateSketchSegment(i, gross, gatePlacements, drawing.segments)
+    );
+    const lengthFt = gateOnly ? gross : (netPerSeg[i] ?? 0);
+    return {
+      id: newLineId(),
+      label: `Run ${i + 1}`,
+      length_ft: String(lengthFt),
+      panel_module: panelModule,
+      end_preset: 'custom',
+      h_post_type: (gateOnly ? 0 : inp.fence_terminated_h_post_type) as 0 | 1 | 2,
+      u_channel: String(inp.fence_terminated_u_channel),
+      fromSketch: true,
+      gate_only_fence_line: gateOnly || undefined,
+    };
+  });
 }
 
 /** Same segment geometry as PVC; chain link uses Excel D6 per run (`terminal_post`). */
@@ -468,6 +482,7 @@ function buildInputs(rows: PvcLineRow[], panelSpacingFt: number): FmsPvcFenceLin
         fence_terminated_h_post_type: d6,
         fence_terminated_u_channel: d7,
         panel_module: r.panel_module,
+        ...(r.gate_only_fence_line ? { gate_only_fence_line: true } : {}),
         ...(spacing ? { panel_spacing_ft: spacing } : {}),
       };
     })
@@ -555,6 +570,35 @@ function parseGateRowsShort(rows: PvcGateRow[]) {
       return { gate_width_in: w, posts: r.posts };
     })
     .filter(Boolean) as { gate_width_in: number; posts: FmsPvcGatePosts }[];
+}
+
+/** Route gates to the correct PVC workbook block by width (matches Excel sections). */
+function classifyPvcGateInputs(
+  shortRows: PvcGateRow[],
+  singleRows: PvcGateRow[],
+  doubleRows: PvcGateRow[]
+): {
+  short: { gate_width_in: number; posts: FmsPvcGatePosts }[];
+  single: { gate_width_in: number; posts: FmsPvcGatePosts }[];
+  double: { gate_width_in: number; posts: FmsPvcGatePosts }[];
+} {
+  const short: { gate_width_in: number; posts: FmsPvcGatePosts }[] = [];
+  const single: { gate_width_in: number; posts: FmsPvcGatePosts }[] = [];
+  const double: { gate_width_in: number; posts: FmsPvcGatePosts }[] = [];
+
+  const push = (r: PvcGateRow, preferred: 'short' | 'single' | 'double') => {
+    const w = Math.max(0, Number(String(r.width_in).replace(/,/g, '')) || 0);
+    if (w <= 0) return;
+    const item = { gate_width_in: w, posts: r.posts };
+    if (w < PVC_SHORT_GATE_MAX_IN) short.push(item);
+    else if (w >= PVC_DOUBLE_GATE_MIN_IN && preferred === 'double') double.push(item);
+    else single.push(item);
+  };
+
+  for (const r of shortRows) push(r, 'short');
+  for (const r of singleRows) push(r, 'single');
+  for (const r of doubleRows) push(r, 'double');
+  return { short, single, double };
 }
 
 type MasterExtraGroup =
@@ -1897,26 +1941,41 @@ export default function MaterialCalculatorHubPage() {
     [lines, effectivePvcPanelSpacingFt]
   );
   const pvcJob = useMemo(() => aggregateFmsPvcFenceLines(pvcInputs), [pvcInputs]);
-  const pvcFenceLinearFt = useMemo(
-    () => pvcInputs.reduce((acc, row) => acc + (Number(row.length_ft) || 0), 0),
-    [pvcInputs]
+  const pvcFenceLinearFt = useMemo(() => {
+    let sum = 0;
+    for (const row of lines) {
+      if (row.gate_only_fence_line) continue;
+      sum += Math.max(0, Number(String(row.length_ft).replace(/,/g, '')) || 0);
+    }
+    return sum;
+  }, [lines]);
+
+  const classifiedGates = useMemo(
+    () => classifyPvcGateInputs(shortGates, singleGates, doubleGates),
+    [shortGates, singleGates, doubleGates]
   );
 
-  const shortParsed = useMemo(() => parseGateRowsShort(shortGates), [shortGates]);
-  const singleParsed = useMemo(() => parseGateRowsShort(singleGates), [singleGates]);
-  const doubleParsed = useMemo(() => parseGateRowsShort(doubleGates), [doubleGates]);
-
   const gateMerge = useMemo(
-    () => sumGateAdobeRows(shortParsed, singleParsed, doubleParsed),
-    [shortParsed, singleParsed, doubleParsed]
+    () =>
+      sumGateAdobeRows(
+        classifiedGates.short,
+        classifiedGates.single,
+        classifiedGates.double
+      ),
+    [classifiedGates]
   );
 
   const gateWidthInchesSum = useMemo(() => {
-    const sum = (arr: typeof shortParsed) => arr.reduce((a, g) => a + g.gate_width_in, 0);
-    return sum(shortParsed) + sum(singleParsed) + sum(doubleParsed);
-  }, [shortParsed, singleParsed, doubleParsed]);
+    const sum = (arr: { gate_width_in: number }[]) => arr.reduce((a, g) => a + g.gate_width_in, 0);
+    return (
+      sum(classifiedGates.short) + sum(classifiedGates.single) + sum(classifiedGates.double)
+    );
+  }, [classifiedGates]);
 
-  const gateCount = shortParsed.length + singleParsed.length + doubleParsed.length;
+  const gateCount =
+    classifiedGates.short.length +
+    classifiedGates.single.length +
+    classifiedGates.double.length;
 
   const extrasParsed: FmsPvcMasterExtras = useMemo(() => {
     const o: FmsPvcMasterExtras = {};

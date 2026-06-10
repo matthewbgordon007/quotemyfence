@@ -12,7 +12,7 @@
  * - Master C28: `=COUNT('Adobe - Material List Breakdown'!B17:E17)` (we pass gate count from the app).
  */
 
-import { excelRoundUp } from '@/lib/fms-excel-math';
+import { excelRound, excelRoundUp } from '@/lib/fms-excel-math';
 import { LARGE_WARE_TITLE, SMALL_WARE_TITLE, splitWare } from '@/lib/material-ware';
 import {
   boardStiffenersForBoardCount,
@@ -65,30 +65,33 @@ export function buildPvcAdobeBreakdown(
 
   let railRaw = 0;
   let railStiffRaw = 0;
-  let boardRaw = 0;
-  let boardStiffRaw = 0;
+  let boardAdobe = 0;
+  let boardStiffAdobe = 0;
 
   for (const line of fenceLines) {
+    const gateOnly = line.input.gate_only_fence_line === true;
+    railRaw += line.rail_raw;
+    railStiffRaw += line.rail_stiffener_raw;
+    a[13] = (a[13] ?? 0) + line.u_channel;
+    a[14] = (a[14] ?? 0) + line.h_post_stiffener;
+    if (gateOnly) continue;
+
     a[2] = (a[2] ?? 0) + line.total_whole_panels;
     a[3] = (a[3] ?? 0) + line.galvanized_post;
     a[4] = (a[4] ?? 0) + line.h_post;
     a[5] = (a[5] ?? 0) + line.cap_h_post;
-    railRaw += line.rail_raw;
-    railStiffRaw += line.rail_stiffener_raw;
-    boardRaw += line.board_raw;
-    boardStiffRaw += line.board_stiffener_raw;
+    boardAdobe += excelRound(line.board_raw, 0);
+    boardStiffAdobe += excelRound(line.board_stiffener_raw, 0);
     a[10] = (a[10] ?? 0) + line.long_screw;
     a[11] = (a[11] ?? 0) + line.short_screw;
     a[12] = (a[12] ?? 0) + line.plug;
-    a[13] = (a[13] ?? 0) + line.u_channel;
-    a[14] = (a[14] ?? 0) + line.h_post_stiffener;
   }
 
   if (fenceLines.length > 0) {
     a[6] = excelRoundUp(railRaw, 0);
     a[7] = excelRoundUp(railStiffRaw, 0);
-    a[8] = excelRoundUp(boardRaw, 0);
-    a[9] = excelRoundUp(boardStiffRaw, 0);
+    a[8] = boardAdobe;
+    a[9] = boardStiffAdobe;
   }
 
   for (const [rk, rv] of Object.entries(gateRows)) {
