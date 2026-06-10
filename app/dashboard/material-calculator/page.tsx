@@ -301,11 +301,30 @@ function parseGateRowsShort(rows: PvcGateRow[]) {
     .filter(Boolean) as { gate_width_in: number; posts: FmsPvcGatePosts }[];
 }
 
-/** Paired extras — one quantity applies to every key in the group. */
-const MASTER_EXTRA_GROUPS: { label: string; keys: (keyof FmsPvcMasterExtras)[] }[] = [
-  { label: 'Rail (+ stiffener)', keys: ['m6', 'm7'] },
-  { label: 'Board (+ stiffener)', keys: ['m8', 'm9'] },
-  { label: 'H-post (+ galvanized)', keys: ['m10', 'm11'] },
+/** Board extra stiffeners: 3 stiffeners for every 16 boards (round up). */
+const BOARD_EXTRA_STIFFENERS_PER = 3;
+const BOARD_EXTRA_BOARDS_PER = 16;
+
+type MasterExtraGroup =
+  | { label: string; keys: (keyof FmsPvcMasterExtras)[]; mode: 'same' }
+  | {
+      label: string;
+      keys: (keyof FmsPvcMasterExtras)[];
+      mode: 'board_stiffener_ratio';
+      boardsKey: keyof FmsPvcMasterExtras;
+      stiffKey: keyof FmsPvcMasterExtras;
+    };
+
+const MASTER_EXTRA_GROUPS: MasterExtraGroup[] = [
+  { label: 'Rail (+ stiffener)', keys: ['m6', 'm7'], mode: 'same' },
+  {
+    label: 'Board (+ stiffener)',
+    keys: ['m8', 'm9'],
+    mode: 'board_stiffener_ratio',
+    boardsKey: 'm8',
+    stiffKey: 'm9',
+  },
+  { label: 'H-post (+ galvanized)', keys: ['m10', 'm11'], mode: 'same' },
 ];
 
 const MASTER_EXTRA_SOLO: { key: keyof FmsPvcMasterExtras; label: string; integerOnly?: boolean }[] = [
@@ -326,15 +345,48 @@ const MASTER_EXTRA_KEYS: (keyof FmsPvcMasterExtras)[] = [
   ...MASTER_EXTRA_SOLO.map((s) => s.key),
 ];
 
+function boardExtraStiffenerCount(boards: number): number {
+  if (!Number.isFinite(boards) || boards <= 0) return 0;
+  return Math.ceil((boards * BOARD_EXTRA_STIFFENERS_PER) / BOARD_EXTRA_BOARDS_PER);
+}
+
 function groupedExtraDisplayValue(
-  keys: (keyof FmsPvcMasterExtras)[],
+  group: MasterExtraGroup,
   extras: Partial<Record<keyof FmsPvcMasterExtras, string>>
 ): string {
-  for (const k of keys) {
+  if (group.mode === 'board_stiffener_ratio') {
+    return extras[group.boardsKey] ?? '';
+  }
+  for (const k of group.keys) {
     const v = extras[k];
     if (v != null && v !== '') return v;
   }
   return '';
+}
+
+function applyGroupedExtraChange(
+  group: MasterExtraGroup,
+  raw: string,
+  prev: Partial<Record<keyof FmsPvcMasterExtras, string>>
+): Partial<Record<keyof FmsPvcMasterExtras, string>> {
+  const next = { ...prev };
+  const v = sanitizeExtraInput(raw, false);
+  if (v === '') {
+    for (const k of group.keys) delete next[k];
+    return next;
+  }
+  if (group.mode === 'board_stiffener_ratio') {
+    next[group.boardsKey] = v;
+    const boards = Number(v.replace(/,/g, ''));
+    if (Number.isFinite(boards) && boards > 0) {
+      next[group.stiffKey] = String(boardExtraStiffenerCount(boards));
+    } else {
+      delete next[group.stiffKey];
+    }
+    return next;
+  }
+  for (const k of group.keys) next[k] = v;
+  return next;
 }
 
 function sanitizeExtraInput(raw: string, integerOnly: boolean): string {
@@ -1327,14 +1379,29 @@ export default function MaterialCalculatorHubPage() {
 
   const extrasParsed: FmsPvcMasterExtras = useMemo(() => {
     const o: FmsPvcMasterExtras = {};
-    const integerKeys = new Set<keyof FmsPvcMasterExtras>(['m15', 'm16']);
+    const integerKeys = new Set<keyof FmsPvcMasterExtras>(['m15', 'm16', 'm9']);
+    const boardGroup = MASTER_EXTRA_GROUPS.find((g) => g.mode === 'board_stiffener_ratio');
+    const skipKeys = new Set<keyof FmsPvcMasterExtras>();
+    if (boardGroup?.mode === 'board_stiffener_ratio') skipKeys.add(boardGroup.stiffKey);
+
     for (const k of MASTER_EXTRA_KEYS) {
+      if (skipKeys.has(k)) continue;
       const s = masterExtras[k];
       if (s == null || s === '') continue;
       const n = Number(String(s).replace(/,/g, ''));
       if (!Number.isFinite(n)) continue;
       (o as Record<string, number>)[k] = integerKeys.has(k) ? Math.round(n) : n;
     }
+
+    const boardStr = masterExtras.m8;
+    if (boardStr != null && boardStr !== '') {
+      const boards = Number(String(boardStr).replace(/,/g, ''));
+      if (Number.isFinite(boards) && boards > 0) {
+        o.m8 = boards;
+        o.m9 = boardExtraStiffenerCount(boards);
+      }
+    }
+
     return o;
   }, [masterExtras]);
 
@@ -2214,8 +2281,8 @@ export default function MaterialCalculatorHubPage() {
             <div className="border-b border-slate-100 px-5 py-4">
               <h2 className={h2}>Extra items <span className="font-normal text-slate-400">(optional)</span></h2>
               <p className="mt-1 text-xs text-slate-500">
-                Add extra quantities when the standard count isn&apos;t enough. Paired items (rail + stiffener, etc.)
-                share one number. Leave blank to skip.
+                Add extra quantities when the standard count isn&apos;t enough. Rail, board, and post pairs share one
+                number — board stiffeners are calculated at 3 per 16 boards (rounded up). Leave blank to skip.
               </p>
             </div>
             <div className="p-5">
@@ -2224,32 +2291,37 @@ export default function MaterialCalculatorHubPage() {
               </button>
               {masterExtrasOpen && (
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  {MASTER_EXTRA_GROUPS.map((g) => (
-                    <div key={g.keys.join('-')}>
-                      <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
-                        {g.label}
-                      </label>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={groupedExtraDisplayValue(g.keys, masterExtras)}
-                        onChange={(e) => {
-                          const v = sanitizeExtraInput(e.target.value, false);
-                          setMasterExtras((p) => {
-                            const next = { ...p };
-                            if (v === '') {
-                              for (const k of g.keys) delete next[k];
-                            } else {
-                              for (const k of g.keys) next[k] = v;
-                            }
-                            return next;
-                          });
-                        }}
-                        className={`${field} w-full`}
-                        placeholder="0"
-                      />
-                    </div>
-                  ))}
+                  {MASTER_EXTRA_GROUPS.map((g) => {
+                    const boardStiffHint =
+                      g.mode === 'board_stiffener_ratio' && masterExtras.m8
+                        ? boardExtraStiffenerCount(Number(String(masterExtras.m8).replace(/,/g, '')) || 0)
+                        : 0;
+                    return (
+                      <div key={g.keys.join('-')}>
+                        <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
+                          {g.label}
+                          {g.mode === 'board_stiffener_ratio' ? (
+                            <span className="ml-1 font-normal normal-case text-slate-400">
+                              (3 stiffeners per 16 boards)
+                            </span>
+                          ) : null}
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={groupedExtraDisplayValue(g, masterExtras)}
+                          onChange={(e) => setMasterExtras((p) => applyGroupedExtraChange(g, e.target.value, p))}
+                          className={`${field} w-full`}
+                          placeholder="0"
+                        />
+                        {boardStiffHint > 0 ? (
+                          <p className="mt-1 text-[11px] text-slate-500">
+                            +{boardStiffHint} board stiffener{boardStiffHint === 1 ? '' : 's'}
+                          </p>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                   {MASTER_EXTRA_SOLO.map((s) => (
                     <div key={s.key}>
                       <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
