@@ -282,6 +282,8 @@ export default function CalculatorPage() {
   const [hasRemoval, setHasRemoval] = useState(false);
   const [removalLengthFt, setRemovalLengthFt] = useState(0);
   const [removalPricePerFtOverride, setRemovalPricePerFtOverride] = useState<number | null>(null);
+  const [removalShared, setRemovalShared] = useState(false);
+  const [removalSharedWith, setRemovalSharedWith] = useState('');
   /** When set (e.g. material quote from supplier), override catalogue gate / minimum pricing. */
   const [singleGatePriceOverride, setSingleGatePriceOverride] = useState<number | null>(null);
   const [doubleGatePriceOverride, setDoubleGatePriceOverride] = useState<number | null>(null);
@@ -503,6 +505,8 @@ export default function CalculatorPage() {
             if (st.hasRemoval != null) setHasRemoval(st.hasRemoval);
             if (st.removalLengthFt != null) setRemovalLengthFt(safeNum(st.removalLengthFt));
             if (st.removalPricePerFtOverride != null) setRemovalPricePerFtOverride(safeNum(st.removalPricePerFtOverride));
+            if (st.removalShared != null) setRemovalShared(Boolean(st.removalShared));
+            if (typeof st.removalSharedWith === 'string') setRemovalSharedWith(st.removalSharedWith);
             if (st.taxRate != null) setTaxRate(st.taxRate);
             if (st.applyTax != null) setApplyTax(st.applyTax);
             if (Array.isArray(st.singleGateSides) && st.singleGateSides.every((x: unknown) => typeof x === 'string')) {
@@ -736,6 +740,8 @@ export default function CalculatorPage() {
       if (st.removalPricePerFtOverride !== undefined) {
         setRemovalPricePerFtOverride(st.removalPricePerFtOverride === null ? null : Number(st.removalPricePerFtOverride));
       }
+      if (st.removalShared != null) setRemovalShared(Boolean(st.removalShared));
+      if (typeof st.removalSharedWith === 'string') setRemovalSharedWith(st.removalSharedWith);
       if (st.taxRate != null) setTaxRate(safeNum(st.taxRate));
       if (st.applyTax != null) setApplyTax(Boolean(st.applyTax));
       if (Array.isArray(st.singleGateSides) && st.singleGateSides.every((x) => typeof x === 'string')) {
@@ -895,6 +901,8 @@ export default function CalculatorPage() {
           hasRemoval,
           removalLengthFt,
           removalPricePerFtOverride,
+          removalShared,
+          removalSharedWith,
           taxRate,
           applyTax,
           singleGateSides,
@@ -932,6 +940,8 @@ export default function CalculatorPage() {
     hasRemoval,
     removalLengthFt,
     removalPricePerFtOverride,
+    removalShared,
+    removalSharedWith,
     taxRate,
     applyTax,
     singleGateSides,
@@ -1074,10 +1084,12 @@ export default function CalculatorPage() {
   const gateTotal =
     singleGateQty * singleGatePrice + doubleGateQty * doubleGatePrice;
   privateTotal += gateTotal;
-  const removalTotal =
+  const removalFullCost =
     hasRemoval && removalLengthFt > 0 ? removalLengthFt * effectiveRemovalPricePerFt : 0;
+  const removalTotal = removalFullCost * (removalShared ? 0.5 : 1);
+  if (removalTotal > 0 && removalShared) sharedTotal += removalTotal;
   const subtotal = Math.max(
-    privateTotal + sharedTotal + removalTotal,
+    privateTotal + sharedTotal + (removalShared ? 0 : removalTotal),
     minJob
   );
   const taxAmount = applyTax ? subtotal * (taxRate / 100) : 0;
@@ -1151,6 +1163,8 @@ export default function CalculatorPage() {
     setHasRemoval(false);
     setRemovalLengthFt(0);
     setRemovalPricePerFtOverride(null);
+    setRemovalShared(false);
+    setRemovalSharedWith('');
     setApplyTax(true);
     if (types[0]) {
       const tStyles = styles.filter((s) => s.fence_type_id === types[0].id);
@@ -1208,7 +1222,9 @@ export default function CalculatorPage() {
 
   const removalQuoteLine =
     hasRemoval && removalLengthFt > 0
-      ? `- Removal Cost: ${fmtFeet(removalLengthFt)} × ${moneyCAD(effectiveRemovalPricePerFt)}/ft = ${moneyCAD(removalTotal)} + Tax`
+      ? removalShared
+        ? `- Removal Cost: ${fmtFeet(removalLengthFt)} length shared 50% w ${(removalSharedWith || '').trim() || 'neighbour'} ( ${moneyCAD(removalTotal)} + Tax)`
+        : `- Removal Cost: ${fmtFeet(removalLengthFt)} × ${moneyCAD(effectiveRemovalPricePerFt)}/ft = ${moneyCAD(removalTotal)} + Tax`
       : null;
   const sharedSectionLines = [...sharedQuoteLines];
   if (removalQuoteLine) sharedSectionLines.push(removalQuoteLine);
@@ -1342,6 +1358,8 @@ export default function CalculatorPage() {
       hasRemoval,
       removalLengthFt,
       removalPricePerFtOverride,
+      removalShared,
+      removalSharedWith,
       taxRate,
       applyTax,
       singleGateSides,
@@ -1816,11 +1834,40 @@ export default function CalculatorPage() {
                         )}
                       </div>
                     </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200/90 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50">
+                        <input
+                          type="checkbox"
+                          checked={removalShared}
+                          onChange={(e) => setRemovalShared(e.target.checked)}
+                          className="h-4 w-4 rounded border-slate-300 text-blue-600"
+                        />
+                        <span>Shared 50%</span>
+                      </label>
+                      {removalShared && (
+                        <input
+                          type="text"
+                          placeholder="Neighbour name (optional)"
+                          value={removalSharedWith}
+                          onChange={(e) => setRemovalSharedWith(e.target.value)}
+                          className="min-w-[12rem] flex-1 rounded-xl border border-slate-200/90 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                        />
+                      )}
+                    </div>
                     {hasRemoval && removalLengthFt > 0 && (
                       <p className="text-sm text-slate-700">
                         Removal line:{' '}
                         <span className="font-semibold tabular-nums">
-                          {fmtFeet(removalLengthFt)} × {moneyCAD(effectiveRemovalPricePerFt)}/ft = {moneyCAD(removalTotal)}
+                          {removalShared ? (
+                            <>
+                              {fmtFeet(removalLengthFt)} shared 50% w {(removalSharedWith || '').trim() || 'neighbour'} ={' '}
+                              {moneyCAD(removalTotal)}
+                            </>
+                          ) : (
+                            <>
+                              {fmtFeet(removalLengthFt)} × {moneyCAD(effectiveRemovalPricePerFt)}/ft = {moneyCAD(removalTotal)}
+                            </>
+                          )}
                         </span>
                       </p>
                     )}
