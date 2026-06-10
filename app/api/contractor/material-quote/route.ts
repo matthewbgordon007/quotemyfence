@@ -211,14 +211,9 @@ export async function POST(request: NextRequest) {
   }
 
   const productLine = supplierProductLabels
-    ? [
-        '— Product:',
-        supplierProductLabels.type,
-        supplierProductLabels.style,
-        supplierProductLabels.colour,
-      ]
+    ? `— Product: ${[supplierProductLabels.type, supplierProductLabels.style, supplierProductLabels.colour]
         .filter(Boolean)
-        .join(' · ')
+        .join(' · ')}`
     : '';
 
   let descriptionForInsert = descFinal || productLine || 'No specifications provided.';

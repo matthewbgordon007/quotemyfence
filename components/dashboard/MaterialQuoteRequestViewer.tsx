@@ -3,6 +3,10 @@
 import { LayoutDrawCanvas } from '@/components/LayoutDrawCanvas';
 import { getLayoutDrawingFootage } from '@/lib/layout-drawing-footage';
 import { lineHighlightModesFromDrawing, parseSavedLayoutDrawing } from '@/lib/layout-drawing-view';
+import {
+  materialQuoteProductLabel,
+  materialQuoteUserNotes,
+} from '@/lib/material-quote-request-display';
 import type { MaterialQuoteRequestDto } from '@/lib/supplier-material-quote-requests-enrich';
 import dynamic from 'next/dynamic';
 
@@ -30,11 +34,6 @@ export function MaterialQuoteRequestViewer({ request: selectedRequest, compact }
   const layoutFootage = selectedRequest.project?.drawing_data
     ? getLayoutDrawingFootage(selectedRequest.project.drawing_data)
     : null;
-  const mapSegments = selectedRequest.project?.segments || [];
-  const displayLineLengths =
-    mapSegments.length > 0
-      ? mapSegments.map((seg) => seg.length_ft)
-      : layoutFootage?.line_lengths_ft ?? [];
   const displayTotalFt =
     selectedRequest.project?.total_length_ft != null && Number(selectedRequest.project.total_length_ft) > 0
       ? Number(selectedRequest.project.total_length_ft)
@@ -48,12 +47,18 @@ export function MaterialQuoteRequestViewer({ request: selectedRequest, compact }
     !!selectedRequest.project?.image_data_url ||
     (selectedRequest.project?.segments?.length ?? 0) > 0;
 
+  const productLabel = materialQuoteProductLabel(selectedRequest.project);
+  const userNotes = materialQuoteUserNotes(
+    selectedRequest.description,
+    selectedRequest.project?.home_address
+  );
+
   const layoutDrawingBlock = hasFenceDrawing ? (
     <div className={`${gap} rounded-lg border border-slate-200 bg-slate-50 ${pad}`}>
       <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Layout drawing</p>
       <p className="mt-1 text-slate-500">
         {hasLayoutPlanView
-          ? 'Fence sketch with labeled line lengths (from Draw).'
+          ? 'Fence sketch with labeled line lengths.'
           : 'The outline they drew on the map.'}
       </p>
       {hasLayoutPlanView && savedLayoutSketch ? (
@@ -87,42 +92,42 @@ export function MaterialQuoteRequestViewer({ request: selectedRequest, compact }
           />
         </div>
       ) : null}
-      {(displayLineLengths.length > 0 || displayTotalFt > 0 || displayGates.length > 0) && (
-        <div className="mt-3 space-y-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5">
-          {displayLineLengths.length > 0 && (
-            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <span className="font-semibold text-slate-800">Line lengths:</span>
-              {displayLineLengths.map((ft, i) => (
-                <span key={i} className="font-medium text-slate-700">
-                  Line {i + 1}: {ft != null && Number(ft) > 0 ? `${Number(ft).toFixed(1)} ft` : '—'}
-                </span>
-              ))}
-            </div>
+      {(displayTotalFt > 0 || displayGates.length > 0 || selectedRequest.project?.has_removal) && (
+        <div className="mt-3 flex flex-wrap gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-slate-800">
+          {displayTotalFt > 0 && (
+            <span>
+              <strong>Total:</strong> {displayTotalFt.toFixed(1)} ft
+            </span>
           )}
-          <div className="flex flex-wrap gap-3 text-slate-800">
-            {displayTotalFt > 0 && (
-              <span>
-                <strong>Total:</strong> {displayTotalFt.toFixed(1)} ft
-              </span>
-            )}
-            {selectedRequest.project?.has_removal && <span className="text-slate-600">Removal included</span>}
-            {displayGates.length > 0 && (
-              <span>
-                <strong>Gates:</strong> {displayGates.map((g) => `${g.quantity} ${g.gate_type}`).join(', ')}
-              </span>
-            )}
-          </div>
+          {selectedRequest.project?.has_removal && <span className="text-slate-600">Removal included</span>}
+          {displayGates.length > 0 && (
+            <span>
+              <strong>Gates:</strong> {displayGates.map((g) => `${g.quantity} ${g.gate_type}`).join(', ')}
+            </span>
+          )}
         </div>
       )}
     </div>
   ) : null;
 
+  const hasContractorDetails =
+    selectedRequest.contractor.company_name ||
+    selectedRequest.contractor.email ||
+    selectedRequest.contractor.phone;
+
   return (
     <div className={compact ? 'text-sm' : ''}>
-      {(selectedRequest.contractor.email || selectedRequest.contractor.phone) && (
+      {hasContractorDetails && (
         <div className={`rounded-lg border border-slate-200 bg-slate-50 ${pad} text-slate-700`}>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Contractor details</p>
-          {selectedRequest.contractor.email && <p className="mt-2">Email: {selectedRequest.contractor.email}</p>}
+          {selectedRequest.contractor.company_name && (
+            <p className="mt-2 font-semibold text-slate-900">{selectedRequest.contractor.company_name}</p>
+          )}
+          {selectedRequest.contractor.email && (
+            <p className={selectedRequest.contractor.company_name ? 'mt-1' : 'mt-2'}>
+              Email: {selectedRequest.contractor.email}
+            </p>
+          )}
           {selectedRequest.contractor.phone && <p className="mt-1">Phone: {selectedRequest.contractor.phone}</p>}
         </div>
       )}
@@ -136,88 +141,41 @@ export function MaterialQuoteRequestViewer({ request: selectedRequest, compact }
 
       {layoutDrawingBlock}
 
-      <div className={`${gap} grid gap-3 ${compact ? '' : 'md:grid-cols-2'}`}>
-        <div className={`rounded-lg border border-slate-200 bg-slate-50 ${pad}`}>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Fence information</p>
-          <p className="mt-2 text-slate-800">
-            Material selection: {selectedRequest.project?.design_summary || 'Not selected'}
-          </p>
-          <p className="mt-1 text-slate-800">
-            Total footage: {displayTotalFt > 0 ? `${displayTotalFt.toFixed(1)} ft` : '—'}
-          </p>
-          {displayLineLengths.some((ft) => ft != null && Number(ft) > 0) && (
-            <p className="mt-1 text-slate-800">
-              Line lengths:{' '}
-              {displayLineLengths
-                .map((ft, i) =>
-                  ft != null && Number(ft) > 0 ? `Line ${i + 1}: ${Number(ft).toFixed(1)} ft` : null
-                )
-                .filter(Boolean)
-                .join(' · ')}
-            </p>
-          )}
-          {selectedRequest.project?.has_removal ? <p className="mt-1 text-slate-600">Removal included</p> : null}
-          <p className="mt-2 text-xs font-medium text-slate-500">
-            Status: <span className="text-slate-800">{selectedRequest.status}</span>
-          </p>
-        </div>
-        {selectedRequest.attachment_url && (
-          <div className={`rounded-lg border border-slate-200 bg-slate-50 ${pad}`}>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Attachment</p>
-            <a
-              href={selectedRequest.attachment_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-2 inline-block font-semibold text-indigo-700 hover:underline"
-            >
-              {selectedRequest.attachment_name || 'Open file'}
-            </a>
+      <div className={`${gap} rounded-lg border border-slate-200 bg-slate-50 ${pad}`}>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Request</p>
+        <dl className="mt-3 space-y-2.5 text-slate-800">
+          <div>
+            <dt className="text-xs font-medium text-slate-500">Product</dt>
+            <dd className="mt-0.5 font-medium">{productLabel || 'Not specified'}</dd>
           </div>
-        )}
-      </div>
-
-      <div className={`${gap} rounded-lg border border-slate-200 bg-slate-50 ${pad}`}>
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Request notes</p>
-        <p className="mt-2 text-slate-800">{selectedRequest.description}</p>
-      </div>
-
-      <div className={`${gap} rounded-lg border border-slate-200 bg-slate-50 ${pad}`}>
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Design choice</p>
-        {selectedRequest.project?.design_summary ? (
-          <>
-            <p className="mt-2 font-medium text-slate-900">{selectedRequest.project.design_summary}</p>
-            {selectedRequest.project.design_option && (
-              <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
-                {selectedRequest.project.design_option.height_ft != null && (
-                  <>
-                    <dt className="text-slate-500">Height</dt>
-                    <dd>{selectedRequest.project.design_option.height_ft} ft</dd>
-                  </>
-                )}
-                {selectedRequest.project.design_option.type && (
-                  <>
-                    <dt className="text-slate-500">Material / type</dt>
-                    <dd>{selectedRequest.project.design_option.type}</dd>
-                  </>
-                )}
-                {selectedRequest.project.design_option.style && (
-                  <>
-                    <dt className="text-slate-500">Style</dt>
-                    <dd>{selectedRequest.project.design_option.style}</dd>
-                  </>
-                )}
-                {selectedRequest.project.design_option.colour && (
-                  <>
-                    <dt className="text-slate-500">Colour</dt>
-                    <dd>{selectedRequest.project.design_option.colour}</dd>
-                  </>
-                )}
-              </dl>
-            )}
-          </>
-        ) : (
-          <p className="mt-2 text-slate-600">No design selection saved.</p>
-        )}
+          {selectedRequest.project?.design_option?.height_ft != null && (
+            <div>
+              <dt className="text-xs font-medium text-slate-500">Height</dt>
+              <dd className="mt-0.5">{selectedRequest.project.design_option.height_ft} ft</dd>
+            </div>
+          )}
+          {userNotes ? (
+            <div>
+              <dt className="text-xs font-medium text-slate-500">Notes</dt>
+              <dd className="mt-0.5 whitespace-pre-wrap">{userNotes}</dd>
+            </div>
+          ) : null}
+          {selectedRequest.attachment_url && (
+            <div>
+              <dt className="text-xs font-medium text-slate-500">Attachment</dt>
+              <dd className="mt-0.5">
+                <a
+                  href={selectedRequest.attachment_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-indigo-700 hover:underline"
+                >
+                  {selectedRequest.attachment_name || 'Open file'}
+                </a>
+              </dd>
+            </div>
+          )}
+        </dl>
       </div>
 
       {selectedRequest.supplier_material_list && selectedRequest.supplier_material_list.length > 0 ? (
