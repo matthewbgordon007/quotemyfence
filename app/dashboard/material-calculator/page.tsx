@@ -1832,7 +1832,7 @@ export default function MaterialCalculatorHubPage() {
     }
   }, [bomTsv]);
 
-  const downloadMasterMaterialListPdf = useCallback(async () => {
+  const buildMasterMaterialListPdfBlob = useCallback(async (): Promise<{ blob: Blob; filename: string }> => {
     const { buildMasterMaterialListPdfRows } = await import('@/lib/master-material-list-pdf-data');
     const rows = buildMasterMaterialListPdfRows(pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt, extraBoardsPctNum);
     const activeMod =
@@ -1858,16 +1858,21 @@ export default function MaterialCalculatorHubPage() {
       .trim()
       .replace(/\s+/g, '-')
       .slice(0, 72);
+    return { blob, filename: `${slug || 'master-material-list'}.pdf` };
+  }, [pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt, extraBoardsPctNum, lines, pvcBreakdownColour, jobAddress]);
+
+  const downloadMasterMaterialListPdf = useCallback(async () => {
+    const { blob, filename } = await buildMasterMaterialListPdfBlob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${slug || 'master-material-list'}.pdf`;
+    a.download = filename;
     a.rel = 'noopener';
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-  }, [pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt, extraBoardsPctNum, lines, pvcBreakdownColour, jobAddress]);
+  }, [buildMasterMaterialListPdfBlob]);
 
   /** Chain link aggregates */
   const chainFenceInputs: FmsChainLinkFenceInput[] = useMemo(() => {
@@ -4079,6 +4084,7 @@ export default function MaterialCalculatorHubPage() {
         <SupplierMaterialQuoteActions
           requestId={materialRequestId}
           onDownloadMasterPdf={() => void downloadMasterMaterialListPdf()}
+          buildMasterPdfBlob={tab === 'pvc' ? buildMasterMaterialListPdfBlob : undefined}
           masterPdfAvailable={tab === 'pvc' && !fmsQuoteMaterialUnsupported}
           buildMaterialRowsForQuote={buildSupplierMaterialQuoteLines}
           quoteDetailHref={`/dashboard/supplier/contractor-quotes/${encodeURIComponent(materialRequestId)}`}

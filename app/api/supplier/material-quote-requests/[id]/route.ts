@@ -53,6 +53,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const supplier_response =
     body.supplier_response !== undefined ? String(body.supplier_response).trim() || null : undefined;
   const status = body.status !== undefined ? String(body.status).trim() : undefined;
+  const emailPdfBase64 =
+    typeof body.email_pdf_base64 === 'string' && body.email_pdf_base64.trim() ? body.email_pdf_base64.trim() : null;
+  const emailPdfFilename =
+    typeof body.email_pdf_filename === 'string' && body.email_pdf_filename.trim()
+      ? body.email_pdf_filename.trim().replace(/[^\w.\- ]/g, '')
+      : 'material-list.pdf';
+  if (emailPdfBase64 && emailPdfBase64.length > 6_000_000) {
+    return NextResponse.json({ error: 'PDF attachment too large' }, { status: 400 });
+  }
   let supplier_material_list_json: unknown | undefined;
   if (body.supplier_material_list_json !== undefined) {
     if (body.supplier_material_list_json === null) {
@@ -99,9 +108,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const nextStatus = (status ?? (prev as { status: string }).status) as string;
+  // Explicit sends (with a PDF) always email; otherwise only the first transition to quoted does.
   const shouldEmailContractor =
     nextStatus === 'quoted' &&
-    !(prev as { supplier_quoted_emailed_at?: string | null }).supplier_quoted_emailed_at &&
+    (Boolean(emailPdfBase64) ||
+      !(prev as { supplier_quoted_emailed_at?: string | null }).supplier_quoted_emailed_at) &&
     process.env.RESEND_API_KEY;
 
   if (shouldEmailContractor) {
@@ -110,20 +121,22 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       const quoteSessionId = (prev as { quote_session_id: string | null }).quote_session_id;
       const { data: afterRow } = await supabase
         .from('material_quote_requests')
-        .select('supplier_response, supplier_material_list_json')
+        .select('supplier_response, supplier_material_list_json, job_site_address')
         .eq('id', id)
         .single();
+      const jobSite = String((afterRow as { job_site_address?: string | null })?.job_site_address || '').trim();
       const responseText = (afterRow as { supplier_response?: string | null })?.supplier_response?.trim() || '';
       const listRows = normalizeMaterialListJson(
         (afterRow as { supplier_material_list_json?: unknown })?.supplier_material_list_json
       );
 
-      const [{ data: contractor }, { data: cust }] = await Promise.all([
+      const [{ data: contractor }, { data: supplierCo }, { data: cust }] = await Promise.all([
         supabase
           .from('contractors')
           .select('company_name, email, quote_notification_email')
           .eq('id', contractorId)
           .single(),
+        supabase.from('contractors').select('company_name').eq('id', sess.contractorId).single(),
         quoteSessionId
           ? supabase.from('customers').select('id').eq('quote_session_id', quoteSessionId).maybeSingle()
           : Promise.resolve({ data: null }),
@@ -148,13 +161,18 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
                 )
                 .join('')}</table>`
             : '';
+        const supplierName = (supplierCo as { company_name?: string } | null)?.company_name || 'Your supplier';
+        const requestsUrl = `${base}/dashboard/material-requests`;
         await resend.emails.send({
           from,
           to: [toEmail],
-          subject: `Material quote ready — ${(contractor as { company_name?: string })?.company_name || 'QuoteMyFence'}`,
+          subject: jobSite
+            ? `Material quote ready — ${jobSite}`
+            : `Material quote ready from ${supplierName}`,
           html: `
             <div style="font-family: Arial, sans-serif; line-height:1.5;">
-              <h2>Your supplier has updated your material request</h2>
+              <h2>${escapeHtml(supplierName)} sent back your material quote</h2>
+              ${jobSite ? `<p><strong>Job site:</strong> ${escapeHtml(jobSite)}</p>` : ''}
               <p>Status: <strong>Quoted</strong></p>
               ${
                 responseText
@@ -162,10 +180,22 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
                   : ''
               }
               ${linesHtml ? `<p><strong>Material list</strong></p>${linesHtml}` : ''}
+              ${emailPdfBase64 ? `<p>The PDF master material list is attached.</p>` : ''}
+              <p><a href="${requestsUrl}">View it under Requests in your dashboard</a></p>
               <p><a href="${calcUrl}">Open job in your calculator</a> (uses your linked supplier’s contractor material rates when available).</p>
               <p><a href="${customerUrl}">Open customer record</a></p>
             </div>
           `,
+          ...(emailPdfBase64
+            ? {
+                attachments: [
+                  {
+                    filename: emailPdfFilename,
+                    content: Buffer.from(emailPdfBase64, 'base64'),
+                  },
+                ],
+              }
+            : {}),
         });
         await supabase
           .from('material_quote_requests')

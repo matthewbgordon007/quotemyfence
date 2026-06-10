@@ -131,31 +131,9 @@ export default function MaterialRequestsPage() {
                 </button>
                 {open && (
                   <div className="space-y-4 border-t border-slate-100 px-5 py-4">
-                    <div>
-                      <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Your request</h3>
-                      <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{r.description || '—'}</p>
-                      {r.attachment_url && (
-                        <a
-                          href={r.attachment_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="mt-2 inline-block text-sm font-medium text-[var(--accent,#2563eb)] hover:underline"
-                        >
-                          Attachment: {r.attachment_name || 'file'}
-                        </a>
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Response</h3>
-                      {response ? (
-                        <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{response}</p>
-                      ) : (
-                        <p className="mt-1 text-sm text-slate-500">No response yet — we&apos;ll show it here as soon as it arrives.</p>
-                      )}
-                    </div>
                     {list && list.length > 0 && (
                       <div>
-                        <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Material list</h3>
+                        <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Material list from supplier</h3>
                         <div className="mt-2 overflow-x-auto rounded-lg border border-slate-100">
                           <table className="w-full text-sm">
                             <thead>
@@ -176,6 +154,33 @@ export default function MaterialRequestsPage() {
                         </div>
                       </div>
                     )}
+                    {response ? (
+                      <div>
+                        <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Supplier notes</h3>
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{response}</p>
+                      </div>
+                    ) : (
+                      (!list || list.length === 0) && (
+                        <div>
+                          <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Response</h3>
+                          <p className="mt-1 text-sm text-slate-500">No response yet — we&apos;ll show it here as soon as it arrives.</p>
+                        </div>
+                      )
+                    )}
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Your request</h3>
+                      <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{r.description || '—'}</p>
+                      {r.attachment_url && (
+                        <a
+                          href={r.attachment_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-2 inline-block text-sm font-medium text-[var(--accent,#2563eb)] hover:underline"
+                        >
+                          Attachment: {r.attachment_name || 'file'}
+                        </a>
+                      )}
+                    </div>
                     {r.project?.image_data_url && (
                       <div>
                         <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Layout</h3>
