@@ -9,15 +9,15 @@ export { excelRound, excelRoundUp } from '@/lib/fms-excel-math';
 
 export type FmsPvcPanelModule = 'nominal_7ft' | 'nominal_6ft';
 
-/** Divisors from the workbook — use the same literals as Excel formulas (e.g. `=C5/8.20833333`, `=H5/6.75`). */
+/** Divisors from the workbook — literals from `Material Calculator - PVC` (`=C5/8.20833333`, `=H5/6`). */
 export const FMS_PVC_PANEL_FT: Record<FmsPvcPanelModule, number> = {
   nominal_7ft: 8.20833333,
-  nominal_6ft: 6.75,
+  nominal_6ft: 6,
 };
 
 export const FMS_PVC_PANEL_MODULE_LABELS: Record<FmsPvcPanelModule, string> = {
   nominal_7ft: "7 ft panels (8.2' spacing)",
-  nominal_6ft: "6 ft panels (6.75' spacing)",
+  nominal_6ft: "6 ft panels (6' spacing)",
 };
 
 /** Panel height presets (spacing is set separately). */
@@ -111,13 +111,14 @@ export function computeFmsPvcFenceLine(raw: FmsPvcFenceLineInput): FmsPvcFenceLi
   const d6 = clampHType(Math.floor(Number(raw.fence_terminated_h_post_type) || 0)) as 0 | 1 | 2;
   const d7 = clampNonNeg(Number(raw.fence_terminated_u_channel) || 0);
   const panelFt = resolveFmsPvcPanelSpacingFt(raw);
+  const is6ft = raw.panel_module === 'nominal_6ft';
 
   const c8 = panelFt > 0 ? L / panelFt : 0;
   const c9 = excelRound(c8, 4);
-  const d9 = excelRoundUp(c9, 0);
-  const c10 = excelRoundUp(c9, 0);
+  const d9 = c9 > 0 ? excelRoundUp(c9, 0) : 0;
+  const c10 = c9 > 0 ? excelRoundUp(c9, 0) : 0;
 
-  const d12 = d9 + d6 - 1;
+  const d12 = Math.max(0, d9 + d6 - 1);
   const d13 = d12;
   const d14 = d12;
 
@@ -126,11 +127,26 @@ export function computeFmsPvcFenceLine(raw: FmsPvcFenceLineInput): FmsPvcFenceLi
   const c16 = c15;
   const d16 = excelRoundUp(c16, 0);
 
-  const c17 = c8 * B.board;
-  const d17 = excelRoundUp(c17, 0);
+  let c17: number;
+  let d17: number;
+  let c18: number;
+  let d18: number;
 
-  const c18 = c8 * B.board_stiffener;
-  const d18 = excelRoundUp(c18, 0);
+  if (is6ft) {
+    // 6′ block (columns G–I): G17 = (L×12) − (2×posts); I17 = (G17÷12)×2; I18 = ROUNDUP(H8×3, 1).
+    const g17In = L * 12 - 2 * d12;
+    const h17Ft = g17In / 12;
+    c17 = h17Ft * 2;
+    d17 = c17;
+    c18 = c8 * B.board_stiffener;
+    d18 = excelRoundUp(c18, 1);
+  } else {
+    // 7′ block (columns B–D): D17 = ROUNDUP(C17, 10); D18 = ROUNDUP(C18, 1).
+    c17 = c8 * B.board;
+    d17 = excelRoundUp(c17, 10);
+    c18 = c8 * B.board_stiffener;
+    d18 = excelRoundUp(c18, 1);
+  }
 
   const c19 = d9 * B.long_screw;
   const d19 = c19;
@@ -205,31 +221,17 @@ export interface FmsPvcJobTotals {
   sku_rows: { label: string; quantity: number }[];
 }
 
-/** Cuttable stock: offcuts from one run can finish another, so round once per job, not per run. */
-const PVC_CUT_SHARED: Partial<Record<keyof FmsPvcFenceLineResult, keyof FmsPvcFenceLineResult>> = {
-  rail: 'rail_raw',
-  rail_stiffener: 'rail_stiffener_raw',
-  board: 'board_raw',
-  board_stiffener: 'board_stiffener_raw',
-};
-
+/** Excel Adobe columns sum each fence line's rounded D/I finals — same rule for the fence SKU rollup. */
 export function aggregateFmsPvcFenceLines(lines: FmsPvcFenceLineInput[]): FmsPvcJobTotals {
   const results = lines.filter((l) => l.length_ft > 0).map((l) => computeFmsPvcFenceLine(l));
   const sumWhole = results.reduce((a, r) => a + r.total_whole_panels, 0);
   const sumH = results.reduce((a, r) => a + r.h_post, 0);
   const concrete = sumH * 2.5;
 
-  const sku_rows = PVC_SKU_ROWS.map(({ key, label }) => {
-    const rawKey = PVC_CUT_SHARED[key];
-    if (rawKey) {
-      const rawSum = results.reduce((a, r) => a + (Number(r[rawKey]) || 0), 0);
-      return { label, quantity: excelRoundUp(rawSum, 0) };
-    }
-    return {
-      label,
-      quantity: results.reduce((a, r) => a + (Number(r[key]) || 0), 0),
-    };
-  });
+  const sku_rows = PVC_SKU_ROWS.map(({ key, label }) => ({
+    label,
+    quantity: results.reduce((a, r) => a + (Number(r[key]) || 0), 0),
+  }));
 
   return {
     lines: results,

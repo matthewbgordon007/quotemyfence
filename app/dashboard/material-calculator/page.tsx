@@ -79,6 +79,8 @@ import {
   layoutPointsToSegmentPairs,
   layoutSegmentsToPvcFenceInputsPerSketchSegment,
   netFenceLengthFtForSegment,
+  PVC_DOUBLE_GATE_MIN_IN,
+  PVC_SHORT_GATE_MAX_IN,
   removeLayoutDrawingGatePlacement,
   removeLayoutDrawingSegment,
   sketchGateWidthInches,
@@ -555,6 +557,35 @@ function parseGateRowsShort(rows: PvcGateRow[]) {
       return { gate_width_in: w, posts: r.posts };
     })
     .filter(Boolean) as { gate_width_in: number; posts: FmsPvcGatePosts }[];
+}
+
+/** Route gates to the correct PVC workbook block by opening width (matches Excel sections). */
+function classifyPvcGateInputs(
+  shortRows: PvcGateRow[],
+  singleRows: PvcGateRow[],
+  doubleRows: PvcGateRow[]
+): {
+  short: { gate_width_in: number; posts: FmsPvcGatePosts }[];
+  single: { gate_width_in: number; posts: FmsPvcGatePosts }[];
+  double: { gate_width_in: number; posts: FmsPvcGatePosts }[];
+} {
+  const short: { gate_width_in: number; posts: FmsPvcGatePosts }[] = [];
+  const single: { gate_width_in: number; posts: FmsPvcGatePosts }[] = [];
+  const double: { gate_width_in: number; posts: FmsPvcGatePosts }[] = [];
+
+  const push = (r: PvcGateRow, preferred: 'short' | 'single' | 'double') => {
+    const w = Math.max(0, Number(String(r.width_in).replace(/,/g, '')) || 0);
+    if (w <= 0) return;
+    const item = { gate_width_in: w, posts: r.posts };
+    if (w < PVC_SHORT_GATE_MAX_IN) short.push(item);
+    else if (w >= PVC_DOUBLE_GATE_MIN_IN && preferred === 'double') double.push(item);
+    else single.push(item);
+  };
+
+  for (const r of shortRows) push(r, 'short');
+  for (const r of singleRows) push(r, 'single');
+  for (const r of doubleRows) push(r, 'double');
+  return { short, single, double };
 }
 
 type MasterExtraGroup =
@@ -1902,21 +1933,32 @@ export default function MaterialCalculatorHubPage() {
     [pvcInputs]
   );
 
-  const shortParsed = useMemo(() => parseGateRowsShort(shortGates), [shortGates]);
-  const singleParsed = useMemo(() => parseGateRowsShort(singleGates), [singleGates]);
-  const doubleParsed = useMemo(() => parseGateRowsShort(doubleGates), [doubleGates]);
+  const classifiedGates = useMemo(
+    () => classifyPvcGateInputs(shortGates, singleGates, doubleGates),
+    [shortGates, singleGates, doubleGates]
+  );
 
   const gateMerge = useMemo(
-    () => sumGateAdobeRows(shortParsed, singleParsed, doubleParsed),
-    [shortParsed, singleParsed, doubleParsed]
+    () =>
+      sumGateAdobeRows(
+        classifiedGates.short,
+        classifiedGates.single,
+        classifiedGates.double
+      ),
+    [classifiedGates]
   );
 
   const gateWidthInchesSum = useMemo(() => {
-    const sum = (arr: typeof shortParsed) => arr.reduce((a, g) => a + g.gate_width_in, 0);
-    return sum(shortParsed) + sum(singleParsed) + sum(doubleParsed);
-  }, [shortParsed, singleParsed, doubleParsed]);
+    const sum = (arr: { gate_width_in: number }[]) => arr.reduce((a, g) => a + g.gate_width_in, 0);
+    return (
+      sum(classifiedGates.short) + sum(classifiedGates.single) + sum(classifiedGates.double)
+    );
+  }, [classifiedGates]);
 
-  const gateCount = shortParsed.length + singleParsed.length + doubleParsed.length;
+  const gateCount =
+    classifiedGates.short.length +
+    classifiedGates.single.length +
+    classifiedGates.double.length;
 
   const extrasParsed: FmsPvcMasterExtras = useMemo(() => {
     const o: FmsPvcMasterExtras = {};

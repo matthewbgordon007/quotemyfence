@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Regression checks against cached values from `docs/2026 FMS - Fencing Material Calculator.xlsx`.
- * Run: node scripts/verify-fms-excel-parity.mjs
+ * Regression checks against `docs/2026 FMS - Fencing Material Calculator.xlsx`
+ * (2026 FMS - Fencing Material Calculator-2.xlsx).
  *
- * Keep in sync with `lib/fms-excel-math.ts` (ROUND / ROUNDUP).
- * Master Material List column C sums do not use ROUND in the FMS workbook — do not add rounding there in TS.
+ * Run: node scripts/verify-fms-excel-parity.mjs
+ * Full PVC gate/fence parity: npx tsx scripts/verify-fms-excel-parity-ts.ts
  */
 
 function excelRound(value, digits) {
@@ -48,15 +48,37 @@ function assertEq(name, got, exp) {
   }
 }
 
-// --- PVC Material Calculator (saved C5=6, D6=1, D7=0) ---
+// --- PVC 7′ block (C5=6, D6=1, D7=0) ---
 const P7 = 8.20833333;
 const L = 6;
 const c8 = L / P7;
-assertClose('PVC C8', c8, 0.7309644673019144, 1e-10);
-assertClose('PVC C9', excelRound(c8, 4), 0.731, 1e-10);
-assertEq('PVC D9', excelRoundUp(excelRound(c8, 4), 0), 1);
+assertClose('PVC7 C8', c8, 0.7309644673019144, 1e-10);
+assertClose('PVC7 C9', excelRound(c8, 4), 0.731, 1e-10);
+assertEq('PVC7 D9', excelRoundUp(excelRound(c8, 4), 0), 1);
 
-// --- Chain link (saved C5=19.75, D6=2) ---
+// D17 = ROUNDUP(C8*16, 10) for 4′ sample in workbook
+const c8_4 = 4 / P7;
+const d17_4 = excelRoundUp(c8_4 * 16, 10);
+assertClose('PVC7 D17 (4ft)', d17_4, 7.796954318, 1e-9);
+const d18_4 = excelRoundUp(c8_4 * 3, 1);
+assertEq('PVC7 D18 (4ft)', d18_4, 1.5);
+
+// --- PVC 6′ block (H5=87, I6=1) divisor /6 ---
+const P6 = 6;
+const L87 = 87;
+const h8 = L87 / P6;
+assertClose('PVC6 H8', h8, 14.5, 1e-10);
+const h9 = excelRound(h8, 4);
+const i9 = excelRoundUp(h9, 0);
+assertEq('PVC6 I9', i9, 15);
+const i12 = i9 + 1 - 1;
+const g17In = L87 * 12 - 2 * i12;
+const i17 = (g17In / 12) * 2;
+assertEq('PVC6 I17 boards', i17, 169);
+const i18 = excelRoundUp(h8 * 3, 1);
+assertEq('PVC6 I18 board stiff', i18, 43.5);
+
+// --- Chain link (C5=19.75, D6=2) ---
 const Lc = 19.75;
 const c10 = Lc / 8;
 const c11 = excelRound(c10, 4);
@@ -67,7 +89,7 @@ const d15 = 2 - 1;
 const d25 = Lc / 2 + (d14 + d15) * 4;
 assertClose('Chain D25', d25, 21.875, 1e-10);
 
-// --- Horizontal WPC (saved C6=42, B18=1, C17=28) ---
+// --- Horizontal WPC (C6=42, B18=1, C17=28) ---
 const Lh = 42;
 const c9h = Lh / 6.0833;
 assertClose('Horiz C9', c9h, 6.904147419985862, 1e-10);
@@ -78,4 +100,4 @@ assertEq('Horiz C17', c17, 28);
 const d17 = c17 - 2;
 assertEq('Horiz D17', d17, 26);
 
-console.log('OK: FMS parity spot checks passed.');
+console.log('OK: FMS Excel parity spot checks passed.');
