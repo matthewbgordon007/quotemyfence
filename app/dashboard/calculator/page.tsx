@@ -280,10 +280,8 @@ export default function CalculatorPage() {
   const [singleGateQty, setSingleGateQty] = useState(0);
   const [doubleGateQty, setDoubleGateQty] = useState(0);
   const [hasRemoval, setHasRemoval] = useState(false);
-  const [removalLengthFt, setRemovalLengthFt] = useState(0);
+  const [removalLineKeys, setRemovalLineKeys] = useState<Set<string>>(() => new Set());
   const [removalPricePerFtOverride, setRemovalPricePerFtOverride] = useState<number | null>(null);
-  const [removalShared, setRemovalShared] = useState(false);
-  const [removalSharedWith, setRemovalSharedWith] = useState('');
   /** When set (e.g. material quote from supplier), override catalogue gate / minimum pricing. */
   const [singleGatePriceOverride, setSingleGatePriceOverride] = useState<number | null>(null);
   const [doubleGatePriceOverride, setDoubleGatePriceOverride] = useState<number | null>(null);
@@ -503,10 +501,13 @@ export default function CalculatorPage() {
             if (st.singleGateQty != null) setSingleGateQty(st.singleGateQty);
             if (st.doubleGateQty != null) setDoubleGateQty(st.doubleGateQty);
             if (st.hasRemoval != null) setHasRemoval(st.hasRemoval);
-            if (st.removalLengthFt != null) setRemovalLengthFt(safeNum(st.removalLengthFt));
             if (st.removalPricePerFtOverride != null) setRemovalPricePerFtOverride(safeNum(st.removalPricePerFtOverride));
-            if (st.removalShared != null) setRemovalShared(Boolean(st.removalShared));
-            if (typeof st.removalSharedWith === 'string') setRemovalSharedWith(st.removalSharedWith);
+            if (Array.isArray(st.removalLineKeys) && st.removalLineKeys.every((x: unknown) => typeof x === 'string')) {
+              setRemovalLineKeys(new Set(st.removalLineKeys as string[]));
+            } else if (st.hasRemoval) {
+              const segs = Array.isArray(st.segments) ? (st.segments as Segment[]) : [];
+              setRemovalLineKeys(new Set(segs.map((s) => s.key)));
+            }
             if (st.taxRate != null) setTaxRate(st.taxRate);
             if (st.applyTax != null) setApplyTax(st.applyTax);
             if (Array.isArray(st.singleGateSides) && st.singleGateSides.every((x: unknown) => typeof x === 'string')) {
@@ -736,12 +737,14 @@ export default function CalculatorPage() {
       if (st.singleGateQty != null) setSingleGateQty(safeNum(st.singleGateQty));
       if (st.doubleGateQty != null) setDoubleGateQty(safeNum(st.doubleGateQty));
       if (st.hasRemoval != null) setHasRemoval(Boolean(st.hasRemoval));
-      if (st.removalLengthFt != null) setRemovalLengthFt(safeNum(st.removalLengthFt));
       if (st.removalPricePerFtOverride !== undefined) {
         setRemovalPricePerFtOverride(st.removalPricePerFtOverride === null ? null : Number(st.removalPricePerFtOverride));
       }
-      if (st.removalShared != null) setRemovalShared(Boolean(st.removalShared));
-      if (typeof st.removalSharedWith === 'string') setRemovalSharedWith(st.removalSharedWith);
+      if (Array.isArray(st.removalLineKeys) && st.removalLineKeys.every((x) => typeof x === 'string')) {
+        setRemovalLineKeys(new Set(st.removalLineKeys as string[]));
+      } else if (st.hasRemoval && Array.isArray(st.segments)) {
+        setRemovalLineKeys(new Set((st.segments as Segment[]).map((s) => s.key)));
+      }
       if (st.taxRate != null) setTaxRate(safeNum(st.taxRate));
       if (st.applyTax != null) setApplyTax(Boolean(st.applyTax));
       if (Array.isArray(st.singleGateSides) && st.singleGateSides.every((x) => typeof x === 'string')) {
@@ -899,10 +902,8 @@ export default function CalculatorPage() {
           singleGateQty,
           doubleGateQty,
           hasRemoval,
-          removalLengthFt,
+          removalLineKeys: Array.from(removalLineKeys),
           removalPricePerFtOverride,
-          removalShared,
-          removalSharedWith,
           taxRate,
           applyTax,
           singleGateSides,
@@ -938,10 +939,8 @@ export default function CalculatorPage() {
     singleGateQty,
     doubleGateQty,
     hasRemoval,
-    removalLengthFt,
+    removalLineKeys,
     removalPricePerFtOverride,
-    removalShared,
-    removalSharedWith,
     taxRate,
     applyTax,
     singleGateSides,
@@ -1084,14 +1083,35 @@ export default function CalculatorPage() {
   const gateTotal =
     singleGateQty * singleGatePrice + doubleGateQty * doubleGatePrice;
   privateTotal += gateTotal;
-  const removalFullCost =
-    hasRemoval && removalLengthFt > 0 ? removalLengthFt * effectiveRemovalPricePerFt : 0;
-  const removalTotal = removalFullCost * (removalShared ? 0.5 : 1);
-  if (removalTotal > 0 && removalShared) sharedTotal += removalTotal;
-  const subtotal = Math.max(
-    privateTotal + sharedTotal + (removalShared ? 0 : removalTotal),
-    minJob
-  );
+  let removalPrivateTotal = 0;
+  let removalSharedTotal = 0;
+  const removalQuoteDetailLines: string[] = [];
+  if (hasRemoval) {
+    for (const seg of segments) {
+      if (!removalLineKeys.has(seg.key)) continue;
+      const ft = feetFinalByKey[seg.key];
+      if (ft <= 0) continue;
+      const billable = ft * effectiveRemovalPricePerFt * (seg.shared ? 0.5 : 1);
+      if (seg.shared) {
+        removalSharedTotal += billable;
+        const who = (seg.sharedWith || '').trim() || 'neighbour';
+        removalQuoteDetailLines.push(
+          `${seg.name}: ${fmtFeet(ft)} length shared 50% w ${who} ( ${moneyCAD(billable)} + Tax)`
+        );
+      } else {
+        removalPrivateTotal += billable;
+        removalQuoteDetailLines.push(
+          `${seg.name}: ${fmtFeet(ft)} × ${moneyCAD(effectiveRemovalPricePerFt)}/ft = ${moneyCAD(billable)} + Tax`
+        );
+      }
+    }
+  }
+  const removalTotal = removalPrivateTotal + removalSharedTotal;
+  const removalLengthFt = segments.reduce((acc, seg) => {
+    if (!removalLineKeys.has(seg.key)) return acc;
+    return acc + (feetFinalByKey[seg.key] || 0);
+  }, 0);
+  const subtotal = Math.max(privateTotal + sharedTotal + removalTotal, minJob);
   const taxAmount = applyTax ? subtotal * (taxRate / 100) : 0;
   const grandTotal = subtotal + taxAmount;
   const depositPct = Number.isFinite(quoteDepositPct) ? Math.max(0, Math.min(100, quoteDepositPct)) : 10;
@@ -1133,9 +1153,37 @@ export default function CalculatorPage() {
   }
 
   function removeSegment(index: number) {
-    if (window.confirm('Are you sure you want to delete this line?')) {
-      setSegments((prev) => prev.filter((_, i) => i !== index));
-    }
+    if (!window.confirm('Are you sure you want to delete this line?')) return;
+    setSegments((prev) => {
+      const removed = prev[index];
+      if (removed) {
+        setRemovalLineKeys((keys) => {
+          const next = new Set(keys);
+          next.delete(removed.key);
+          return next;
+        });
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  }
+
+  function toggleRemovalLine(key: string) {
+    setRemovalLineKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function selectAllRemovalLines() {
+    setRemovalLineKeys(
+      new Set(segments.filter((seg) => (feetFinalByKey[seg.key] || 0) > 0).map((seg) => seg.key))
+    );
+  }
+
+  function clearRemovalLines() {
+    setRemovalLineKeys(new Set());
   }
 
   function resetCalculator() {
@@ -1161,10 +1209,8 @@ export default function CalculatorPage() {
     setSingleGateSides([]);
     setDoubleGateSides([]);
     setHasRemoval(false);
-    setRemovalLengthFt(0);
+    setRemovalLineKeys(new Set());
     setRemovalPricePerFtOverride(null);
-    setRemovalShared(false);
-    setRemovalSharedWith('');
     setApplyTax(true);
     if (types[0]) {
       const tStyles = styles.filter((s) => s.fence_type_id === types[0].id);
@@ -1221,10 +1267,8 @@ export default function CalculatorPage() {
     .join(' + ');
 
   const removalQuoteLine =
-    hasRemoval && removalLengthFt > 0
-      ? removalShared
-        ? `Removal Cost:\n\n${fmtFeet(removalLengthFt)} length shared 50% w ${(removalSharedWith || '').trim() || 'neighbour'} ( ${moneyCAD(removalTotal)} + Tax)`
-        : `Removal Cost:\n\n${fmtFeet(removalLengthFt)} × ${moneyCAD(effectiveRemovalPricePerFt)}/ft = ${moneyCAD(removalTotal)} + Tax`
+    removalQuoteDetailLines.length > 0
+      ? `Removal Cost:\n\n${removalQuoteDetailLines.join('\n')}`
       : null;
   const sharedSectionLines = [...sharedQuoteLines];
   if (removalQuoteLine) {
@@ -1359,10 +1403,8 @@ export default function CalculatorPage() {
       singleGateQty,
       doubleGateQty,
       hasRemoval,
-      removalLengthFt,
+      removalLineKeys: Array.from(removalLineKeys),
       removalPricePerFtOverride,
-      removalShared,
-      removalSharedWith,
       taxRate,
       applyTax,
       singleGateSides,
@@ -1757,8 +1799,10 @@ export default function CalculatorPage() {
                         const on = e.target.checked;
                         setHasRemoval(on);
                         if (on) {
-                          setRemovalLengthFt((prev) => (prev > 0 ? prev : totalLength));
                           setRemovalPricePerFtOverride(null);
+                          if (removalLineKeys.size === 0) selectAllRemovalLines();
+                        } else {
+                          setRemovalLineKeys(new Set());
                         }
                       }}
                       className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500/30"
@@ -1779,98 +1823,112 @@ export default function CalculatorPage() {
                   <div className="space-y-3 rounded-xl border border-amber-100/90 bg-gradient-to-br from-amber-50/50 via-white to-slate-50/40 p-4 shadow-sm ring-1 ring-amber-500/10">
                     <p className="text-sm font-semibold text-slate-800">Removal details</p>
                     <p className="text-xs text-slate-600">
-                      Enter how much existing fence comes out and the removal rate. Defaults to your catalogue removal $/ft when the rate field is cleared.
+                      Pick which quote lines need existing fence removed. Each line uses its own length. If a line is
+                      shared with a neighbour, removal on that line is shared 50% with the same person automatically.
                     </p>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div>
-                        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                          Removal length (ft)
-                        </label>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Removal price per ft (CAD)
+                      </label>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-slate-600">$</span>
                         <input
                           type="number"
                           step="0.01"
                           min={0}
-                          value={removalLengthFt || ''}
-                          onChange={(e) => setRemovalLengthFt(Math.max(0, safeNum(e.target.value)))}
-                          className={field}
+                          value={removalPricePerFtOverride != null ? removalPricePerFtOverride : removalPerFt}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            if (raw === '') {
+                              setRemovalPricePerFtOverride(null);
+                              return;
+                            }
+                            setRemovalPricePerFtOverride(safeNum(raw));
+                          }}
+                          placeholder={removalPerFt > 0 ? String(removalPerFt) : 'Catalogue rate'}
+                          className="min-w-[6rem] max-w-xs flex-1 rounded-xl border border-slate-200/90 bg-white px-3 py-2.5 text-sm font-semibold tabular-nums text-slate-900 shadow-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
                         />
+                        <span className="text-xs text-slate-500">/ ft</span>
+                      </div>
+                      {removalPricePerFtOverride != null && (
                         <button
                           type="button"
-                          onClick={() => setRemovalLengthFt(totalLength)}
+                          onClick={() => setRemovalPricePerFtOverride(null)}
                           className="mt-2 text-xs font-semibold text-blue-600 hover:text-blue-500 hover:underline"
                         >
-                          Use total install run ({fmtFeet(totalLength)})
+                          Reset to catalogue ({moneyCAD(removalPerFt)}/ft)
                         </button>
-                      </div>
-                      <div>
-                        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                          Removal price per ft (CAD)
-                        </label>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-slate-600">$</span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min={0}
-                            value={removalPricePerFtOverride != null ? removalPricePerFtOverride : removalPerFt}
-                            onChange={(e) => {
-                              const raw = e.target.value;
-                              if (raw === '') {
-                                setRemovalPricePerFtOverride(null);
-                                return;
-                              }
-                              setRemovalPricePerFtOverride(safeNum(raw));
-                            }}
-                            placeholder={removalPerFt > 0 ? String(removalPerFt) : 'Catalogue rate'}
-                            className="min-w-[6rem] flex-1 rounded-xl border border-slate-200/90 bg-white px-3 py-2.5 text-sm font-semibold tabular-nums text-slate-900 shadow-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
-                          />
-                          <span className="text-xs text-slate-500">/ ft</span>
-                        </div>
-                        {removalPricePerFtOverride != null && (
+                      )}
+                    </div>
+                    <div>
+                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Lines with removal</p>
+                        <div className="flex gap-2">
                           <button
                             type="button"
-                            onClick={() => setRemovalPricePerFtOverride(null)}
-                            className="mt-2 text-xs font-semibold text-blue-600 hover:text-blue-500 hover:underline"
+                            onClick={selectAllRemovalLines}
+                            className="text-xs font-semibold text-blue-600 hover:text-blue-500 hover:underline"
                           >
-                            Reset to catalogue ({moneyCAD(removalPerFt)}/ft)
+                            Select all
                           </button>
+                          <button
+                            type="button"
+                            onClick={clearRemovalLines}
+                            className="text-xs font-semibold text-slate-500 hover:text-slate-700 hover:underline"
+                          >
+                            Clear all
+                          </button>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        {segments.map((seg) => {
+                          const ft = feetFinalByKey[seg.key] || 0;
+                          if (ft <= 0) return null;
+                          const selected = removalLineKeys.has(seg.key);
+                          const lineCost = ft * effectiveRemovalPricePerFt * (seg.shared ? 0.5 : 1);
+                          return (
+                            <label
+                              key={seg.key}
+                              className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 text-sm transition ${
+                                selected
+                                  ? 'border-amber-300 bg-amber-50/80 ring-1 ring-amber-500/15'
+                                  : 'border-slate-200/90 bg-white hover:border-slate-300'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selected}
+                                onChange={() => toggleRemovalLine(seg.key)}
+                                className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-blue-600"
+                              />
+                              <span className="min-w-0 flex-1">
+                                <span className="font-medium text-slate-900">{seg.name}</span>
+                                <span className="text-slate-600"> — {fmtFeet(ft)}</span>
+                                {seg.shared && (
+                                  <span className="block text-xs text-slate-500">
+                                    Shared 50% w {(seg.sharedWith || '').trim() || 'neighbour'} — removal shared too
+                                  </span>
+                                )}
+                                {selected && (
+                                  <span className="mt-0.5 block text-xs font-semibold tabular-nums text-slate-700">
+                                    {moneyCAD(lineCost)}
+                                  </span>
+                                )}
+                              </span>
+                            </label>
+                          );
+                        })}
+                        {segments.every((seg) => (feetFinalByKey[seg.key] || 0) <= 0) && (
+                          <p className="text-xs text-slate-500">Add line lengths above to choose which runs need removal.</p>
                         )}
                       </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200/90 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50">
-                        <input
-                          type="checkbox"
-                          checked={removalShared}
-                          onChange={(e) => setRemovalShared(e.target.checked)}
-                          className="h-4 w-4 rounded border-slate-300 text-blue-600"
-                        />
-                        <span>Shared 50%</span>
-                      </label>
-                      {removalShared && (
-                        <input
-                          type="text"
-                          placeholder="Neighbour name (optional)"
-                          value={removalSharedWith}
-                          onChange={(e) => setRemovalSharedWith(e.target.value)}
-                          className="min-w-[12rem] flex-1 rounded-xl border border-slate-200/90 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
-                        />
-                      )}
-                    </div>
-                    {hasRemoval && removalLengthFt > 0 && (
+                    {removalTotal > 0 && (
                       <p className="text-sm text-slate-700">
-                        Removal line:{' '}
+                        Removal total:{' '}
                         <span className="font-semibold tabular-nums">
-                          {removalShared ? (
-                            <>
-                              {fmtFeet(removalLengthFt)} shared 50% w {(removalSharedWith || '').trim() || 'neighbour'} ={' '}
-                              {moneyCAD(removalTotal)}
-                            </>
-                          ) : (
-                            <>
-                              {fmtFeet(removalLengthFt)} × {moneyCAD(effectiveRemovalPricePerFt)}/ft = {moneyCAD(removalTotal)}
-                            </>
-                          )}
+                          {fmtFeet(removalLengthFt)} × {moneyCAD(effectiveRemovalPricePerFt)}/ft (billable) ={' '}
+                          {moneyCAD(removalTotal)}
                         </span>
                       </p>
                     )}

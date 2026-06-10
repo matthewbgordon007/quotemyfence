@@ -164,7 +164,7 @@ export default function QuoteTemplatePage() {
       privateLengths:
         "LHS Adjacent: 4.10' + Gate Conversion Kit = ( $757.46 + Tax )\nBack: 44.05' = ( $3,303.31 + Tax )\nRHS: 50.55' = ( $3,790.74 + Tax )\nRHS Adjacent: 6.50' = ( $487.43 + Tax )",
       sharedLengths:
-        "LHS: 44.20' length shared 50% w 766 Poetry Circle ( $1,657.28 +Tax)\n\nRemoval Cost:\n\n30.00' length shared 50% w 766 Poetry Circle ( $225.00 + Tax)",
+        "LHS: 44.20' length shared 50% w 766 Poetry Circle ( $1,657.28 +Tax)\n\nRemoval Cost:\n\nLHS: 30.00' length shared 50% w 766 Poetry Circle ( $225.00 + Tax)\nBack: 14.05' × $15.00/ft = $210.75 + Tax",
       pricePerLinearFt: '$74.99',
       gateKitPrice: '$450.00',
       gates: '1',
