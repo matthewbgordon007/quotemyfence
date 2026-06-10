@@ -29,7 +29,7 @@ import {
 } from '@/lib/fms-pvc-breakdown-master';
 import { LARGE_WARE_TITLE, SMALL_WARE_TITLE, splitWare } from '@/lib/material-ware';
 import { boardStiffenersForBoardCount, formatLooseExtra, formatPacksCell } from '@/lib/pvc-material-packs';
-import { sumGateAdobeRows, type FmsPvcGatePosts } from '@/lib/fms-pvc-gates-calculator';
+import { sumGateAdobeRows, FMS_GATE_POST_COUNT, type FmsPvcGatePosts } from '@/lib/fms-pvc-gates-calculator';
 import {
   aggregateFmsChainLinkFenceLines,
   computeFmsChainLinkFenceLine,
@@ -477,7 +477,7 @@ function buildInputs(rows: PvcLineRow[], panelSpacingFt: number): FmsPvcFenceLin
 }
 
 function emptyGateRow(): PvcGateRow {
-  return { id: newLineId(), width_in: '', posts: 1 };
+  return { id: newLineId(), width_in: '', posts: FMS_GATE_POST_COUNT };
 }
 
 /**
@@ -511,12 +511,12 @@ function pvcGateFromSketchPlacement(
   const wStr = (n: number) => String(Math.round(n * 100) / 100);
 
   if (widthRaw > 0 && widthRaw < 59.5) {
-    return { kind: 'short', row: { id: newLineId(), width_in: wStr(widthRaw), posts: 1 } };
+    return { kind: 'short', row: { id: newLineId(), width_in: wStr(widthRaw), posts: FMS_GATE_POST_COUNT } };
   }
   if (placement.type === 'double') {
-    return { kind: 'double', row: { id: newLineId(), width_in: wStr(widthRaw), posts: 1 } };
+    return { kind: 'double', row: { id: newLineId(), width_in: wStr(widthRaw), posts: FMS_GATE_POST_COUNT } };
   }
-  return { kind: 'single', row: { id: newLineId(), width_in: wStr(widthRaw), posts: 1 } };
+  return { kind: 'single', row: { id: newLineId(), width_in: wStr(widthRaw), posts: FMS_GATE_POST_COUNT } };
 }
 
 function chainGateRowFromSketchPlacement(
@@ -532,7 +532,7 @@ function hybVGateRowFromSketchPlacement(
   segments: { length_ft: number }[]
 ): HybridVGateRow {
   const { row } = pvcGateFromSketchPlacement(placement, segments);
-  return { id: newLineId(), kind: placement.type, width_in: row.width_in, posts: 1 };
+  return { id: newLineId(), kind: placement.type, width_in: row.width_in, posts: FMS_GATE_POST_COUNT };
 }
 
 function hybHGateRowFromSketchPlacement(
@@ -544,7 +544,7 @@ function hybHGateRowFromSketchPlacement(
     id: newLineId(),
     kind: placement.type === 'double' ? 'double' : 'simple',
     width_in: row.width_in,
-    posts: 1,
+    posts: FMS_GATE_POST_COUNT,
     adjoining: 1,
   };
 }
@@ -554,7 +554,7 @@ function parseGateRowsShort(rows: PvcGateRow[]) {
     .map((r) => {
       const w = Math.max(0, Number(String(r.width_in).replace(/,/g, '')) || 0);
       if (w <= 0) return null;
-      return { gate_width_in: w, posts: r.posts };
+      return { gate_width_in: w, posts: FMS_GATE_POST_COUNT };
     })
     .filter(Boolean) as { gate_width_in: number; posts: FmsPvcGatePosts }[];
 }
@@ -576,7 +576,7 @@ function classifyPvcGateInputs(
   const push = (r: PvcGateRow, preferred: 'short' | 'single' | 'double') => {
     const w = Math.max(0, Number(String(r.width_in).replace(/,/g, '')) || 0);
     if (w <= 0) return;
-    const item = { gate_width_in: w, posts: r.posts };
+    const item = { gate_width_in: w, posts: FMS_GATE_POST_COUNT };
     if (w < PVC_SHORT_GATE_MAX_IN) short.push(item);
     else if (w >= PVC_DOUBLE_GATE_MIN_IN && preferred === 'double') double.push(item);
     else single.push(item);
@@ -1044,12 +1044,10 @@ function parsePvcGateRows(raw: unknown): PvcGateRow[] | null {
   for (const row of raw) {
     if (!row || typeof row !== 'object') continue;
     const o = row as Record<string, unknown>;
-    const posts = Number(o.posts);
-    const p: FmsPvcGatePosts = posts === 0 || posts === 1 || posts === 2 ? posts : 1;
     out.push({
       id: typeof o.id === 'string' && o.id ? o.id : newLineId(),
       width_in: typeof o.width_in === 'string' || typeof o.width_in === 'number' ? String(o.width_in) : '',
-      posts: p,
+      posts: FMS_GATE_POST_COUNT,
       sketchPlacementIndex: parseSketchPlacementIndex(o),
     });
   }
@@ -1080,12 +1078,10 @@ function parseChainGates(raw: unknown): ChainGateRow[] | null {
   for (const row of raw) {
     if (!row || typeof row !== 'object') continue;
     const o = row as Record<string, unknown>;
-    const posts = Number(o.posts);
-    const p: FmsPvcGatePosts = posts === 0 || posts === 1 || posts === 2 ? posts : 1;
     out.push({
       id: typeof o.id === 'string' && o.id ? o.id : newLineId(),
       width_in: typeof o.width_in === 'string' || typeof o.width_in === 'number' ? String(o.width_in) : '',
-      posts: p,
+      posts: FMS_GATE_POST_COUNT,
       opening_in:
         typeof o.opening_in === 'string' || typeof o.opening_in === 'number' ? String(o.opening_in) : '45',
       sketchPlacementIndex: parseSketchPlacementIndex(o),
@@ -1123,7 +1119,7 @@ function parseHybridHGates(raw: unknown): HybridHGateRow[] | null {
       id: typeof o.id === 'string' && o.id ? o.id : newLineId(),
       kind,
       width_in: typeof o.width_in === 'string' || typeof o.width_in === 'number' ? String(o.width_in) : '',
-      posts: coerceH012(o.posts),
+      posts: FMS_GATE_POST_COUNT,
       adjoining: coerceH012(o.adjoining ?? 0),
       sketchPlacementIndex: parseSketchPlacementIndex(o),
     });
@@ -1141,7 +1137,7 @@ function parseHybridVGates(raw: unknown): HybridVGateRow[] | null {
       id: typeof o.id === 'string' && o.id ? o.id : newLineId(),
       kind: o.kind === 'double' ? 'double' : 'single',
       width_in: typeof o.width_in === 'string' || typeof o.width_in === 'number' ? String(o.width_in) : '',
-      posts: coerceH012(o.posts),
+      posts: FMS_GATE_POST_COUNT,
       sketchPlacementIndex: parseSketchPlacementIndex(o),
     });
   }
@@ -2792,20 +2788,6 @@ export default function MaterialCalculatorHubPage() {
                     className={`${field} w-28`}
                   />
                 </div>
-                <div>
-                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">Posts</label>
-                  <select
-                    value={g.posts}
-                    onChange={(e) =>
-                      updatePvcGate(kind, g.id, { posts: Number(e.target.value) as FmsPvcGatePosts })
-                    }
-                    className={`${field} w-20`}
-                  >
-                    <option value={0}>0</option>
-                    <option value={1}>1</option>
-                    <option value={2}>2</option>
-                  </select>
-                </div>
                 <button type="button" className={btnGhost} onClick={() => removePvcGate(kind, g.id)}>
                   Remove
                 </button>
@@ -3301,7 +3283,7 @@ export default function MaterialCalculatorHubPage() {
             <div className="border-b border-slate-100 bg-gradient-to-r from-amber-50/40 via-white to-slate-50/80 px-5 py-4">
               <h2 className={h2}>Gates</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Enter each gate&apos;s opening width and posts. Gates from your sketch appear here automatically.
+                Enter each gate&apos;s opening width (2 posts per gate). Gates from your sketch appear here automatically.
               </p>
             </div>
             <div className="space-y-4 p-5">
@@ -3818,7 +3800,7 @@ export default function MaterialCalculatorHubPage() {
                 onClick={() =>
                   setChainGates((g) => [
                     ...g,
-                    { id: newLineId(), width_in: '', posts: 1, opening_in: '45' },
+                    { id: newLineId(), width_in: '', posts: FMS_GATE_POST_COUNT, opening_in: '45' },
                   ])
                 }
               >
@@ -3845,24 +3827,6 @@ export default function MaterialCalculatorHubPage() {
                         }}
                         className={`${field} w-24`}
                       />
-                    </div>
-                    <div>
-                      <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">Posts</label>
-                      <select
-                        value={g.posts}
-                        onChange={(e) =>
-                          setChainGates((rows) =>
-                            rows.map((r) =>
-                              r.id === g.id ? { ...r, posts: Number(e.target.value) as FmsPvcGatePosts } : r
-                            )
-                          )
-                        }
-                        className={`${field} w-20`}
-                      >
-                        <option value={0}>0</option>
-                        <option value={1}>1</option>
-                        <option value={2}>2</option>
-                      </select>
                     </div>
                     <div>
                       <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">Normal opening (in)</label>
@@ -4179,7 +4143,7 @@ export default function MaterialCalculatorHubPage() {
                 onClick={() =>
                   setHybHGates((g) => [
                     ...g,
-                    { id: newLineId(), kind: 'simple', width_in: '', posts: 1, adjoining: 0 },
+                    { id: newLineId(), kind: 'simple', width_in: '', posts: FMS_GATE_POST_COUNT, adjoining: 0 },
                   ])
                 }
               >
@@ -4229,28 +4193,7 @@ export default function MaterialCalculatorHubPage() {
                         className={`${field} w-28`}
                       />
                     </div>
-                    {g.kind === 'simple' ? (
-                      <div>
-                        <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">
-                          Posts (0–2)
-                        </label>
-                        <select
-                          value={g.posts}
-                          onChange={(e) =>
-                            setHybHGates((rows2) =>
-                              rows2.map((r) =>
-                                r.id === g.id ? { ...r, posts: Number(e.target.value) as 0 | 1 | 2 } : r
-                              )
-                            )
-                          }
-                          className={`${field} w-20`}
-                        >
-                          <option value={0}>0</option>
-                          <option value={1}>1</option>
-                          <option value={2}>2</option>
-                        </select>
-                      </div>
-                    ) : (
+                    {g.kind === 'simple' ? null : (
                       <div>
                         <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">
                           Adjoining fence
@@ -4516,7 +4459,7 @@ export default function MaterialCalculatorHubPage() {
                 type="button"
                 className={btnGhost}
                 onClick={() =>
-                  setHybVGates((g) => [...g, { id: newLineId(), kind: 'single', width_in: '', posts: 1 }])
+                  setHybVGates((g) => [...g, { id: newLineId(), kind: 'single', width_in: '', posts: FMS_GATE_POST_COUNT }])
                 }
               >
                 + Add gate
@@ -4563,26 +4506,6 @@ export default function MaterialCalculatorHubPage() {
                         }}
                         className={`${field} w-28`}
                       />
-                    </div>
-                    <div>
-                      <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">
-                        Posts (0–2)
-                      </label>
-                      <select
-                        value={g.posts}
-                        onChange={(e) =>
-                          setHybVGates((rows2) =>
-                            rows2.map((r) =>
-                              r.id === g.id ? { ...r, posts: Number(e.target.value) as 0 | 1 | 2 } : r
-                            )
-                          )
-                        }
-                        className={`${field} w-20`}
-                      >
-                        <option value={0}>0</option>
-                        <option value={1}>1</option>
-                        <option value={2}>2</option>
-                      </select>
                     </div>
                     <button
                       type="button"

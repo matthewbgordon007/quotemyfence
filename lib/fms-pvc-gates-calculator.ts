@@ -10,6 +10,9 @@ const PANEL_FT = 8.20833333;
 
 export type FmsPvcGatePosts = 0 | 1 | 2;
 
+/** Every gate opening gets one post on each side (matches Excel single/double gate H29/L29 = 2). */
+export const FMS_GATE_POST_COUNT: FmsPvcGatePosts = 2;
+
 export interface FmsPvcShortGateInput {
   gate_width_in: number;
   posts: FmsPvcGatePosts;

@@ -43,12 +43,13 @@ assertEq('6ft line 87′ boards I17', line6.board, 169);
 assertEq('6ft line 87′ board stiff I18', line6.board_stiffener, 43.5);
 assertEq('6ft line 87′ posts I12', line6.h_post, 15);
 
-// Short gate C28=48, C29=1
-const sg = computeFmsPvcShortGate({ gate_width_in: 48, posts: 1 });
-assertEq('short gate posts', sg.adobe_gate_rows[18] ?? 0, 1);
+// Short gate C28=48, C29=2
+const sg = computeFmsPvcShortGate({ gate_width_in: 48, posts: 2 });
+assertEq('short gate posts', sg.adobe_gate_rows[18] ?? 0, 2);
 assertEq('short gate rail', sg.adobe_gate_rows[21] ?? 0, 1);
 assertEq('short gate long screw', sg.adobe_gate_rows[26] ?? 0, 10);
 assertEq('short gate plug', sg.adobe_gate_rows[27] ?? 0, 17);
+assertEq('short gate short screw', sg.adobe_gate_rows[25] ?? 0, 12);
 
 // Adobe sums per-line finals (two-line job: 4′ 7ft + 87′ 6ft)
 const adobe = buildPvcAdobeBreakdown([line7, line6], {}, 0);
@@ -57,11 +58,11 @@ assertClose('adobe board sum', adobe[8] ?? 0, 176.796954318, 1e-9);
 assertEq('adobe board stiff sum', adobe[9] ?? 0, 45);
 
 // Master column with one short gate
-const gates = sumGateAdobeRows([{ gate_width_in: 48, posts: 1 }], [], []);
+const gates = sumGateAdobeRows([{ gate_width_in: 48, posts: 2 }], [], []);
 const adobeG = buildPvcAdobeBreakdown([line7, line6], gates.merged, 48);
 const master = computePvcMasterColumn(adobeG, {}, 1, 91);
 const pick = (label: string) => master.find((r) => r.label === label)?.qty;
-assertEq('master concrete', pick('Concrete') ?? 0, 16 * 2.5);
+assertEq('master concrete', pick('Concrete') ?? 0, 17 * 2.5);
 assertEq('master rail', pick('Rail') ?? 0, 31);
 assertClose('master board', pick('Board') ?? 0, 183.796954318, 1e-9);
 
