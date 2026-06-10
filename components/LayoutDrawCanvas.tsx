@@ -19,6 +19,7 @@ import {
   LAYOUT_STRAIGHT_MAX_DEG,
   layoutPointsToSegmentPairs,
   segmentEndpointAnchors,
+  sketchGateWidthInches,
   snapEndColinearWithPrev,
   snapPointToSketchGeometry,
   type SketchJointTermination,
@@ -179,6 +180,55 @@ function strokeForLineMode(mode: LineHighlightMode | undefined): string {
   if (mode === 'private') return '#16a34a';
   if (mode === 'shared') return '#dc2626';
   return '#1e293b';
+}
+
+/** Visible world span (ft) — scales marker sizes so they stay readable at any zoom. */
+function viewSpanFt(vw: number, vh: number): number {
+  return Math.min(vw, vh);
+}
+
+function segmentLengthFtForGate(
+  seg: { x: number; y: number }[],
+  lengthStr: string,
+  manualLengths: boolean
+): number {
+  const typed = parseFloat(lengthStr || '');
+  if (Number.isFinite(typed) && typed > 0) return typed;
+  if (manualLengths) return 0;
+  if (seg.length >= 2) return dist(seg[0], seg[1]);
+  return 0;
+}
+
+/** Green gate span along the fence line, centered on the gate marker and clipped to the segment. */
+function gateSpanEndpoints(
+  seg: [{ x: number; y: number }, { x: number; y: number }],
+  center: { x: number; y: number },
+  gateWidthFt: number
+): { x1: number; y1: number; x2: number; y2: number } | null {
+  const ax = seg[0].x;
+  const ay = seg[0].y;
+  const bx = seg[1].x;
+  const by = seg[1].y;
+  const dx = bx - ax;
+  const dy = by - ay;
+  const len = Math.hypot(dx, dy);
+  if (len < 1e-6 || gateWidthFt <= 0) return null;
+  const ux = dx / len;
+  const uy = dy / len;
+  let t = (center.x - ax) * ux + (center.y - ay) * uy;
+  t = Math.max(0, Math.min(len, t));
+  const half = gateWidthFt / 2;
+  let t0 = t - half;
+  let t1 = t + half;
+  t0 = Math.max(0, t0);
+  t1 = Math.min(len, t1);
+  if (t1 - t0 < 0.08) return null;
+  return {
+    x1: ax + ux * t0,
+    y1: ay + uy * t0,
+    x2: ax + ux * t1,
+    y2: ay + uy * t1,
+  };
 }
 
 type FeetBBox = { minX: number; minY: number; maxX: number; maxY: number };
@@ -880,6 +930,45 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
 
     const viewBox = mapView.viewBox;
 
+    const markerScale = useMemo(() => {
+      const span = viewSpanFt(mapView.vw, mapView.vh);
+      return {
+        gateR: Math.max(2.4, span * 0.024),
+        gateRDouble: Math.max(3.4, span * 0.03),
+        gateFont: Math.max(2.2, span * 0.02),
+        gateFontDouble: Math.max(2.8, span * 0.024),
+        gateStroke: Math.max(0.4, span * 0.0045),
+        jointR: Math.max(2.8, span * 0.028),
+        jointRSelected: Math.max(3.6, span * 0.034),
+        jointFont: Math.max(2.5, span * 0.022),
+        jointFontSelected: Math.max(3.1, span * 0.027),
+        jointStroke: Math.max(0.45, span * 0.005),
+        jointTextStroke: Math.max(0.25, span * 0.0035),
+        gateSpanStroke: Math.max(0.55, span * 0.0065),
+      };
+    }, [mapView.vw, mapView.vh]);
+
+    const gateSpanPlacements = useMemo(() => {
+      const out: { x1: number; y1: number; x2: number; y2: number; key: string }[] = [];
+      for (let i = 0; i < placedGates.length; i++) {
+        const g = placedGates[i];
+        const idx = Math.max(0, Math.min(segments.length - 1, g.line_index));
+        const seg = segments[idx];
+        if (!seg || seg.length < 2) continue;
+        const lengthFt = segmentLengthFtForGate(seg, lineLengths[idx] || '', manualLengths);
+        if (lengthFt <= 0) continue;
+        const widthFt = sketchGateWidthInches({ type: g.type, line_index: idx }, [{ length_ft: lengthFt }]) / 12;
+        if (widthFt <= 0) continue;
+        const ends = gateSpanEndpoints(
+          [seg[0], seg[1]],
+          { x: g.x, y: g.y },
+          widthFt
+        );
+        if (ends) out.push({ ...ends, key: `gate-span-${i}` });
+      }
+      return out;
+    }, [placedGates, segments, lineLengths, manualLengths]);
+
     /** Re-center and zoom so the whole drawing is in view (manual, on demand). */
     function fitView() {
       const next = fitViewForSketch(segments, placedGates);
@@ -1164,11 +1253,26 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
               />
             )}
 
+            {gateSpanPlacements.map((sp) => (
+              <line
+                key={sp.key}
+                x1={sp.x1}
+                y1={sp.y1}
+                x2={sp.x2}
+                y2={sp.y2}
+                stroke="#22c55e"
+                strokeWidth={markerScale.gateSpanStroke * 2.2}
+                strokeLinecap="round"
+                opacity={0.92}
+                style={{ filter: 'drop-shadow(0px 0px 0.4px rgba(21,128,61,0.35))' }}
+              />
+            ))}
+
             {placedGates.map((g, i) => {
               const isDouble = g.type === 'double';
-              const r = isDouble ? 5.2 : 2.9;
+              const r = isDouble ? markerScale.gateRDouble : markerScale.gateR;
               const label = isDouble ? 'D' : 'S';
-              const fontSize = isDouble ? 5 : 3.25;
+              const fontSize = isDouble ? markerScale.gateFontDouble : markerScale.gateFont;
               return (
                 <g key={i}>
                   <circle
@@ -1177,7 +1281,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                     r={r}
                     fill="#2563eb"
                     stroke="#fff"
-                    strokeWidth={0.6}
+                    strokeWidth={markerScale.gateStroke}
                   />
                   <text
                     x={g.x}
@@ -1188,6 +1292,9 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                     fontSize={fontSize}
                     fontWeight="800"
                     fontFamily="system-ui, -apple-system, sans-serif"
+                    paintOrder="stroke"
+                    stroke="#1d4ed8"
+                    strokeWidth={Math.max(0.15, fontSize * 0.12)}
                     style={{ userSelect: 'none' }}
                   >
                     {label}
@@ -1200,18 +1307,19 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
               jointVerts.map((v, ji) => {
                 const cap = jointTerminations[ji];
                 const selected = mode === 'assign_line_ends' && selectedJointIndex === ji;
-                const r = selected ? 3.4 : 2.5;
+                const r = selected ? markerScale.jointRSelected : markerScale.jointR;
                 const tag =
                   !cap.h_post && !cap.u_channel ? '—' : `${cap.h_post ? 'H' : ''}${cap.u_channel ? 'U' : ''}`;
+                const fontSize = selected ? markerScale.jointFontSelected : markerScale.jointFont;
                 return (
                   <g key={`joint-cap-${ji}`}>
                     <circle
                       cx={v.x}
                       cy={v.y}
                       r={r}
-                      fill={selected ? '#ede9fe' : 'rgba(248,250,252,0.92)'}
-                      stroke={selected ? '#6d28d9' : '#94a3b8'}
-                      strokeWidth={selected ? 0.65 : 0.45}
+                      fill={selected ? '#ede9fe' : 'rgba(255,255,255,0.95)'}
+                      stroke={selected ? '#6d28d9' : '#64748b'}
+                      strokeWidth={selected ? markerScale.jointStroke * 1.35 : markerScale.jointStroke}
                       style={{ pointerEvents: 'none' }}
                     />
                     <text
@@ -1219,10 +1327,14 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                       y={v.y}
                       textAnchor="middle"
                       dominantBaseline="middle"
-                      fill="#334155"
-                      fontSize={selected ? 3.1 : 2.65}
-                      fontWeight="700"
+                      fill={selected ? '#5b21b6' : '#0f172a'}
+                      fontSize={fontSize}
+                      fontWeight="800"
                       fontFamily="system-ui, -apple-system, sans-serif"
+                      paintOrder="stroke"
+                      stroke="#ffffff"
+                      strokeWidth={markerScale.jointTextStroke}
+                      strokeLinejoin="round"
                       style={{ userSelect: 'none' }}
                     >
                       {tag}
