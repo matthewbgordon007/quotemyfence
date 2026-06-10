@@ -2075,19 +2075,21 @@ export default function MaterialCalculatorHubPage() {
   }, [bomTsv]);
 
   const buildMasterMaterialListPdfBlob = useCallback(async (): Promise<{ blob: Blob; filename: string }> => {
-    const { buildMasterMaterialListPdfRows } = await import('@/lib/master-material-list-pdf-data');
-    const rows = buildMasterMaterialListPdfRows(
-      pvcAdobe,
-      extrasParsed,
-      gateCount,
-      pvcFenceLinearFt,
-      extraBoardsPctNum
-    ).filter((r) => {
-      if (r.section === 'wareHeader' || r.section === 'spacer' || r.section === 'totals' || r.section === 'taxRow') {
-        return true;
-      }
-      return isMaterialIncluded(materialExclusions, 'pvc', r.label);
-    });
+    const { buildMasterMaterialListPdfRows, finalizePdfRowsForPicking } = await import('@/lib/master-material-list-pdf-data');
+    const rows = finalizePdfRowsForPicking(
+      buildMasterMaterialListPdfRows(
+        pvcAdobe,
+        extrasParsed,
+        gateCount,
+        pvcFenceLinearFt,
+        extraBoardsPctNum
+      ).filter((r) => {
+        if (r.section === 'wareHeader' || r.section === 'spacer' || r.section === 'totals' || r.section === 'taxRow') {
+          return true;
+        }
+        return isMaterialIncluded(materialExclusions, 'pvc', r.label);
+      })
+    );
     const activeMod = pvcPanelModule;
     const heightLabel = activeMod === 'nominal_7ft' ? "7'" : "6'";
     const subtitle = `${pvcBreakdownColour} – ${heightLabel}`;
@@ -2238,10 +2240,10 @@ export default function MaterialCalculatorHubPage() {
     };
     const itemRows = [
       ...chainFenceRows
-        .filter((r) => isMaterialIncluded(materialExclusions, 'chain', r.label))
+        .filter((r) => r.qty > 0 && isMaterialIncluded(materialExclusions, 'chain', r.label))
         .map((r) => ({ key: r.key, label: r.label, qty: r.qty })),
       ...(chainGateRows ?? [])
-        .filter((r) => isMaterialIncluded(materialExclusions, 'chain', `Gate — ${r.label}`))
+        .filter((r) => r.qty > 0 && isMaterialIncluded(materialExclusions, 'chain', `Gate — ${r.label}`))
         .map((r) => ({ key: r.key, label: `Gate — ${r.label}`, qty: r.qty })),
     ];
     const { large, small } = splitWare(itemRows, (r) => r.label);
@@ -2252,7 +2254,8 @@ export default function MaterialCalculatorHubPage() {
       extras: ex(r.key) > 0 ? fmt(ex(r.key)) : '',
       section,
     });
-    const pdfRows: import('@/lib/master-material-list-pdf-data').MasterMaterialListPdfRow[] = [
+    const { finalizePdfRowsForPicking } = await import('@/lib/master-material-list-pdf-data');
+    const pdfRows = finalizePdfRowsForPicking([
       { label: LARGE_WARE_TITLE, adobe: '', packs: '', extras: '', section: 'wareHeader' as const },
       ...large.map((r) => toPdfRow(r, 'structure')),
       { label: SMALL_WARE_TITLE, adobe: '', packs: '', extras: '', section: 'wareHeader' as const },
@@ -2261,7 +2264,7 @@ export default function MaterialCalculatorHubPage() {
       { label: 'Total Linear Ft', adobe: fmt(chainFenceAgg.total_linear_ft), packs: '', extras: '', section: 'totals' as const },
       { label: 'Total Gates', adobe: fmt(chainGateResults.length), packs: '', extras: '', section: 'totals' as const },
       { label: 'Total B4 Tax', adobe: '', packs: '', extras: '', section: 'taxRow' as const },
-    ];
+    ]);
     const [{ pdf }, { MasterMaterialListPdfDocument }] = await Promise.all([
       import('@react-pdf/renderer'),
       import('@/lib/master-material-list-pdf-document'),
@@ -2386,8 +2389,8 @@ export default function MaterialCalculatorHubPage() {
       const gateCount = job.gates.filter((g) => g.rows).length;
       const fmt = (n: number) => String(Math.round(n * 100) / 100);
       const matTab: MaterialCalcTab = which === 'h' ? 'hybrid_h' : 'hybrid_v';
-      const includedMaster = job.master.filter((r) =>
-        isMaterialIncluded(materialExclusions, matTab, r.item)
+      const includedMaster = job.master.filter(
+        (r) => r.final > 0 && isMaterialIncluded(materialExclusions, matTab, r.item)
       );
       const { large, small } = splitWare(includedMaster, (r) => r.item);
       const toPdfRow = (r: FmsHybridItemRow, section: 'structure' | 'hardware') => ({
@@ -2397,7 +2400,8 @@ export default function MaterialCalculatorHubPage() {
         extras: extrasByItem.get(r.item.toLowerCase()) ? fmt(extrasByItem.get(r.item.toLowerCase())!) : '',
         section,
       });
-      const pdfRows: import('@/lib/master-material-list-pdf-data').MasterMaterialListPdfRow[] = [
+      const { finalizePdfRowsForPicking } = await import('@/lib/master-material-list-pdf-data');
+      const pdfRows = finalizePdfRowsForPicking([
         { label: LARGE_WARE_TITLE, adobe: '', packs: '', extras: '', section: 'wareHeader' as const },
         ...large.map((r) => toPdfRow(r, 'structure')),
         { label: SMALL_WARE_TITLE, adobe: '', packs: '', extras: '', section: 'wareHeader' as const },
@@ -2406,7 +2410,7 @@ export default function MaterialCalculatorHubPage() {
         { label: 'Total Linear Ft', adobe: fmt(linearFt), packs: '', extras: '', section: 'totals' as const },
         { label: 'Total Gates', adobe: fmt(gateCount), packs: '', extras: '', section: 'totals' as const },
         { label: 'Total B4 Tax', adobe: '', packs: '', extras: '', section: 'taxRow' as const },
-      ];
+      ]);
 
       const [{ pdf }, { MasterMaterialListPdfDocument }] = await Promise.all([
         import('@react-pdf/renderer'),
