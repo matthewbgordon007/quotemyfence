@@ -15,6 +15,11 @@ export const FMS_PVC_PANEL_FT: Record<FmsPvcPanelModule, number> = {
   nominal_6ft: 6.75,
 };
 
+export const FMS_PVC_PANEL_MODULE_LABELS: Record<FmsPvcPanelModule, string> = {
+  nominal_7ft: "7 ft panels (8.2' spacing)",
+  nominal_6ft: "6 ft panels (6.75' spacing)",
+};
+
 /** Per-panel multipliers from column B (Quantity for 1 Panel) on the PVC sheet. */
 const B = {
   galvanized: 1,

@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { inferFmsHubMaterialFromQuoteProject } from '@/lib/material-quote-fms-calculator-style';
 import {
   aggregateFmsPvcFenceLines,
+  FMS_PVC_PANEL_MODULE_LABELS,
   type FmsPvcFenceLineInput,
   type FmsPvcPanelModule,
 } from '@/lib/fms-pvc-material-calculator';
@@ -1028,6 +1029,7 @@ export default function MaterialCalculatorHubPage() {
   const [importedMaterialRequest, setImportedMaterialRequest] = useState<MaterialQuoteRequestDto | null>(null);
   /** Matches the Excel per-colour breakdown tab (labels / TSV only; formulas shared). */
   const [pvcBreakdownColour, setPvcBreakdownColour] = useState<FmsPvcCalculatorColour>('Adobe');
+  const [pvcPanelModule, setPvcPanelModule] = useState<FmsPvcPanelModule>('nominal_7ft');
   const [lines, setLines] = useState<PvcLineRow[]>(() => defaultPvcLines());
 
   const [layoutSketchData, setLayoutSketchData] = useState<LayoutSketchDrawingPayload | null>(null);
@@ -1060,10 +1062,11 @@ export default function MaterialCalculatorHubPage() {
     { id: string; width_in: string; posts: FmsPvcGatePosts; opening_in: string }[]
   >([]);
 
-  const pvcPanelModuleForSketch = useMemo(
-    () => lines[0]?.panel_module ?? 'nominal_7ft',
-    [lines]
-  );
+  const applyPvcPanelModule = useCallback((module: FmsPvcPanelModule) => {
+    setPvcPanelModule(module);
+    sketchToLinesSyncKeyRef.current = '';
+    setLines((prev) => prev.map((l) => ({ ...l, panel_module: module })));
+  }, []);
 
   /** Hybrid horizontal (Excel `Horizontal Material Calculator `). */
   const [hybHFamily, setHybHFamily] = useState<FmsHybridHoFamily>('woodGrain');
@@ -1203,6 +1206,12 @@ export default function MaterialCalculatorHubPage() {
       if (mx && Object.keys(mx).length > 0) setMasterExtras(mx);
       if (typeof d.extraBoardsPct === 'string' || typeof d.extraBoardsPct === 'number')
         setExtraBoardsPct(String(d.extraBoardsPct));
+      if (d.pvcPanelModule !== undefined) {
+        setPvcPanelModule(coercePanelModule(d.pvcPanelModule));
+      } else if (!skipPvcLinesAndSketch) {
+        const pl = parsePvcLines(d.lines);
+        if (pl?.[0]) setPvcPanelModule(coercePanelModule(pl[0].panel_module));
+      }
       const cx = parseStringRecord(d.chainExtras);
       if (cx) setChainExtras(cx);
       const hhx = parseStringRecord(d.hybHExtras);
@@ -1245,6 +1254,7 @@ export default function MaterialCalculatorHubPage() {
       tab,
       jobAddress,
       pvcBreakdownColour,
+      pvcPanelModule,
       lines,
       layoutSketchData,
       shortGates,
@@ -1276,6 +1286,7 @@ export default function MaterialCalculatorHubPage() {
     tab,
     jobAddress,
     pvcBreakdownColour,
+    pvcPanelModule,
     lines,
     layoutSketchData,
     shortGates,
@@ -1392,6 +1403,7 @@ export default function MaterialCalculatorHubPage() {
     setTab('pvc');
     setJobAddress('');
     setPvcBreakdownColour('Adobe');
+    setPvcPanelModule('nominal_7ft');
     setLines(defaultPvcLines());
     setLayoutSketchData(null);
     setLayoutCanvasRemountKey((k) => k + 1);
@@ -1639,7 +1651,7 @@ export default function MaterialCalculatorHubPage() {
     if (key === sketchToLinesSyncKeyRef.current) return;
     sketchToLinesSyncKeyRef.current = key;
 
-    const panelModule = pvcPanelModuleForSketch;
+    const panelModule = pvcPanelModule;
 
     setLines((prev) => {
       const next = drawingDataToPvcLineRows(payload, panelModule);
@@ -1678,7 +1690,7 @@ export default function MaterialCalculatorHubPage() {
         return row;
       });
     });
-  }, [layoutSketchData, pvcPanelModuleForSketch]);
+  }, [layoutSketchData, pvcPanelModule]);
 
   /** New gates placed on the layout sketch → PVC + chain link gate rows; scroll to the active tab’s gate block. */
   useEffect(() => {
@@ -1835,10 +1847,7 @@ export default function MaterialCalculatorHubPage() {
   const buildMasterMaterialListPdfBlob = useCallback(async (): Promise<{ blob: Blob; filename: string }> => {
     const { buildMasterMaterialListPdfRows } = await import('@/lib/master-material-list-pdf-data');
     const rows = buildMasterMaterialListPdfRows(pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt, extraBoardsPctNum);
-    const activeMod =
-      lines.find((l) => Math.max(0, Number(String(l.length_ft).replace(/,/g, '')) || 0) > 0)?.panel_module ??
-      lines[0]?.panel_module ??
-      'nominal_7ft';
+    const activeMod = pvcPanelModule;
     const heightLabel = activeMod === 'nominal_7ft' ? "7'" : "6'";
     const subtitle = `${pvcBreakdownColour} – ${heightLabel}`;
     const [{ pdf }, { MasterMaterialListPdfDocument }] = await Promise.all([
@@ -1859,7 +1868,7 @@ export default function MaterialCalculatorHubPage() {
       .replace(/\s+/g, '-')
       .slice(0, 72);
     return { blob, filename: `${slug || 'master-material-list'}.pdf` };
-  }, [pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt, extraBoardsPctNum, lines, pvcBreakdownColour, jobAddress]);
+  }, [pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt, extraBoardsPctNum, pvcPanelModule, pvcBreakdownColour, jobAddress]);
 
   const downloadMasterMaterialListPdf = useCallback(async () => {
     const { blob, filename } = await buildMasterMaterialListPdfBlob();
@@ -2237,7 +2246,7 @@ export default function MaterialCalculatorHubPage() {
         id: newLineId(),
         label: `Line ${p.length + 1}`,
         length_ft: '',
-        panel_module: p[0]?.panel_module ?? 'nominal_7ft',
+        panel_module: pvcPanelModule,
         end_preset: 'h_continuous',
         h_post_type: 1,
         u_channel: '0',
@@ -2607,6 +2616,31 @@ export default function MaterialCalculatorHubPage() {
               </button>
             </div>
           </div>
+          {tab === 'pvc' ? (
+            <div className="rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3 ring-1 ring-slate-900/[0.03]">
+              <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+                <div className="min-w-[12rem] flex-1 sm:max-w-sm">
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Panel spacing
+                  </label>
+                  <select
+                    value={pvcPanelModule}
+                    onChange={(e) => applyPvcPanelModule(e.target.value as FmsPvcPanelModule)}
+                    className={`${field} w-full`}
+                  >
+                    {(Object.keys(FMS_PVC_PANEL_MODULE_LABELS) as FmsPvcPanelModule[]).map((m) => (
+                      <option key={m} value={m}>
+                        {FMS_PVC_PANEL_MODULE_LABELS[m]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <p className="pb-2 text-xs text-slate-500 sm:max-w-md">
+                  Panel and post counts for every run update when you change spacing.
+                </p>
+              </div>
+            </div>
+          ) : null}
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -2747,7 +2781,7 @@ export default function MaterialCalculatorHubPage() {
                   >
                     <span className="text-sm font-semibold text-slate-800">{row.label || `Run ${idx + 1}`}</span>
                     <span className="text-sm text-slate-600">
-                      {Number(row.length_ft) || 0} ft · {row.panel_module === 'nominal_7ft' ? '7 ft' : '6 ft'} panels
+                      {Number(row.length_ft) || 0} ft · {FMS_PVC_PANEL_MODULE_LABELS[row.panel_module]}
                       {Number(row.u_channel) > 0 ? ' · ends at a wall' : ''}
                     </span>
                     <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-800">
@@ -2792,18 +2826,11 @@ export default function MaterialCalculatorHubPage() {
                     </div>
                     <div>
                       <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Panel size
+                        Panel spacing
                       </label>
-                      <select
-                        value={row.panel_module}
-                        onChange={(e) =>
-                          updateLine(row.id, { panel_module: e.target.value as FmsPvcPanelModule })
-                        }
-                        className={`${field} w-full`}
-                      >
-                        <option value="nominal_7ft">7 ft panels</option>
-                        <option value="nominal_6ft">6 ft panels</option>
-                      </select>
+                      <p className={`${field} w-full bg-slate-100 text-slate-600`}>
+                        {FMS_PVC_PANEL_MODULE_LABELS[row.panel_module]}
+                      </p>
                     </div>
                     <div className="sm:col-span-2">
                       <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
