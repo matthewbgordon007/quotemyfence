@@ -42,6 +42,12 @@ const suppliersNavLink = {
   icon: <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18a.75.75 0 0 1 .75-.75h6a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1-.75-.75Zm.75-11.25a.75.75 0 0 0 0 1.5h6a.75.75 0 0 0 0-1.5H9ZM3 6.75A2.25 2.25 0 0 1 5.25 4.5h13.5A2.25 2.25 0 0 1 21 6.75v10.5A2.25 2.25 0 0 1 18.75 19.5H5.25A2.25 2.25 0 0 1 3 17.25V6.75Zm2.25-.75a.75.75 0 0 0-.75.75v10.5c0 .414.336.75.75.75h13.5a.75.75 0 0 0 .75-.75V6.75a.75.75 0 0 0-.75-.75H5.25Z" />,
 };
 
+const materialRequestsNavLink = {
+  href: '/dashboard/material-requests',
+  label: 'Requests',
+  icon: <path strokeLinecap="round" strokeLinejoin="round" d="M9 3.75H6.912a2.25 2.25 0 0 0-2.15 1.588L2.35 13.177a2.25 2.25 0 0 0-.1.661V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18v-4.162c0-.224-.034-.447-.1-.661l-2.41-7.839a2.25 2.25 0 0 0-2.15-1.588H15M2.25 13.5h3.86a2.25 2.25 0 0 1 2.012 1.244l.256.512a2.25 2.25 0 0 0 2.013 1.244h3.218a2.25 2.25 0 0 0 2.013-1.244l.256-.512a2.25 2.25 0 0 1 2.013-1.244h3.859M12 3v8.25m0 0-3-3m3 3 3-3" />,
+};
+
 const businessLinks = [
   {
     href: '/dashboard/account',
@@ -224,11 +230,13 @@ export function DashboardNav({
   slug,
   userRole,
   accountType = 'contractor',
+  billingActive = true,
   isMobile = false,
 }: {
   slug: string;
   userRole: string | null;
   accountType?: string | null;
+  billingActive?: boolean;
   isMobile?: boolean;
 }) {
   const pathname = usePathname();
@@ -236,7 +244,13 @@ export function DashboardNav({
   const isAdmin = userRole && ADMIN_ROLES.includes(userRole);
   const isSupplier = accountType === 'supplier';
   const filteredBusiness = businessLinks.filter((l) => !l.adminOnly || isAdmin);
-  const contractorWorkspace = [...workspaceLinks, suppliersNavLink] as NavLink[];
+  // Free (unpaid) contractor accounts only get Draw, Requests and Suppliers outside Business.
+  const drawNavLink = workspaceLinks.find((l) => l.href === '/dashboard/layout')!;
+  const contractorWorkspace = (
+    billingActive
+      ? [...workspaceLinks, materialRequestsNavLink, suppliersNavLink]
+      : [drawNavLink, materialRequestsNavLink, suppliersNavLink]
+  ) as NavLink[];
   const mobileLinks = (
     isSupplier
       ? ([...workspaceLinks, ...supplierNavLinks, ...filteredBusiness] as NavLink[])

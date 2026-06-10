@@ -7,7 +7,7 @@ import { isBillingActive } from '@/lib/billing';
  * draw fence layouts, and send a layout to a linked supplier for a material list.
  * Everything else stays behind billing.
  */
-const FREE_TIER_DASHBOARD_PREFIXES = ['/dashboard/layout', '/dashboard/suppliers'];
+const FREE_TIER_DASHBOARD_PREFIXES = ['/dashboard/layout', '/dashboard/suppliers', '/dashboard/material-requests'];
 const FREE_TIER_API_PREFIXES = [
   '/api/contractor/layouts',
   '/api/contractor/suppliers',

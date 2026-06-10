@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
+import { isBillingActive } from '@/lib/billing';
 import { DashboardNav } from './DashboardNav';
 
 function hexToRgb(hex: string | null | undefined): string {
@@ -39,13 +40,15 @@ export default async function DashboardLayout({
   const contractor = userRow?.contractor_id
     ? await supabase
         .from('contractors')
-        .select('id, company_name, slug, logo_url, primary_color, account_type')
+        .select('id, company_name, slug, logo_url, primary_color, account_type, stripe_subscription_status, billing_access_override')
         .eq('id', userRow.contractor_id)
         .single()
     : { data: null };
 
   const c = contractor.data;
   const isSupplier = c?.account_type === 'supplier';
+  const billingActive =
+    isSupplier || c?.billing_access_override === true || isBillingActive(c?.stripe_subscription_status);
   const primary = c?.primary_color || '#2563eb';
   const brandRgb = hexToRgb(primary);
 
@@ -148,6 +151,7 @@ export default async function DashboardLayout({
             slug={c?.slug ?? ''}
             userRole={userRow?.role ?? null}
             accountType={c?.account_type ?? 'contractor'}
+            billingActive={billingActive}
             isMobile={false}
           />
         </div>
@@ -201,6 +205,7 @@ export default async function DashboardLayout({
           slug={c?.slug ?? ''}
           userRole={userRow?.role ?? null}
           accountType={c?.account_type ?? 'contractor'}
+          billingActive={billingActive}
           isMobile={true}
         />
       </div>

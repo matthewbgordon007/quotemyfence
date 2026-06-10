@@ -12,6 +12,7 @@ import {
 } from '@/components/LayoutDrawCanvas';
 import { LeadSearchModal } from '@/components/dashboard/LeadSearchModal';
 import { mapFenceSegmentsToLayoutDrawing } from '@/lib/map-fence-to-layout-drawing';
+import { isBillingActive } from '@/lib/billing';
 
 type SavedLayout = {
   id: string;
@@ -85,6 +86,21 @@ export default function LayoutPage() {
   const [homeowners, setHomeowners] = useState<LayoutHomeowner[]>([]);
   const [segmentAssignments, setSegmentAssignments] = useState<string[][]>([]);
   const [linkHomeownerId, setLinkHomeownerId] = useState<string | null>(null);
+  const [billingActive, setBillingActive] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/contractor/me', { credentials: 'include', cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((c) => {
+        if (!c) return;
+        setBillingActive(
+          c.account_type === 'supplier' ||
+            c.billing_access_override === true ||
+            isBillingActive(c.stripe_subscription_status)
+        );
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch('/api/contractor/layouts', { credentials: 'include' })
@@ -378,20 +394,67 @@ export default function LayoutPage() {
       alert('Please add a description with the specifics of your quote (materials, preferences, etc.) before requesting a material list.');
       return;
     }
-    const lid = layoutId || (window.location.search.match(/layout=([^&]+)/)?.[1]);
-    if (!lid) {
-      alert('Please save the layout first before requesting a material quote.');
+    if (!drawingData || drawingData.points.length < 2) {
+      alert('Draw at least one fence line before requesting a material list.');
       return;
     }
     const missingLengths = (drawingData?.segments || []).filter((s) => !(Number(s.length_ft) > 0)).length;
     if (missingLengths > 0) {
       alert(
-        `Enter a length for every line before sending (${missingLengths} line${missingLengths === 1 ? '' : 's'} still need${missingLengths === 1 ? 's' : ''} a length). Lengths are not taken from the drawing — type them in the "Lengths (ft)" boxes, then save.`
+        `Enter a length for every line before sending (${missingLengths} line${missingLengths === 1 ? '' : 's'} still need${missingLengths === 1 ? 's' : ''} a length). Lengths are not taken from the drawing — type them in the "Lengths (ft)" boxes.`
       );
       return;
     }
     setSubmittingMaterial(true);
     try {
+      // No manual save needed — if the layout isn't saved yet, save it quietly first.
+      let lid = layoutId || window.location.search.match(/layout=([^&]+)/)?.[1];
+      if (!lid) {
+        const nSeg = drawingData.segments.length;
+        const drawingPayload = {
+          ...drawingData,
+          homeowners,
+          segment_assignments: syncAssignmentsLength(segmentAssignments, nSeg),
+        };
+        let imageDataUrl: string | undefined;
+        try {
+          if (canvasContainerRef.current) {
+            const canvas = await html2canvas(canvasContainerRef.current, {
+              useCORS: true,
+              backgroundColor: '#ffffff',
+              scale: 1,
+              logging: false,
+            });
+            imageDataUrl = canvas.toDataURL('image/png');
+          }
+        } catch {
+          // image capture is best-effort
+        }
+        const autoTitle =
+          title.trim() ||
+          `Layout ${new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+        const saveRes = await fetch('/api/contractor/layouts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            title: autoTitle,
+            drawing_data: drawingPayload,
+            quote_session_id: fromId || undefined,
+            standalone: !fromId,
+            image_data_url: imageDataUrl,
+          }),
+        });
+        const saved = await saveRes.json().catch(() => ({}));
+        if (!saveRes.ok) throw new Error(saved.error || 'Could not save the layout');
+        lid = String(saved.id);
+        if (!title.trim()) setTitle(autoTitle);
+        window.history.replaceState(null, '', `/dashboard/layout?layout=${lid}`);
+        fetch('/api/contractor/layouts', { credentials: 'include' })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d) => d && setSavedLayouts(d.layouts || []))
+          .catch(() => {});
+      }
       let attachmentPayload:
         | { attachment_url: string; attachment_name: string; attachment_content_type: string; attachment_size_bytes: number }
         | undefined;
@@ -433,11 +496,13 @@ export default function LayoutPage() {
       setMaterialAttachment(null);
       alert(
         materialSupplierId === 'master'
-          ? 'Material quote request sent to the platform team.'
-          : 'Material quote request sent to your supplier.'
+          ? 'Material quote request sent to the platform team. Track it under Requests in the menu.'
+          : 'Material quote request sent to your supplier. Track it under Requests in the menu.'
       );
       const newId = data?.id;
+      // Free accounts can't open the material calculator — don't offer it.
       if (
+        billingActive &&
         newId &&
         typeof window !== 'undefined' &&
         window.confirm('Open the FMS material calculator with this plan sketch (line lengths and gates)?')
@@ -486,7 +551,7 @@ export default function LayoutPage() {
           >
             {saving ? 'Saving…' : 'Save'}
           </button>
-          {layoutId && (
+          {layoutId && billingActive && (
             <>
               <select
                 defaultValue=""
@@ -569,23 +634,22 @@ export default function LayoutPage() {
         </div>
       </div>
 
-      {layoutId && (
-        <div className="border-b border-[var(--line)] bg-[var(--bg2)] px-4 py-3">
-          <button
-            type="button"
-            onClick={() => {
-              setMaterialSupplierId(linkedSuppliers[0]?.id ?? 'master');
-              setShowMaterialModal(true);
-            }}
-            className="rounded-lg border border-[var(--accent)] bg-white px-4 py-2 text-sm font-medium text-[var(--accent)] hover:bg-[var(--accent)]/5"
-          >
-            Get material list
-          </button>
-          <p className="mt-1 text-xs text-[var(--muted)]">
-            Send this layout to a linked supplier (or the platform team) for a material quote. Add a description first.
-          </p>
-        </div>
-      )}
+      <div className="border-b border-[var(--line)] bg-[var(--bg2)] px-4 py-3">
+        <button
+          type="button"
+          onClick={() => {
+            setMaterialSupplierId(linkedSuppliers[0]?.id ?? 'master');
+            setShowMaterialModal(true);
+          }}
+          className="rounded-lg border border-[var(--accent)] bg-white px-4 py-2 text-sm font-medium text-[var(--accent)] hover:bg-[var(--accent)]/5"
+        >
+          Get material list
+        </button>
+        <p className="mt-1 text-xs text-[var(--muted)]">
+          Draw your layout, enter the line lengths, then send it to a linked supplier (or the platform team) — no need
+          to save first. Track responses under <Link href="/dashboard/material-requests" className="font-medium text-[var(--accent)] hover:underline">Requests</Link>.
+        </p>
+      </div>
 
       {showLinkLeadModal && (
         <div
