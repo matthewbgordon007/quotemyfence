@@ -65,8 +65,10 @@ export function computeFmsChainLinkFenceLine(input: FmsChainLinkFenceInput): Fms
   const b23 = L / d8;
   const d23 = excelRoundUp(b23, 0);
   const d24 = L + 3;
-  const d25 = L / 2 + (d14 + d15) * 4;
+  // Ties and hog rings are sold whole — round the Excel L/2 math up to whole numbers.
+  const d25 = excelRoundUp(L / 2 + (d14 + d15) * 4, 0);
   const d26 = d20 + d21;
+  const hogRings = excelRoundUp(L / 2, 0);
 
   return {
     total_panels: c11,
@@ -85,7 +87,7 @@ export function computeFmsChainLinkFenceLine(input: FmsChainLinkFenceInput): Fms
     bottom_wire: d24,
     ties: d25,
     carriage_bolt_nut: d26,
-    hog_rings_note: L / 2,
+    hog_rings_note: hogRings,
   };
 }
 
