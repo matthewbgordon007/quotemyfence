@@ -1223,8 +1223,8 @@ export default function CalculatorPage() {
   const removalQuoteLine =
     hasRemoval && removalLengthFt > 0
       ? removalShared
-        ? `- Removal Cost: ${fmtFeet(removalLengthFt)} length shared 50% w ${(removalSharedWith || '').trim() || 'neighbour'} ( ${moneyCAD(removalTotal)} + Tax)`
-        : `- Removal Cost: ${fmtFeet(removalLengthFt)} × ${moneyCAD(effectiveRemovalPricePerFt)}/ft = ${moneyCAD(removalTotal)} + Tax`
+        ? `Removal Cost:\n\n${fmtFeet(removalLengthFt)} length shared 50% w ${(removalSharedWith || '').trim() || 'neighbour'} ( ${moneyCAD(removalTotal)} + Tax)`
+        : `Removal Cost:\n\n${fmtFeet(removalLengthFt)} × ${moneyCAD(effectiveRemovalPricePerFt)}/ft = ${moneyCAD(removalTotal)} + Tax`
       : null;
   const sharedSectionLines = [...sharedQuoteLines];
   if (removalQuoteLine) {
