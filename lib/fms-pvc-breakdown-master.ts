@@ -80,11 +80,19 @@ export interface FmsPvcMasterRow {
   qty: number;
 }
 
+/** Extra boards added by a percentage uplift (e.g. 5 → +5% boards, rounded up to whole boards). */
+export function pvcBoardsPercentAdd(boardCount: number, boardsPercent?: number): number {
+  const pct = Number(boardsPercent);
+  if (!Number.isFinite(pct) || pct <= 0 || boardCount <= 0) return 0;
+  return excelRoundUp((boardCount * pct) / 100, 0);
+}
+
 export function computePvcMasterColumn(
   adobe: Record<number, number>,
   extras: FmsPvcMasterExtras,
   gateCount: number,
-  totalFenceLinearFt?: number
+  totalFenceLinearFt?: number,
+  boardsPercent?: number
 ): FmsPvcMasterRow[] {
   const e = extras;
   const x = (m?: number) => (m != null && Number.isFinite(m) ? m : 0);
@@ -94,7 +102,8 @@ export function computePvcMasterColumn(
 
   const rail = j(adobe, 6) + j(adobe, 21) + x(e.m6);
   const railStiff = j(adobe, 7) + j(adobe, 22) + x(e.m7);
-  const board = j(adobe, 8) + j(adobe, 23) + x(e.m8);
+  const boardBase = j(adobe, 8) + j(adobe, 23) + x(e.m8);
+  const board = boardBase + pvcBoardsPercentAdd(boardBase, boardsPercent);
   const boardStiff = j(adobe, 9) + j(adobe, 24) + x(e.m9);
   const uChannel = j(adobe, 13) + j(adobe, 28) + x(e.m12);
   const hPostStiff = j(adobe, 14) + j(adobe, 33) + x(e.m13);

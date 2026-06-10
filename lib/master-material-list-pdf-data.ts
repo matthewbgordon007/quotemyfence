@@ -1,5 +1,5 @@
 import { excelRoundUp } from '@/lib/fms-excel-math';
-import type { FmsPvcMasterExtras } from '@/lib/fms-pvc-breakdown-master';
+import { pvcBoardsPercentAdd, type FmsPvcMasterExtras } from '@/lib/fms-pvc-breakdown-master';
 
 function j(adobe: Record<number, number>, row: number): number {
   return adobe[row] ?? 0;
@@ -34,7 +34,8 @@ export function buildMasterMaterialListPdfRows(
   adobe: Record<number, number>,
   extras: FmsPvcMasterExtras,
   gateCount: number,
-  totalFenceLinearFt?: number
+  totalFenceLinearFt?: number,
+  boardsPercent?: number
 ): MasterMaterialListPdfRow[] {
   const e = extras;
   const x = (m?: number) => (m != null && Number.isFinite(m) ? m : 0);
@@ -44,7 +45,9 @@ export function buildMasterMaterialListPdfRows(
 
   const rail = j(adobe, 6) + j(adobe, 21) + x(e.m6);
   const railStiff = j(adobe, 7) + j(adobe, 22) + x(e.m7);
-  const board = j(adobe, 8) + j(adobe, 23) + x(e.m8);
+  const boardBase = j(adobe, 8) + j(adobe, 23) + x(e.m8);
+  const boardPctAdd = pvcBoardsPercentAdd(boardBase, boardsPercent);
+  const board = boardBase + boardPctAdd;
   const boardStiff = j(adobe, 9) + j(adobe, 24) + x(e.m9);
   const uChannel = j(adobe, 13) + j(adobe, 28) + x(e.m12);
   const hPostStiff = j(adobe, 14) + j(adobe, 33) + x(e.m13);
@@ -72,7 +75,7 @@ export function buildMasterMaterialListPdfRows(
     { label: 'Concrete', adobe: fmtQty(concrete), extras: '', section: S },
     { label: 'Rail', adobe: fmtQty(rail), extras: extrasCell(x(e.m6)), section: S },
     { label: 'Rail Stiffener', adobe: fmtQty(railStiff), extras: extrasCell(x(e.m7)), section: S },
-    { label: 'Board', adobe: fmtQty(board), extras: extrasCell(x(e.m8)), section: S },
+    { label: 'Board', adobe: fmtQty(board), extras: extrasCell(x(e.m8) + boardPctAdd), section: S },
     { label: 'Board Stiffener', adobe: fmtQty(boardStiff), extras: extrasCell(x(e.m9)), section: S },
     { label: 'H-Post', adobe: fmtQty(hPost), extras: extrasCell(x(e.m10)), section: S },
     { label: 'Galvanized Post', adobe: fmtQty(galv), extras: extrasCell(x(e.m11)), section: S },

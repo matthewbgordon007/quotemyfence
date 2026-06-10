@@ -13,6 +13,7 @@ import {
   adobeBreakdownToRows,
   buildPvcAdobeBreakdown,
   computePvcMasterColumn,
+  pvcBoardsPercentAdd,
   type FmsPvcMasterExtras,
 } from '@/lib/fms-pvc-breakdown-master';
 import { sumGateAdobeRows, type FmsPvcGatePosts } from '@/lib/fms-pvc-gates-calculator';
@@ -837,6 +838,8 @@ export default function MaterialCalculatorHubPage() {
   const chainGatesSectionRef = useRef<HTMLElement | null>(null);
   const [masterExtrasOpen, setMasterExtrasOpen] = useState(false);
   const [masterExtras, setMasterExtras] = useState<Partial<Record<keyof FmsPvcMasterExtras, string>>>({});
+  /** Percentage uplift applied to the final board count (e.g. "5" → +5% boards, rounded up). */
+  const [extraBoardsPct, setExtraBoardsPct] = useState('');
 
   /** Chain link */
   const [chainLines, setChainLines] = useState<ChainLineRow[]>(() => defaultChainLines());
@@ -988,6 +991,8 @@ export default function MaterialCalculatorHubPage() {
       if (typeof d.masterExtrasOpen === 'boolean') setMasterExtrasOpen(d.masterExtrasOpen);
       const mx = parseMasterExtras(d.masterExtras);
       if (mx && Object.keys(mx).length > 0) setMasterExtras(mx);
+      if (typeof d.extraBoardsPct === 'string' || typeof d.extraBoardsPct === 'number')
+        setExtraBoardsPct(String(d.extraBoardsPct));
 
       const cl = parseChainLines(d.chainLines);
       if (cl) setChainLines(cl);
@@ -1032,6 +1037,7 @@ export default function MaterialCalculatorHubPage() {
       sketchGateSyncCount: sketchSyncedGatePlacementCountRef.current,
       masterExtrasOpen,
       masterExtras,
+      extraBoardsPct,
       chainLines,
       chainRailFt,
       chainMeshFt,
@@ -1058,6 +1064,7 @@ export default function MaterialCalculatorHubPage() {
     doubleGates,
     masterExtrasOpen,
     masterExtras,
+    extraBoardsPct,
     chainLines,
     chainRailFt,
     chainMeshFt,
@@ -1100,6 +1107,7 @@ export default function MaterialCalculatorHubPage() {
     doubleGates,
     masterExtrasOpen,
     masterExtras,
+    extraBoardsPct,
     chainLines,
     chainRailFt,
     chainMeshFt,
@@ -1167,6 +1175,7 @@ export default function MaterialCalculatorHubPage() {
     setDoubleGates([]);
     setMasterExtrasOpen(false);
     setMasterExtras({});
+    setExtraBoardsPct('');
     setChainLines(defaultChainLines());
     setChainRailFt('10');
     setChainMeshFt('50');
@@ -1520,9 +1529,20 @@ export default function MaterialCalculatorHubPage() {
     [pvcJob.lines, gateMerge.merged, gateWidthInchesSum]
   );
 
+  const extraBoardsPctNum = useMemo(() => {
+    const n = Number(String(extraBoardsPct).replace(/,/g, ''));
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }, [extraBoardsPct]);
+
+  /** Preview of how many boards the percentage uplift adds (base boards incl. manual extras). */
+  const extraBoardsPctAdd = useMemo(() => {
+    const base = (pvcAdobe[8] ?? 0) + (pvcAdobe[23] ?? 0) + (extrasParsed.m8 ?? 0);
+    return pvcBoardsPercentAdd(base, extraBoardsPctNum);
+  }, [pvcAdobe, extrasParsed, extraBoardsPctNum]);
+
   const pvcMaster = useMemo(
-    () => computePvcMasterColumn(pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt),
-    [pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt]
+    () => computePvcMasterColumn(pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt, extraBoardsPctNum),
+    [pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt, extraBoardsPctNum]
   );
 
   const pvcLineDetails = useMemo(() => {
@@ -1566,7 +1586,7 @@ export default function MaterialCalculatorHubPage() {
 
   const downloadMasterMaterialListPdf = useCallback(async () => {
     const { buildMasterMaterialListPdfRows } = await import('@/lib/master-material-list-pdf-data');
-    const rows = buildMasterMaterialListPdfRows(pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt);
+    const rows = buildMasterMaterialListPdfRows(pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt, extraBoardsPctNum);
     const activeMod =
       lines.find((l) => Math.max(0, Number(String(l.length_ft).replace(/,/g, '')) || 0) > 0)?.panel_module ??
       lines[0]?.panel_module ??
@@ -1599,7 +1619,7 @@ export default function MaterialCalculatorHubPage() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-  }, [pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt, lines, pvcBreakdownColour, jobAddress]);
+  }, [pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt, extraBoardsPctNum, lines, pvcBreakdownColour, jobAddress]);
 
   /** Chain link aggregates */
   const chainFenceInputs: FmsChainLinkFenceInput[] = useMemo(() => {
@@ -2498,6 +2518,31 @@ export default function MaterialCalculatorHubPage() {
                   ))}
                 </div>
               )}
+              <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50/40 p-4">
+                <div className="flex flex-wrap items-end gap-3">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
+                      Additional boards (%)
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={extraBoardsPct}
+                      onChange={(e) => setExtraBoardsPct(sanitizeExtraInput(e.target.value, false))}
+                      className={`${field} w-24`}
+                      placeholder="0"
+                    />
+                  </div>
+                  <p className="pb-2 text-xs text-slate-500">
+                    Adds this % more boards to the material list (rounded up to whole boards).
+                    {extraBoardsPctAdd > 0 ? (
+                      <span className="ml-1 font-semibold text-slate-700">
+                        +{extraBoardsPctAdd} board{extraBoardsPctAdd === 1 ? '' : 's'}
+                      </span>
+                    ) : null}
+                  </p>
+                </div>
+              </div>
             </div>
           </section>
 
