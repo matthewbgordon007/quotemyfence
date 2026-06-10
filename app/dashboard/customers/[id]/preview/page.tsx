@@ -16,6 +16,11 @@ function PreviewContent() {
     setIsSharing(true);
     try {
       const res = await fetch(pdfUrl);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Could not load the PDF. Save a quote for this customer first.');
+        return;
+      }
       const blob = await res.blob();
       const file = new File([blob], 'Quote.pdf', { type: 'application/pdf' });
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {

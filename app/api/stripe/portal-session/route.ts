@@ -27,8 +27,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No Stripe customer yet' }, { status: 400 });
     }
 
-    const body = await request.json().catch(() => ({}));
-    const origin = typeof body?.origin === 'string' && body.origin ? body.origin : request.nextUrl.origin;
+    // Never trust a client-supplied origin for redirect URLs (open redirect).
+    const origin = request.nextUrl.origin;
     const stripe = getStripe();
     const session = await stripe.billingPortal.sessions.create({
       customer: contractor.stripe_customer_id,

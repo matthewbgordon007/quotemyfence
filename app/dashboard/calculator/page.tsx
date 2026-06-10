@@ -554,7 +554,9 @@ export default function CalculatorPage() {
               .catch(() => {});
           }
         })
-        .catch(() => {});
+        .catch(() => {
+          alert('Could not load that saved quote — it may have been deleted. Starting fresh.');
+        });
     } else if (materialQuoteId && !quoteId) {
       fetch(`/api/contractor/material-quote-requests/${encodeURIComponent(materialQuoteId)}/for-calculator`, {
         cache: 'no-store',

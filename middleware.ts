@@ -91,12 +91,15 @@ export async function middleware(request: NextRequest) {
     } else {
       const { data: contractor } = await supabase
         .from('contractors')
-        .select('stripe_subscription_status, billing_access_override')
+        .select('stripe_subscription_status, billing_access_override, account_type')
         .eq('id', userRow.contractor_id)
         .single();
 
+      // Supplier accounts are not billed through contractor Stripe subscriptions —
+      // never bounce them to /dashboard/billing.
+      const isSupplier = contractor?.account_type === 'supplier';
       const hasOverride = contractor?.billing_access_override === true;
-      if (!hasOverride && !isBillingActive(contractor?.stripe_subscription_status)) {
+      if (!isSupplier && !hasOverride && !isBillingActive(contractor?.stripe_subscription_status)) {
         if (isFreeTierPath(request.nextUrl.pathname)) {
           return response;
         }

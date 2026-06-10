@@ -253,6 +253,16 @@ export function DashboardNav({
     return (
       <nav className="no-scrollbar flex w-full items-stretch gap-1 overflow-x-auto px-2 py-2">
         <NavRows links={mobileLinks} pathname={pathname} isMobile />
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex min-w-[64px] shrink-0 flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 text-[10px] font-medium text-slate-500 hover:bg-red-50 hover:text-red-700"
+        >
+          <svg className="h-5 w-5 shrink-0 stroke-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
+          </svg>
+          Log out
+        </button>
       </nav>
     );
   }

@@ -30,7 +30,8 @@ export async function GET() {
     .from('layout_drawings')
     .select('id, title, created_at, updated_at, quote_session_id, drawing_data')
     .eq('contractor_id', contractorId)
-    .order('updated_at', { ascending: false });
+    .order('updated_at', { ascending: false })
+    .limit(200);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

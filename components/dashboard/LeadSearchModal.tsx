@@ -57,7 +57,7 @@ export function LeadSearchModal({
         credentials: 'include',
         cache: 'no-store',
       })
-        .then((r) => r.json())
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error('Search failed'))))
         .then((d: { customers?: LeadSearchRow[] }) => {
           setRows(Array.isArray(d.customers) ? d.customers : []);
         })

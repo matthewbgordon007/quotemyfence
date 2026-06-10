@@ -93,9 +93,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: contractorConflictsErrorMessage(conflicts) }, { status: 400 });
     }
 
+    // Suppliers recovering from a partial signup must not become contractor accounts.
+    const accountType = body.account_type === 'supplier' ? 'supplier' : 'contractor';
+
     const { data: contractor, error: contractorError } = await supabaseAdmin
       .from('contractors')
       .insert({
+        account_type: accountType,
         company_name,
         slug,
         email: user.email!,

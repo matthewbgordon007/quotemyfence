@@ -166,7 +166,7 @@ function CompleteSetupForm({
           </form>
           <p className="mt-6 text-center text-sm text-slate-600">
             Or{' '}
-            <a href="/login" className="font-semibold text-blue-600 hover:text-blue-500 hover:underline">
+            <a href="/logout" className="font-semibold text-blue-600 hover:text-blue-500 hover:underline">
               log out
             </a>{' '}
             and sign up again.

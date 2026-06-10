@@ -58,7 +58,8 @@ export default function SalesTeamPage() {
       credentials: 'include',
       cache: 'no-store',
     })
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('Failed to load team'))))
+      .catch(() => ({ members: [] }))
       .then((data) => {
         if (gen !== listFetchGen.current) return;
         const raw = (data.members || []) as SalesTeamMember[];

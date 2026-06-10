@@ -42,7 +42,7 @@ export default function DesignPreloadPage() {
           window.clearTimeout(bail);
         };
       }
-      router.replace(estimateStepPath(slug, 'draw', state.sessionId));
+      router.replace(estimateStepPath(slug, 'draw', sessionFromUrl || state.sessionId));
       return () => {
         cancelled = true;
       };
@@ -59,7 +59,7 @@ export default function DesignPreloadPage() {
 
     Promise.all([minDelay, preload]).then(() => {
       if (cancelled) return;
-      router.replace(estimateStepPath(slug, 'design', state.sessionId));
+      router.replace(estimateStepPath(slug, 'design', state.sessionId || sessionFromUrl));
     });
 
     return () => {

@@ -183,6 +183,11 @@ export async function POST(
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
+    // Idempotency: double-clicks / retries must not re-send the contractor + customer emails.
+    if (session.status === 'submitted' || session.completed_at) {
+      return NextResponse.json({ ok: true, already_submitted: true });
+    }
+
     const [
       { data: customer },
       { data: property },

@@ -63,7 +63,8 @@ export async function POST(request: NextRequest) {
           { status: 503 }
         );
       }
-      return NextResponse.json({ error: insertError.message }, { status: 500 });
+      console.error('help-request insert error:', insertError);
+      return NextResponse.json({ error: 'Could not save your message. Please try again.' }, { status: 500 });
     }
 
     // Notify the master admin(s) by email if Resend is configured.

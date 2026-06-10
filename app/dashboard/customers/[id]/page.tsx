@@ -126,7 +126,12 @@ export default function CustomerDetailPage() {
             ? { ...prev, session: { ...prev.session, lead_status: leadStatus } }
             : null
         );
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Failed to update lead status');
       }
+    } catch {
+      alert('Failed to update lead status');
     } finally {
       setUpdatingStatus(false);
     }
@@ -419,8 +424,8 @@ export default function CustomerDetailPage() {
       });
       const err = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(err.error || 'Failed to update');
-      const refresh = await fetch(`/api/contractor/customers/${id}`).then((r) => r.json());
-      setData(refresh);
+      const refreshRes = await fetch(`/api/contractor/customers/${id}`);
+      if (refreshRes.ok) setData(await refreshRes.json());
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Failed to update project');
     } finally {

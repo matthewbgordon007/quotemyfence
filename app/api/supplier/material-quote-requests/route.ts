@@ -14,7 +14,8 @@ export async function GET() {
     .from('material_quote_requests')
     .select(MATERIAL_QUOTE_REQUEST_SELECT)
     .eq('supplier_contractor_id', sess.contractorId)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(200);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
             trialEnd = toIso(sub.trial_end);
           }
 
-          await supabaseAdmin
+          const { error: updateError } = await supabaseAdmin
             .from('contractors')
             .update({
               stripe_customer_id: customerId,
@@ -61,6 +61,8 @@ export async function POST(request: NextRequest) {
               stripe_trial_ends_at: trialEnd,
             })
             .eq('id', contractorId);
+          // Return 500 so Stripe retries — otherwise billing state silently drifts.
+          if (updateError) throw updateError;
         }
         break;
       }
@@ -70,7 +72,7 @@ export async function POST(request: NextRequest) {
         const sub = event.data.object as Stripe.Subscription;
         const customerId = typeof sub.customer === 'string' ? sub.customer : null;
         if (!customerId) break;
-        await supabaseAdmin
+        const { error: subUpdateError } = await supabaseAdmin
           .from('contractors')
           .update({
             stripe_subscription_id: sub.id,
@@ -79,6 +81,7 @@ export async function POST(request: NextRequest) {
             stripe_trial_ends_at: toIso(sub.trial_end),
           })
           .eq('stripe_customer_id', customerId);
+        if (subUpdateError) throw subUpdateError;
         break;
       }
       default:

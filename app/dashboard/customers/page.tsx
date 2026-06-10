@@ -235,7 +235,7 @@ export default function CustomersPage() {
     else setRefreshing(true);
 
     fetch(customersUrl(leadFilter), { cache: 'no-store', credentials: 'include' })
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('Failed to load leads'))))
       .then((data: { customers?: CustomerRow[]; counts?: Record<string, number>; unviewed_count?: number }) => {
         if (cancelled) return;
         setCustomers(data.customers || []);

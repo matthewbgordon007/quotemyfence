@@ -64,7 +64,9 @@ export default function DrawPage() {
   async function handleRemovalChoice(hasRemoval: boolean) {
     setHasRemoval(hasRemoval);
     if (!state.sessionId) {
-      router.push(estimateStepPath(slug, 'design-preload', null));
+      // Session lost (direct link / expired) — drawing can't be saved, restart at contact.
+      alert('Your quote session expired. Please re-enter your contact info to continue.');
+      router.push(estimateStepPath(slug, 'contact', null));
       return;
     }
     setSaving(true);
@@ -84,6 +86,7 @@ export default function DrawPage() {
       router.push(estimateStepPath(slug, 'design-preload', state.sessionId));
     } catch (e) {
       console.error(e);
+      alert('We couldn\u2019t save your drawing. Please check your connection and try again.');
     } finally {
       setSaving(false);
     }

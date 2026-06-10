@@ -63,14 +63,24 @@ CREATE POLICY "Contractors manage own fence_heights"
   USING (contractor_id IN (SELECT contractor_id FROM users WHERE auth_id = auth.uid() AND is_active = true))
   WITH CHECK (contractor_id IN (SELECT contractor_id FROM users WHERE auth_id = auth.uid() AND is_active = true));
 
+-- Types can be owned directly (contractor_id) or via their parent height
+-- (legacy rows where contractor_id is NULL but height_id belongs to the contractor).
 DROP POLICY IF EXISTS "Contractors manage own fence_types" ON fence_types;
 CREATE POLICY "Contractors manage own fence_types"
   ON fence_types FOR ALL
   USING (
     contractor_id IN (SELECT contractor_id FROM users WHERE auth_id = auth.uid() AND is_active = true)
+    OR height_id IN (
+      SELECT id FROM fence_heights
+      WHERE contractor_id IN (SELECT contractor_id FROM users WHERE auth_id = auth.uid() AND is_active = true)
+    )
   )
   WITH CHECK (
     contractor_id IN (SELECT contractor_id FROM users WHERE auth_id = auth.uid() AND is_active = true)
+    OR height_id IN (
+      SELECT id FROM fence_heights
+      WHERE contractor_id IN (SELECT contractor_id FROM users WHERE auth_id = auth.uid() AND is_active = true)
+    )
   );
 
 DROP POLICY IF EXISTS "Contractors manage own fence_styles" ON fence_styles;
@@ -78,14 +88,22 @@ CREATE POLICY "Contractors manage own fence_styles"
   ON fence_styles FOR ALL
   USING (
     fence_type_id IN (
-      SELECT id FROM fence_types
-      WHERE contractor_id IN (SELECT contractor_id FROM users WHERE auth_id = auth.uid() AND is_active = true)
+      SELECT ft.id FROM fence_types ft
+      WHERE ft.contractor_id IN (SELECT contractor_id FROM users WHERE auth_id = auth.uid() AND is_active = true)
+         OR ft.height_id IN (
+           SELECT id FROM fence_heights
+           WHERE contractor_id IN (SELECT contractor_id FROM users WHERE auth_id = auth.uid() AND is_active = true)
+         )
     )
   )
   WITH CHECK (
     fence_type_id IN (
-      SELECT id FROM fence_types
-      WHERE contractor_id IN (SELECT contractor_id FROM users WHERE auth_id = auth.uid() AND is_active = true)
+      SELECT ft.id FROM fence_types ft
+      WHERE ft.contractor_id IN (SELECT contractor_id FROM users WHERE auth_id = auth.uid() AND is_active = true)
+         OR ft.height_id IN (
+           SELECT id FROM fence_heights
+           WHERE contractor_id IN (SELECT contractor_id FROM users WHERE auth_id = auth.uid() AND is_active = true)
+         )
     )
   );
 

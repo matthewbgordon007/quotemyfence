@@ -34,6 +34,10 @@ export async function POST(
     const fallbackTotalLength = roundUpFeet(Number(total_length_ft));
     const fenceTotalLength = normalizedTotalLength > 0 ? normalizedTotalLength : fallbackTotalLength;
 
+    // Re-draws replace the previous drawing — delete prior fences for this session
+    // (segments + gates cascade) so retries don't accumulate duplicate fences.
+    await supabase.from('fences').delete().eq('quote_session_id', sessionId);
+
     const { data: fence, error: fenceError } = await supabase
       .from('fences')
       .insert({

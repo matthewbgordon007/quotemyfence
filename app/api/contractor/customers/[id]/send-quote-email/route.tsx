@@ -41,7 +41,18 @@ export async function POST(
     .single();
 
   if (sessionError || !session) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  const quoteText = (session as { contractor_quote_text?: string | null }).contractor_quote_text;
+  let quoteText = (session as { contractor_quote_text?: string | null }).contractor_quote_text;
+  if (!quoteText) {
+    // Quotes saved from the calculator live in saved_quotes — use the newest one.
+    const { data: latestQuote } = await supabase
+      .from('saved_quotes')
+      .select('quote_text')
+      .eq('quote_session_id', sessionId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    quoteText = latestQuote?.quote_text ?? null;
+  }
   if (!quoteText) return NextResponse.json({ error: 'No saved quote' }, { status: 400 });
 
   const [

@@ -80,6 +80,21 @@ export async function GET(
     }
   }
 
+  // No quote_id (or legacy session column empty): fall back to the newest saved quote.
+  if (!quoteText) {
+    const { data: latestQuote } = await supabase
+      .from('saved_quotes')
+      .select('quote_text, created_at')
+      .eq('quote_session_id', sessionId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (latestQuote) {
+      quoteText = latestQuote.quote_text;
+      savedAt = latestQuote.created_at;
+    }
+  }
+
   if (!quoteText) return NextResponse.json({ error: 'No saved quote' }, { status: 400 });
 
   const [

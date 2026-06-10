@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { ESTIMATE_SESSION_QUERY } from '@/lib/estimate-session-url';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ESTIMATE_SESSION_QUERY, estimateStepPath } from '@/lib/estimate-session-url';
 import { useEstimate } from './EstimateContext';
 
 export function EstimateSessionHydration({ slug }: { slug: string }) {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { hydrateFromServer } = useEstimate();
   const hydratedSidRef = useRef<string | null>(null);
   const failedSidRef = useRef<string | null>(null);
@@ -32,6 +33,9 @@ export function EstimateSessionHydration({ slug }: { slug: string }) {
         );
         if (!res.ok) {
           failedSidRef.current = sid;
+          // Stale / invalid session link: restart at contact instead of leaving the
+          // user on a step that silently has no session.
+          router.replace(estimateStepPath(slug, 'contact', null));
           return;
         }
         const data = await res.json();
@@ -59,7 +63,7 @@ export function EstimateSessionHydration({ slug }: { slug: string }) {
     return () => {
       cancelled = true;
     };
-  }, [searchParams, slug, hydrateFromServer]);
+  }, [searchParams, slug, hydrateFromServer, router]);
 
   if (!loading) return null;
   return (

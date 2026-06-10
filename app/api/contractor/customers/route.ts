@@ -167,6 +167,9 @@ export async function GET(request: NextRequest) {
   if (limit) {
     const n = Math.min(parseInt(limit, 10) || 50, 100);
     query = query.limit(n);
+  } else {
+    // Safety cap so the pipeline endpoint never returns an unbounded result set.
+    query = query.limit(500);
   }
 
   let statusesQuery = supabase

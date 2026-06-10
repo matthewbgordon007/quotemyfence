@@ -39,7 +39,8 @@ export async function GET() {
   const { data, error } = await supabaseAdmin
     .from('help_requests')
     .select('*, contractors(company_name, slug)')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(200);
 
   if (error) {
     if (/help_requests/.test(error.message || '')) {

@@ -44,8 +44,8 @@ export async function POST(request: NextRequest) {
         .eq('id', contractor.id);
     }
 
-    const body = await request.json().catch(() => ({}));
-    const origin = typeof body?.origin === 'string' && body.origin ? body.origin : request.nextUrl.origin;
+    // Never trust a client-supplied origin for redirect URLs (open redirect).
+    const origin = request.nextUrl.origin;
     const successUrl = `${origin}/dashboard/billing?status=success`;
     const cancelUrl = `${origin}/dashboard/billing?status=cancel`;
 
@@ -67,8 +67,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error('stripe checkout error', error);
-    const message = error instanceof Error ? error.message : 'Failed to create checkout session';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to create checkout session' }, { status: 500 });
   }
 }
 

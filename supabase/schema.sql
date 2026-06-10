@@ -202,8 +202,14 @@ CREATE TABLE IF NOT EXISTS gates (
   quantity INT NOT NULL DEFAULT 1,
   unit_price_low NUMERIC(10,2) DEFAULT 0,
   unit_price_high NUMERIC(10,2) DEFAULT 0,
+  lat NUMERIC(12,8),
+  lng NUMERIC(12,8),
   created_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Existing databases: add gate map coordinates if missing (idempotent)
+ALTER TABLE gates ADD COLUMN IF NOT EXISTS lat NUMERIC(12,8);
+ALTER TABLE gates ADD COLUMN IF NOT EXISTS lng NUMERIC(12,8);
 
 -- 14. quote_totals
 CREATE TABLE IF NOT EXISTS quote_totals (

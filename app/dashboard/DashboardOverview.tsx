@@ -112,9 +112,9 @@ export function DashboardOverview() {
     let cancelled = false;
     setAnalyticsLoading(true);
     fetch(`/api/contractor/analytics?period=${analyticsPeriod}`)
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (!cancelled) setAnalytics(data);
+        if (!cancelled) setAnalytics(data ?? null);
       })
       .catch(() => {
         if (!cancelled) setAnalytics(null);

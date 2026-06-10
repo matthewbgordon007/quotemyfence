@@ -257,7 +257,8 @@ export default function DesignPage() {
     }
 
     if (!state.sessionId) {
-      router.push(estimateStepPath(slug, 'review', null));
+      // Session lost — review's submit would be permanently disabled. Restart at contact.
+      router.push(estimateStepPath(slug, 'contact', null));
       return;
     }
 
