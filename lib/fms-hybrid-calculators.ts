@@ -91,10 +91,11 @@ export function buildFmsHybridMasterList(
     { item: 'Aluminum HPost 120"', final: hPost },
     { item: 'Short Gate H Post', final: shortGateHPost },
     { item: 'Aluminum HPost Cap', final: cap },
-    { item: '3" Aluminum Pocket Rail 96"', final: rail96 },
-    { item: '3" Aluminum Pocket Rail 72"', final: rail72 },
-    { item: 'Board', final: board },
-    { item: 'Board Stiffener', final: boardStiff },
+    // Cuttable stock is summed fractionally across runs and rounded up once for the job.
+    { item: '3" Aluminum Pocket Rail 96"', final: excelRoundUp(rail96, 0) },
+    { item: '3" Aluminum Pocket Rail 72"', final: excelRoundUp(rail72, 0) },
+    { item: 'Board', final: excelRoundUp(board, 0) },
+    { item: 'Board Stiffener', final: excelRoundUp(boardStiff, 0) },
     { item: 'Outer U-Channel', final: uChannel },
     { item: 'Inner U-Channel', final: uChannel },
     { item: 'Aluminum Gate Side Frame', final: gateSideFrame },
@@ -181,7 +182,9 @@ export function computeHybridHorizontalFence(
 
   const hPost = Math.max(0, d10 + d7 - 1);
   const rail6 = c10 * 2;
-  const board = fmsHybridHoBoardsPerPanel(family, height) * d10;
+  // Boards are horizontal and cuttable — keep the fractional (half-panel) quantity per run so
+  // offcuts can finish another run; the master list rounds up once for the whole job.
+  const board = fmsHybridHoBoardsPerPanel(family, height) * c10;
   const c17 = d10 * 4;
   const longScrew = d8 === 1 ? c17 - 2 : d8 === 0 ? c17 : c17 - 4;
   const smallScrew = d8 * 6;
@@ -361,9 +364,10 @@ export function computeHybridVerticalPvc64Fence(input: FmsHybridVeFenceInput): F
 
   const hPost = Math.max(0, d9 + d6 - 1);
   const rail8 = c9 * 2;
-  // Excel leaves C15/C16 fractional; boards and stiffeners are sold whole, so round up.
-  const board72 = excelRoundUp(16 * c8, 0);
-  const boardStiff = excelRoundUp(3 * c8, 0);
+  // Excel leaves C15/C16 fractional — keep them fractional per run so cut material is shared
+  // across runs; the master list rounds the job total up once.
+  const board72 = 16 * c8;
+  const boardStiff = 3 * c8;
   const smallScrew = d7 * 6;
   const c19 = d9 * 4;
   const longScrew = d7 === 1 ? c19 - 2 : d7 === 0 ? c19 : c19 - 4;

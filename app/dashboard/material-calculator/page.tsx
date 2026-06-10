@@ -2941,7 +2941,8 @@ export default function MaterialCalculatorHubPage() {
               <h2 className={h2}>Material list</h2>
               <p className="mt-1 text-xs text-slate-500">
                 Your full parts list in {pvcBreakdownColour}. Left is the itemized breakdown; right is the order quantity
-                per part.
+                per part. Cut stock (rails, boards, stiffeners) is shared across runs and rounded up once for the whole
+                job, so offcuts from one run finish another — least scrap possible.
               </p>
             </div>
             <div className="grid gap-6 p-5 lg:grid-cols-2">
@@ -3679,7 +3680,8 @@ export default function MaterialCalculatorHubPage() {
                     <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">Master material list</h3>
                     <p className="mb-2 text-[11px] text-slate-500">
                       Order-ready SKUs: each U-channel = 1 outer + 1 inner, rail screws (1.5&quot;) = 2 per long screw
-                      (plus matching plugs), concrete = 2.5 per post.
+                      (plus matching plugs), concrete = 2.5 per post. Cut stock (rails, boards, stiffeners) is shared
+                      across runs and rounded up once for the whole job to minimize scrap.
                     </p>
                     <HybridItemTable rows={hybridHJob.master} />
                   </div>
@@ -3967,7 +3969,8 @@ export default function MaterialCalculatorHubPage() {
                     <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">Master material list</h3>
                     <p className="mb-2 text-[11px] text-slate-500">
                       Order-ready SKUs: each U-channel = 1 outer + 1 inner, rail screws (1.5&quot;) = 2 per long screw
-                      (plus matching plugs), concrete = 2.5 per post.
+                      (plus matching plugs), concrete = 2.5 per post. Cut stock (rails, boards, stiffeners) is shared
+                      across runs and rounded up once for the whole job to minimize scrap.
                     </p>
                     <HybridItemTable rows={hybridVJob.master} />
                   </div>

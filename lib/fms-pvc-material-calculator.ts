@@ -61,6 +61,11 @@ export interface FmsPvcFenceLineResult {
   plug: number;
   u_channel: number;
   h_post_stiffener: number;
+  /** Fractional (pre-ROUNDUP) quantities for cuttable stock — used to share offcuts across runs. */
+  rail_raw: number;
+  rail_stiffener_raw: number;
+  board_raw: number;
+  board_stiffener_raw: number;
 }
 
 function clampHType(v: number): 0 | 1 | 2 {
@@ -144,6 +149,10 @@ export function computeFmsPvcFenceLine(raw: FmsPvcFenceLineInput): FmsPvcFenceLi
     plug: d21,
     u_channel: d22,
     h_post_stiffener: d23,
+    rail_raw: c15,
+    rail_stiffener_raw: c16,
+    board_raw: c17,
+    board_stiffener_raw: c18,
   };
 }
 
@@ -173,16 +182,31 @@ export interface FmsPvcJobTotals {
   sku_rows: { label: string; quantity: number }[];
 }
 
+/** Cuttable stock: offcuts from one run can finish another, so round once per job, not per run. */
+const PVC_CUT_SHARED: Partial<Record<keyof FmsPvcFenceLineResult, keyof FmsPvcFenceLineResult>> = {
+  rail: 'rail_raw',
+  rail_stiffener: 'rail_stiffener_raw',
+  board: 'board_raw',
+  board_stiffener: 'board_stiffener_raw',
+};
+
 export function aggregateFmsPvcFenceLines(lines: FmsPvcFenceLineInput[]): FmsPvcJobTotals {
   const results = lines.filter((l) => l.length_ft > 0).map((l) => computeFmsPvcFenceLine(l));
   const sumWhole = results.reduce((a, r) => a + r.total_whole_panels, 0);
   const sumH = results.reduce((a, r) => a + r.h_post, 0);
   const concrete = sumH * 2.5;
 
-  const sku_rows = PVC_SKU_ROWS.map(({ key, label }) => ({
-    label,
-    quantity: results.reduce((a, r) => a + (Number(r[key]) || 0), 0),
-  }));
+  const sku_rows = PVC_SKU_ROWS.map(({ key, label }) => {
+    const rawKey = PVC_CUT_SHARED[key];
+    if (rawKey) {
+      const rawSum = results.reduce((a, r) => a + (Number(r[rawKey]) || 0), 0);
+      return { label, quantity: excelRoundUp(rawSum, 0) };
+    }
+    return {
+      label,
+      quantity: results.reduce((a, r) => a + (Number(r[key]) || 0), 0),
+    };
+  });
 
   return {
     lines: results,

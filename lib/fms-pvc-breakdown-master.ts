@@ -40,7 +40,13 @@ function j(adobe: Record<number, number>, row: number): number {
   return adobe[row] ?? 0;
 }
 
-/** Sum fence lines into Adobe rows 2–14; gates into 17–33; row 17 = SUM(gate widths in) / 12 (no ROUND in Excel). */
+/**
+ * Sum fence lines into Adobe rows 2–14; gates into 17–33; row 17 = SUM(gate widths in) / 12 (no ROUND in Excel).
+ *
+ * Cuttable stock (rails, rail stiffeners, boards, board stiffeners) is summed from the
+ * fractional per-line quantities and rounded up once for the whole job, so offcuts from one
+ * run finish another run's partial panel instead of every run rounding up on its own.
+ */
 export function buildPvcAdobeBreakdown(
   fenceLines: FmsPvcFenceLineResult[],
   gateRows: FmsPvcAdobeGateMap,
@@ -48,20 +54,32 @@ export function buildPvcAdobeBreakdown(
 ): Record<number, number> {
   const a: Record<number, number> = {};
 
+  let railRaw = 0;
+  let railStiffRaw = 0;
+  let boardRaw = 0;
+  let boardStiffRaw = 0;
+
   for (const line of fenceLines) {
     a[2] = (a[2] ?? 0) + line.total_whole_panels;
     a[3] = (a[3] ?? 0) + line.galvanized_post;
     a[4] = (a[4] ?? 0) + line.h_post;
     a[5] = (a[5] ?? 0) + line.cap_h_post;
-    a[6] = (a[6] ?? 0) + line.rail;
-    a[7] = (a[7] ?? 0) + line.rail_stiffener;
-    a[8] = (a[8] ?? 0) + line.board;
-    a[9] = (a[9] ?? 0) + line.board_stiffener;
+    railRaw += line.rail_raw;
+    railStiffRaw += line.rail_stiffener_raw;
+    boardRaw += line.board_raw;
+    boardStiffRaw += line.board_stiffener_raw;
     a[10] = (a[10] ?? 0) + line.long_screw;
     a[11] = (a[11] ?? 0) + line.short_screw;
     a[12] = (a[12] ?? 0) + line.plug;
     a[13] = (a[13] ?? 0) + line.u_channel;
     a[14] = (a[14] ?? 0) + line.h_post_stiffener;
+  }
+
+  if (fenceLines.length > 0) {
+    a[6] = excelRoundUp(railRaw, 0);
+    a[7] = excelRoundUp(railStiffRaw, 0);
+    a[8] = excelRoundUp(boardRaw, 0);
+    a[9] = excelRoundUp(boardStiffRaw, 0);
   }
 
   for (const [rk, rv] of Object.entries(gateRows)) {
