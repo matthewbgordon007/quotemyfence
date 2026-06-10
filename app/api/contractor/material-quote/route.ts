@@ -44,6 +44,8 @@ export async function POST(request: NextRequest) {
     supplier_fence_type_id: rawSupplierFenceTypeId,
     supplier_fence_style_id: rawSupplierFenceStyleId,
     supplier_colour_option_id: rawSupplierColourOptionId,
+    job_site_address: rawJobSiteAddress,
+    job_address: rawJobAddress,
   } = body;
   const supplierContractorId =
     rawSupplier && String(rawSupplier).trim() && String(rawSupplier).trim() !== 'master'
@@ -246,6 +248,7 @@ export async function POST(request: NextRequest) {
       supplier_fence_type_id: supplierFenceTypeId,
       supplier_fence_style_id: supplierFenceStyleId,
       supplier_colour_option_id: supplierColourOptionId,
+      job_site_address: jobSiteAddress,
       attachment_url: attachment_url ? String(attachment_url) : null,
       attachment_name: attachment_name ? String(attachment_name) : null,
       attachment_content_type: attachment_content_type ? String(attachment_content_type) : null,

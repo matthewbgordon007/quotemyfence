@@ -52,8 +52,8 @@ import {
   type FmsWpcCalculatorColour,
 } from '@/lib/fms-calculator-colour-presets';
 import { LayoutDrawCanvas } from '@/components/LayoutDrawCanvas';
+import { MaterialQuoteImportBanner } from '@/components/dashboard/MaterialQuoteImportBanner';
 import { SupplierMaterialQuoteActions } from '@/components/dashboard/SupplierMaterialQuoteActions';
-import { SupplierMaterialQuoteRequestWorkspace } from '@/components/dashboard/SupplierMaterialQuoteRequestWorkspace';
 import type { MaterialQuoteLine } from '@/lib/material-quote-lines';
 import type { MaterialQuoteRequestDto } from '@/lib/supplier-material-quote-requests-enrich';
 import {
@@ -1025,6 +1025,7 @@ export default function MaterialCalculatorHubPage() {
 
   const [tab, setTab] = useState<StyleTab>('pvc');
   const [jobAddress, setJobAddress] = useState('');
+  const [importedMaterialRequest, setImportedMaterialRequest] = useState<MaterialQuoteRequestDto | null>(null);
   /** Matches the Excel per-colour breakdown tab (labels / TSV only; formulas shared). */
   const [pvcBreakdownColour, setPvcBreakdownColour] = useState<FmsPvcCalculatorColour>('Adobe');
   const [lines, setLines] = useState<PvcLineRow[]>(() => defaultPvcLines());
@@ -1468,6 +1469,7 @@ export default function MaterialCalculatorHubPage() {
       setMaterialQuoteSketchLoadState('idle');
       setFmsQuoteMaterialUnsupported(null);
       materialQuoteUnsupportedAlertKeyRef.current = '';
+      setImportedMaterialRequest(null);
       return;
     }
     const useSupplierApi = !fromContractor && Boolean(fromSupplier);
@@ -1488,12 +1490,13 @@ export default function MaterialCalculatorHubPage() {
         if (!json?.request) {
           setMaterialQuoteSketchLoadState('none');
           setFmsQuoteMaterialUnsupported(null);
+          setImportedMaterialRequest(null);
           return;
         }
         const req = json.request;
+        setImportedMaterialRequest(req);
         const addr = req.project?.home_address?.trim();
-        const summary = addr || req.project?.design_summary?.trim();
-        if (summary) setJobAddress((prev) => (prev.trim() ? prev : summary));
+        if (addr) setJobAddress(addr);
         const sketch = layoutSketchFromMaterialQuoteProject(req.project);
         setShortGates([]);
         setSingleGates([]);
@@ -1556,6 +1559,7 @@ export default function MaterialCalculatorHubPage() {
         if (!cancelled) {
           setMaterialQuoteSketchLoadState('none');
           setFmsQuoteMaterialUnsupported(null);
+          setImportedMaterialRequest(null);
         }
       });
     return () => {
@@ -2409,26 +2413,26 @@ export default function MaterialCalculatorHubPage() {
   }
 
   return (
-    <div
-      className={`relative mx-auto pb-24 ${showSupplierMaterialRequest ? 'max-w-[min(96rem,calc(100vw-1.5rem))]' : 'max-w-5xl'}`}
-    >
-      <div
-        className={
-          showSupplierMaterialRequest ? 'flex min-h-0 flex-col gap-8 xl:flex-row xl:items-start' : 'contents'
-        }
-      >
-        {showSupplierMaterialRequest ? (
-          <SupplierMaterialQuoteRequestWorkspace
-            requestId={materialRequestId}
-            calculatorBasePath="/dashboard/material-calculator"
-          />
-        ) : null}
-        <div className={`min-w-0 space-y-6 ${showSupplierMaterialRequest ? 'flex-1' : ''}`}>
+    <div className="relative mx-auto max-w-5xl pb-24">
+      <div className="space-y-6">
       <div>
         <Link href="/dashboard" className="text-sm font-medium text-blue-600 hover:underline">
           ← Dashboard
         </Link>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">Material Calculator</h1>
+        {importedMaterialRequest ? (
+          <div className="mt-3 max-w-3xl">
+            <MaterialQuoteImportBanner
+              request={importedMaterialRequest}
+              showContractorDetails={showSupplierMaterialRequest}
+              quoteDetailHref={
+                showSupplierMaterialRequest
+                  ? `/dashboard/supplier/contractor-quotes/${encodeURIComponent(materialRequestId)}`
+                  : undefined
+              }
+            />
+          </div>
+        ) : null}
         {fromMaterialQuoteId || materialRequestId ? (
           <div className="mt-3 max-w-3xl space-y-2">
             <div className="rounded-xl border border-violet-200/90 bg-violet-50/90 px-4 py-3 text-sm text-violet-950">
@@ -4081,7 +4085,6 @@ export default function MaterialCalculatorHubPage() {
           calculatorBlocked={Boolean(fmsQuoteMaterialUnsupported)}
         />
       ) : null}
-        </div>
       </div>
     </div>
   );

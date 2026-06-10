@@ -92,6 +92,7 @@ type RawMaterialQuoteRow = {
   supplier_fence_type_id?: string | null;
   supplier_fence_style_id?: string | null;
   supplier_colour_option_id?: string | null;
+  job_site_address?: string | null;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -364,7 +365,10 @@ export async function enrichMaterialQuoteRequests(_supabase: any, rows: RawMater
       const layout = r.layout_drawing_id ? layoutById.get(r.layout_drawing_id) || null : null;
       const layoutFootage = layout?.drawing_data ? getLayoutDrawingFootage(layout.drawing_data) : null;
       const fenceId = r.quote_session_id ? fenceIdBySessionId.get(r.quote_session_id) || null : null;
-      const homeAddress = r.quote_session_id ? homeAddressBySessionId.get(r.quote_session_id) ?? null : null;
+      const storedJobAddress = String(r.job_site_address || '').trim() || null;
+      const homeAddress =
+        storedJobAddress ||
+        (r.quote_session_id ? homeAddressBySessionId.get(r.quote_session_id) ?? null : null);
       const mapSegments = fenceId ? segmentsByFenceId.get(fenceId) || [] : [];
       const mapGates = fenceId ? gatesByFenceId.get(fenceId) || [] : [];
       const { supplier_material_list_json, ...rest } = r;

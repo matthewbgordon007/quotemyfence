@@ -78,6 +78,7 @@ export default function CustomerDetailPage() {
     colourOptionId: '',
   });
   const [exportProductReady, setExportProductReady] = useState(false);
+  const [exportJobAddress, setExportJobAddress] = useState('');
   const [exportAttachment, setExportAttachment] = useState<File | null>(null);
   const [isSupplier, setIsSupplier] = useState(false);
   const [buildingList, setBuildingList] = useState(false);
@@ -145,6 +146,10 @@ export default function CustomerDetailPage() {
   };
 
   const handleExportToAdmin = async () => {
+    if (!exportJobAddress.trim()) {
+      alert('Enter the job site address before sending the material request.');
+      return;
+    }
     if (exportSupplierId !== 'master' && !exportProductReady) {
       alert('Pick a product from the supplier catalog (e.g. PVC, Adobe) before sending.');
       return;
@@ -179,6 +184,7 @@ export default function CustomerDetailPage() {
         body: JSON.stringify({
           quote_session_id: id,
           description: exportNotes.trim() || undefined,
+          job_site_address: exportJobAddress.trim(),
           supplier_contractor_id,
           ...(exportSupplierId !== 'master' && exportProduct.fenceTypeId
             ? {
@@ -196,6 +202,7 @@ export default function CustomerDetailPage() {
       }
       setShowExportToAdmin(false);
       setExportNotes('');
+      setExportJobAddress('');
       setExportProduct({ fenceTypeId: '', fenceStyleId: '', colourOptionId: '' });
       setExportProductReady(false);
       setExportAttachment(null);
@@ -746,6 +753,8 @@ export default function CustomerDetailPage() {
                       setExportSupplierId(linkedSuppliers[0]?.id ?? 'master');
                       setExportProduct({ fenceTypeId: '', fenceStyleId: '', colourOptionId: '' });
                       setExportProductReady(false);
+                      const addr = data?.property?.formatted_address;
+                      setExportJobAddress(addr && addr !== '—' ? addr : '');
                       setShowExportToAdmin(true);
                     }}
                     className="rounded-xl border border-amber-500 bg-amber-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-600"
@@ -858,12 +867,21 @@ export default function CustomerDetailPage() {
                 onReadyChange={setExportProductReady}
               />
             )}
+            <label className="mt-4 block text-sm font-medium text-[var(--text)]">Job site address</label>
+            <input
+              type="text"
+              value={exportJobAddress}
+              onChange={(e) => setExportJobAddress(e.target.value)}
+              placeholder="e.g. 28 Ironside Court, Ottawa"
+              className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+            />
+            <label className="mt-4 block text-sm font-medium text-[var(--text)]">Notes (optional)</label>
             <textarea
               value={exportNotes}
               onChange={(e) => setExportNotes(e.target.value)}
-              placeholder="e.g. WPC privacy, 6 ft, white. Need gates. Include removal."
+              placeholder="e.g. Need gate hardware, include removal…"
               rows={4}
-              className="mt-4 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+              className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
             />
             <label className="mt-4 block text-sm font-medium text-[var(--text)]">Attachment (optional)</label>
             <input
@@ -881,7 +899,11 @@ export default function CustomerDetailPage() {
               <button
                 type="button"
                 onClick={handleExportToAdmin}
-                disabled={submittingExport || (exportSupplierId !== 'master' && !exportProductReady)}
+                disabled={
+                  submittingExport ||
+                  !exportJobAddress.trim() ||
+                  (exportSupplierId !== 'master' && !exportProductReady)
+                }
                 className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 hover:bg-amber-600"
               >
                 {submittingExport ? 'Sending…' : 'Send layout'}

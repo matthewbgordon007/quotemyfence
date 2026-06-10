@@ -85,6 +85,7 @@ export default function LayoutPage() {
     colourOptionId: '',
   });
   const [materialProductReady, setMaterialProductReady] = useState(false);
+  const [materialJobAddress, setMaterialJobAddress] = useState('');
   const [materialAttachment, setMaterialAttachment] = useState<File | null>(null);
   const [showLinkLeadModal, setShowLinkLeadModal] = useState(false);
   const [linkSearch, setLinkSearch] = useState('');
@@ -397,6 +398,10 @@ export default function LayoutPage() {
 
   async function handleGetMaterialList() {
     const desc = materialDesc.trim();
+    if (!materialJobAddress.trim()) {
+      alert('Enter the job site address before sending the material request.');
+      return;
+    }
     if (materialSupplierId !== 'master' && !materialProductReady) {
       alert('Pick a product from the supplier catalog (e.g. PVC, Adobe) before sending.');
       return;
@@ -490,6 +495,7 @@ export default function LayoutPage() {
           layout_drawing_id: lid,
           quote_session_id: fromId || undefined,
           description: desc,
+          job_site_address: materialJobAddress.trim(),
           supplier_contractor_id: materialSupplierId === 'master' ? null : materialSupplierId,
           ...(materialSupplierId !== 'master' && materialProduct.fenceTypeId
             ? {
@@ -507,6 +513,7 @@ export default function LayoutPage() {
       }
       setShowMaterialModal(false);
       setMaterialDesc('');
+      setMaterialJobAddress('');
       setMaterialProduct({ fenceTypeId: '', fenceStyleId: '', colourOptionId: '' });
       setMaterialProductReady(false);
       setMaterialAttachment(null);
@@ -657,6 +664,7 @@ export default function LayoutPage() {
             setMaterialSupplierId(linkedSuppliers[0]?.id ?? 'master');
             setMaterialProduct({ fenceTypeId: '', fenceStyleId: '', colourOptionId: '' });
             setMaterialProductReady(false);
+            setMaterialJobAddress(homeowners.find((h) => h.address?.trim())?.address?.trim() || '');
             setShowMaterialModal(true);
           }}
           className="rounded-lg border border-[var(--accent)] bg-white px-4 py-2 text-sm font-medium text-[var(--accent)] hover:bg-[var(--accent)]/5"
@@ -796,6 +804,14 @@ export default function LayoutPage() {
                 onReadyChange={setMaterialProductReady}
               />
             )}
+            <label className="mt-4 block text-sm font-medium text-[var(--text)]">Job site address</label>
+            <input
+              type="text"
+              value={materialJobAddress}
+              onChange={(e) => setMaterialJobAddress(e.target.value)}
+              placeholder="e.g. 28 Ironside Court, Ottawa"
+              className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+            />
             <label className="mt-4 block text-sm font-medium text-[var(--text)]">Notes (optional)</label>
             <textarea
               value={materialDesc}
@@ -821,7 +837,9 @@ export default function LayoutPage() {
                 type="button"
                 onClick={handleGetMaterialList}
                 disabled={
-                  submittingMaterial || (materialSupplierId !== 'master' && !materialProductReady)
+                  submittingMaterial ||
+                  !materialJobAddress.trim() ||
+                  (materialSupplierId !== 'master' && !materialProductReady)
                 }
                 className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50 hover:opacity-90"
               >
