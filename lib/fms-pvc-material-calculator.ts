@@ -223,7 +223,14 @@ export interface FmsPvcJobTotals {
 
 /** Excel Adobe columns sum each fence line's rounded D/I finals — same rule for the fence SKU rollup. */
 export function aggregateFmsPvcFenceLines(lines: FmsPvcFenceLineInput[]): FmsPvcJobTotals {
-  const results = lines.filter((l) => l.length_ft > 0).map((l) => computeFmsPvcFenceLine(l));
+  const results = lines
+    .filter(
+      (l) =>
+        l.length_ft > 0 ||
+        l.fence_terminated_h_post_type > 0 ||
+        l.fence_terminated_u_channel > 0
+    )
+    .map((l) => computeFmsPvcFenceLine(l));
   const sumWhole = results.reduce((a, r) => a + r.total_whole_panels, 0);
   const sumH = results.reduce((a, r) => a + r.h_post, 0);
   const concrete = sumH * 2.5;

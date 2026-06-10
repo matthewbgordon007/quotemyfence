@@ -84,6 +84,7 @@ import {
   removeLayoutDrawingGatePlacement,
   removeLayoutDrawingSegment,
   sketchGateWidthInches,
+  jointPositionsFromAligned,
   LAYOUT_CHAIN_ALIGN_FT,
   LAYOUT_MIN_SKETCH_SEGMENT_FT,
   type SketchGatePlacement,
@@ -463,8 +464,9 @@ function buildInputs(rows: PvcLineRow[], panelSpacingFt: number): FmsPvcFenceLin
   return rows
     .map((r) => {
       const L = Math.max(0, Number(String(r.length_ft).replace(/,/g, '')) || 0);
-      if (L <= 0) return null;
       const { d6, d7 } = presetToExcel(r.end_preset, r.h_post_type, r.u_channel);
+      // Gate-only sketch runs can have 0 ft of fence left but still need corner posts / U-channels.
+      if (L <= 0 && d6 <= 0 && d7 <= 0) return null;
       return {
         length_ft: L,
         fence_terminated_h_post_type: d6,
@@ -998,13 +1000,9 @@ function parseLayoutSketch(raw: unknown): LayoutSketchDrawingPayload | null {
         LAYOUT_CHAIN_ALIGN_FT,
         LAYOUT_MIN_SKETCH_SEGMENT_FT
       );
-      const expectedAligned = al.length + 1;
-      const expectedRaw = segments.length + 1;
-      const lenOk =
-        jtRaw.length === expectedAligned ||
-        (jtRaw.length === expectedRaw && al.length === segments.length);
-      if (lenOk) {
-        joint_terminations = jtRaw.slice(0, expectedAligned).map((row) => {
+      const expectedJointCount = jointPositionsFromAligned(al, LAYOUT_CHAIN_ALIGN_FT).length;
+      if (jtRaw.length === expectedJointCount) {
+        joint_terminations = jtRaw.map((row) => {
           const q = row && typeof row === 'object' ? (row as Record<string, unknown>) : {};
           return {
             h_post: q.h_post !== false,

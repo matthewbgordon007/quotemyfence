@@ -554,7 +554,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         gate_placements,
         total_length_ft: Math.round(total * 100) / 100,
       };
-      if (joints.length > 0 && al.length > 0 && joints.length === al.length + 1) {
+      if (joints.length > 0 && al.length > 0 && joints.length === jointPositionsFromAligned(al, LAYOUT_CHAIN_ALIGN_FT).length) {
         return {
           ...base,
           joint_terminations: joints.map((j) => ({ h_post: j.h_post, u_channel: j.u_channel })),
