@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { lineHighlightModesFromDrawing, parseSavedLayoutDrawing } from '@/lib/layout-drawing-view';
+import { SupplierProductPicker, type SupplierProductValue } from '@/components/SupplierProductPicker';
 
 const FenceDrawingMap = dynamic(
   () => import('@/components/FenceDrawingMap').then((m) => ({ default: m.FenceDrawingMap })),
@@ -71,6 +72,12 @@ export default function CustomerDetailPage() {
   const [submittingExport, setSubmittingExport] = useState(false);
   const [linkedSuppliers, setLinkedSuppliers] = useState<{ id: string; company_name: string }[]>([]);
   const [exportSupplierId, setExportSupplierId] = useState<string>('master');
+  const [exportProduct, setExportProduct] = useState<SupplierProductValue>({
+    fenceTypeId: '',
+    fenceStyleId: '',
+    colourOptionId: '',
+  });
+  const [exportProductReady, setExportProductReady] = useState(false);
   const [exportAttachment, setExportAttachment] = useState<File | null>(null);
   const [isSupplier, setIsSupplier] = useState(false);
   const [buildingList, setBuildingList] = useState(false);
@@ -138,6 +145,10 @@ export default function CustomerDetailPage() {
   };
 
   const handleExportToAdmin = async () => {
+    if (exportSupplierId !== 'master' && !exportProductReady) {
+      alert('Pick a product from the supplier catalog (e.g. PVC, Adobe) before sending.');
+      return;
+    }
     setSubmittingExport(true);
     try {
       const supplier_contractor_id = exportSupplierId === 'master' ? null : exportSupplierId;
@@ -169,6 +180,13 @@ export default function CustomerDetailPage() {
           quote_session_id: id,
           description: exportNotes.trim() || undefined,
           supplier_contractor_id,
+          ...(exportSupplierId !== 'master' && exportProduct.fenceTypeId
+            ? {
+                supplier_fence_type_id: exportProduct.fenceTypeId,
+                supplier_fence_style_id: exportProduct.fenceStyleId || null,
+                supplier_colour_option_id: exportProduct.colourOptionId || null,
+              }
+            : {}),
           ...(attachmentPayload || {}),
         }),
       });
@@ -178,6 +196,8 @@ export default function CustomerDetailPage() {
       }
       setShowExportToAdmin(false);
       setExportNotes('');
+      setExportProduct({ fenceTypeId: '', fenceStyleId: '', colourOptionId: '' });
+      setExportProductReady(false);
       setExportAttachment(null);
       alert(
         supplier_contractor_id
@@ -724,6 +744,8 @@ export default function CustomerDetailPage() {
                     type="button"
                     onClick={() => {
                       setExportSupplierId(linkedSuppliers[0]?.id ?? 'master');
+                      setExportProduct({ fenceTypeId: '', fenceStyleId: '', colourOptionId: '' });
+                      setExportProductReady(false);
                       setShowExportToAdmin(true);
                     }}
                     className="rounded-xl border border-amber-500 bg-amber-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-600"
@@ -811,7 +833,11 @@ export default function CustomerDetailPage() {
             <label className="mt-4 block text-sm font-medium text-[var(--text)]">Send to</label>
             <select
               value={exportSupplierId}
-              onChange={(e) => setExportSupplierId(e.target.value)}
+              onChange={(e) => {
+                setExportSupplierId(e.target.value);
+                setExportProduct({ fenceTypeId: '', fenceStyleId: '', colourOptionId: '' });
+                setExportProductReady(false);
+              }}
               className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
             >
               <option value="master">Platform team (legacy)</option>
@@ -823,6 +849,14 @@ export default function CustomerDetailPage() {
             </select>
             {linkedSuppliers.length === 0 && (
               <p className="mt-2 text-xs text-amber-800">No linked suppliers — only the platform team option is available until you add one.</p>
+            )}
+            {exportSupplierId !== 'master' && (
+              <SupplierProductPicker
+                supplierId={exportSupplierId}
+                value={exportProduct}
+                onChange={setExportProduct}
+                onReadyChange={setExportProductReady}
+              />
             )}
             <textarea
               value={exportNotes}
@@ -847,7 +881,7 @@ export default function CustomerDetailPage() {
               <button
                 type="button"
                 onClick={handleExportToAdmin}
-                disabled={submittingExport}
+                disabled={submittingExport || (exportSupplierId !== 'master' && !exportProductReady)}
                 className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 hover:bg-amber-600"
               >
                 {submittingExport ? 'Sending…' : 'Send layout'}

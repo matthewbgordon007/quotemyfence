@@ -11,6 +11,7 @@ import {
   type LineHighlightMode,
 } from '@/components/LayoutDrawCanvas';
 import { LeadSearchModal } from '@/components/dashboard/LeadSearchModal';
+import { SupplierProductPicker, type SupplierProductValue } from '@/components/SupplierProductPicker';
 import { mapFenceSegmentsToLayoutDrawing } from '@/lib/map-fence-to-layout-drawing';
 import { isBillingActive } from '@/lib/billing';
 
@@ -78,6 +79,12 @@ export default function LayoutPage() {
   const [submittingMaterial, setSubmittingMaterial] = useState(false);
   const [linkedSuppliers, setLinkedSuppliers] = useState<{ id: string; company_name: string }[]>([]);
   const [materialSupplierId, setMaterialSupplierId] = useState<string>('master');
+  const [materialProduct, setMaterialProduct] = useState<SupplierProductValue>({
+    fenceTypeId: '',
+    fenceStyleId: '',
+    colourOptionId: '',
+  });
+  const [materialProductReady, setMaterialProductReady] = useState(false);
   const [materialAttachment, setMaterialAttachment] = useState<File | null>(null);
   const [showLinkLeadModal, setShowLinkLeadModal] = useState(false);
   const [linkSearch, setLinkSearch] = useState('');
@@ -394,6 +401,10 @@ export default function LayoutPage() {
       alert('Please add a description with the specifics of your quote (materials, preferences, etc.) before requesting a material list.');
       return;
     }
+    if (materialSupplierId !== 'master' && !materialProductReady) {
+      alert('Pick a product from the supplier catalog (e.g. PVC, Adobe) before sending.');
+      return;
+    }
     if (!drawingData || drawingData.points.length < 2) {
       alert('Draw at least one fence line before requesting a material list.');
       return;
@@ -484,6 +495,13 @@ export default function LayoutPage() {
           quote_session_id: fromId || undefined,
           description: desc,
           supplier_contractor_id: materialSupplierId === 'master' ? null : materialSupplierId,
+          ...(materialSupplierId !== 'master' && materialProduct.fenceTypeId
+            ? {
+                supplier_fence_type_id: materialProduct.fenceTypeId,
+                supplier_fence_style_id: materialProduct.fenceStyleId || null,
+                supplier_colour_option_id: materialProduct.colourOptionId || null,
+              }
+            : {}),
           ...(attachmentPayload || {}),
         }),
       });
@@ -493,6 +511,8 @@ export default function LayoutPage() {
       }
       setShowMaterialModal(false);
       setMaterialDesc('');
+      setMaterialProduct({ fenceTypeId: '', fenceStyleId: '', colourOptionId: '' });
+      setMaterialProductReady(false);
       setMaterialAttachment(null);
       alert(
         materialSupplierId === 'master'
@@ -639,6 +659,8 @@ export default function LayoutPage() {
           type="button"
           onClick={() => {
             setMaterialSupplierId(linkedSuppliers[0]?.id ?? 'master');
+            setMaterialProduct({ fenceTypeId: '', fenceStyleId: '', colourOptionId: '' });
+            setMaterialProductReady(false);
             setShowMaterialModal(true);
           }}
           className="rounded-lg border border-[var(--accent)] bg-white px-4 py-2 text-sm font-medium text-[var(--accent)] hover:bg-[var(--accent)]/5"
@@ -753,7 +775,11 @@ export default function LayoutPage() {
             <label className="mt-4 block text-sm font-medium text-[var(--text)]">Send to</label>
             <select
               value={materialSupplierId}
-              onChange={(e) => setMaterialSupplierId(e.target.value)}
+              onChange={(e) => {
+                setMaterialSupplierId(e.target.value);
+                setMaterialProduct({ fenceTypeId: '', fenceStyleId: '', colourOptionId: '' });
+                setMaterialProductReady(false);
+              }}
               className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
             >
               <option value="master">Platform team (legacy)</option>
@@ -765,6 +791,14 @@ export default function LayoutPage() {
             </select>
             {linkedSuppliers.length === 0 && (
               <p className="mt-2 text-xs text-amber-800">No linked suppliers yet — only the platform team option is available.</p>
+            )}
+            {materialSupplierId !== 'master' && (
+              <SupplierProductPicker
+                supplierId={materialSupplierId}
+                value={materialProduct}
+                onChange={setMaterialProduct}
+                onReadyChange={setMaterialProductReady}
+              />
             )}
             <textarea
               value={materialDesc}
@@ -789,7 +823,11 @@ export default function LayoutPage() {
               <button
                 type="button"
                 onClick={handleGetMaterialList}
-                disabled={submittingMaterial || !materialDesc.trim()}
+                disabled={
+                  submittingMaterial ||
+                  !materialDesc.trim() ||
+                  (materialSupplierId !== 'master' && !materialProductReady)
+                }
                 className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50 hover:opacity-90"
               >
                 {submittingMaterial ? 'Sending…' : 'Send to supplier'}

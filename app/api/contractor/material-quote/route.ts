@@ -6,6 +6,8 @@ import {
   type MapFenceGate,
   type MapFenceSegment,
 } from '@/lib/map-fence-to-layout-drawing';
+import { createServiceRoleClient } from '@/lib/supabase-service-role';
+import { validateSupplierProductSelection } from '@/lib/validate-supplier-product-selection';
 
 async function getContractorId(supabase: Awaited<ReturnType<typeof createClient>>) {
   const { data: { user } } = await supabase.auth.getUser();
@@ -38,6 +40,9 @@ export async function POST(request: NextRequest) {
     attachment_name,
     attachment_content_type,
     attachment_size_bytes,
+    supplier_fence_type_id: rawSupplierFenceTypeId,
+    supplier_fence_style_id: rawSupplierFenceStyleId,
+    supplier_colour_option_id: rawSupplierColourOptionId,
   } = body;
   const supplierContractorId =
     rawSupplier && String(rawSupplier).trim() && String(rawSupplier).trim() !== 'master'
@@ -172,6 +177,28 @@ export async function POST(request: NextRequest) {
     if (!rel) return NextResponse.json({ error: 'Link that supplier on the Suppliers page first' }, { status: 403 });
   }
 
+  let supplierProductLabels: { type: string; style?: string; colour?: string; height_ft?: number } | null = null;
+  let supplierFenceTypeId: string | null = null;
+  let supplierFenceStyleId: string | null = null;
+  let supplierColourOptionId: string | null = null;
+
+  if (supplierContractorId) {
+    const typeId = rawSupplierFenceTypeId ? String(rawSupplierFenceTypeId).trim() : '';
+    const styleId = rawSupplierFenceStyleId ? String(rawSupplierFenceStyleId).trim() : '';
+    const colourId = rawSupplierColourOptionId ? String(rawSupplierColourOptionId).trim() : '';
+    const admin = createServiceRoleClient();
+    const validated = await validateSupplierProductSelection(admin, supplierContractorId, {
+      supplier_fence_type_id: typeId,
+      supplier_fence_style_id: styleId || null,
+      supplier_colour_option_id: colourId || null,
+    });
+    if (!validated.ok) return NextResponse.json({ error: validated.error }, { status: 400 });
+    supplierProductLabels = validated.labels;
+    supplierFenceTypeId = typeId;
+    supplierFenceStyleId = styleId || null;
+    supplierColourOptionId = colourId || null;
+  }
+
   let jobSiteAddress = '';
   if (sessionId) {
     const { data: propRow } = await supabase
@@ -182,10 +209,24 @@ export async function POST(request: NextRequest) {
     jobSiteAddress = String((propRow as { formatted_address?: string } | null)?.formatted_address || '').trim();
   }
 
-  const descriptionForInsert =
-    jobSiteAddress && !descFinal.includes(jobSiteAddress)
-      ? `${descFinal}\n\n— Job site: ${jobSiteAddress}`
-      : descFinal;
+  const productLine = supplierProductLabels
+    ? [
+        '— Product:',
+        supplierProductLabels.type,
+        supplierProductLabels.style,
+        supplierProductLabels.colour,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : '';
+
+  let descriptionForInsert = descFinal;
+  if (productLine && !descFinal.includes(supplierProductLabels!.type)) {
+    descriptionForInsert = `${descFinal}\n\n${productLine}`;
+  }
+  if (jobSiteAddress && !descriptionForInsert.includes(jobSiteAddress)) {
+    descriptionForInsert = `${descriptionForInsert}\n\n— Job site: ${jobSiteAddress}`;
+  }
 
   const { data: req, error } = await supabase
     .from('material_quote_requests')
@@ -194,6 +235,9 @@ export async function POST(request: NextRequest) {
       quote_session_id: sessionId || null,
       contractor_id: contractorId,
       supplier_contractor_id: supplierContractorId,
+      supplier_fence_type_id: supplierFenceTypeId,
+      supplier_fence_style_id: supplierFenceStyleId,
+      supplier_colour_option_id: supplierColourOptionId,
       attachment_url: attachment_url ? String(attachment_url) : null,
       attachment_name: attachment_name ? String(attachment_name) : null,
       attachment_content_type: attachment_content_type ? String(attachment_content_type) : null,
@@ -237,6 +281,11 @@ export async function POST(request: NextRequest) {
             <div style="font-family: Arial, sans-serif; line-height:1.5;">
               <h2>New material request</h2>
               <p><strong>Contractor:</strong> ${contractorName}</p>
+              ${
+                supplierProductLabels
+                  ? `<p><strong>Product:</strong> ${[supplierProductLabels.type, supplierProductLabels.style, supplierProductLabels.colour].filter(Boolean).join(' · ').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`
+                  : ''
+              }
               <p><strong>Notes:</strong> ${descriptionForInsert.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
               ${
                 attachment_url

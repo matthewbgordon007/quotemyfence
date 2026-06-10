@@ -28,7 +28,7 @@ export async function buildMaterialQuoteCalculatorBootstrap(
   const { data: mq, error: mqErr } = await supabase
     .from('material_quote_requests')
     .select(
-      'id, contractor_id, supplier_contractor_id, quote_session_id, layout_drawing_id, supplier_material_list_json'
+      'id, contractor_id, supplier_contractor_id, quote_session_id, layout_drawing_id, supplier_material_list_json, supplier_colour_option_id, supplier_fence_style_id'
     )
     .eq('id', materialQuoteId)
     .eq('contractor_id', buyerContractorId)
@@ -114,54 +114,63 @@ export async function buildMaterialQuoteCalculatorBootstrap(
     }
   }
 
+  if (!selectedColourOptionId && mq.supplier_colour_option_id) {
+    selectedColourOptionId = mq.supplier_colour_option_id as string;
+  }
+
   const supplierId = mq.supplier_contractor_id as string | null;
   let materialPricing: MaterialQuoteCalculatorBootstrap['materialPricing'] = null;
 
-  if (supplierId && selectedColourOptionId) {
-    const { data: colour } = await supabase
-      .from('colour_options')
-      .select('fence_style_id')
-      .eq('id', selectedColourOptionId)
-      .maybeSingle();
-    const buyerStyleId = colour?.fence_style_id as string | undefined;
-    if (buyerStyleId) {
-      const { data: imp } = await supabase
-        .from('imported_supplier_styles')
-        .select('supplier_fence_style_id')
-        .eq('buyer_contractor_id', buyerContractorId)
-        .eq('supplier_contractor_id', supplierId)
-        .eq('buyer_fence_style_id', buyerStyleId)
+  const supplierStyleFromRequest = mq.supplier_fence_style_id as string | null;
+
+  if (supplierId && (supplierStyleFromRequest || selectedColourOptionId)) {
+    let supplierStyleId = supplierStyleFromRequest || undefined;
+    if (!supplierStyleId && selectedColourOptionId) {
+      const { data: colour } = await supabase
+        .from('colour_options')
+        .select('fence_style_id')
+        .eq('id', selectedColourOptionId)
         .maybeSingle();
-      const supplierStyleId = imp?.supplier_fence_style_id as string | undefined;
-      if (supplierStyleId) {
-        const { data: rule } = await supabase
-          .from('style_pricing_rules')
-          .select(
-            'contractor_material_price_per_ft, contractor_material_single_gate, contractor_material_double_gate, contractor_material_minimum_job'
-          )
-          .eq('fence_style_id', supplierStyleId)
-          .eq('is_active', true)
-          .limit(1)
+      const buyerStyleId = colour?.fence_style_id as string | undefined;
+      if (buyerStyleId) {
+        const { data: imp } = await supabase
+          .from('imported_supplier_styles')
+          .select('supplier_fence_style_id')
+          .eq('buyer_contractor_id', buyerContractorId)
+          .eq('supplier_contractor_id', supplierId)
+          .eq('buyer_fence_style_id', buyerStyleId)
           .maybeSingle();
-        if (rule) {
-          const perFt = Number((rule as { contractor_material_price_per_ft?: number }).contractor_material_price_per_ft);
-          const sg = Number((rule as { contractor_material_single_gate?: number }).contractor_material_single_gate);
-          const dg = Number((rule as { contractor_material_double_gate?: number }).contractor_material_double_gate);
-          const mj = Number((rule as { contractor_material_minimum_job?: number }).contractor_material_minimum_job);
-          materialPricing = {
-            pricePerFtOverride: Number.isFinite(perFt) && perFt > 0 ? perFt : null,
-            singleGateOverride: Number.isFinite(sg) && sg > 0 ? sg : null,
-            doubleGateOverride: Number.isFinite(dg) && dg > 0 ? dg : null,
-            minJobOverride: Number.isFinite(mj) && mj > 0 ? mj : null,
-          };
-          if (
-            !materialPricing.pricePerFtOverride &&
-            !materialPricing.singleGateOverride &&
-            !materialPricing.doubleGateOverride &&
-            !materialPricing.minJobOverride
-          ) {
-            materialPricing = null;
-          }
+        supplierStyleId = imp?.supplier_fence_style_id as string | undefined;
+      }
+    }
+    if (supplierStyleId) {
+      const { data: rule } = await supabase
+        .from('style_pricing_rules')
+        .select(
+          'contractor_material_price_per_ft, contractor_material_single_gate, contractor_material_double_gate, contractor_material_minimum_job'
+        )
+        .eq('fence_style_id', supplierStyleId)
+        .eq('is_active', true)
+        .limit(1)
+        .maybeSingle();
+      if (rule) {
+        const perFt = Number((rule as { contractor_material_price_per_ft?: number }).contractor_material_price_per_ft);
+        const sg = Number((rule as { contractor_material_single_gate?: number }).contractor_material_single_gate);
+        const dg = Number((rule as { contractor_material_double_gate?: number }).contractor_material_double_gate);
+        const mj = Number((rule as { contractor_material_minimum_job?: number }).contractor_material_minimum_job);
+        materialPricing = {
+          pricePerFtOverride: Number.isFinite(perFt) && perFt > 0 ? perFt : null,
+          singleGateOverride: Number.isFinite(sg) && sg > 0 ? sg : null,
+          doubleGateOverride: Number.isFinite(dg) && dg > 0 ? dg : null,
+          minJobOverride: Number.isFinite(mj) && mj > 0 ? mj : null,
+        };
+        if (
+          !materialPricing.pricePerFtOverride &&
+          !materialPricing.singleGateOverride &&
+          !materialPricing.doubleGateOverride &&
+          !materialPricing.minJobOverride
+        ) {
+          materialPricing = null;
         }
       }
     }

@@ -93,6 +93,13 @@ export default function MaterialRequestsPage() {
           {requests.map((r) => {
             const open = openId === r.id;
             const sentTo = r.supplier_contractor_id ? r.supplier_name || 'Supplier' : 'Platform team';
+            const productLabel = [
+              r.project?.design_option?.type,
+              r.project?.design_option?.style,
+              r.project?.design_option?.colour,
+            ]
+              .filter(Boolean)
+              .join(' · ');
             const response = r.supplier_response || r.master_response;
             const list = r.supplier_material_list;
             return (
@@ -108,7 +115,8 @@ export default function MaterialRequestsPage() {
                       {statusBadge(r.status)}
                     </div>
                     <p className="mt-0.5 text-xs text-slate-500">
-                      Sent to <span className="font-medium text-slate-700">{sentTo}</span> · {fmtDate(r.created_at)}
+                      Sent to <span className="font-medium text-slate-700">{sentTo}</span>
+                      {productLabel ? ` · ${productLabel}` : ''} · {fmtDate(r.created_at)}
                       {list && list.length > 0 ? ` · ${list.length} items in their list` : ''}
                     </p>
                   </div>

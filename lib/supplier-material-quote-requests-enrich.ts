@@ -87,6 +87,9 @@ type RawMaterialQuoteRow = {
   supplier_seen_at?: string | null;
   supplier_material_list_json?: unknown;
   supplier_quoted_emailed_at?: string | null;
+  supplier_fence_type_id?: string | null;
+  supplier_fence_style_id?: string | null;
+  supplier_colour_option_id?: string | null;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -187,6 +190,52 @@ async function getDesignOption(supabase: any, fence: RawFence | null): Promise<M
       }
     }
     return null;
+  } catch {
+    return null;
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getDesignOptionFromSupplierSelection(
+  supabase: any,
+  row: Pick<RawMaterialQuoteRow, 'supplier_fence_type_id' | 'supplier_fence_style_id' | 'supplier_colour_option_id'>
+): Promise<MaterialQuoteRequestProject['design_option']> {
+  try {
+    const typeId = row.supplier_fence_type_id;
+    if (!typeId) return null;
+
+    const { data: ft } = await supabase
+      .from('fence_types')
+      .select('name, standard_height_ft')
+      .eq('id', typeId)
+      .maybeSingle();
+
+    let styleName: string | undefined;
+    if (row.supplier_fence_style_id) {
+      const { data: style } = await supabase
+        .from('fence_styles')
+        .select('style_name')
+        .eq('id', row.supplier_fence_style_id)
+        .maybeSingle();
+      styleName = style?.style_name ?? undefined;
+    }
+
+    let colourName: string | undefined;
+    if (row.supplier_colour_option_id) {
+      const { data: colour } = await supabase
+        .from('colour_options')
+        .select('color_name')
+        .eq('id', row.supplier_colour_option_id)
+        .maybeSingle();
+      colourName = colour?.color_name ?? undefined;
+    }
+
+    return {
+      height_ft: ft?.standard_height_ft != null ? Number(ft.standard_height_ft) : undefined,
+      type: ft?.name ? stripSupplierFromTypeName(ft.name) : undefined,
+      style: styleName,
+      colour: colourName,
+    };
   } catch {
     return null;
   }
@@ -302,7 +351,10 @@ export async function enrichMaterialQuoteRequests(supabase: any, rows: RawMateri
     rows.map(async (r) => {
       const fence = r.quote_session_id ? fenceBySessionId.get(r.quote_session_id) || null : null;
       const designSummary = await getDesignSummary(supabase, fence);
-      const designOption = await getDesignOption(supabase, fence);
+      const designOptionFromFence = await getDesignOption(supabase, fence);
+      const designOptionFromSupplier =
+        designOptionFromFence ?? (await getDesignOptionFromSupplierSelection(supabase, r));
+      const designOption = designOptionFromSupplier;
       const layout = r.layout_drawing_id ? layoutById.get(r.layout_drawing_id) || null : null;
       const fenceId = r.quote_session_id ? fenceIdBySessionId.get(r.quote_session_id) || null : null;
       const homeAddress = r.quote_session_id ? homeAddressBySessionId.get(r.quote_session_id) ?? null : null;
