@@ -206,7 +206,13 @@ type LayoutSketchDrawingPayload = {
   points: { x: number; y: number }[];
   segments: { length_ft: number }[];
   gates: { type: 'single' | 'double'; quantity: number }[];
-  gate_placements: { type: 'single' | 'double'; line_index: number; x?: number; y?: number }[];
+  gate_placements: {
+    type: 'single' | 'double';
+    line_index: number;
+    x?: number;
+    y?: number;
+    width_in?: number;
+  }[];
   total_length_ft: number;
   /** Per vertex (count = segments + 1): explicit H-post / U-channel for PVC D6/D7 at each corner or open end. */
   joint_terminations?: SketchJointTermination[];
@@ -899,10 +905,12 @@ function parseLayoutSketch(raw: unknown): LayoutSketchDrawingPayload | null {
       const line_index = Math.max(0, Math.floor(Number(q.line_index) || 0));
       const x = Number(q.x);
       const y = Number(q.y);
+      const width_in = Number(q.width_in);
       return {
         type: type as 'single' | 'double',
         line_index,
         ...(Number.isFinite(x) && Number.isFinite(y) ? { x, y } : {}),
+        ...(Number.isFinite(width_in) && width_in > 0 ? { width_in } : {}),
       };
     })
     .filter((_, i) => i < 500);
@@ -2391,6 +2399,40 @@ export default function MaterialCalculatorHubPage() {
     });
   }
 
+  function applySketchGateWidth(placementIndex: number, widthInStr: string) {
+    const sketch = layoutSketchDataRef.current;
+    if (!sketch?.gate_placements?.length) return;
+    if (placementIndex < 0 || placementIndex >= sketch.gate_placements.length) return;
+
+    const n = Number(String(widthInStr).replace(/,/g, '').trim());
+    const width_in = Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : undefined;
+    const wStr = width_in != null ? String(width_in) : '';
+
+    const gate_placements = sketch.gate_placements.map((p, i) => {
+      if (i !== placementIndex) return p;
+      if (width_in == null) {
+        const { width_in: _drop, ...rest } = p;
+        return rest;
+      }
+      return { ...p, width_in };
+    });
+
+    const syncWidth = <T extends { sketchPlacementIndex?: number; width_in: string }>(rows: T[]) =>
+      rows.map((r) =>
+        r.sketchPlacementIndex === placementIndex ? { ...r, width_in: wStr } : r
+      );
+
+    setShortGates(syncWidth);
+    setSingleGates(syncWidth);
+    setDoubleGates(syncWidth);
+    setChainGates(syncWidth);
+    setHybVGates(syncWidth);
+    setHybHGates(syncWidth);
+
+    sketchToLinesSyncKeyRef.current = '';
+    setLayoutSketchData({ ...sketch, gate_placements });
+  }
+
   function removeSketchLinkedGate(placementIndex: number) {
     const sketch = layoutSketchDataRef.current;
     if (!sketch?.gate_placements?.length) return;
@@ -2485,6 +2527,14 @@ export default function MaterialCalculatorHubPage() {
     id: string,
     patch: Partial<PvcGateRow>
   ) {
+    if ('width_in' in patch) {
+      const rows = kind === 'short' ? shortGates : kind === 'single' ? singleGates : doubleGates;
+      const row = rows.find((r) => r.id === id);
+      if (row?.sketchPlacementIndex != null) {
+        applySketchGateWidth(row.sketchPlacementIndex, String(patch.width_in ?? ''));
+        if (Object.keys(patch).length === 1) return;
+      }
+    }
     const fn = (rows: PvcGateRow[]) => rows.map((r) => (r.id === id ? { ...r, ...patch } : r));
     if (kind === 'short') setShortGates(fn);
     else if (kind === 'single') setSingleGates(fn);
@@ -3535,9 +3585,16 @@ export default function MaterialCalculatorHubPage() {
                         type="number"
                         min={0}
                         value={g.width_in}
-                        onChange={(e) =>
-                          setChainGates((rows) => rows.map((r) => (r.id === g.id ? { ...r, width_in: e.target.value } : r)))
-                        }
+                        onChange={(e) => {
+                          const w = e.target.value;
+                          if (g.sketchPlacementIndex != null) {
+                            applySketchGateWidth(g.sketchPlacementIndex, w);
+                            return;
+                          }
+                          setChainGates((rows) =>
+                            rows.map((r) => (r.id === g.id ? { ...r, width_in: w } : r))
+                          );
+                        }}
                         className={`${field} w-24`}
                       />
                     </div>
@@ -3859,11 +3916,16 @@ export default function MaterialCalculatorHubPage() {
                         type="number"
                         min={0}
                         value={g.width_in}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const w = e.target.value;
+                          if (g.sketchPlacementIndex != null) {
+                            applySketchGateWidth(g.sketchPlacementIndex, w);
+                            return;
+                          }
                           setHybHGates((rows2) =>
-                            rows2.map((r) => (r.id === g.id ? { ...r, width_in: e.target.value } : r))
-                          )
-                        }
+                            rows2.map((r) => (r.id === g.id ? { ...r, width_in: w } : r))
+                          );
+                        }}
                         className={`${field} w-28`}
                       />
                     </div>
@@ -4171,11 +4233,16 @@ export default function MaterialCalculatorHubPage() {
                         type="number"
                         min={0}
                         value={g.width_in}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const w = e.target.value;
+                          if (g.sketchPlacementIndex != null) {
+                            applySketchGateWidth(g.sketchPlacementIndex, w);
+                            return;
+                          }
                           setHybVGates((rows2) =>
-                            rows2.map((r) => (r.id === g.id ? { ...r, width_in: e.target.value } : r))
-                          )
-                        }
+                            rows2.map((r) => (r.id === g.id ? { ...r, width_in: w } : r))
+                          );
+                        }}
                         className={`${field} w-28`}
                       />
                     </div>

@@ -16,10 +16,12 @@ function parseGatePlacements(raw: unknown): SketchGatePlacement[] {
       const line_index = Math.max(0, Math.floor(Number(row.line_index) || 0));
       const x = Number(row.x);
       const y = Number(row.y);
+      const width_in = Number(row.width_in);
       return {
         type,
         line_index,
         ...(Number.isFinite(x) && Number.isFinite(y) ? { x, y } : {}),
+        ...(Number.isFinite(width_in) && width_in > 0 ? { width_in } : {}),
       };
     })
     .filter(Boolean) as SketchGatePlacement[];

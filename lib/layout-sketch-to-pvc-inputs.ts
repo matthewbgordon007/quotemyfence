@@ -38,6 +38,8 @@ export type SketchGatePlacement = {
   /** Click position on the line (ft); restored when reopening the sketch. */
   x?: number;
   y?: number;
+  /** User-edited opening width (in) from the material calculator; overrides defaults. */
+  width_in?: number;
 };
 
 export type LayoutPt = { x: number; y: number };
@@ -98,6 +100,9 @@ export function sketchGateWidthInches(
   placement: SketchGatePlacement,
   segments: { length_ft?: number }[]
 ): number {
+  const custom = Number(placement.width_in);
+  if (Number.isFinite(custom) && custom > 0) return custom;
+
   const idx = Math.max(0, Math.min(segments.length - 1, Number(placement.line_index) || 0));
   const lengthFt = Math.max(0, Number(segments[idx]?.length_ft) || 0);
   const widthRawIn = lengthFt * 12;

@@ -54,6 +54,7 @@ export type LayoutGatePlacement = {
   line_index: number;
   x?: number;
   y?: number;
+  width_in?: number;
 };
 
 export interface LayoutDrawCanvasProps {
@@ -169,7 +170,13 @@ function nearestLineIndexForPoint(
   return bestI;
 }
 
-type PlacedGate = { type: 'single' | 'double'; x: number; y: number; line_index: number };
+type PlacedGate = {
+  type: 'single' | 'double';
+  x: number;
+  y: number;
+  line_index: number;
+  width_in?: number;
+};
 
 /** After removing segment index `removed`, drop its gates and shift indices for segments that moved. */
 function adjustPlacedGatesAfterSegmentRemoved(
@@ -364,11 +371,13 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
             const my = (seg[0].y + seg[1].y) / 2;
             const rx = Number(row.x);
             const ry = Number(row.y);
+            const rw = Number(row.width_in);
             return {
               type: t,
               x: Number.isFinite(rx) && Number.isFinite(ry) ? rx : mx,
               y: Number.isFinite(rx) && Number.isFinite(ry) ? ry : my,
               line_index: li,
+              ...(Number.isFinite(rw) && rw > 0 ? { width_in: rw } : {}),
             };
           }
           return { type: t, x: 0, y: 0, line_index: li };
@@ -535,6 +544,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
           segs.length > 0 ? Math.max(0, Math.min(segs.length - 1, g.line_index)) : 0,
         x: g.x,
         y: g.y,
+        ...(g.width_in != null && g.width_in > 0 ? { width_in: g.width_in } : {}),
       }));
       const nums = lengthNumsForAlign(segs, lengths);
       const al = alignChainedSketchSegments(segs, nums, LAYOUT_CHAIN_ALIGN_FT, LAYOUT_MIN_SKETCH_SEGMENT_FT);
@@ -608,6 +618,23 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
     useEffect(() => {
       setSelectedJointIndex((j) => (j != null && j >= jointTerminations.length ? null : j));
     }, [jointTerminations.length]);
+
+    useEffect(() => {
+      const gp = initialDrawing?.gate_placements;
+      if (!gp?.length) return;
+      setPlacedGates((prev) => {
+        if (prev.length !== gp.length) return prev;
+        let changed = false;
+        const next = prev.map((g, i) => {
+          const w = Number(gp[i]?.width_in);
+          const width_in = Number.isFinite(w) && w > 0 ? w : undefined;
+          if (g.width_in === width_in) return g;
+          changed = true;
+          return { ...g, width_in };
+        });
+        return changed ? next : prev;
+      });
+    }, [initialDrawing?.gate_placements]);
 
     useEffect(() => {
       const t = setTimeout(notify, 100);
@@ -981,7 +1008,14 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         const segmentLengthFt = typedLen > 0 ? typedLen : geomLen;
         if (segmentLengthFt <= 0) continue;
         const widthFt =
-          sketchGateWidthInches({ type: g.type, line_index: idx }, segMeta) / 12;
+          sketchGateWidthInches(
+            {
+              type: g.type,
+              line_index: idx,
+              ...(g.width_in != null && g.width_in > 0 ? { width_in: g.width_in } : {}),
+            },
+            segMeta
+          ) / 12;
         if (widthFt <= 0) continue;
         const ends = gateSpanAlongSegment(
           [seg[0], seg[1]],

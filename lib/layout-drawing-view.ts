@@ -43,10 +43,12 @@ export function parseSavedLayoutDrawing(raw: unknown): LayoutDrawingCanvasInitia
         const line_index = Math.max(0, Math.floor(Number(q.line_index) || 0));
         const x = Number(q.x);
         const y = Number(q.y);
+        const width_in = Number(q.width_in);
         return {
           type,
           line_index,
           ...(Number.isFinite(x) && Number.isFinite(y) ? { x, y } : {}),
+          ...(Number.isFinite(width_in) && width_in > 0 ? { width_in } : {}),
         };
       })
     : [];
