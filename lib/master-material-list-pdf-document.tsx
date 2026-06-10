@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
     minHeight: 18,
   },
   cellLabel: {
-    width: '56%',
+    width: '44%',
     paddingVertical: 4,
     paddingHorizontal: 6,
     borderRightWidth: 1,
@@ -59,7 +59,15 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   cellAdobe: {
-    width: '22%',
+    width: '18%',
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    borderRightWidth: 1,
+    borderColor: '#000',
+    textAlign: 'center',
+  },
+  cellPacks: {
+    width: '18%',
     paddingVertical: 4,
     paddingHorizontal: 4,
     borderRightWidth: 1,
@@ -67,7 +75,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   cellExtras: {
-    width: '22%',
+    width: '20%',
     paddingVertical: 4,
     paddingHorizontal: 4,
     textAlign: 'center',
@@ -125,6 +133,9 @@ export function MasterMaterialListPdfDocument({
             <View style={[styles.cellAdobe, { backgroundColor: COL_ADOBE }]}>
               <Text style={styles.headerAdobe}>{colourColumnTitle}</Text>
             </View>
+            <View style={[styles.cellPacks, { backgroundColor: COL_WHITE }]}>
+              <Text style={styles.headerAdobe}>Packs</Text>
+            </View>
             <View style={[styles.cellExtras, { backgroundColor: COL_WHITE }]}>
               <Text style={styles.headerAdobe}>Extras</Text>
             </View>
@@ -148,6 +159,9 @@ export function MasterMaterialListPdfDocument({
                 </View>
                 <View style={[styles.cellAdobe, { backgroundColor: bg }]}>
                   <Text>{r.adobe}</Text>
+                </View>
+                <View style={[styles.cellPacks, { backgroundColor: bg }]}>
+                  <Text>{r.packs}</Text>
                 </View>
                 <View style={[styles.cellExtras, { backgroundColor: bg }]}>
                   <Text>{r.extras}</Text>

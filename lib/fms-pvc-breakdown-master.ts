@@ -14,6 +14,12 @@
 
 import { excelRoundUp } from '@/lib/fms-excel-math';
 import { LARGE_WARE_TITLE, SMALL_WARE_TITLE, splitWare } from '@/lib/material-ware';
+import {
+  splitCoupledPack,
+  splitIntoPacks,
+  splitPostGalvPack,
+  type PvcPackLine,
+} from '@/lib/pvc-material-packs';
 import type { FmsPvcAdobeGateMap } from '@/lib/fms-pvc-gates-calculator';
 import type { FmsPvcFenceLineResult } from '@/lib/fms-pvc-material-calculator';
 
@@ -97,8 +103,25 @@ export function buildPvcAdobeBreakdown(
 export interface FmsPvcMasterRow {
   label: string;
   qty: number;
+  /** Full packs to grab (PVC packaging rules). */
+  packs?: number;
+  /** Loose quantity beyond full packs — shown as +N in Extras column. */
+  loose?: number;
   /** Section divider row ("Large ware" / "Small ware") — no quantity. */
   header?: boolean;
+}
+
+function masterRow(label: string, line: PvcPackLine & { packs?: number }): FmsPvcMasterRow {
+  return {
+    label,
+    qty: line.total,
+    packs: line.packs,
+    loose: line.loose,
+  };
+}
+
+function masterRowPlain(label: string, qty: number): FmsPvcMasterRow {
+  return { label, qty };
 }
 
 /** Extra boards added by a percentage uplift (e.g. 5 → +5% boards, rounded up to whole boards). */
@@ -144,28 +167,34 @@ export function computePvcMasterColumn(
       : j(adobe, 2);
   const totalLinearFt = fenceLinearFt + j(adobe, 17);
 
+  const galv = j(adobe, 3) + j(adobe, 18) + x(e.m11);
+  const boardPack = splitCoupledPack(board, boardStiff, 16, 3);
+  const railPack = splitCoupledPack(rail, railStiff, 2, 2);
+  const postPack = splitPostGalvPack(hPost, galv);
+  const uChannelPack = splitIntoPacks(uChannel, 2);
+
   const items: FmsPvcMasterRow[] = [
-    { label: 'Concrete', qty: concrete },
-    { label: 'Rail', qty: rail },
-    { label: 'Rail Stiffener', qty: railStiff },
-    { label: 'Board', qty: board },
-    { label: 'Board Stiffener', qty: boardStiff },
-    { label: 'H-Post', qty: hPost },
-    { label: 'Galvanized Post', qty: j(adobe, 3) + j(adobe, 18) + x(e.m11) },
-    { label: 'U-Channel', qty: uChannel },
-    { label: 'H-Post Stiffener', qty: hPostStiff },
-    { label: 'Post Filler', qty: 0 },
-    { label: 'Overhead Brace', qty: overhead },
-    { label: 'Diagonal Brace', qty: diagonal },
-    { label: 'Base Plates', qty: 0 },
-    { label: "Lattice (1' x 8')", qty: 0 },
-    { label: 'Post Cap', qty: postCap },
-    { label: 'Hole Plug', qty: holePlug },
-    { label: 'Large Screw', qty: largeScrew },
-    { label: 'Short Screw', qty: shortScrew },
-    { label: '*PREMIUM*Latch', qty: latch },
-    { label: '*PREMIUM*Hinge', qty: hinge },
-    { label: 'Drop Rod/Sleeve', qty: 0 },
+    masterRowPlain('Concrete', concrete),
+    masterRow('Rail', railPack.primary),
+    masterRow('Rail Stiffener', railPack.secondary),
+    masterRow('Board', boardPack.primary),
+    masterRow('Board Stiffener', boardPack.secondary),
+    masterRow('H-Post', postPack.hPost),
+    masterRow('Galvanized Post', postPack.galv),
+    masterRow('U-Channel', uChannelPack),
+    masterRowPlain('H-Post Stiffener', hPostStiff),
+    masterRowPlain('Post Filler', 0),
+    masterRowPlain('Overhead Brace', overhead),
+    masterRowPlain('Diagonal Brace', diagonal),
+    masterRowPlain('Base Plates', 0),
+    masterRowPlain("Lattice (1' x 8')", 0),
+    masterRowPlain('Post Cap', postCap),
+    masterRowPlain('Hole Plug', holePlug),
+    masterRowPlain('Large Screw', largeScrew),
+    masterRowPlain('Short Screw', shortScrew),
+    masterRowPlain('*PREMIUM*Latch', latch),
+    masterRowPlain('*PREMIUM*Hinge', hinge),
+    masterRowPlain('Drop Rod/Sleeve', 0),
   ];
   const { large, small } = splitWare(items, (r) => r.label);
 

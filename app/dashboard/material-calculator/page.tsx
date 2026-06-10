@@ -17,6 +17,7 @@ import {
   type FmsPvcMasterExtras,
 } from '@/lib/fms-pvc-breakdown-master';
 import { LARGE_WARE_TITLE, SMALL_WARE_TITLE, splitWare } from '@/lib/material-ware';
+import { formatLooseExtra, formatPacksCell } from '@/lib/pvc-material-packs';
 import { sumGateAdobeRows, type FmsPvcGatePosts } from '@/lib/fms-pvc-gates-calculator';
 import {
   aggregateFmsChainLinkFenceLines,
@@ -1808,9 +1809,14 @@ export default function MaterialCalculatorHubPage() {
     const concF = [`Concrete (fence H-post only × 2.5)`, `${pvcJob.concrete_bags_est}`, '', ''].join('\t');
     const adobeH = [`${fmsPvcMaterialListBreakdownTitle(pvcBreakdownColour)} (J row → qty)`, '', '', ''].join('\t');
     const adobeBody = adobeRows.map((r) => `${r.row}\t${r.label}\t${r.qty}`);
-    const masterH = [`Master column C — ${pvcBreakdownColour} (optional M adders)`, '', '', ''].join('\t');
-    const masterBody = pvcMaster.map((r) => (r.header ? `— ${r.label} —` : `${r.label}\t${r.qty}`));
-    return [head, colourLine, '', fenceHdr, hdr, ...fenceRows, extra, concF, '', adobeH, 'Row\tItem\tQty', ...adobeBody, '', masterH, hdr, ...masterBody].join('\n');
+    const masterH = [`Master column C — ${pvcBreakdownColour}`, '', '', ''].join('\t');
+    const masterHdr = ['Item', 'Total', 'Packs', 'Extras'].join('\t');
+    const masterBody = pvcMaster.map((r) =>
+      r.header
+        ? `— ${r.label} —`
+        : `${r.label}\t${r.qty}\t${formatPacksCell(r.packs ?? 0)}\t${formatLooseExtra(r.loose ?? 0)}`
+    );
+    return [head, colourLine, '', fenceHdr, hdr, ...fenceRows, extra, concF, '', adobeH, 'Row\tItem\tQty', ...adobeBody, '', masterH, masterHdr, ...masterBody].join('\n');
   }, [pvcJob, jobAddress, pvcBreakdownColour, adobeRows, pvcMaster]);
 
   const copyBom = useCallback(async () => {
@@ -1969,18 +1975,19 @@ export default function MaterialCalculatorHubPage() {
     const toPdfRow = (r: { key: string; label: string; qty: number }, section: 'structure' | 'hardware') => ({
       label: r.label,
       adobe: fmt(r.qty),
+      packs: '',
       extras: ex(r.key) > 0 ? fmt(ex(r.key)) : '',
       section,
     });
     const pdfRows: import('@/lib/master-material-list-pdf-data').MasterMaterialListPdfRow[] = [
-      { label: LARGE_WARE_TITLE, adobe: '', extras: '', section: 'wareHeader' as const },
+      { label: LARGE_WARE_TITLE, adobe: '', packs: '', extras: '', section: 'wareHeader' as const },
       ...large.map((r) => toPdfRow(r, 'structure')),
-      { label: SMALL_WARE_TITLE, adobe: '', extras: '', section: 'wareHeader' as const },
+      { label: SMALL_WARE_TITLE, adobe: '', packs: '', extras: '', section: 'wareHeader' as const },
       ...small.map((r) => toPdfRow(r, 'hardware')),
-      { label: '', adobe: '', extras: '', section: 'spacer' as const },
-      { label: 'Total Linear Ft', adobe: fmt(chainFenceAgg.total_linear_ft), extras: '', section: 'totals' as const },
-      { label: 'Total Gates', adobe: fmt(chainGateResults.length), extras: '', section: 'totals' as const },
-      { label: 'Total B4 Tax', adobe: '', extras: '', section: 'taxRow' as const },
+      { label: '', adobe: '', packs: '', extras: '', section: 'spacer' as const },
+      { label: 'Total Linear Ft', adobe: fmt(chainFenceAgg.total_linear_ft), packs: '', extras: '', section: 'totals' as const },
+      { label: 'Total Gates', adobe: fmt(chainGateResults.length), packs: '', extras: '', section: 'totals' as const },
+      { label: 'Total B4 Tax', adobe: '', packs: '', extras: '', section: 'taxRow' as const },
     ];
     const [{ pdf }, { MasterMaterialListPdfDocument }] = await Promise.all([
       import('@react-pdf/renderer'),
@@ -2109,18 +2116,19 @@ export default function MaterialCalculatorHubPage() {
       const toPdfRow = (r: FmsHybridItemRow, section: 'structure' | 'hardware') => ({
         label: r.item,
         adobe: fmt(r.final),
+        packs: '',
         extras: extrasByItem.get(r.item.toLowerCase()) ? fmt(extrasByItem.get(r.item.toLowerCase())!) : '',
         section,
       });
       const pdfRows: import('@/lib/master-material-list-pdf-data').MasterMaterialListPdfRow[] = [
-        { label: LARGE_WARE_TITLE, adobe: '', extras: '', section: 'wareHeader' as const },
+        { label: LARGE_WARE_TITLE, adobe: '', packs: '', extras: '', section: 'wareHeader' as const },
         ...large.map((r) => toPdfRow(r, 'structure')),
-        { label: SMALL_WARE_TITLE, adobe: '', extras: '', section: 'wareHeader' as const },
+        { label: SMALL_WARE_TITLE, adobe: '', packs: '', extras: '', section: 'wareHeader' as const },
         ...small.map((r) => toPdfRow(r, 'hardware')),
-        { label: '', adobe: '', extras: '', section: 'spacer' as const },
-        { label: 'Total Linear Ft', adobe: fmt(linearFt), extras: '', section: 'totals' as const },
-        { label: 'Total Gates', adobe: fmt(gateCount), extras: '', section: 'totals' as const },
-        { label: 'Total B4 Tax', adobe: '', extras: '', section: 'taxRow' as const },
+        { label: '', adobe: '', packs: '', extras: '', section: 'spacer' as const },
+        { label: 'Total Linear Ft', adobe: fmt(linearFt), packs: '', extras: '', section: 'totals' as const },
+        { label: 'Total Gates', adobe: fmt(gateCount), packs: '', extras: '', section: 'totals' as const },
+        { label: 'Total B4 Tax', adobe: '', packs: '', extras: '', section: 'taxRow' as const },
       ];
 
       const [{ pdf }, { MasterMaterialListPdfDocument }] = await Promise.all([
@@ -3018,7 +3026,9 @@ export default function MaterialCalculatorHubPage() {
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold text-slate-500">
                         <th className="px-2 py-2">Item</th>
-                        <th className="px-2 py-2 text-right">Qty</th>
+                        <th className="px-2 py-2 text-right">Total</th>
+                        <th className="px-2 py-2 text-right">Packs</th>
+                        <th className="px-2 py-2 text-right">Extras</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -3026,7 +3036,7 @@ export default function MaterialCalculatorHubPage() {
                         r.header ? (
                           <tr key={`${idx}-${r.label}`} className="border-b border-slate-200 bg-slate-100">
                             <td
-                              colSpan={2}
+                              colSpan={4}
                               className="px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-600"
                             >
                               {r.label}
@@ -3036,6 +3046,12 @@ export default function MaterialCalculatorHubPage() {
                           <tr key={`${idx}-${r.label || 'row'}`} className="border-b border-slate-100">
                             <td className="px-2 py-1.5 font-medium text-slate-800">{r.label || '\u00a0'}</td>
                             <td className="px-2 py-1.5 text-right tabular-nums text-slate-900">{r.qty}</td>
+                            <td className="px-2 py-1.5 text-right tabular-nums text-slate-700">
+                              {formatPacksCell(r.packs ?? 0) || '\u00a0'}
+                            </td>
+                            <td className="px-2 py-1.5 text-right tabular-nums text-slate-600">
+                              {formatLooseExtra(r.loose ?? 0) || '\u00a0'}
+                            </td>
                           </tr>
                         )
                       )}
