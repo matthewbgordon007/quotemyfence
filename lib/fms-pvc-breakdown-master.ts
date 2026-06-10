@@ -33,6 +33,7 @@ export interface FmsPvcMasterExtras {
   m11?: number;
   m12?: number;
   m13?: number;
+  m14?: number;
   m15?: number;
   m16?: number;
   m19?: number;
@@ -151,6 +152,7 @@ export function computePvcMasterColumn(
   const boardStiff = j(adobe, 9) + j(adobe, 24) + x(e.m9);
   const uChannel = j(adobe, 13) + j(adobe, 28) + x(e.m12);
   const hPostStiff = j(adobe, 14) + j(adobe, 33) + x(e.m13);
+  const postFiller = x(e.m14);
   // Overhead and cross braces are always sold as whole units (no 0.5).
   const overhead = excelRoundUp(j(adobe, 30) + x(e.m15), 0);
   const diagonal = excelRoundUp(j(adobe, 29) + x(e.m16), 0);
@@ -183,7 +185,7 @@ export function computePvcMasterColumn(
     masterRow('Galvanized Post', postPack.galv),
     masterRow('U-Channel', uChannelPack),
     masterRowPlain('H-Post Stiffener', hPostStiff),
-    masterRowPlain('Post Filler', 0),
+    masterRowPlain('Post Filler', postFiller),
     masterRowPlain('Overhead Brace', overhead),
     masterRowPlain('Diagonal Brace', diagonal),
     masterRowPlain('Base Plates', 0),

@@ -473,6 +473,7 @@ const MASTER_EXTRA_GROUPS: MasterExtraGroup[] = [
 const MASTER_EXTRA_SOLO: { key: keyof FmsPvcMasterExtras; label: string; integerOnly?: boolean }[] = [
   { key: 'm12', label: 'U-channel' },
   { key: 'm13', label: 'H-post stiffener' },
+  { key: 'm14', label: 'Post filler', integerOnly: true },
   { key: 'm15', label: 'Overhead brace', integerOnly: true },
   { key: 'm16', label: 'Diagonal / cross brace', integerOnly: true },
   { key: 'm19', label: 'Post cap' },
@@ -1753,7 +1754,7 @@ export default function MaterialCalculatorHubPage() {
 
   const extrasParsed: FmsPvcMasterExtras = useMemo(() => {
     const o: FmsPvcMasterExtras = {};
-    const integerKeys = new Set<keyof FmsPvcMasterExtras>(['m15', 'm16', 'm9']);
+    const integerKeys = new Set<keyof FmsPvcMasterExtras>(['m14', 'm15', 'm16', 'm9']);
     const boardGroup = MASTER_EXTRA_GROUPS.find((g) => g.mode === 'board_stiffener_ratio');
     const skipKeys = new Set<keyof FmsPvcMasterExtras>();
     if (boardGroup?.mode === 'board_stiffener_ratio') skipKeys.add(boardGroup.stiffKey);
