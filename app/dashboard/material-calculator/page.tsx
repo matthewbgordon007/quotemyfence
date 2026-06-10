@@ -247,6 +247,8 @@ interface PvcLineRow {
   u_channel: string;
   /** When true, D6/D7 came from the layout sketch (corners vs straight merge). */
   fromSketch?: boolean;
+  /** User unlocked post/end fields — sketch sync must not revert this row. */
+  manualRunEdit?: boolean;
 }
 
 type LayoutSketchDrawingPayload = {
@@ -272,6 +274,7 @@ type ChainLineRow = {
   terminal_post: string;
   /** When true, lengths / D6 came from the layout sketch (same corner logic as PVC). */
   fromSketch?: boolean;
+  manualRunEdit?: boolean;
 };
 
 /** One Excel fence-line block on the hybrid horizontal / vertical calculator tabs. */
@@ -283,6 +286,7 @@ type HybridLineRow = {
   u_channel: 0 | 1 | 2;
   /** When true, length / D6 / D7 came from the layout sketch (vertical tab only). */
   fromSketch?: boolean;
+  manualRunEdit?: boolean;
 };
 
 type HybridHGateKind = 'simple' | 'adjacent' | 'double';
@@ -404,12 +408,11 @@ function drawingDataToHybridVLineRows(
 }
 
 /** Sketch redraw: refresh linked runs; leave hand-edited runs untouched for the material list. */
-function mergeFenceLineFromSketch<T extends { fromSketch?: boolean; id: string; label: string }>(
-  row: T,
-  old: T | undefined
-): T {
+function mergeFenceLineFromSketch<
+  T extends { fromSketch?: boolean; manualRunEdit?: boolean; id: string; label: string },
+>(row: T, old: T | undefined): T {
   if (!old) return row;
-  if (!old.fromSketch) return old;
+  if (old.manualRunEdit || !old.fromSketch) return old;
   return { ...row, id: old.id, label: old.label || row.label };
 }
 
@@ -1200,6 +1203,7 @@ export default function MaterialCalculatorHubPage() {
   const [layoutCanvasRemountKey, setLayoutCanvasRemountKey] = useState(0);
   /** Ignore canvas echo updates briefly after we push sketch geometry from run-table edits. */
   const programmaticSketchUpdateAtRef = useRef(0);
+  const sketchLengthPushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [shortGates, setShortGates] = useState<PvcGateRow[]>([]);
   const [singleGates, setSingleGates] = useState<PvcGateRow[]>([]);
@@ -2565,6 +2569,21 @@ export default function MaterialCalculatorHubPage() {
     });
   }
 
+  function scheduleSketchSegmentLengthPush(segmentIndex: number, netLengthFt: number, flush = false) {
+    if (sketchLengthPushTimerRef.current) {
+      clearTimeout(sketchLengthPushTimerRef.current);
+      sketchLengthPushTimerRef.current = null;
+    }
+    if (flush) {
+      pushSketchSegmentLength(segmentIndex, netLengthFt);
+      return;
+    }
+    sketchLengthPushTimerRef.current = setTimeout(() => {
+      sketchLengthPushTimerRef.current = null;
+      pushSketchSegmentLength(segmentIndex, netLengthFt);
+    }, 400);
+  }
+
   function updateLine(id: string, patch: Partial<PvcLineRow>) {
     setLines((rows) => {
       const next = rows.map((r) => (r.id === id ? { ...r, ...patch } : r));
@@ -2572,10 +2591,26 @@ export default function MaterialCalculatorHubPage() {
       if (idx >= 0 && 'length_ft' in patch) {
         const merged = next[idx];
         const newL = Math.max(0, Number(String(merged.length_ft).replace(/,/g, '')) || 0);
-        pushSketchSegmentLength(idx, newL);
+        scheduleSketchSegmentLengthPush(idx, newL);
       }
       return next;
     });
+  }
+
+  function flushSketchSegmentLengthForLine(id: string) {
+    const rows = lines;
+    const idx = rows.findIndex((r) => r.id === id);
+    if (idx < 0) return;
+    const newL = Math.max(0, Number(String(rows[idx].length_ft).replace(/,/g, '')) || 0);
+    scheduleSketchSegmentLengthPush(idx, newL, true);
+  }
+
+  function flushSketchSegmentLengthForChainLine(id: string) {
+    const rows = chainLines;
+    const idx = rows.findIndex((r) => r.id === id);
+    if (idx < 0) return;
+    const newL = Math.max(0, Number(String(rows[idx].length_ft).replace(/,/g, '')) || 0);
+    scheduleSketchSegmentLengthPush(idx, newL, true);
   }
 
   function updateChainLine(id: string, patch: Partial<ChainLineRow>) {
@@ -2584,7 +2619,7 @@ export default function MaterialCalculatorHubPage() {
       const idx = next.findIndex((r) => r.id === id);
       if (idx >= 0 && 'length_ft' in patch) {
         const newL = Math.max(0, Number(String(next[idx].length_ft).replace(/,/g, '')) || 0);
-        pushSketchSegmentLength(idx, newL);
+        scheduleSketchSegmentLengthPush(idx, newL);
       }
       return next;
     });
@@ -2596,7 +2631,7 @@ export default function MaterialCalculatorHubPage() {
       const idx = next.findIndex((r) => r.id === id);
       if (idx >= 0 && 'length_ft' in patch) {
         const newL = Math.max(0, Number(String(next[idx].length_ft).replace(/,/g, '')) || 0);
-        pushSketchSegmentLength(idx, newL);
+        scheduleSketchSegmentLengthPush(idx, newL);
       }
       return next;
     });
@@ -2608,7 +2643,7 @@ export default function MaterialCalculatorHubPage() {
       const idx = next.findIndex((r) => r.id === id);
       if (idx >= 0 && 'length_ft' in patch) {
         const newL = Math.max(0, Number(String(next[idx].length_ft).replace(/,/g, '')) || 0);
-        pushSketchSegmentLength(idx, newL);
+        scheduleSketchSegmentLengthPush(idx, newL);
       }
       return next;
     });
@@ -3176,14 +3211,19 @@ export default function MaterialCalculatorHubPage() {
               }
               onDrawingChange={handleLayoutDrawingChange}
             />
-            {(lines.some((l) => l.fromSketch) || chainLines.some((l) => l.fromSketch)) && (
+            {(lines.some((l) => l.fromSketch && !l.manualRunEdit) ||
+              chainLines.some((l) => l.fromSketch && !l.manualRunEdit)) && (
               <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
                 <button
                   type="button"
                   className={btnGhost}
                   onClick={() => {
-                    setLines((prev) => prev.map((l) => ({ ...l, fromSketch: false })));
-                    setChainLines((prev) => prev.map((l) => ({ ...l, fromSketch: false })));
+                    setLines((prev) =>
+                      prev.map((l) => ({ ...l, fromSketch: false, manualRunEdit: true }))
+                    );
+                    setChainLines((prev) =>
+                      prev.map((l) => ({ ...l, fromSketch: false, manualRunEdit: true }))
+                    );
                   }}
                 >
                   Edit post &amp; end settings
@@ -3205,7 +3245,7 @@ export default function MaterialCalculatorHubPage() {
             </div>
             <div className="space-y-4 p-5">
               {lines.map((row, idx) =>
-                row.fromSketch ? (
+                row.fromSketch && !row.manualRunEdit ? (
                   <div
                     key={row.id}
                     className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-100 bg-slate-50/40 px-4 py-3 ring-1 ring-slate-900/[0.03]"
@@ -3227,6 +3267,7 @@ export default function MaterialCalculatorHubPage() {
                         step={0.1}
                         value={row.length_ft}
                         onChange={(e) => updateLine(row.id, { length_ft: e.target.value })}
+                        onBlur={() => flushSketchSegmentLengthForLine(row.id)}
                         className={`${field} w-28`}
                       />
                     </div>
@@ -3267,6 +3308,7 @@ export default function MaterialCalculatorHubPage() {
                         step={0.1}
                         value={row.length_ft}
                         onChange={(e) => updateLine(row.id, { length_ft: e.target.value })}
+                        onBlur={() => flushSketchSegmentLengthForLine(row.id)}
                         className={`${field} w-full`}
                       />
                     </div>
@@ -3760,7 +3802,7 @@ export default function MaterialCalculatorHubPage() {
                 </div>
               </div>
               {chainLines.map((row, idx) =>
-                row.fromSketch ? (
+                row.fromSketch && !row.manualRunEdit ? (
                   <div
                     key={row.id}
                     className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-100 bg-slate-50/40 px-4 py-3"
@@ -3781,6 +3823,7 @@ export default function MaterialCalculatorHubPage() {
                         step={0.1}
                         value={row.length_ft}
                         onChange={(e) => updateChainLine(row.id, { length_ft: e.target.value })}
+                        onBlur={() => flushSketchSegmentLengthForChainLine(row.id)}
                         className={`${field} w-28`}
                       />
                     </div>
@@ -3798,7 +3841,7 @@ export default function MaterialCalculatorHubPage() {
                     <input
                       type="text"
                       value={row.label}
-                      disabled={row.fromSketch}
+                      disabled={row.fromSketch && !row.manualRunEdit}
                       onChange={(e) => updateChainLine(row.id, { label: e.target.value })}
                       className={`${field} w-32 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70`}
                     />
@@ -3810,8 +3853,9 @@ export default function MaterialCalculatorHubPage() {
                       min={0}
                       step={0.1}
                       value={row.length_ft}
-                      disabled={row.fromSketch}
+                      disabled={row.fromSketch && !row.manualRunEdit}
                       onChange={(e) => updateChainLine(row.id, { length_ft: e.target.value })}
+                      onBlur={() => flushSketchSegmentLengthForChainLine(row.id)}
                       className={`${field} w-28 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70`}
                     />
                   </div>
@@ -3822,7 +3866,7 @@ export default function MaterialCalculatorHubPage() {
                       min={0}
                       step={1}
                       value={row.terminal_post}
-                      disabled={row.fromSketch}
+                      disabled={row.fromSketch && !row.manualRunEdit}
                       onChange={(e) => updateChainLine(row.id, { terminal_post: e.target.value })}
                       className={`${field} w-24 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70`}
                     />
