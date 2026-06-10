@@ -79,6 +79,12 @@ export interface LayoutDrawCanvasProps {
    * let the toolbar / length rows grow below so siblings (e.g. Unlock) are not painted over.
    */
   fillParent?: boolean;
+  /**
+   * When true, drawn geometry is treated as a schematic only: lengths are NOT derived from how long
+   * the line was drawn — the user must type each line's length. Untyped lines export as length_ft 0.
+   * Default (false) keeps the drawn distance as the fallback (quote/calculator flows).
+   */
+  manualLengths?: boolean;
 }
 
 function dist(a: { x: number; y: number }, b: { x: number; y: number }): number {
@@ -257,7 +263,7 @@ function computeInitialFitView(
 
 export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvasProps>(
   function LayoutDrawCanvas(
-    { initialDrawing, readOnly, lineHighlightModes, onDrawingChange, onReset, fillParent = true },
+    { initialDrawing, readOnly, lineHighlightModes, onDrawingChange, onReset, fillParent = true, manualLengths = false },
     ref
   ) {
     const fsRootRef = useRef<HTMLDivElement>(null);
@@ -342,7 +348,9 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       const n = initSegs.length;
       if (n === 0) return [];
       return Array.from({ length: n }, (_, i) => {
-        if (segLens[i]?.length_ft != null) return String(segLens[i].length_ft);
+        const stored = segLens[i]?.length_ft;
+        if (stored != null && (!manualLengths || stored > 0)) return String(stored);
+        if (manualLengths) return '';
         const seg = initSegs[i];
         if (seg.length < 2) return '';
         return dist(seg[0], seg[1]).toFixed(1);
@@ -438,7 +446,12 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         const seg = segs[i];
         if (seg.length >= 2) {
           const typed = parseFloat(lengths[i] || '');
-          const ft = Number.isFinite(typed) && typed > 0 ? typed : dist(seg[0], seg[1]);
+          const ft =
+            Number.isFinite(typed) && typed > 0
+              ? typed
+              : manualLengths
+                ? 0
+                : dist(seg[0], seg[1]);
           segLengths.push({ length_ft: Math.round(ft * 100) / 100 });
           total += ft;
           flatPts.push(seg[0], seg[1]);
@@ -525,9 +538,18 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
     const totalFeet = segments.reduce((acc, seg, i) => {
       if (seg.length < 2) return acc;
       const typed = parseFloat(lineLengths[i] || '');
-      const ft = Number.isFinite(typed) && typed > 0 ? typed : dist(seg[0], seg[1]);
+      const ft =
+        Number.isFinite(typed) && typed > 0 ? typed : manualLengths ? 0 : dist(seg[0], seg[1]);
       return acc + ft;
     }, 0);
+
+    const missingLengthCount = manualLengths
+      ? segments.reduce((acc, seg, i) => {
+          if (seg.length < 2) return acc;
+          const typed = parseFloat(lineLengths[i] || '');
+          return acc + (Number.isFinite(typed) && typed > 0 ? 0 : 1);
+        }, 0)
+      : 0;
 
     const jointVerts = useMemo(
       () => alignedFootVertices(segments, lineLengths),
@@ -1323,6 +1345,12 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         )}
         {segments.length > 0 && (
           <div className="mt-3 space-y-3">
+            {manualLengths && missingLengthCount > 0 ? (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                Enter the measured length for {missingLengthCount === 1 ? 'the highlighted line' : `each of the ${missingLengthCount} highlighted lines`} below — lengths are not taken
+                from the drawing.
+              </p>
+            ) : null}
             <div className="flex flex-wrap items-center gap-3">
               <span className="text-base font-medium text-[var(--muted)]">Lengths (ft):</span>
               {segments.length <= 40 ? segments.map((_, i) => (
@@ -1340,7 +1368,11 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                       });
                     }}
                     placeholder="ft"
-                    className="w-[4.5rem] rounded border border-[var(--line)] px-2 py-1.5 text-base"
+                    className={`w-[4.5rem] rounded border px-2 py-1.5 text-base ${
+                      manualLengths && !(parseFloat(lineLengths[i] || '') > 0)
+                        ? 'border-amber-400 bg-amber-50/60'
+                        : 'border-[var(--line)]'
+                    }`}
                   />
                   <button
                     type="button"

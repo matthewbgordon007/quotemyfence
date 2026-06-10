@@ -435,6 +435,13 @@ export default function LayoutPage() {
       alert('Please save the layout first before requesting a material quote.');
       return;
     }
+    const missingLengths = (drawingData?.segments || []).filter((s) => !(Number(s.length_ft) > 0)).length;
+    if (missingLengths > 0) {
+      alert(
+        `Enter a length for every line before sending (${missingLengths} line${missingLengths === 1 ? '' : 's'} still need${missingLengths === 1 ? 's' : ''} a length). Lengths are not taken from the drawing — type them in the "Lengths (ft)" boxes, then save.`
+      );
+      return;
+    }
     setSubmittingMaterial(true);
     try {
       let attachmentPayload:
@@ -915,13 +922,15 @@ export default function LayoutPage() {
             lineHighlightModes={lineHighlightModes}
             onReset={handleReset}
             onDrawingChange={handleDrawingChange}
+            manualLengths
           />
         </div>
       </div>
 
       <p className="py-2 text-center text-xs text-[var(--muted)]">
         Click to start a line, then click again to finish (or use End line). Esc cancels the line in progress. Drag on an
-        empty canvas to pan.
+        empty canvas to pan. The sketch is just the shape — type each line&apos;s measured length in the boxes below the
+        canvas.
       </p>
     </div>
   );
