@@ -55,6 +55,7 @@ import {
   alignChainedSketchSegments,
   layoutPointsToSegmentPairs,
   layoutSegmentsToPvcFenceInputsPerSketchSegment,
+  removeLayoutDrawingSegment,
   LAYOUT_CHAIN_ALIGN_FT,
   LAYOUT_MIN_SKETCH_SEGMENT_FT,
   type SketchJointTermination,
@@ -1670,8 +1671,45 @@ export default function MaterialCalculatorHubPage() {
     });
   }
 
+  function syncSketchAfterSegmentRemoved(segmentIndex: number) {
+    const sketch = layoutSketchDataRef.current;
+    if (!sketch?.segments?.length || segmentIndex < 0 || segmentIndex >= sketch.segments.length) return;
+    const updated =
+      sketch.segments.length === 1
+        ? {
+            ...sketch,
+            points: [],
+            segments: [],
+            gates: [],
+            gate_placements: [],
+            joint_terminations: undefined,
+            total_length_ft: 0,
+          }
+        : removeLayoutDrawingSegment(sketch, segmentIndex);
+    if (!updated) return;
+    sketchToLinesSyncKeyRef.current = '';
+    queueMicrotask(() => {
+      setLayoutSketchData(updated as LayoutSketchDrawingPayload);
+      setLayoutCanvasRemountKey((k) => k + 1);
+    });
+  }
+
   function removeLine(id: string) {
-    setLines((rows) => (rows.length <= 1 ? rows : rows.filter((r) => r.id !== id)));
+    setLines((rows) => {
+      const idx = rows.findIndex((r) => r.id === id);
+      if (idx < 0) return rows;
+      syncSketchAfterSegmentRemoved(idx);
+      return rows.filter((r) => r.id !== id);
+    });
+  }
+
+  function removeChainLine(id: string) {
+    setChainLines((rows) => {
+      const idx = rows.findIndex((r) => r.id === id);
+      if (idx < 0) return rows;
+      syncSketchAfterSegmentRemoved(idx);
+      return rows.filter((r) => r.id !== id);
+    });
   }
 
   function addPvcGate(kind: 'short' | 'single' | 'double') {
@@ -2055,7 +2093,7 @@ export default function MaterialCalculatorHubPage() {
                 >
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <span className="text-sm font-semibold text-slate-800">Run {idx + 1}</span>
-                    <button type="button" className={btnGhost} onClick={() => removeLine(row.id)} disabled={lines.length <= 1}>
+                    <button type="button" className={btnGhost} onClick={() => removeLine(row.id)}>
                       Remove
                     </button>
                   </div>
@@ -2517,12 +2555,7 @@ export default function MaterialCalculatorHubPage() {
                       className={`${field} w-24 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70`}
                     />
                   </div>
-                  <button
-                    type="button"
-                    className={btnGhost}
-                    disabled={chainLines.length <= 1}
-                    onClick={() => setChainLines((rows) => rows.filter((r) => r.id !== row.id))}
-                  >
+                  <button type="button" className={btnGhost} onClick={() => removeChainLine(row.id)}>
                     Remove
                   </button>
                 </div>

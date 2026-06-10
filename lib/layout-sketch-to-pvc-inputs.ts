@@ -156,6 +156,58 @@ export function adjustLayoutDrawingSegmentLength<
   };
 }
 
+/**
+ * Remove one sketch segment (and its geometry) from saved layout drawing data.
+ * Supports disjoint pairs (`points.length === 2 * segments.length`) and polyline
+ * (`points.length === segments.length + 1`).
+ */
+export function removeLayoutDrawingSegment<
+  T extends {
+    points: LayoutPt[];
+    segments: { length_ft: number }[];
+    gates?: { type: 'single' | 'double'; quantity: number }[];
+    gate_placements?: { type: 'single' | 'double'; line_index: number }[];
+    total_length_ft?: number;
+    joint_terminations?: SketchJointTermination[];
+  },
+>(drawing: T, segmentIndex: number): T | null {
+  const m = drawing.segments.length;
+  if (segmentIndex < 0 || segmentIndex >= m) return null;
+
+  const segs = drawing.segments.filter((_, j) => j !== segmentIndex);
+  const n = drawing.points.length;
+  let pts: LayoutPt[];
+
+  if (m > 0 && n === 2 * m) {
+    pts = [...drawing.points.slice(0, segmentIndex * 2), ...drawing.points.slice(segmentIndex * 2 + 2)];
+  } else if (m > 0 && n === m + 1) {
+    pts = [...drawing.points.slice(0, segmentIndex + 1), ...drawing.points.slice(segmentIndex + 2)];
+  } else {
+    return null;
+  }
+
+  const gate_placements = drawing.gate_placements
+    ?.filter((g) => g.line_index !== segmentIndex)
+    .map((g) => (g.line_index > segmentIndex ? { ...g, line_index: g.line_index - 1 } : g));
+
+  let joint_terminations = drawing.joint_terminations;
+  if (joint_terminations?.length === m + 1) {
+    joint_terminations = joint_terminations.filter((_, j) => j !== segmentIndex + 1);
+    if (joint_terminations.length !== segs.length + 1) joint_terminations = undefined;
+  }
+
+  const total = segs.reduce((a, s) => a + (Number(s.length_ft) || 0), 0);
+
+  return {
+    ...drawing,
+    points: pts,
+    segments: segs,
+    ...(gate_placements ? { gate_placements } : {}),
+    ...(joint_terminations ? { joint_terminations } : {}),
+    total_length_ft: Math.round(total * 100) / 100,
+  };
+}
+
 function norm(v: { x: number; y: number }): { x: number; y: number } {
   const h = hypot(v.x, v.y);
   if (h < 1e-9) return { x: 0, y: 0 };
