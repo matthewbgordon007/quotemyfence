@@ -14,6 +14,7 @@ import {
   alignChainedSketchSegments,
   defaultJointTerminationsFromAligned,
   deflectionAtVertexDeg,
+  jointPositionsFromAligned,
   LAYOUT_CHAIN_ALIGN_FT,
   LAYOUT_MIN_SKETCH_SEGMENT_FT,
   LAYOUT_STRAIGHT_MAX_DEG,
@@ -108,14 +109,11 @@ function lengthNumsForAlign(segs: { x: number; y: number }[][], lengths: string[
   });
 }
 
-/** Vertices along the chained sketch after the same align step used for PVC (open ends + corners). */
+/** Vertices along the sketch after the same align step used for PVC (open ends + corners). */
 function alignedFootVertices(segs: { x: number; y: number }[][], lengths: string[]): { x: number; y: number }[] {
   const nums = lengthNumsForAlign(segs, lengths);
   const al = alignChainedSketchSegments(segs, nums, LAYOUT_CHAIN_ALIGN_FT, LAYOUT_MIN_SKETCH_SEGMENT_FT);
-  if (al.length === 0) return [];
-  const pts: { x: number; y: number }[] = [{ ...al[0].a }];
-  for (const s of al) pts.push({ ...s.b });
-  return pts;
+  return jointPositionsFromAligned(al, LAYOUT_CHAIN_ALIGN_FT);
 }
 
 const LAYOUT_LABEL_VERTEX_EPS_FT = 0.4;
@@ -445,7 +443,8 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       const nums = lengthNumsForAlign(initSegs, initLens);
       const al = alignChainedSketchSegments(initSegs, nums, LAYOUT_CHAIN_ALIGN_FT, LAYOUT_MIN_SKETCH_SEGMENT_FT);
       const jt = initialDrawing?.joint_terminations;
-      if (jt && jt.length === al.length + 1) {
+      const expectedJointCount = jointPositionsFromAligned(al, LAYOUT_CHAIN_ALIGN_FT).length;
+      if (jt && jt.length === expectedJointCount) {
         return jt.map((j) => ({ h_post: j.h_post !== false, u_channel: j.u_channel === true }));
       }
       return defaultJointTerminationsFromAligned(al);

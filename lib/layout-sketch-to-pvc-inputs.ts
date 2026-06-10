@@ -44,7 +44,7 @@ export type SketchGatePlacement = {
 
 export type LayoutPt = { x: number; y: number };
 
-/** Per vertex along the chained sketch: open ends + corners. Index 0 = first point; index m = last point (m = segment count). */
+/** Per vertex along the sketch: open ends, disconnected run starts, and corners. */
 export type SketchJointTermination = { h_post: boolean; u_channel: boolean };
 
 /**
@@ -261,7 +261,15 @@ export function removeLayoutDrawingSegment<
   let joint_terminations = drawing.joint_terminations;
   if (joint_terminations?.length === m + 1) {
     joint_terminations = joint_terminations.filter((_, j) => j !== segmentIndex + 1);
-    if (joint_terminations.length !== segs.length + 1) joint_terminations = undefined;
+  }
+  const pairsAfter = layoutPointsToSegmentPairs(pts, segs);
+  const alAfter = alignChainedSketchSegments(
+    pairsAfter,
+    segs.map((s) => Number(s.length_ft) || 0)
+  );
+  const expectedAfter = jointPositionsFromAligned(alAfter).length;
+  if (joint_terminations && joint_terminations.length !== expectedAfter) {
+    joint_terminations = undefined;
   }
 
   const total = segs.reduce((a, s) => a + (Number(s.length_ft) || 0), 0);
@@ -457,15 +465,63 @@ export function isCornerAtPoint(
   return false;
 }
 
+/** Whether segment i's start shares a post with segment i−1's end (within chain-align tolerance). */
+export function sketchSegmentStartConnectedToPrev(
+  al: LayoutSegmentFeet[],
+  segmentIndex: number,
+  chainAlignFt = LAYOUT_CHAIN_ALIGN_FT
+): boolean {
+  if (segmentIndex <= 0 || segmentIndex >= al.length) return false;
+  return dist(al[segmentIndex].a, al[segmentIndex - 1].b) <= chainAlignFt;
+}
+
+/**
+ * Joint vertex positions: each open end and corner that needs a post marker.
+ * Connected segments share one joint at their meeting point; disconnected runs include both ends.
+ */
+export function jointPositionsFromAligned(
+  al: LayoutSegmentFeet[],
+  chainAlignFt = LAYOUT_CHAIN_ALIGN_FT
+): LayoutPt[] {
+  if (al.length === 0) return [];
+  const positions: LayoutPt[] = [{ ...al[0].a }];
+  for (let i = 0; i < al.length; i++) {
+    positions.push({ ...al[i].b });
+    if (i + 1 < al.length && dist(al[i].b, al[i + 1].a) > chainAlignFt) {
+      positions.push({ ...al[i + 1].a });
+    }
+  }
+  return positions;
+}
+
+/** Start/end joint indices in `jointPositionsFromAligned` for each aligned segment. */
+export function segmentJointIndexRanges(
+  al: LayoutSegmentFeet[],
+  chainAlignFt = LAYOUT_CHAIN_ALIGN_FT
+): { start: number; end: number }[] {
+  const out: { start: number; end: number }[] = [];
+  let ji = 0;
+  for (let i = 0; i < al.length; i++) {
+    if (i > 0 && sketchSegmentStartConnectedToPrev(al, i, chainAlignFt)) {
+      ji += 1;
+      out.push({ start: out[i - 1].end, end: ji });
+    } else {
+      if (i > 0) ji += 1;
+      const start = ji;
+      ji += 1;
+      out.push({ start, end: ji });
+    }
+  }
+  return out;
+}
+
 /** Defaults: H-post at every joint; U wherever the lines meeting at that point turn more than the straight band. */
 export function defaultJointTerminationsFromAligned(
   al: LayoutSegmentFeet[],
-  thresholdDeg = LAYOUT_STRAIGHT_MAX_DEG
+  thresholdDeg = LAYOUT_STRAIGHT_MAX_DEG,
+  chainAlignFt = LAYOUT_CHAIN_ALIGN_FT
 ): SketchJointTermination[] {
-  const n = al.length;
-  if (n === 0) return [];
-  // Chain joint positions: joint 0 = start of the first segment, joint i = end of segment i-1.
-  const jointPositions: LayoutPt[] = [al[0].a, ...al.map((s) => s.b)];
+  const jointPositions = jointPositionsFromAligned(al, chainAlignFt);
   return jointPositions.map((P) => ({ h_post: true, u_channel: isCornerAtPoint(al, P, thresholdDeg) }));
 }
 
@@ -571,7 +627,7 @@ export function layoutSegmentsToPvcFenceInputsPerSketchSegment(
     snapStraightDeg?: number;
     chainAlignFt?: number;
     minSegFt?: number;
-    /** When length is `alignedSegments.length + 1`, overrides corner-angle U logic for each vertex. */
+    /** When length matches `jointPositionsFromAligned`, overrides corner-angle U logic for each vertex. */
     jointTerminations?: SketchJointTermination[] | null;
   }
 ): FmsPvcFenceLineInput[] {
@@ -583,23 +639,23 @@ export function layoutSegmentsToPvcFenceInputsPerSketchSegment(
   const segs = alignChainedSketchSegments(segments, lengthPerSegmentFt, chainAlign, minSeg);
   if (segs.length === 0) return [];
 
-  const useJoints = jointTerminations && jointTerminations.length === segs.length + 1;
+  const jointRanges = segmentJointIndexRanges(segs, chainAlign);
+  const expectedJointCount = jointPositionsFromAligned(segs, chainAlign).length;
+  const useJoints = jointTerminations && jointTerminations.length === expectedJointCount;
   // Without explicit overrides, derive joints from topology: any two lines meeting at more
   // than `straightMax` from straight get a post + U-channel at that point.
   const joints = useJoints ? jointTerminations! : defaultJointTerminationsFromAligned(segs, straightMax);
 
   return segs.map((seg, i) => {
-    const cap = joints[i + 1];
-    const endPost = cap?.h_post ? 1 : 0;
-    // Each run "owns" the post at its end joint; its start post is owned by the previous run.
-    // The very first run has no previous run, so it must also count the post + U at joint 0
-    // (otherwise the leading post of the whole chain is never counted — e.g. a single 2-panel
-    // run would report 2 posts instead of the 3 it physically needs, and a corner where a
-    // later line starts at the first line's start point would never count its U-channel).
-    const startPost = i === 0 && joints[0]?.h_post ? 1 : 0;
-    const startU = i === 0 && joints[0]?.u_channel ? 1 : 0;
+    const { start, end } = jointRanges[i];
+    const connectedToPrev = sketchSegmentStartConnectedToPrev(segs, i, chainAlign);
+    const endPost = joints[end]?.h_post ? 1 : 0;
+    // Each run owns the post at its end; its start post is owned by the previous run when connected.
+    // Disconnected runs (and the first run) also count the post at their start joint.
+    const startPost = !connectedToPrev && joints[start]?.h_post ? 1 : 0;
+    const startU = !connectedToPrev && joints[start]?.u_channel ? 1 : 0;
     const d6 = Math.min(2, endPost + startPost) as 0 | 1 | 2;
-    const d7 = (cap?.u_channel ? 1 : 0) + startU;
+    const d7 = (joints[end]?.u_channel ? 1 : 0) + startU;
     return {
       length_ft: seg.length_ft,
       fence_terminated_h_post_type: d6,
