@@ -12,6 +12,7 @@
  * - Master C28: `=COUNT('Adobe - Material List Breakdown'!B17:E17)` (we pass gate count from the app).
  */
 
+import { excelRoundUp } from '@/lib/fms-excel-math';
 import type { FmsPvcAdobeGateMap } from '@/lib/fms-pvc-gates-calculator';
 import type { FmsPvcFenceLineResult } from '@/lib/fms-pvc-material-calculator';
 
@@ -97,8 +98,9 @@ export function computePvcMasterColumn(
   const boardStiff = j(adobe, 9) + j(adobe, 24) + x(e.m9);
   const uChannel = j(adobe, 13) + j(adobe, 28) + x(e.m12);
   const hPostStiff = j(adobe, 14) + j(adobe, 33) + x(e.m13);
-  const overhead = j(adobe, 30) + x(e.m15);
-  const diagonal = j(adobe, 29) + x(e.m16);
+  // Overhead and cross braces are always sold as whole units (no 0.5).
+  const overhead = excelRoundUp(j(adobe, 30) + x(e.m15), 0);
+  const diagonal = excelRoundUp(j(adobe, 29) + x(e.m16), 0);
   const postCap = j(adobe, 5) + j(adobe, 20) + x(e.m19);
   const holePlug = j(adobe, 12) + j(adobe, 27) + 10 + x(e.m20);
   const largeScrew = j(adobe, 10) + j(adobe, 26) + 10 + x(e.m21);

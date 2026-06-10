@@ -300,43 +300,47 @@ function parseGateRowsShort(rows: PvcGateRow[]) {
     .filter(Boolean) as { gate_width_in: number; posts: FmsPvcGatePosts }[];
 }
 
-const MASTER_EXTRA_KEYS: (keyof FmsPvcMasterExtras)[] = [
-  'm6',
-  'm7',
-  'm8',
-  'm9',
-  'm10',
-  'm11',
-  'm12',
-  'm13',
-  'm15',
-  'm16',
-  'm19',
-  'm20',
-  'm21',
-  'm22',
-  'm23',
-  'm24',
+/** Paired extras — one quantity applies to every key in the group. */
+const MASTER_EXTRA_GROUPS: { label: string; keys: (keyof FmsPvcMasterExtras)[] }[] = [
+  { label: 'Rail (+ stiffener)', keys: ['m6', 'm7'] },
+  { label: 'Board (+ stiffener)', keys: ['m8', 'm9'] },
+  { label: 'H-post (+ galvanized)', keys: ['m10', 'm11'] },
 ];
 
-const MASTER_EXTRA_LABELS: Record<keyof FmsPvcMasterExtras, string> = {
-  m6: 'M6 (rail)',
-  m7: 'M7 (rail stiff.)',
-  m8: 'M8 (board)',
-  m9: 'M9 (board stiff.)',
-  m10: 'M10 (H-post)',
-  m11: 'M11 (galv.)',
-  m12: 'M12 (U-ch.)',
-  m13: 'M13 (H stiff.)',
-  m15: 'M15 (overhead)',
-  m16: 'M16 (diagonal)',
-  m19: 'M19 (post cap)',
-  m20: 'M20 (plug)',
-  m21: 'M21 (large scr.)',
-  m22: 'M22 (short scr.)',
-  m23: 'M23 (latch)',
-  m24: 'M24 (hinge)',
-};
+const MASTER_EXTRA_SOLO: { key: keyof FmsPvcMasterExtras; label: string; integerOnly?: boolean }[] = [
+  { key: 'm12', label: 'U-channel' },
+  { key: 'm13', label: 'H-post stiffener' },
+  { key: 'm15', label: 'Overhead brace', integerOnly: true },
+  { key: 'm16', label: 'Diagonal / cross brace', integerOnly: true },
+  { key: 'm19', label: 'Post cap' },
+  { key: 'm20', label: 'Hole plug' },
+  { key: 'm21', label: 'Large screw' },
+  { key: 'm22', label: 'Short screw' },
+  { key: 'm23', label: 'Latch' },
+  { key: 'm24', label: 'Hinge' },
+];
+
+const MASTER_EXTRA_KEYS: (keyof FmsPvcMasterExtras)[] = [
+  ...MASTER_EXTRA_GROUPS.flatMap((g) => g.keys),
+  ...MASTER_EXTRA_SOLO.map((s) => s.key),
+];
+
+function groupedExtraDisplayValue(
+  keys: (keyof FmsPvcMasterExtras)[],
+  extras: Partial<Record<keyof FmsPvcMasterExtras, string>>
+): string {
+  for (const k of keys) {
+    const v = extras[k];
+    if (v != null && v !== '') return v;
+  }
+  return '';
+}
+
+function sanitizeExtraInput(raw: string, integerOnly: boolean): string {
+  if (raw === '') return '';
+  if (integerOnly) return raw.replace(/[^\d]/g, '');
+  return raw.replace(/[^\d.,]/g, '');
+}
 
 const MATERIAL_CALC_DRAFT_VERSION = 1 as const;
 
@@ -1322,11 +1326,13 @@ export default function MaterialCalculatorHubPage() {
 
   const extrasParsed: FmsPvcMasterExtras = useMemo(() => {
     const o: FmsPvcMasterExtras = {};
+    const integerKeys = new Set<keyof FmsPvcMasterExtras>(['m15', 'm16']);
     for (const k of MASTER_EXTRA_KEYS) {
       const s = masterExtras[k];
       if (s == null || s === '') continue;
       const n = Number(String(s).replace(/,/g, ''));
-      if (Number.isFinite(n)) (o as Record<string, number>)[k] = n;
+      if (!Number.isFinite(n)) continue;
+      (o as Record<string, number>)[k] = integerKeys.has(k) ? Math.round(n) : n;
     }
     return o;
   }, [masterExtras]);
@@ -2170,8 +2176,8 @@ export default function MaterialCalculatorHubPage() {
             <div className="border-b border-slate-100 px-5 py-4">
               <h2 className={h2}>Extra items <span className="font-normal text-slate-400">(optional)</span></h2>
               <p className="mt-1 text-xs text-slate-500">
-                Add extra quantities of specific items if this job needs more than the standard count. Leave anything
-                blank to skip it.
+                Add extra quantities when the standard count isn&apos;t enough. Paired items (rail + stiffener, etc.)
+                share one number. Leave blank to skip.
               </p>
             </div>
             <div className="p-5">
@@ -2180,16 +2186,53 @@ export default function MaterialCalculatorHubPage() {
               </button>
               {masterExtrasOpen && (
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  {MASTER_EXTRA_KEYS.map((k) => (
-                    <div key={k}>
+                  {MASTER_EXTRA_GROUPS.map((g) => (
+                    <div key={g.keys.join('-')}>
                       <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
-                        {MASTER_EXTRA_LABELS[k]}
+                        {g.label}
                       </label>
                       <input
                         type="text"
                         inputMode="decimal"
-                        value={masterExtras[k] ?? ''}
-                        onChange={(e) => setMasterExtras((p) => ({ ...p, [k]: e.target.value }))}
+                        value={groupedExtraDisplayValue(g.keys, masterExtras)}
+                        onChange={(e) => {
+                          const v = sanitizeExtraInput(e.target.value, false);
+                          setMasterExtras((p) => {
+                            const next = { ...p };
+                            if (v === '') {
+                              for (const k of g.keys) delete next[k];
+                            } else {
+                              for (const k of g.keys) next[k] = v;
+                            }
+                            return next;
+                          });
+                        }}
+                        className={`${field} w-full`}
+                        placeholder="0"
+                      />
+                    </div>
+                  ))}
+                  {MASTER_EXTRA_SOLO.map((s) => (
+                    <div key={s.key}>
+                      <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
+                        {s.label}
+                        {s.integerOnly ? (
+                          <span className="ml-1 font-normal normal-case text-slate-400">(whole #)</span>
+                        ) : null}
+                      </label>
+                      <input
+                        type="text"
+                        inputMode={s.integerOnly ? 'numeric' : 'decimal'}
+                        value={masterExtras[s.key] ?? ''}
+                        onChange={(e) => {
+                          const v = sanitizeExtraInput(e.target.value, Boolean(s.integerOnly));
+                          setMasterExtras((p) => {
+                            const next = { ...p };
+                            if (v === '') delete next[s.key];
+                            else next[s.key] = v;
+                            return next;
+                          });
+                        }}
                         className={`${field} w-full`}
                         placeholder="0"
                       />

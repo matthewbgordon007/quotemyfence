@@ -1,3 +1,4 @@
+import { excelRoundUp } from '@/lib/fms-excel-math';
 import type { FmsPvcMasterExtras } from '@/lib/fms-pvc-breakdown-master';
 
 function j(adobe: Record<number, number>, row: number): number {
@@ -47,8 +48,8 @@ export function buildMasterMaterialListPdfRows(
   const boardStiff = j(adobe, 9) + j(adobe, 24) + x(e.m9);
   const uChannel = j(adobe, 13) + j(adobe, 28) + x(e.m12);
   const hPostStiff = j(adobe, 14) + j(adobe, 33) + x(e.m13);
-  const overhead = j(adobe, 30) + x(e.m15);
-  const diagonal = j(adobe, 29) + x(e.m16);
+  const overhead = excelRoundUp(j(adobe, 30) + x(e.m15), 0);
+  const diagonal = excelRoundUp(j(adobe, 29) + x(e.m16), 0);
   const galv = j(adobe, 3) + j(adobe, 18) + x(e.m11);
   const postCap = j(adobe, 5) + j(adobe, 20) + x(e.m19);
   const holePlug = j(adobe, 12) + j(adobe, 27) + 10 + x(e.m20);
