@@ -66,6 +66,7 @@ import {
 import {
   adjustLayoutDrawingSegmentLength,
   alignChainedSketchSegments,
+  grossLengthFtForSketchSegment,
   layoutPointsToSegmentPairs,
   layoutSegmentsToPvcFenceInputsPerSketchSegment,
   netFenceLengthFtForSegment,
@@ -262,20 +263,19 @@ function drawingDataToPvcLineRows(
   if (pairs.length === 0) return null;
   const gatePlacements = drawing.gate_placements;
   // One calculator row per drawn segment (do not merge colinear runs — matches sketch line count).
-  const lengthPerSeg = pairs.map((pair, i) => {
-    const raw = drawing.segments[i]?.length_ft;
-    const n = Number(raw);
-    const gross =
-      Number.isFinite(n) && n > 0 ? n : Math.max(1e-6, Math.hypot(pair[1].x - pair[0].x, pair[1].y - pair[0].y));
-    return netFenceLengthFtForSegment(i, gross, gatePlacements, drawing.segments);
-  });
-  const inputs = layoutSegmentsToPvcFenceInputsPerSketchSegment(pairs, lengthPerSeg, panelModule, {
+  const grossPerSeg = pairs.map((pair, i) =>
+    grossLengthFtForSketchSegment(i, pair, drawing.segments)
+  );
+  const netPerSeg = grossPerSeg.map((gross, i) =>
+    netFenceLengthFtForSegment(i, gross, gatePlacements, drawing.segments)
+  );
+  const inputs = layoutSegmentsToPvcFenceInputsPerSketchSegment(pairs, grossPerSeg, panelModule, {
     jointTerminations: drawing.joint_terminations ?? null,
   });
   return inputs.map((inp, i) => ({
     id: newLineId(),
     label: `Run ${i + 1}`,
-    length_ft: String(inp.length_ft),
+    length_ft: String(netPerSeg[i] ?? 0),
     panel_module: panelModule,
     end_preset: 'custom',
     h_post_type: inp.fence_terminated_h_post_type as 0 | 1 | 2,
@@ -297,20 +297,19 @@ function drawingDataToChainLineRows(
   const pairs = layoutPointsToSegmentPairs(drawing.points, drawing.segments);
   if (pairs.length === 0) return null;
   const gatePlacements = drawing.gate_placements;
-  const lengthPerSeg = pairs.map((pair, i) => {
-    const raw = drawing.segments[i]?.length_ft;
-    const n = Number(raw);
-    const gross =
-      Number.isFinite(n) && n > 0 ? n : Math.max(1e-6, Math.hypot(pair[1].x - pair[0].x, pair[1].y - pair[0].y));
-    return netFenceLengthFtForSegment(i, gross, gatePlacements, drawing.segments);
-  });
-  const inputs = layoutSegmentsToPvcFenceInputsPerSketchSegment(pairs, lengthPerSeg, panelModule, {
+  const grossPerSeg = pairs.map((pair, i) =>
+    grossLengthFtForSketchSegment(i, pair, drawing.segments)
+  );
+  const netPerSeg = grossPerSeg.map((gross, i) =>
+    netFenceLengthFtForSegment(i, gross, gatePlacements, drawing.segments)
+  );
+  const inputs = layoutSegmentsToPvcFenceInputsPerSketchSegment(pairs, grossPerSeg, panelModule, {
     jointTerminations: drawing.joint_terminations ?? null,
   });
   return inputs.map((inp, i) => ({
     id: newLineId(),
     label: `Run ${i + 1}`,
-    length_ft: String(inp.length_ft),
+    length_ft: String(netPerSeg[i] ?? 0),
     terminal_post: String(inp.fence_terminated_h_post_type),
     fromSketch: true,
   }));
@@ -329,20 +328,19 @@ function drawingDataToHybridVLineRows(
   const pairs = layoutPointsToSegmentPairs(drawing.points, drawing.segments);
   if (pairs.length === 0) return null;
   const gatePlacements = drawing.gate_placements;
-  const lengthPerSeg = pairs.map((pair, i) => {
-    const raw = drawing.segments[i]?.length_ft;
-    const n = Number(raw);
-    const gross =
-      Number.isFinite(n) && n > 0 ? n : Math.max(1e-6, Math.hypot(pair[1].x - pair[0].x, pair[1].y - pair[0].y));
-    return netFenceLengthFtForSegment(i, gross, gatePlacements, drawing.segments);
-  });
-  const inputs = layoutSegmentsToPvcFenceInputsPerSketchSegment(pairs, lengthPerSeg, panelModule, {
+  const grossPerSeg = pairs.map((pair, i) =>
+    grossLengthFtForSketchSegment(i, pair, drawing.segments)
+  );
+  const netPerSeg = grossPerSeg.map((gross, i) =>
+    netFenceLengthFtForSegment(i, gross, gatePlacements, drawing.segments)
+  );
+  const inputs = layoutSegmentsToPvcFenceInputsPerSketchSegment(pairs, grossPerSeg, panelModule, {
     jointTerminations: drawing.joint_terminations ?? null,
   });
   return inputs.map((inp, i) => ({
     id: newLineId(),
     label: `Run ${i + 1}`,
-    length_ft: String(inp.length_ft),
+    length_ft: String(netPerSeg[i] ?? 0),
     h_post: inp.fence_terminated_h_post_type as 0 | 1 | 2,
     u_channel: Math.max(0, Math.min(2, Math.round(Number(inp.fence_terminated_u_channel) || 0))) as 0 | 1 | 2,
     fromSketch: true,

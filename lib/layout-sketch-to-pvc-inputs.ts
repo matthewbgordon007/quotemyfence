@@ -132,6 +132,19 @@ export function netFenceLengthsFromSketch(
   });
 }
 
+/** Stored segment length when set; otherwise sketch geometry (ft). Used for corner alignment — not net-after-gate. */
+export function grossLengthFtForSketchSegment(
+  segmentIndex: number,
+  pair: LayoutPt[] | null | undefined,
+  segments: { length_ft?: number }[]
+): number {
+  const raw = segments[segmentIndex]?.length_ft;
+  const n = Number(raw);
+  if (Number.isFinite(n) && n > 0) return n;
+  if (pair && pair.length >= 2) return Math.max(1e-6, dist(pair[0], pair[1]));
+  return 0;
+}
+
 /**
  * Resize one sketch segment to `newLengthFt` along its current direction, update stored `length_ft` values
  * (and following segments when geometry shifts), and refresh `total_length_ft`. Supports disjoint pairs
@@ -175,32 +188,17 @@ export function adjustLayoutDrawingSegmentLength<
 
   const n = pts.length;
 
-  const recomputeDisjointFrom = (startJ: number) => {
-    for (let j = startJ; j < m; j++) {
-      const a = pts[j * 2];
-      const b = pts[j * 2 + 1];
-      if (!a || !b) continue;
-      segs[j] = { ...segs[j], length_ft: Math.round(hypot(b.x - a.x, b.y - a.y) * 100) / 100 };
-    }
-  };
-
   if (m > 0 && n === 2 * m) {
     pts[segmentIndex * 2 + 1] = { x: nx, y: ny };
     if (segmentIndex + 1 < m) {
       pts[(segmentIndex + 1) * 2] = { x: nx, y: ny };
     }
-    recomputeDisjointFrom(segmentIndex + 1);
   } else if (m > 0 && n === m + 1) {
     pts[segmentIndex + 1] = { x: nx, y: ny };
     const deltaX = nx - bx;
     const deltaY = ny - by;
     for (let j = segmentIndex + 2; j < n; j++) {
       pts[j] = { x: pts[j].x + deltaX, y: pts[j].y + deltaY };
-    }
-    for (let j = segmentIndex + 1; j < m; j++) {
-      const a = pts[j];
-      const b = pts[j + 1];
-      segs[j] = { ...segs[j], length_ft: Math.round(hypot(b.x - a.x, b.y - a.y) * 100) / 100 };
     }
   } else {
     return null;
@@ -454,14 +452,15 @@ export function alignChainedSketchSegments(
     const b = { ...seg[1] };
     const Lraw = lengthPerSegmentFt[i];
     const Lnum = Number(Lraw);
-    let length_ft = Number.isFinite(Lnum) && Lnum > 0 ? Lnum : dist(a, b);
+    const hasExplicit = Number.isFinite(Lnum);
+    let length_ft = hasExplicit ? Math.max(0, Lnum) : dist(a, b);
     if (length_ft <= 0) continue;
 
     if (out.length > 0) {
       const joint = out[out.length - 1].b;
       if (dist(a, joint) <= chainAlignFt) {
         a = { ...joint };
-        if (!Number.isFinite(Lnum) || Lnum <= 0) {
+        if (!hasExplicit) {
           length_ft = dist(a, b);
         }
       }
