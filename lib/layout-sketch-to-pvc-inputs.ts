@@ -32,7 +32,13 @@ export const PVC_SHORT_GATE_MAX_IN = 59.5;
 export const PVC_SINGLE_GATE_MIN_IN = 65.5;
 export const PVC_DOUBLE_GATE_MIN_IN = 106;
 
-export type SketchGatePlacement = { type: 'single' | 'double'; line_index: number };
+export type SketchGatePlacement = {
+  type: 'single' | 'double';
+  line_index: number;
+  /** Click position on the line (ft); restored when reopening the sketch. */
+  x?: number;
+  y?: number;
+};
 
 export type LayoutPt = { x: number; y: number };
 
@@ -84,8 +90,9 @@ function hypot(a: number, b: number): number {
 }
 
 /**
- * Gate opening width (in) for a sketch placement. Uses that segment's length in feet × 12;
- * short path if &lt; 59.5″, else single/double minimums from the PVC workbook.
+ * Gate opening width (in) for a sketch placement.
+ * - Dedicated short gate run (segment &lt; 59.5″): the whole segment length is the opening.
+ * - Gate on a longer fence line: standard single/double minimum from the PVC workbook — never the full line.
  */
 export function sketchGateWidthInches(
   placement: SketchGatePlacement,
@@ -93,13 +100,11 @@ export function sketchGateWidthInches(
 ): number {
   const idx = Math.max(0, Math.min(segments.length - 1, Number(placement.line_index) || 0));
   const lengthFt = Math.max(0, Number(segments[idx]?.length_ft) || 0);
-  const widthRaw = lengthFt * 12;
+  const widthRawIn = lengthFt * 12;
 
-  if (widthRaw > 0 && widthRaw < PVC_SHORT_GATE_MAX_IN) return widthRaw;
-  if (placement.type === 'double') {
-    return widthRaw > 0 ? Math.max(widthRaw, PVC_DOUBLE_GATE_MIN_IN) : PVC_DOUBLE_GATE_MIN_IN;
-  }
-  return widthRaw > 0 ? Math.max(widthRaw, PVC_SINGLE_GATE_MIN_IN) : PVC_SINGLE_GATE_MIN_IN;
+  if (widthRawIn > 0 && widthRawIn < PVC_SHORT_GATE_MAX_IN) return widthRawIn;
+  if (placement.type === 'double') return PVC_DOUBLE_GATE_MIN_IN;
+  return PVC_SINGLE_GATE_MIN_IN;
 }
 
 /** Fence run length after subtracting gate openings placed on that segment (avoids double-counting). */

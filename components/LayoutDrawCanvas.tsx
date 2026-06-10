@@ -49,7 +49,12 @@ export interface LayoutDrawCanvasRef {
 
 export type LineHighlightMode = 'none' | 'private' | 'shared';
 
-export type LayoutGatePlacement = { type: 'single' | 'double'; line_index: number };
+export type LayoutGatePlacement = {
+  type: 'single' | 'double';
+  line_index: number;
+  x?: number;
+  y?: number;
+};
 
 export interface LayoutDrawCanvasProps {
   initialDrawing?: {
@@ -199,11 +204,15 @@ function segmentLengthFtForGate(
   return 0;
 }
 
-/** Green gate span along the fence line, centered on the gate marker and clipped to the segment. */
-function gateSpanEndpoints(
+/**
+ * Green gate span along the fence line, centered on the gate marker.
+ * Uses typed segment length (ft) for width proportion so schematic geometry still shows the right span.
+ */
+function gateSpanAlongSegment(
   seg: [{ x: number; y: number }, { x: number; y: number }],
   center: { x: number; y: number },
-  gateWidthFt: number
+  gateWidthFt: number,
+  segmentLengthFt: number
 ): { x1: number; y1: number; x2: number; y2: number } | null {
   const ax = seg[0].x;
   const ay = seg[0].y;
@@ -211,23 +220,26 @@ function gateSpanEndpoints(
   const by = seg[1].y;
   const dx = bx - ax;
   const dy = by - ay;
-  const len = Math.hypot(dx, dy);
-  if (len < 1e-6 || gateWidthFt <= 0) return null;
-  const ux = dx / len;
-  const uy = dy / len;
-  let t = (center.x - ax) * ux + (center.y - ay) * uy;
-  t = Math.max(0, Math.min(len, t));
-  const half = gateWidthFt / 2;
-  let t0 = t - half;
-  let t1 = t + half;
-  t0 = Math.max(0, t0);
-  t1 = Math.min(len, t1);
-  if (t1 - t0 < 0.08) return null;
+  const geomLen = Math.hypot(dx, dy);
+  if (geomLen < 1e-6 || gateWidthFt <= 0) return null;
+  const typedLen = segmentLengthFt > 0 ? segmentLengthFt : geomLen;
+  if (typedLen <= 0) return null;
+
+  const ux = dx / geomLen;
+  const uy = dy / geomLen;
+  let t = ((center.x - ax) * ux + (center.y - ay) * uy) / geomLen;
+  t = Math.max(0, Math.min(1, t));
+
+  const halfNorm = gateWidthFt / 2 / typedLen;
+  let t0 = Math.max(0, t - halfNorm);
+  let t1 = Math.min(1, t + halfNorm);
+  if (t1 - t0 < 0.001) return null;
+
   return {
-    x1: ax + ux * t0,
-    y1: ay + uy * t0,
-    x2: ax + ux * t1,
-    y2: ay + uy * t1,
+    x1: ax + dx * t0,
+    y1: ay + dy * t0,
+    x2: ax + dx * t1,
+    y2: ay + dy * t1,
   };
 }
 
@@ -348,10 +360,14 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
           const seg = initSegs[li];
           const t = row.type === 'double' ? 'double' : 'single';
           if (seg.length >= 2) {
+            const mx = (seg[0].x + seg[1].x) / 2;
+            const my = (seg[0].y + seg[1].y) / 2;
+            const rx = Number(row.x);
+            const ry = Number(row.y);
             return {
               type: t,
-              x: (seg[0].x + seg[1].x) / 2,
-              y: (seg[0].y + seg[1].y) / 2,
+              x: Number.isFinite(rx) && Number.isFinite(ry) ? rx : mx,
+              y: Number.isFinite(rx) && Number.isFinite(ry) ? ry : my,
               line_index: li,
             };
           }
@@ -517,6 +533,8 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         type: g.type,
         line_index:
           segs.length > 0 ? Math.max(0, Math.min(segs.length - 1, g.line_index)) : 0,
+        x: g.x,
+        y: g.y,
       }));
       const nums = lengthNumsForAlign(segs, lengths);
       const al = alignChainedSketchSegments(segs, nums, LAYOUT_CHAIN_ALIGN_FT, LAYOUT_MIN_SKETCH_SEGMENT_FT);
@@ -949,20 +967,27 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
     }, [mapView.vw, mapView.vh]);
 
     const gateSpanPlacements = useMemo(() => {
+      const segMeta = segments.map((seg, si) => ({
+        length_ft: segmentLengthFtForGate(seg, lineLengths[si] || '', manualLengths),
+      }));
       const out: { x1: number; y1: number; x2: number; y2: number; key: string }[] = [];
       for (let i = 0; i < placedGates.length; i++) {
         const g = placedGates[i];
         const idx = Math.max(0, Math.min(segments.length - 1, g.line_index));
         const seg = segments[idx];
         if (!seg || seg.length < 2) continue;
-        const lengthFt = segmentLengthFtForGate(seg, lineLengths[idx] || '', manualLengths);
-        if (lengthFt <= 0) continue;
-        const widthFt = sketchGateWidthInches({ type: g.type, line_index: idx }, [{ length_ft: lengthFt }]) / 12;
+        const typedLen = segMeta[idx]?.length_ft ?? 0;
+        const geomLen = dist(seg[0], seg[1]);
+        const segmentLengthFt = typedLen > 0 ? typedLen : geomLen;
+        if (segmentLengthFt <= 0) continue;
+        const widthFt =
+          sketchGateWidthInches({ type: g.type, line_index: idx }, segMeta) / 12;
         if (widthFt <= 0) continue;
-        const ends = gateSpanEndpoints(
+        const ends = gateSpanAlongSegment(
           [seg[0], seg[1]],
           { x: g.x, y: g.y },
-          widthFt
+          widthFt,
+          segmentLengthFt
         );
         if (ends) out.push({ ...ends, key: `gate-span-${i}` });
       }

@@ -41,7 +41,13 @@ export function parseSavedLayoutDrawing(raw: unknown): LayoutDrawingCanvasInitia
         const q = row && typeof row === 'object' ? (row as Record<string, unknown>) : {};
         const type = q.type === 'double' ? ('double' as const) : ('single' as const);
         const line_index = Math.max(0, Math.floor(Number(q.line_index) || 0));
-        return { type, line_index };
+        const x = Number(q.x);
+        const y = Number(q.y);
+        return {
+          type,
+          line_index,
+          ...(Number.isFinite(x) && Number.isFinite(y) ? { x, y } : {}),
+        };
       })
     : [];
 

@@ -14,7 +14,13 @@ function parseGatePlacements(raw: unknown): SketchGatePlacement[] {
       const row = g as Record<string, unknown>;
       const type = row.type === 'double' ? ('double' as const) : ('single' as const);
       const line_index = Math.max(0, Math.floor(Number(row.line_index) || 0));
-      return { type, line_index };
+      const x = Number(row.x);
+      const y = Number(row.y);
+      return {
+        type,
+        line_index,
+        ...(Number.isFinite(x) && Number.isFinite(y) ? { x, y } : {}),
+      };
     })
     .filter(Boolean) as SketchGatePlacement[];
 }

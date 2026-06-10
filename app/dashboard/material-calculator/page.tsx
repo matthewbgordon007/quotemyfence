@@ -206,7 +206,7 @@ type LayoutSketchDrawingPayload = {
   points: { x: number; y: number }[];
   segments: { length_ft: number }[];
   gates: { type: 'single' | 'double'; quantity: number }[];
-  gate_placements: { type: 'single' | 'double'; line_index: number }[];
+  gate_placements: { type: 'single' | 'double'; line_index: number; x?: number; y?: number }[];
   total_length_ft: number;
   /** Per vertex (count = segments + 1): explicit H-post / U-channel for PVC D6/D7 at each corner or open end. */
   joint_terminations?: SketchJointTermination[];
@@ -897,7 +897,13 @@ function parseLayoutSketch(raw: unknown): LayoutSketchDrawingPayload | null {
       const q = row && typeof row === 'object' ? (row as Record<string, unknown>) : {};
       const type = q.type === 'double' ? 'double' : 'single';
       const line_index = Math.max(0, Math.floor(Number(q.line_index) || 0));
-      return { type: type as 'single' | 'double', line_index };
+      const x = Number(q.x);
+      const y = Number(q.y);
+      return {
+        type: type as 'single' | 'double',
+        line_index,
+        ...(Number.isFinite(x) && Number.isFinite(y) ? { x, y } : {}),
+      };
     })
     .filter((_, i) => i < 500);
   const jtRaw = Array.isArray(o.joint_terminations) ? o.joint_terminations : null;
