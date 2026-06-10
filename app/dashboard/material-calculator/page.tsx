@@ -26,6 +26,7 @@ import {
 import {
   FMS_HYBRID_HO_FAMILIES,
   FMS_HYBRID_VE_BLOCK_TITLE,
+  buildFmsHybridMasterList,
   computeHybridHorizontalAdjacentGate,
   computeHybridHorizontalDoubleGate,
   computeHybridHorizontalFence,
@@ -1702,8 +1703,9 @@ export default function MaterialCalculatorHubPage() {
       ...runs.filter((r) => r.result).map((r) => r.result!.rows),
       ...gates.filter((g) => g.rows).map((g) => g.rows!),
     ]);
+    const master = buildFmsHybridMasterList(totals, 'horizontal');
     const hasAny = runs.some((r) => r.result) || gates.some((g) => g.rows);
-    return { runs, gates, totals, hasAny };
+    return { runs, gates, totals, master, hasAny };
   }, [hybHLines, hybHGates, hybHFamily, hybHHeight]);
 
   /** Hybrid vertical — same structure for the 6'4" PVC sheet. */
@@ -1729,8 +1731,9 @@ export default function MaterialCalculatorHubPage() {
       ...runs.filter((r) => r.result).map((r) => r.result!.rows),
       ...gates.filter((g) => g.rows).map((g) => g.rows!),
     ]);
+    const master = buildFmsHybridMasterList(totals, 'vertical');
     const hasAny = runs.some((r) => r.result) || gates.some((g) => g.rows);
-    return { runs, gates, totals, hasAny };
+    return { runs, gates, totals, master, hasAny };
   }, [hybVLines, hybVGates]);
 
   const buildSupplierMaterialQuoteLines = useCallback((): MaterialQuoteLine[] => {
@@ -1786,11 +1789,11 @@ export default function MaterialCalculatorHubPage() {
     }
 
     if (tab === 'hybrid_h' && hybridHJob.hasAny) {
-      for (const r of hybridHJob.totals) add(`Hybrid horizontal — ${r.item}`, r.final);
+      for (const r of hybridHJob.master) add(`Hybrid horizontal — ${r.item}`, r.final);
     }
 
     if (tab === 'hybrid_v' && hybridVJob.hasAny) {
-      for (const r of hybridVJob.totals) add(`Hybrid vertical — ${r.item}`, r.final);
+      for (const r of hybridVJob.master) add(`Hybrid vertical — ${r.item}`, r.final);
     }
 
     return rows;
@@ -3286,11 +3289,28 @@ export default function MaterialCalculatorHubPage() {
                 runs and gates, line by line from the Excel sheet.
               </p>
             </div>
-            <div className="p-5">
+            <div className="space-y-4 p-5">
               {!hybridHJob.hasAny ? (
                 <p className="text-sm text-slate-500">Enter at least one fence run length or gate width.</p>
               ) : (
-                <HybridItemTable rows={hybridHJob.totals} />
+                <>
+                  <div>
+                    <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">Master material list</h3>
+                    <p className="mb-2 text-[11px] text-slate-500">
+                      Order-ready SKUs: each U-channel = 1 outer + 1 inner, rail screws (1.5&quot;) = 2 per long screw
+                      (plus matching plugs), concrete = 2.5 per post.
+                    </p>
+                    <HybridItemTable rows={hybridHJob.master} />
+                  </div>
+                  <details className="rounded-xl border border-slate-100 bg-slate-50/40">
+                    <summary className="cursor-pointer list-none px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500 [&::-webkit-details-marker]:hidden">
+                      Calculator item totals (Excel rows)
+                    </summary>
+                    <div className="px-4 pb-4">
+                      <HybridItemTable rows={hybridHJob.totals} />
+                    </div>
+                  </details>
+                </>
               )}
             </div>
           </section>
@@ -3537,11 +3557,28 @@ export default function MaterialCalculatorHubPage() {
                 runs and gates, line by line from the Excel sheet.
               </p>
             </div>
-            <div className="p-5">
+            <div className="space-y-4 p-5">
               {!hybridVJob.hasAny ? (
                 <p className="text-sm text-slate-500">Enter at least one fence run length or gate width.</p>
               ) : (
-                <HybridItemTable rows={hybridVJob.totals} />
+                <>
+                  <div>
+                    <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">Master material list</h3>
+                    <p className="mb-2 text-[11px] text-slate-500">
+                      Order-ready SKUs: each U-channel = 1 outer + 1 inner, rail screws (1.5&quot;) = 2 per long screw
+                      (plus matching plugs), concrete = 2.5 per post.
+                    </p>
+                    <HybridItemTable rows={hybridVJob.master} />
+                  </div>
+                  <details className="rounded-xl border border-slate-100 bg-slate-50/40">
+                    <summary className="cursor-pointer list-none px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500 [&::-webkit-details-marker]:hidden">
+                      Calculator item totals (Excel rows)
+                    </summary>
+                    <div className="px-4 pb-4">
+                      <HybridItemTable rows={hybridVJob.totals} />
+                    </div>
+                  </details>
+                </>
               )}
             </div>
           </section>

@@ -39,6 +39,81 @@ export function sumFmsHybridRows(groups: FmsHybridItemRow[][]): FmsHybridItemRow
 }
 
 /* ------------------------------------------------------------------ */
+/* Hybrid - Master Material List (SKU mapping)                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Map summed calculator totals onto the Excel `Hybrid - Master Material List` SKUs.
+ *
+ * Derived rows from that sheet:
+ * - Concrete `=caps*2.5`
+ * - Outer + Inner U-Channel — one of each per U-channel termination
+ *   (sheet note: "For every uchannel 1 outer & 1 inner Post filler are required")
+ * - Rail Screw (1.5" x #10) `=long screws * 2`, Plugs (7/8") `=rail screws`
+ * - Gate Screw (1.5") = the gates' medium black screws
+ * - U-Channel Screw (3/4") = the 3/4" screws (6 per channel + gate short screws)
+ */
+export function buildFmsHybridMasterList(
+  totals: FmsHybridItemRow[],
+  orientation: 'horizontal' | 'vertical'
+): FmsHybridItemRow[] {
+  const map = new Map<string, number>();
+  for (const r of totals) {
+    const k = r.item.trim().toLowerCase();
+    map.set(k, (map.get(k) ?? 0) + r.final);
+  }
+  const take = (...keys: string[]) => keys.reduce((a, k) => a + (map.get(k) ?? 0), 0);
+
+  const hPost = take('aluminum h post', 'h post');
+  const shortGateHPost = take('short gate h post');
+  const cap = take('cap (h post)');
+  const rail72 =
+    orientation === 'horizontal'
+      ? take("6' rail", '6 foot rail/overhead brace')
+      : take('6 foot rail/overhead brace');
+  const rail96 =
+    orientation === 'horizontal'
+      ? take('8 foot rail')
+      : take("8' rail", '8 foot rail', "8 foot rail (or double 6')");
+  const board = take('board', '72" board');
+  const boardStiff = take('board stiffener');
+  const uChannel = take('u channel');
+  const gateSideFrame = take('gate side frame', 'gate side plate');
+  const gatePostCap = take('small cap (gate side frame cap)', 'small cap (gate side plate cap)');
+  const gateBrace = take('gate cross brace', 'gate cross brace (hybrid/metal)');
+  const longScrew = take('long black screw (2.5)');
+  const railScrew = longScrew * 2;
+  const gateScrew = take('medium black screw (1.5)');
+  const uChannelScrew = take('small black screw (3/4)', 'short screw (3/4)');
+
+  const rows: FmsHybridItemRow[] = [
+    { item: 'Concrete', final: cap * 2.5 },
+    { item: 'Aluminum HPost 120"', final: hPost },
+    { item: 'Short Gate H Post', final: shortGateHPost },
+    { item: 'Aluminum HPost Cap', final: cap },
+    { item: '3" Aluminum Pocket Rail 96"', final: rail96 },
+    { item: '3" Aluminum Pocket Rail 72"', final: rail72 },
+    { item: 'Board', final: board },
+    { item: 'Board Stiffener', final: boardStiff },
+    { item: 'Outer U-Channel', final: uChannel },
+    { item: 'Inner U-Channel', final: uChannel },
+    { item: 'Aluminum Gate Side Frame', final: gateSideFrame },
+    { item: 'Aluminum Gate Post Cap', final: gatePostCap },
+    { item: 'Adjustable Aluminum Gate Brace', final: gateBrace },
+    { item: 'L-Bracket', final: take('l-bracket') },
+    { item: 'Long Black Screw (2.5")', final: longScrew },
+    { item: 'Rail Screw (1.5" x #10)', final: railScrew },
+    { item: 'Plugs (7/8")', final: railScrew },
+    { item: 'Gate Screw (1.5")', final: gateScrew },
+    { item: 'U-Channel Screw (3/4")', final: uChannelScrew },
+    { item: 'Latch Kit', final: take('latch kit') },
+    { item: 'Hinge Kit', final: take('hinge kit') },
+    { item: 'Drop Rod + Sleeve', final: take('drop rod + sleeve') },
+  ];
+  return rows.filter((r) => r.final > 0);
+}
+
+/* ------------------------------------------------------------------ */
 /* Horizontal Material Calculator                                      */
 /* ------------------------------------------------------------------ */
 
