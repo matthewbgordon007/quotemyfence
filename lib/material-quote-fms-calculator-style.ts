@@ -11,7 +11,7 @@ export type FmsHubMaterialKind = 'pvc' | 'chain' | 'hybrid' | 'unsupported';
 export type FmsHubMaterialInference = {
   kind: FmsHubMaterialKind;
   /** Tab to select in the FMS material calculator hub (null when unsupported). */
-  tab: 'pvc' | 'chain' | 'hybrid' | null;
+  tab: 'pvc' | 'chain' | 'hybrid_h' | 'hybrid_v' | null;
   pvcColour: FmsPvcCalculatorColour | null;
   wpcColour: FmsWpcCalculatorColour | null;
   /** Shown in UI / alerts when unsupported. */
@@ -62,9 +62,11 @@ export function inferFmsHubMaterialFromQuoteProject(project: {
   if (isHybrid) {
     const pvcColour = pvcHint ?? 'White';
     const wpcColour = wpcHint ?? 'Ash';
+    // Vertical hybrid (6'4" PVC panels) vs horizontal hybrid (WPC / aluminum boards).
+    const isVertical = /\bvertical\b/i.test(blob);
     return {
       kind: 'hybrid',
-      tab: 'hybrid',
+      tab: isVertical ? 'hybrid_v' : 'hybrid_h',
       pvcColour,
       wpcColour,
       materialLabel: rawType || rawStyle || 'Hybrid',
