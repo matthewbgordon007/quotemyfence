@@ -1447,7 +1447,7 @@ export default function MaterialCalculatorHubPage() {
   }, []);
 
   const skipPostsForTab = useCallback((matTab: MaterialCalcTab, labels: string[]) => {
-    const postLabels = postRelatedMaterialLabels(labels);
+    const postLabels = postRelatedMaterialLabels(matTab, labels);
     if (!postLabels.length) return;
     setMaterialExclusions((prev) => excludeMaterialLabels(prev, matTab, postLabels));
   }, []);
