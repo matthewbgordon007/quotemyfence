@@ -7,14 +7,13 @@ import {
   buildTypeStyleScopeKey,
   DEFAULT_QUOTE_TEMPLATE_TEXT,
   getMaterialQuoteTemplate,
-  loadContractorQuoteTemplates,
   QUOTE_TOKEN_DEFS,
   QuoteTokenId,
   composeQuoteText,
-  quoteTemplateScopedStorageKey,
-  quoteTemplateStorageKey,
+  saveQuoteTemplatesToCompanyAccount,
   tokenPlaceholder,
 } from '@/lib/quote-template';
+import { hydrateQuoteTemplatesFromCompany } from '@/lib/hydrate-quote-templates';
 
 const cardShell =
   'overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-md shadow-slate-900/[0.04] ring-1 ring-slate-900/[0.03]';
@@ -92,21 +91,18 @@ export default function QuoteTemplatePage() {
         if (data?.id) {
           const id = data.id as string;
           setContractorId(id);
-          try {
-            const { globalText, scoped } = loadContractorQuoteTemplates({
-              contractorId: id,
-              companyName: data.company_name,
-              slug: data.slug,
-              serverTemplateText: data.quote_template_text,
-              serverScoped: data.quote_template_scoped,
-            });
-            setGlobalTemplateText(globalText);
-            setScopedTemplates(scoped);
-            localStorage.setItem(quoteTemplateStorageKey(id), globalText);
-            localStorage.setItem(quoteTemplateScopedStorageKey(id), JSON.stringify(scoped));
-          } catch {
-            // ignore malformed template payloads
-          }
+          hydrateQuoteTemplatesFromCompany({
+            id,
+            company_name: data.company_name,
+            slug: data.slug,
+            quote_template_text: data.quote_template_text,
+            quote_template_scoped: data.quote_template_scoped,
+          })
+            .then(({ globalText, scoped }) => {
+              setGlobalTemplateText(globalText);
+              setScopedTemplates(scoped);
+            })
+            .catch(() => {});
         }
       })
       .then(async () => {
@@ -201,27 +197,16 @@ export default function QuoteTemplatePage() {
       : scopedTemplates;
     const nextGlobal = activeScopeKey ? globalTemplateText : templateText;
 
-    try {
-      localStorage.setItem(quoteTemplateStorageKey(contractorId), nextGlobal);
-      localStorage.setItem(quoteTemplateScopedStorageKey(contractorId), JSON.stringify(nextScoped));
-      const res = await fetch('/api/contractor/me', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          quote_template_text: nextGlobal,
-          quote_template_scoped: nextScoped,
-        }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        alert(
-          typeof err.error === 'string'
-            ? err.error
-            : 'Saved on this device only — could not sync to your team (admin may need to run the database update).'
-        );
-      }
-    } catch {
-      alert('Saved on this device only — could not reach the server.');
+    const saved = await saveQuoteTemplatesToCompanyAccount({
+      quote_template_text: nextGlobal,
+      quote_template_scoped: nextScoped,
+    });
+    if (!saved.ok) {
+      alert(
+        saved.error ||
+          'Could not save to your company account. Run supabase/quote-templates.sql in Supabase if this is a new install.'
+      );
+      return;
     }
 
     if (activeScopeKey) {
@@ -294,6 +279,11 @@ export default function QuoteTemplatePage() {
       >
         <p className="font-semibold text-slate-900">How this works</p>
         <ul className="mt-2 list-inside list-disc space-y-1 text-slate-700">
+          <li>
+            <strong className="font-semibold text-slate-900">Save</strong> stores this letter on your{' '}
+            <strong className="font-semibold text-slate-900">company account</strong> — everyone on your team sees
+            the same template, not a copy per browser.
+          </li>
           <li>Type normal sentences — same as email or Word.</li>
           <li>
             When you see short codes in curly braces (like a total), leave them alone: the calculator fills those in

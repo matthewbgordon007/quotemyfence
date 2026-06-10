@@ -12,10 +12,8 @@ import {
   QuoteTokenId,
   composeQuoteText,
   getMaterialQuoteTemplate,
-  loadContractorQuoteTemplates,
-  quoteTemplateScopedStorageKey,
-  quoteTemplateStorageKey,
 } from '@/lib/quote-template';
+import { hydrateQuoteTemplatesFromCompany } from '@/lib/hydrate-quote-templates';
 import { materialLinesToTsv, normalizeMaterialListJson } from '@/lib/material-quote-lines';
 import { segmentsFromLayoutLengthsFeet } from '@/lib/layout-segments-to-latlng';
 
@@ -345,37 +343,18 @@ export default function CalculatorPage() {
           setContractorBrand(data.website || data.company_name || '');
           const pct = Number(data.quote_deposit_pct);
           setQuoteDepositPct(Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 10);
-          try {
-            const { globalText, scoped } = loadContractorQuoteTemplates({
-              contractorId: id,
-              companyName: data.company_name,
-              slug: data.slug,
-              serverTemplateText: data.quote_template_text,
-              serverScoped: data.quote_template_scoped,
-            });
-            setQuoteTemplate(globalText);
-            setScopedTemplates(scoped);
-            localStorage.setItem(quoteTemplateStorageKey(id), globalText);
-            localStorage.setItem(quoteTemplateScopedStorageKey(id), JSON.stringify(scoped));
-            const serverEmpty =
-              !(typeof data.quote_template_text === 'string' && data.quote_template_text.trim()) &&
-              (!data.quote_template_scoped ||
-                (typeof data.quote_template_scoped === 'object' &&
-                  !Array.isArray(data.quote_template_scoped) &&
-                  Object.keys(data.quote_template_scoped as object).length === 0));
-            if (serverEmpty && (globalText.trim() || Object.keys(scoped).length > 0)) {
-              fetch('/api/contractor/me', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  quote_template_text: globalText,
-                  quote_template_scoped: scoped,
-                }),
-              }).catch(() => {});
-            }
-          } catch {
-            // ignore bad template payloads
-          }
+          hydrateQuoteTemplatesFromCompany({
+            id,
+            company_name: data.company_name,
+            slug: data.slug,
+            quote_template_text: data.quote_template_text,
+            quote_template_scoped: data.quote_template_scoped,
+          })
+            .then(({ globalText, scoped }) => {
+              setQuoteTemplate(globalText);
+              setScopedTemplates(scoped);
+            })
+            .catch(() => {});
         }
       })
       .catch(() => {});

@@ -421,7 +421,107 @@ export function isQuoteBlocks(input: unknown): input is QuoteBlock[] {
   });
 }
 
-/** Prefer server-stored templates so every team member sees the same quote layout. */
+export function defaultQuoteTemplateText(companyName?: string | null, slug?: string | null): string {
+  return isCanadianFenceMaterialSupplyProfile(companyName, slug)
+    ? DEFAULT_QUOTE_TEMPLATE_TEXT
+    : GENERIC_BASE_QUOTE_TEMPLATE_TEXT;
+}
+
+export function contractorHasServerQuoteTemplates(
+  serverTemplateText?: string | null,
+  serverScoped?: unknown
+): boolean {
+  if (typeof serverTemplateText === 'string' && serverTemplateText.trim()) return true;
+  const scoped = parseQuoteTemplateScoped(serverScoped);
+  return Object.keys(scoped).length > 0;
+}
+
+/** Company account templates from the database — never from browser storage. */
+export function quoteTemplatesFromCompanyAccount(opts: {
+  companyName?: string | null;
+  slug?: string | null;
+  serverTemplateText?: string | null;
+  serverScoped?: unknown;
+}): { globalText: string; scoped: Record<string, string> } {
+  const { companyName, slug, serverTemplateText, serverScoped } = opts;
+  const scoped = parseQuoteTemplateScoped(serverScoped);
+  const globalText =
+    typeof serverTemplateText === 'string' && serverTemplateText.trim()
+      ? serverTemplateText
+      : defaultQuoteTemplateText(companyName, slug);
+  return { globalText, scoped };
+}
+
+/**
+ * One-time read of old per-browser templates so they can be uploaded to the company account.
+ * Not used for day-to-day loading.
+ */
+export function readLegacyBrowserQuoteTemplates(contractorId: string): {
+  globalText: string;
+  scoped: Record<string, string>;
+} | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    let globalText = '';
+    const raw = localStorage.getItem(quoteTemplateStorageKey(contractorId));
+    if (raw?.trim()) {
+      globalText = raw;
+    } else {
+      const legacyRaw = localStorage.getItem(legacyQuoteBlocksStorageKey(contractorId));
+      if (legacyRaw) {
+        const parsed: unknown = JSON.parse(legacyRaw);
+        if (isQuoteBlocks(parsed)) {
+          globalText = quoteBlocksToTemplateText(parsed);
+        }
+      }
+    }
+    let scoped: Record<string, string> = {};
+    const scopedRaw = localStorage.getItem(quoteTemplateScopedStorageKey(contractorId));
+    if (scopedRaw) {
+      scoped = parseQuoteTemplateScoped(JSON.parse(scopedRaw));
+    }
+    if (!globalText.trim() && Object.keys(scoped).length === 0) return null;
+    return { globalText: globalText.trim() || defaultQuoteTemplateText(), scoped };
+  } catch {
+    return null;
+  }
+}
+
+export function clearLegacyBrowserQuoteTemplates(contractorId: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(quoteTemplateStorageKey(contractorId));
+    localStorage.removeItem(quoteTemplateScopedStorageKey(contractorId));
+    localStorage.removeItem(legacyQuoteBlocksStorageKey(contractorId));
+  } catch {
+    // ignore
+  }
+}
+
+export async function saveQuoteTemplatesToCompanyAccount(payload: {
+  quote_template_text: string;
+  quote_template_scoped: Record<string, string>;
+}): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/contractor/me', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return {
+        ok: false,
+        error: typeof err.error === 'string' ? err.error : 'Could not save quote templates',
+      };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'Could not reach the server' };
+  }
+}
+
+/** @deprecated Use quoteTemplatesFromCompanyAccount */
 export function loadContractorQuoteTemplates(opts: {
   contractorId: string;
   companyName?: string | null;
@@ -429,43 +529,7 @@ export function loadContractorQuoteTemplates(opts: {
   serverTemplateText?: string | null;
   serverScoped?: unknown;
 }): { globalText: string; scoped: Record<string, string> } {
-  const { contractorId, companyName, slug, serverTemplateText, serverScoped } = opts;
-  let globalText =
-    typeof serverTemplateText === 'string' && serverTemplateText.trim() ? serverTemplateText : '';
-  let scoped = parseQuoteTemplateScoped(serverScoped);
-
-  try {
-    if (!globalText) {
-      const raw = localStorage.getItem(quoteTemplateStorageKey(contractorId));
-      if (raw?.trim()) {
-        globalText = raw;
-      } else {
-        const legacyRaw = localStorage.getItem(legacyQuoteBlocksStorageKey(contractorId));
-        if (legacyRaw) {
-          const parsed: unknown = JSON.parse(legacyRaw);
-          if (isQuoteBlocks(parsed)) {
-            globalText = quoteBlocksToTemplateText(parsed);
-          }
-        }
-      }
-    }
-    if (Object.keys(scoped).length === 0) {
-      const scopedRaw = localStorage.getItem(quoteTemplateScopedStorageKey(contractorId));
-      if (scopedRaw) {
-        scoped = parseQuoteTemplateScoped(JSON.parse(scopedRaw));
-      }
-    }
-  } catch {
-    // ignore malformed browser storage
-  }
-
-  if (!globalText) {
-    globalText = isCanadianFenceMaterialSupplyProfile(companyName, slug)
-      ? DEFAULT_QUOTE_TEMPLATE_TEXT
-      : GENERIC_BASE_QUOTE_TEMPLATE_TEXT;
-  }
-
-  return { globalText, scoped };
+  return quoteTemplatesFromCompanyAccount(opts);
 }
 
 export function quoteTemplateStorageKey(contractorId: string): string {
