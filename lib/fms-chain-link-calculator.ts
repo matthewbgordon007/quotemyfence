@@ -18,6 +18,12 @@ export interface FmsChainLinkFenceInput {
 }
 
 export interface FmsChainLinkFenceResult {
+  /** Excel C11 `=ROUND(C5/8,4)` — "Total Fence Line Panels". */
+  total_panels: number;
+  /** Excel D11 `=ROUND(C11,0)` — "Total Whole Number of Fence line Panels". */
+  whole_panels: number;
+  /** Excel C12 `=ROUNDUP(C11,0)` — "Posts" info row. */
+  posts: number;
   terminal_post: number;
   line_post: number;
   terminal_post_cap: number;
@@ -63,6 +69,9 @@ export function computeFmsChainLinkFenceLine(input: FmsChainLinkFenceInput): Fms
   const d26 = d20 + d21;
 
   return {
+    total_panels: c11,
+    whole_panels: d11,
+    posts: d12,
     terminal_post: d14,
     line_post: d15,
     terminal_post_cap: d16,

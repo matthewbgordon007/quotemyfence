@@ -140,8 +140,8 @@ export default async function SupplierDashboardHomePage() {
           className="pointer-events-none absolute inset-x-10 top-0 h-px"
           style={{ background: 'linear-gradient(90deg, transparent, rgb(var(--dashboard-brand-rgb) / 0.38), transparent)' }}
         />
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="min-w-0">
+        <div className="flex flex-col gap-6 xl:flex-row xl:flex-wrap xl:items-end xl:justify-between">
+          <div className="min-w-0 w-full flex-1 xl:min-w-[min(100%,18rem)] xl:max-w-3xl">
             <p
               className="inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-[var(--dashboard-ink)]"
               style={{ background: 'var(--dashboard-soft)' }}
@@ -164,7 +164,7 @@ export default async function SupplierDashboardHomePage() {
               the sidebar under <span className="font-medium text-slate-800">Contractor workspace</span>.
             </p>
           </div>
-          <div className="flex flex-shrink-0 flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2">
             <Link
               href="/dashboard/supplier/contractor-quotes"
               className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition active:scale-[0.98]"

@@ -4,10 +4,16 @@ import { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import { lineHighlightModesFromDrawing, parseSavedLayoutDrawing } from '@/lib/layout-drawing-view';
 
 const FenceDrawingMap = dynamic(
   () => import('@/components/FenceDrawingMap').then((m) => ({ default: m.FenceDrawingMap })),
   { ssr: false, loading: () => <div className="min-h-[300px] animate-pulse rounded-lg border border-[var(--line)] bg-[var(--bg2)]" /> }
+);
+
+const LayoutDrawCanvas = dynamic(
+  () => import('@/components/LayoutDrawCanvas').then((m) => ({ default: m.LayoutDrawCanvas })),
+  { ssr: false, loading: () => <div className="min-h-[260px] animate-pulse rounded-lg border border-[var(--line)] bg-[var(--bg2)]" /> }
 );
 
 
@@ -368,6 +374,13 @@ export default function CustomerDetailPage() {
   }
 
   const { session, customer, property, fence, segments, gates, quoteTotals, designSummary, designOption, layoutDrawing, project } = data;
+  const savedLayoutSketch = layoutDrawing?.drawing_data
+    ? parseSavedLayoutDrawing(layoutDrawing.drawing_data)
+    : null;
+  const savedLayoutHighlights = layoutDrawing?.drawing_data
+    ? lineHighlightModesFromDrawing(layoutDrawing.drawing_data)
+    : undefined;
+  const hasLayoutPlanView = !!savedLayoutSketch;
 
   function queueNotesSave(text: string) {
     clearTimeout(notesDebounceRef.current);
@@ -730,14 +743,15 @@ export default function CustomerDetailPage() {
             </div>
           </div>
           <div className="mt-4 space-y-4">
-            {layoutDrawing?.image_data_url && (
+            {hasLayoutPlanView && savedLayoutSketch && (
               <div>
                 <h3 className="mb-2 text-sm font-medium text-[var(--muted)]">Layout drawing</h3>
-                <div className="min-h-[200px] rounded-lg border border-[var(--line)] overflow-hidden bg-white">
-                  <img
-                    src={layoutDrawing.image_data_url}
-                    alt="Layout drawing"
-                    className="max-h-[400px] w-auto object-contain"
+                <div className="min-h-[260px] overflow-hidden rounded-lg border border-[var(--line)] bg-white">
+                  <LayoutDrawCanvas
+                    initialDrawing={savedLayoutSketch}
+                    lineHighlightModes={savedLayoutHighlights}
+                    readOnly
+                    fillParent={false}
                   />
                 </div>
               </div>
@@ -745,7 +759,7 @@ export default function CustomerDetailPage() {
             {segments.length > 0 && (
               <div>
                 <h3 className="mb-2 text-sm font-medium text-[var(--muted)]">
-                  {layoutDrawing?.image_data_url ? 'Map view' : 'Fence outline'}
+                  {hasLayoutPlanView ? 'Map view' : 'Fence outline'}
                 </h3>
                 <FenceDrawingMap segments={segments} gates={gates} center={center} className="min-h-[300px]" />
               </div>

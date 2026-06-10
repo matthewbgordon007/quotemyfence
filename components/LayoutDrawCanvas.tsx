@@ -630,7 +630,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         const d = dist(pointerDownPos.current, pt);
         const time = Date.now() - pointerDownTime.current;
 
-        if (!isPanning.current && d < 2 && time < 500) {
+        if (!isPanning.current && d < 2 && time < 500 && !readOnly) {
           handleClickInternal(pt);
         }
 
@@ -640,6 +640,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
     }
 
     function handleClickInternal(pt: { x: number; y: number }) {
+      if (readOnly) return;
       const { x, y } = pt;
 
       if (mode === 'assign_line_ends') {
@@ -1077,13 +1078,13 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       >
           <svg
             ref={svgRef}
-            className={`absolute inset-0 h-full w-full ${readOnly ? '' : 'cursor-crosshair touch-none'}`}
+            className={`absolute inset-0 h-full w-full ${readOnly ? 'cursor-grab active:cursor-grabbing' : 'cursor-crosshair touch-none'}`}
             viewBox={viewBox}
             preserveAspectRatio="xMidYMid meet"
-            onPointerDown={readOnly ? undefined : handlePointerDown}
-            onPointerMove={readOnly ? undefined : handlePointerMove}
-            onPointerUp={readOnly ? undefined : handlePointerUp}
-            onPointerCancel={readOnly ? undefined : handlePointerUp}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
           >
             {/* Whiteboard Origin Marker */}
             <circle cx={0} cy={0} r={1.25} fill="#cbd5e1" />

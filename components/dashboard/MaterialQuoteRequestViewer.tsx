@@ -1,6 +1,7 @@
 'use client';
 
 import { LayoutDrawCanvas } from '@/components/LayoutDrawCanvas';
+import { lineHighlightModesFromDrawing, parseSavedLayoutDrawing } from '@/lib/layout-drawing-view';
 import type { MaterialQuoteRequestDto } from '@/lib/supplier-material-quote-requests-enrich';
 import dynamic from 'next/dynamic';
 
@@ -18,6 +19,13 @@ type Props = {
 export function MaterialQuoteRequestViewer({ request: selectedRequest, compact }: Props) {
   const pad = compact ? 'p-3' : 'p-3';
   const gap = compact ? 'mt-3' : 'mt-4';
+  const savedLayoutSketch = selectedRequest.project?.drawing_data
+    ? parseSavedLayoutDrawing(selectedRequest.project.drawing_data)
+    : null;
+  const savedLayoutHighlights = selectedRequest.project?.drawing_data
+    ? lineHighlightModesFromDrawing(selectedRequest.project.drawing_data)
+    : undefined;
+  const hasLayoutPlanView = !!savedLayoutSketch;
 
   return (
     <div className={compact ? 'text-sm' : ''}>
@@ -74,53 +82,27 @@ export function MaterialQuoteRequestViewer({ request: selectedRequest, compact }
         <div className={`${gap} rounded-lg border border-slate-200 bg-slate-50 ${pad}`}>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Fence drawing</p>
           <p className="mt-1 text-slate-500">
-            {selectedRequest.project?.image_data_url ? 'Layout drawing (from Draw).' : 'The outline they drew on the map.'}
+            {hasLayoutPlanView ? 'Layout drawing (from Draw).' : 'The outline they drew on the map.'}
           </p>
-          {selectedRequest.project?.image_data_url ? (
+          {hasLayoutPlanView && savedLayoutSketch ? (
             <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-white">
-              <img
-                src={selectedRequest.project.image_data_url}
-                alt="Customer layout"
-                className="max-h-[min(360px,50vh)] w-full object-contain"
+              <LayoutDrawCanvas
+                initialDrawing={savedLayoutSketch}
+                lineHighlightModes={savedLayoutHighlights}
+                readOnly
+                fillParent={false}
               />
             </div>
           ) : null}
           {(selectedRequest.project?.segments?.length ?? 0) > 0 ? (
             <div className="mt-2">
               <p className="mb-2 font-medium text-slate-600">
-                {selectedRequest.project?.image_data_url ? 'Map view' : 'Fence outline'}
+                {hasLayoutPlanView ? 'Map view' : 'Fence outline'}
               </p>
               <FenceDrawingMap
                 segments={selectedRequest.project?.segments || []}
                 gates={selectedRequest.project?.gates || []}
                 className="min-h-[220px]"
-              />
-            </div>
-          ) : selectedRequest.project?.drawing_data ? (
-            <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-white">
-              <LayoutDrawCanvas
-                initialDrawing={{
-                  points: selectedRequest.project.drawing_data.points ?? [],
-                  segments: selectedRequest.project.drawing_data.segments ?? [],
-                  gates: selectedRequest.project.drawing_data.gates ?? [],
-                  gate_placements: selectedRequest.project.drawing_data.gate_placements ?? [],
-                  joint_terminations: Array.isArray(
-                    (selectedRequest.project.drawing_data as { joint_terminations?: unknown }).joint_terminations
-                  )
-                    ? ((selectedRequest.project.drawing_data as { joint_terminations?: unknown }).joint_terminations as {
-                        h_post?: boolean;
-                        u_channel?: boolean;
-                      }[]).map((j) => ({
-                        h_post: j.h_post !== false,
-                        u_channel: j.u_channel === true,
-                      }))
-                    : undefined,
-                  total_length_ft:
-                    (selectedRequest.project.drawing_data.total_length_ft ??
-                      Number(selectedRequest.project.total_length_ft)) ||
-                    0,
-                }}
-                readOnly
               />
             </div>
           ) : null}

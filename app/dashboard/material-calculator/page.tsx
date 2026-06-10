@@ -22,12 +22,20 @@ import {
   type FmsChainLinkFenceInput,
 } from '@/lib/fms-chain-link-calculator';
 import {
-  combineHybridMasterPreview,
-  computeHybridHorizontalWpc6ftFence,
-  computeHybridHorizontalWpc6ftGate,
+  FMS_HYBRID_HO_FAMILIES,
+  FMS_HYBRID_VE_BLOCK_TITLE,
+  computeHybridHorizontalAdjacentGate,
+  computeHybridHorizontalDoubleGate,
+  computeHybridHorizontalFence,
+  computeHybridHorizontalGate,
+  computeHybridVerticalGateDouble,
+  computeHybridVerticalGateSingle,
   computeHybridVerticalPvc64Fence,
-  computeHybridVerticalPvc64GateDouble,
-  computeHybridVerticalPvc64GateSingle,
+  fmsHybridHoBlockTitle,
+  sumFmsHybridRows,
+  type FmsHybridHoFamily,
+  type FmsHybridHoHeight,
+  type FmsHybridItemRow,
 } from '@/lib/fms-hybrid-calculators';
 import {
   FMS_PVC_CALCULATOR_COLOURS,
@@ -35,8 +43,6 @@ import {
   coerceFmsPvcCalculatorColour,
   coerceFmsWpcCalculatorColour,
   fmsPvcMaterialListBreakdownTitle,
-  fmsPvcVerticalCalculatorTitle,
-  fmsWpcHorizontalCalculatorTitle,
   type FmsPvcCalculatorColour,
   type FmsWpcCalculatorColour,
 } from '@/lib/fms-calculator-colour-presets';
@@ -115,7 +121,33 @@ function CollapsibleCard({
   );
 }
 
-type StyleTab = 'pvc' | 'chain' | 'hybrid';
+function fmtQty(n: number): string {
+  return String(Math.round(n * 100) / 100);
+}
+
+/** Item / Final table mirroring the Excel block layout. */
+function HybridItemTable({ rows }: { rows: FmsHybridItemRow[] }) {
+  return (
+    <table className="w-full max-w-md text-sm">
+      <thead>
+        <tr className="border-b border-slate-200 text-left text-[10px] font-bold uppercase tracking-wide text-slate-400">
+          <th className="py-1 font-bold">Item</th>
+          <th className="py-1 text-right font-bold">Final</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r.item} className="border-b border-slate-100">
+            <td className="py-1.5 font-medium text-slate-800">{r.item}</td>
+            <td className="py-1.5 text-right tabular-nums">{fmtQty(r.final)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+type StyleTab = 'pvc' | 'chain' | 'hybrid_h' | 'hybrid_v';
 
 type LineEndPreset = 'h_continuous' | 'u_at_end' | 'custom';
 
@@ -153,6 +185,36 @@ type ChainLineRow = {
   terminal_post: string;
   /** When true, lengths / D6 came from the layout sketch (same corner logic as PVC). */
   fromSketch?: boolean;
+};
+
+/** One Excel fence-line block on the hybrid horizontal / vertical calculator tabs. */
+type HybridLineRow = {
+  id: string;
+  label: string;
+  length_ft: string;
+  h_post: 0 | 1 | 2;
+  u_channel: 0 | 1 | 2;
+  /** When true, length / D6 / D7 came from the layout sketch (vertical tab only). */
+  fromSketch?: boolean;
+};
+
+type HybridHGateKind = 'simple' | 'adjacent' | 'double';
+
+type HybridHGateRow = {
+  id: string;
+  kind: HybridHGateKind;
+  width_in: string;
+  /** Simple gate "Post needed, 0, 1 or 2". */
+  posts: 0 | 1 | 2;
+  /** Adjacent: 0=adjoining yes, 1=no, 2=gate in middle. Double: 0=yes, 1=no. */
+  adjoining: 0 | 1 | 2;
+};
+
+type HybridVGateRow = {
+  id: string;
+  kind: 'single' | 'double';
+  width_in: string;
+  posts: 0 | 1 | 2;
 };
 
 function drawingDataToPvcLineRows(
@@ -214,6 +276,37 @@ function drawingDataToChainLineRows(
     label: `Run ${i + 1}`,
     length_ft: String(inp.length_ft),
     terminal_post: String(inp.fence_terminated_h_post_type),
+    fromSketch: true,
+  }));
+}
+
+/** Same segment geometry as PVC; hybrid vertical uses Excel D6 (H post) / D7 (U channel) per run. */
+function drawingDataToHybridVLineRows(
+  drawing: {
+    points: { x: number; y: number }[];
+    segments: { length_ft?: number }[];
+    joint_terminations?: SketchJointTermination[] | null;
+  },
+  panelModule: FmsPvcPanelModule
+): HybridLineRow[] | null {
+  const pairs = layoutPointsToSegmentPairs(drawing.points, drawing.segments);
+  if (pairs.length === 0) return null;
+  const lengthPerSeg = pairs.map((pair, i) => {
+    const raw = drawing.segments[i]?.length_ft;
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) return n;
+    const d = Math.hypot(pair[1].x - pair[0].x, pair[1].y - pair[0].y);
+    return Math.max(1e-6, d);
+  });
+  const inputs = layoutSegmentsToPvcFenceInputsPerSketchSegment(pairs, lengthPerSeg, panelModule, {
+    jointTerminations: drawing.joint_terminations ?? null,
+  });
+  return inputs.map((inp, i) => ({
+    id: newLineId(),
+    label: `Run ${i + 1}`,
+    length_ft: String(inp.length_ft),
+    h_post: inp.fence_terminated_h_post_type as 0 | 1 | 2,
+    u_channel: Math.max(0, Math.min(2, Math.round(Number(inp.fence_terminated_u_channel) || 0))) as 0 | 1 | 2,
     fromSketch: true,
   }));
 }
@@ -289,6 +382,14 @@ function chainGateRowFromSketchPlacement(
 ): { id: string; width_in: string; posts: FmsPvcGatePosts; opening_in: string } {
   const { row } = pvcGateFromSketchPlacement(placement, segments);
   return { id: newLineId(), width_in: row.width_in, posts: row.posts, opening_in: '45' };
+}
+
+function hybVGateRowFromSketchPlacement(
+  placement: { type: 'single' | 'double'; line_index: number },
+  segments: { length_ft: number }[]
+): HybridVGateRow {
+  const { row } = pvcGateFromSketchPlacement(placement, segments);
+  return { id: newLineId(), kind: placement.type, width_in: row.width_in, posts: 1 };
 }
 
 function parseGateRowsShort(rows: PvcGateRow[]) {
@@ -419,8 +520,41 @@ function defaultChainLines(): ChainLineRow[] {
   return [{ id: newLineId(), label: 'Run 1', length_ft: '', terminal_post: '2' }];
 }
 
+/** Excel rows 10–12 info text for one chain link run ("Total Fence Line Panels" → "Posts"). */
+function chainRunInfoText(lengthFt: string): string | null {
+  const L = Math.max(0, Number(String(lengthFt).replace(/,/g, '')) || 0);
+  if (L <= 0) return null;
+  const r = computeFmsChainLinkFenceLine({
+    length_ft: L,
+    terminal_post_type: 2,
+    rail_length_ft: 10,
+    mesh_roll_ft: 50,
+    ties_per_bag: 100,
+  });
+  return `Panels ${r.total_panels} → whole ${r.whole_panels} · Posts ${r.posts}`;
+}
+
+/** Standalone run = post at each end (D6 = 2), same default as the PVC tab. */
+function defaultHybridLines(): HybridLineRow[] {
+  return [{ id: newLineId(), label: 'Run 1', length_ft: '', h_post: 2, u_channel: 0 }];
+}
+
 function coerceStyleTab(x: unknown): StyleTab {
-  return x === 'chain' || x === 'hybrid' || x === 'pvc' ? x : 'pvc';
+  if (x === 'hybrid' || x === 'hybrid_h' || x === 'hybrid-horizontal') return 'hybrid_h';
+  if (x === 'hybrid_v' || x === 'hybrid-vertical') return 'hybrid_v';
+  return x === 'chain' || x === 'pvc' ? x : 'pvc';
+}
+
+function isStyleTabParam(x: string): boolean {
+  return ['pvc', 'chain', 'hybrid', 'hybrid_h', 'hybrid_v', 'hybrid-horizontal', 'hybrid-vertical'].includes(x);
+}
+
+function coerceHybridHoFamily(x: unknown): FmsHybridHoFamily {
+  return x === 'woodGrain' || x === 'slatted' || x === 'aluminum' ? x : 'woodGrain';
+}
+
+function coerceHybridHoHeight(x: unknown): FmsHybridHoHeight {
+  return Number(x) === 7 ? 7 : 6;
 }
 
 function coerceLineEndPreset(x: unknown): LineEndPreset {
@@ -434,6 +568,11 @@ function coercePanelModule(x: unknown): FmsPvcPanelModule {
 function coerceH012(x: unknown): 0 | 1 | 2 {
   const n = Number(x);
   return n === 0 || n === 1 || n === 2 ? n : 1;
+}
+
+function coerce012Default0(x: unknown): 0 | 1 | 2 {
+  const n = Number(x);
+  return n === 0 || n === 1 || n === 2 ? n : 0;
 }
 
 function parsePvcLines(raw: unknown): PvcLineRow[] | null {
@@ -603,6 +742,58 @@ function parseChainGates(
   return out;
 }
 
+function parseHybridLines(raw: unknown): HybridLineRow[] | null {
+  if (!Array.isArray(raw)) return null;
+  const out: HybridLineRow[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue;
+    const o = row as Record<string, unknown>;
+    out.push({
+      id: typeof o.id === 'string' && o.id ? o.id : newLineId(),
+      label: typeof o.label === 'string' ? o.label : `Run ${out.length + 1}`,
+      length_ft: typeof o.length_ft === 'string' || typeof o.length_ft === 'number' ? String(o.length_ft) : '',
+      h_post: coerceH012(o.h_post),
+      u_channel: coerce012Default0(o.u_channel),
+      fromSketch: o.fromSketch === true,
+    });
+  }
+  return out.length ? out : null;
+}
+
+function parseHybridHGates(raw: unknown): HybridHGateRow[] | null {
+  if (!Array.isArray(raw)) return null;
+  const out: HybridHGateRow[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue;
+    const o = row as Record<string, unknown>;
+    const kind: HybridHGateKind = o.kind === 'adjacent' || o.kind === 'double' ? o.kind : 'simple';
+    out.push({
+      id: typeof o.id === 'string' && o.id ? o.id : newLineId(),
+      kind,
+      width_in: typeof o.width_in === 'string' || typeof o.width_in === 'number' ? String(o.width_in) : '',
+      posts: coerceH012(o.posts),
+      adjoining: coerceH012(o.adjoining ?? 0),
+    });
+  }
+  return out;
+}
+
+function parseHybridVGates(raw: unknown): HybridVGateRow[] | null {
+  if (!Array.isArray(raw)) return null;
+  const out: HybridVGateRow[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue;
+    const o = row as Record<string, unknown>;
+    out.push({
+      id: typeof o.id === 'string' && o.id ? o.id : newLineId(),
+      kind: o.kind === 'double' ? 'double' : 'single',
+      width_in: typeof o.width_in === 'string' || typeof o.width_in === 'number' ? String(o.width_in) : '',
+      posts: coerceH012(o.posts),
+    });
+  }
+  return out;
+}
+
 function parseMasterExtras(raw: unknown): Partial<Record<keyof FmsPvcMasterExtras, string>> | null {
   if (!raw || typeof raw !== 'object') return null;
   const o = raw as Record<string, unknown>;
@@ -660,22 +851,14 @@ export default function MaterialCalculatorHubPage() {
     [lines]
   );
 
-  /** Hybrid */
-  const [hybHLen, setHybHLen] = useState('');
-  const [hybHHPost, setHybHHPost] = useState<0 | 1 | 2>(1);
-  const [hybHU, setHybHU] = useState<0 | 1 | 2>(0);
-  const [hybHGateOn, setHybHGateOn] = useState(false);
-  const [hybHGateW, setHybHGateW] = useState('');
-  const [hybHGateP, setHybHGateP] = useState<FmsPvcGatePosts>(1);
-  const [hybVLen, setHybVLen] = useState('');
-  const [hybVHPost, setHybVHPost] = useState<0 | 1 | 2>(1);
-  const [hybVU, setHybVU] = useState<0 | 1 | 2>(0);
-  const [hybVSingleOn, setHybVSingleOn] = useState(false);
-  const [hybVSingleW, setHybVSingleW] = useState('');
-  const [hybVSingleP, setHybVSingleP] = useState<FmsPvcGatePosts>(1);
-  const [hybVDoubleOn, setHybVDoubleOn] = useState(false);
-  const [hybVDoubleW, setHybVDoubleW] = useState('');
-  const [hybVDoubleP, setHybVDoubleP] = useState<FmsPvcGatePosts>(1);
+  /** Hybrid horizontal (Excel `Horizontal Material Calculator `). */
+  const [hybHFamily, setHybHFamily] = useState<FmsHybridHoFamily>('woodGrain');
+  const [hybHHeight, setHybHHeight] = useState<FmsHybridHoHeight>(6);
+  const [hybHLines, setHybHLines] = useState<HybridLineRow[]>(() => defaultHybridLines());
+  const [hybHGates, setHybHGates] = useState<HybridHGateRow[]>([]);
+  /** Hybrid vertical (Excel `Vertical Material Calculator - `). */
+  const [hybVLines, setHybVLines] = useState<HybridLineRow[]>(() => defaultHybridLines());
+  const [hybVGates, setHybVGates] = useState<HybridVGateRow[]>([]);
   const [hybridWpcColour, setHybridWpcColour] = useState<FmsWpcCalculatorColour>('Ash');
   const [hybridPvcColour, setHybridPvcColour] = useState<FmsPvcCalculatorColour>('White');
 
@@ -697,13 +880,12 @@ export default function MaterialCalculatorHubPage() {
   const materialCalcHydrateKeyRef = useRef<string>('');
   /** Dedupe layout sketch → fence line sync when canvas re-notifies with the same geometry. */
   const sketchToLinesSyncKeyRef = useRef<string>('');
-  const sketchToHybridSyncKeyRef = useRef<string>('');
   /** True after the canvas has had at least one segment this session (avoids clearing imported layout lines). */
   const sketchHadSegmentsRef = useRef(false);
 
   useEffect(() => {
-    if (tabParam === 'chain' || tabParam === 'hybrid' || tabParam === 'pvc') {
-      setTab(tabParam as StyleTab);
+    if (isStyleTabParam(tabParam)) {
+      setTab(coerceStyleTab(tabParam));
     }
   }, [tabParam]);
 
@@ -731,7 +913,7 @@ export default function MaterialCalculatorHubPage() {
     const hydrateKey = `${contractorId}|${fromLayoutId ?? ''}|${fromMaterialQuoteId ?? ''}|${fromMaterialSketchSaveId ?? ''}|${materialRequestId}`;
     if (materialCalcHydrateKeyRef.current === hydrateKey) return;
 
-    const hasUrlTab = tabParam === 'chain' || tabParam === 'hybrid' || tabParam === 'pvc';
+    const hasUrlTab = isStyleTabParam(tabParam);
     const urlPvcCol = coerceFmsPvcCalculatorColour(searchParams.get('pvc_colour'));
     const urlHwCol = coerceFmsWpcCalculatorColour(searchParams.get('hybrid_wpc'));
     const urlHpCol = coerceFmsPvcCalculatorColour(searchParams.get('hybrid_pvc'));
@@ -815,25 +997,16 @@ export default function MaterialCalculatorHubPage() {
       const cg = parseChainGates(d.chainGates);
       if (cg) setChainGates(cg);
 
-      if (typeof d.hybHLen === 'string' || typeof d.hybHLen === 'number') setHybHLen(String(d.hybHLen));
-      if (typeof d.hybHHPost === 'number' || typeof d.hybHHPost === 'string') setHybHHPost(coerceH012(d.hybHHPost));
-      if (typeof d.hybHU === 'number' || typeof d.hybHU === 'string') setHybHU(coerceH012(d.hybHU));
-      if (typeof d.hybHGateOn === 'boolean') setHybHGateOn(d.hybHGateOn);
-      if (typeof d.hybHGateW === 'string' || typeof d.hybHGateW === 'number') setHybHGateW(String(d.hybHGateW));
-      if (typeof d.hybHGateP === 'number' || typeof d.hybHGateP === 'string')
-        setHybHGateP(coerceH012(d.hybHGateP) as FmsPvcGatePosts);
-
-      if (typeof d.hybVLen === 'string' || typeof d.hybVLen === 'number') setHybVLen(String(d.hybVLen));
-      if (typeof d.hybVHPost === 'number' || typeof d.hybVHPost === 'string') setHybVHPost(coerceH012(d.hybVHPost));
-      if (typeof d.hybVU === 'number' || typeof d.hybVU === 'string') setHybVU(coerceH012(d.hybVU));
-      if (typeof d.hybVSingleOn === 'boolean') setHybVSingleOn(d.hybVSingleOn);
-      if (typeof d.hybVSingleW === 'string' || typeof d.hybVSingleW === 'number') setHybVSingleW(String(d.hybVSingleW));
-      if (typeof d.hybVSingleP === 'number' || typeof d.hybVSingleP === 'string')
-        setHybVSingleP(coerceH012(d.hybVSingleP) as FmsPvcGatePosts);
-      if (typeof d.hybVDoubleOn === 'boolean') setHybVDoubleOn(d.hybVDoubleOn);
-      if (typeof d.hybVDoubleW === 'string' || typeof d.hybVDoubleW === 'number') setHybVDoubleW(String(d.hybVDoubleW));
-      if (typeof d.hybVDoubleP === 'number' || typeof d.hybVDoubleP === 'string')
-        setHybVDoubleP(coerceH012(d.hybVDoubleP) as FmsPvcGatePosts);
+      if (d.hybHFamily !== undefined) setHybHFamily(coerceHybridHoFamily(d.hybHFamily));
+      if (d.hybHHeight !== undefined) setHybHHeight(coerceHybridHoHeight(d.hybHHeight));
+      const hhl = parseHybridLines(d.hybHLines);
+      if (hhl) setHybHLines(hhl);
+      const hhg = parseHybridHGates(d.hybHGates);
+      if (hhg) setHybHGates(hhg);
+      const hvl = parseHybridLines(d.hybVLines);
+      if (hvl) setHybVLines(hvl);
+      const hvg = parseHybridVGates(d.hybVGates);
+      if (hvg) setHybVGates(hvg);
       markHydrated();
     } catch {
       markHydrated();
@@ -863,21 +1036,12 @@ export default function MaterialCalculatorHubPage() {
       chainMeshFt,
       chainTiesPerBag,
       chainGates,
-      hybHLen,
-      hybHHPost,
-      hybHU,
-      hybHGateOn,
-      hybHGateW,
-      hybHGateP,
-      hybVLen,
-      hybVHPost,
-      hybVU,
-      hybVSingleOn,
-      hybVSingleW,
-      hybVSingleP,
-      hybVDoubleOn,
-      hybVDoubleW,
-      hybVDoubleP,
+      hybHFamily,
+      hybHHeight,
+      hybHLines,
+      hybHGates,
+      hybVLines,
+      hybVGates,
       hybridWpcColour,
       hybridPvcColour,
     };
@@ -898,21 +1062,12 @@ export default function MaterialCalculatorHubPage() {
     chainMeshFt,
     chainTiesPerBag,
     chainGates,
-    hybHLen,
-    hybHHPost,
-    hybHU,
-    hybHGateOn,
-    hybHGateW,
-    hybHGateP,
-    hybVLen,
-    hybVHPost,
-    hybVU,
-    hybVSingleOn,
-    hybVSingleW,
-    hybVSingleP,
-    hybVDoubleOn,
-    hybVDoubleW,
-    hybVDoubleP,
+    hybHFamily,
+    hybHHeight,
+    hybHLines,
+    hybHGates,
+    hybVLines,
+    hybVGates,
     hybridWpcColour,
     hybridPvcColour,
   ]);
@@ -949,21 +1104,12 @@ export default function MaterialCalculatorHubPage() {
     chainMeshFt,
     chainTiesPerBag,
     chainGates,
-    hybHLen,
-    hybHHPost,
-    hybHU,
-    hybHGateOn,
-    hybHGateW,
-    hybHGateP,
-    hybVLen,
-    hybVHPost,
-    hybVU,
-    hybVSingleOn,
-    hybVSingleW,
-    hybVSingleP,
-    hybVDoubleOn,
-    hybVDoubleW,
-    hybVDoubleP,
+    hybHFamily,
+    hybHHeight,
+    hybHLines,
+    hybHGates,
+    hybVLines,
+    hybVGates,
     hybridWpcColour,
     hybridPvcColour,
   ]);
@@ -1009,7 +1155,6 @@ export default function MaterialCalculatorHubPage() {
     sketchSyncedGatePlacementCountRef.current = 0;
     sketchHadSegmentsRef.current = false;
     sketchToLinesSyncKeyRef.current = '';
-    sketchToHybridSyncKeyRef.current = '';
     setTab('pvc');
     setJobAddress('');
     setPvcBreakdownColour('Adobe');
@@ -1026,21 +1171,12 @@ export default function MaterialCalculatorHubPage() {
     setChainMeshFt('50');
     setChainTiesPerBag('100');
     setChainGates([]);
-    setHybHLen('');
-    setHybHHPost(1);
-    setHybHU(0);
-    setHybHGateOn(false);
-    setHybHGateW('');
-    setHybHGateP(1);
-    setHybVLen('');
-    setHybVHPost(1);
-    setHybVU(0);
-    setHybVSingleOn(false);
-    setHybVSingleW('');
-    setHybVSingleP(1);
-    setHybVDoubleOn(false);
-    setHybVDoubleW('');
-    setHybVDoubleP(1);
+    setHybHFamily('woodGrain');
+    setHybHHeight(6);
+    setHybHLines(defaultHybridLines());
+    setHybHGates([]);
+    setHybVLines(defaultHybridLines());
+    setHybVGates([]);
     setHybridWpcColour('Ash');
     setHybridPvcColour('White');
     setFmsQuoteMaterialUnsupported(null);
@@ -1126,9 +1262,9 @@ export default function MaterialCalculatorHubPage() {
         setSingleGates([]);
         setDoubleGates([]);
         setChainGates([]);
+        setHybVGates([]);
         sketchSyncedGatePlacementCountRef.current = 0;
         sketchToLinesSyncKeyRef.current = '';
-        sketchToHybridSyncKeyRef.current = '';
         if (sketch) {
           setLayoutSketchData(sketch);
           setLayoutCanvasRemountKey((k) => k + 1);
@@ -1171,9 +1307,10 @@ export default function MaterialCalculatorHubPage() {
             if (inferred.pvcColour) setHybridPvcColour(inferred.pvcColour);
           }
           if (inferred.tab) {
-            setTab(inferred.tab);
+            const mapped = coerceStyleTab(inferred.tab);
+            setTab(mapped);
             const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
-            params.set('tab', inferred.tab);
+            params.set('tab', mapped);
             router.replace(`${pathname}?${params.toString()}`);
           }
         }
@@ -1219,9 +1356,9 @@ export default function MaterialCalculatorHubPage() {
         setSingleGates([]);
         setDoubleGates([]);
         setChainGates([]);
+        setHybVGates([]);
         sketchSyncedGatePlacementCountRef.current = 0;
         sketchToLinesSyncKeyRef.current = '';
-        sketchToHybridSyncKeyRef.current = '';
         if (sketch) {
           setLayoutSketchData(sketch);
           setLayoutCanvasRemountKey((k) => k + 1);
@@ -1242,16 +1379,16 @@ export default function MaterialCalculatorHubPage() {
     };
   }, [fromMaterialSketchSaveId, fromMaterialQuoteId, materialRequestId]);
 
-  /** Layout sketch geometry → PVC and chain link fence runs (same corner / D6 logic per segment). */
+  /** Layout sketch geometry → PVC, chain link and hybrid vertical fence runs (same corner / D6 logic per segment). */
   useEffect(() => {
     const payload = layoutSketchData;
     if (!payload?.segments?.length) {
       if (sketchHadSegmentsRef.current) {
         sketchHadSegmentsRef.current = false;
         sketchToLinesSyncKeyRef.current = '';
-        sketchToHybridSyncKeyRef.current = '';
         setLines((prev) => (prev.length > 0 && prev.every((l) => l.fromSketch) ? defaultPvcLines() : prev));
         setChainLines((prev) => (prev.length > 0 && prev.every((l) => l.fromSketch) ? defaultChainLines() : prev));
+        setHybVLines((prev) => (prev.length > 0 && prev.every((l) => l.fromSketch) ? defaultHybridLines() : prev));
       }
       return;
     }
@@ -1280,44 +1417,15 @@ export default function MaterialCalculatorHubPage() {
         return row;
       });
     });
-  }, [layoutSketchData, pvcPanelModuleForSketch]);
-
-  /** Vertical hybrid length + end posts from sketch (horizontal WPC length stays manual). */
-  useEffect(() => {
-    const payload = layoutSketchData;
-    if (!payload?.segments?.length) return;
-    const key = JSON.stringify({
-      p: payload.points,
-      s: payload.segments,
-      hybrid: 1,
-      pm: pvcPanelModuleForSketch,
+    setHybVLines((prev) => {
+      const next = drawingDataToHybridVLineRows(payload, panelModule);
+      if (!next?.length) return prev;
+      return next.map((row, i) => {
+        const old = prev[i];
+        if (old?.fromSketch) return { ...row, id: old.id, label: old.label };
+        return row;
+      });
     });
-    if (key === sketchToHybridSyncKeyRef.current) return;
-    sketchToHybridSyncKeyRef.current = key;
-    const sum = payload.segments.reduce((a, s) => a + (Number(s.length_ft) || 0), 0);
-    if (sum > 0) setHybVLen(String(Math.round(sum * 1000) / 1000));
-    const pairs = layoutPointsToSegmentPairs(payload.points, payload.segments);
-    if (pairs.length === 0) return;
-    const lengthPerSeg = pairs.map((pair, i) => {
-      const raw = payload.segments[i]?.length_ft;
-      const n = Number(raw);
-      if (Number.isFinite(n) && n > 0) return n;
-      const d = Math.hypot(pair[1].x - pair[0].x, pair[1].y - pair[0].y);
-      return Math.max(1e-6, d);
-    });
-    const inputs = layoutSegmentsToPvcFenceInputsPerSketchSegment(
-      pairs,
-      lengthPerSeg,
-      pvcPanelModuleForSketch,
-      { jointTerminations: payload.joint_terminations ?? null }
-    );
-    const last = inputs[inputs.length - 1];
-    if (last) {
-      const h = Math.max(0, Math.min(2, Math.round(Number(last.fence_terminated_h_post_type) || 0)));
-      setHybVHPost(h as 0 | 1 | 2);
-      const u = Math.max(0, Math.min(2, Math.round(Number(last.fence_terminated_u_channel) || 0)));
-      setHybVU(u as 0 | 1 | 2);
-    }
   }, [layoutSketchData, pvcPanelModuleForSketch]);
 
   /** New gates placed on the layout sketch → PVC + chain link gate rows; scroll to the active tab’s gate block. */
@@ -1343,6 +1451,7 @@ export default function MaterialCalculatorHubPage() {
       else if (kind === 'single') setSingleGates((p) => [...p, row]);
       else setDoubleGates((p) => [...p, row]);
       setChainGates((p) => [...p, chainGateRowFromSketchPlacement(placement, segs)]);
+      setHybVGates((p) => [...p, hybVGateRowFromSketchPlacement(placement, segs)]);
     }
     sketchSyncedGatePlacementCountRef.current = gp.length;
 
@@ -1542,90 +1651,74 @@ export default function MaterialCalculatorHubPage() {
     return sum as unknown as ReturnType<typeof computeFmsChainLinkGate>;
   }, [chainGateResults]);
 
-  const hybridPreview = useMemo(() => {
-    const hL = Math.max(0, Number(String(hybHLen).replace(/,/g, '')) || 0);
-    const vL = Math.max(0, Number(String(hybVLen).replace(/,/g, '')) || 0);
-    if (hL <= 0 && vL <= 0) return null;
-
-    const zeroHFence: ReturnType<typeof computeHybridHorizontalWpc6ftFence> = {
-      aluminum_h_post: 0,
-      cap_h_post: 0,
-      rail_6ft: 0,
-      board: 0,
-      long_black_screw_25: 0,
-      u_channel: 0,
-      small_black_screw: 0,
-      posts: 0,
-    };
-    const zeroVFence: ReturnType<typeof computeHybridVerticalPvc64Fence> = {
-      aluminum_h_post: 0,
-      cap_h_post: 0,
-      rail_8ft: 0,
-      board_72: 0,
-      board_stiffener: 0,
-      small_black_screw: 0,
-      u_channel: 0,
-      long_black_screw_25: 0,
-      posts: 0,
-    };
-
-    const hFence =
-      hL > 0
-        ? computeHybridHorizontalWpc6ftFence({
-            length_ft: hL,
-            fence_h_post_type: hybHHPost,
-            fence_u_channel: hybHU,
-          })
-        : zeroHFence;
-    const vFence =
-      vL > 0
-        ? computeHybridVerticalPvc64Fence({
-            length_ft: vL,
-            fence_h_post_type: hybVHPost,
-            fence_u_channel: hybVU,
-          })
-        : zeroVFence;
-
-    const hGw = Math.max(0, Number(String(hybHGateW).replace(/,/g, '')) || 0);
-    const hGate =
-      hybHGateOn && hGw > 0
-        ? computeHybridHorizontalWpc6ftGate({ gate_width_in: hGw, posts: hybHGateP })
-        : null;
-
-    const vSw = Math.max(0, Number(String(hybVSingleW).replace(/,/g, '')) || 0);
-    const vSingle =
-      hybVSingleOn && vSw > 0 ? computeHybridVerticalPvc64GateSingle({ gate_width_in: vSw, posts: hybVSingleP }) : null;
-
-    const vDw = Math.max(0, Number(String(hybVDoubleW).replace(/,/g, '')) || 0);
-    const vDouble =
-      hybVDoubleOn && vDw > 0
-        ? computeHybridVerticalPvc64GateDouble({ gate_width_in: vDw, posts: hybVDoubleP })
-        : null;
-
-    return combineHybridMasterPreview({
-      horizontalFence: hFence,
-      horizontalGate: hGate,
-      verticalFence: vFence,
-      verticalGateSingle: vSingle,
-      verticalGateDouble: vDouble,
+  /** Hybrid horizontal — one Excel block result per run, plus gate blocks and summed totals. */
+  const hybridHJob = useMemo(() => {
+    const runs = hybHLines.map((row) => {
+      const L = Math.max(0, Number(String(row.length_ft).replace(/,/g, '')) || 0);
+      if (L <= 0) return { row, result: null as null | ReturnType<typeof computeHybridHorizontalFence> };
+      return {
+        row,
+        result: computeHybridHorizontalFence(
+          { length_ft: L, h_post: row.h_post, u_channel: row.u_channel },
+          hybHFamily,
+          hybHHeight
+        ),
+      };
     });
-  }, [
-    hybHLen,
-    hybVLen,
-    hybHHPost,
-    hybHU,
-    hybVHPost,
-    hybVU,
-    hybHGateOn,
-    hybHGateW,
-    hybHGateP,
-    hybVSingleOn,
-    hybVSingleW,
-    hybVSingleP,
-    hybVDoubleOn,
-    hybVDoubleW,
-    hybVDoubleP,
-  ]);
+    const gates = hybHGates.map((g) => {
+      const w = Math.max(0, Number(String(g.width_in).replace(/,/g, '')) || 0);
+      if (w <= 0) return { gate: g, rows: null as null | FmsHybridItemRow[] };
+      if (g.kind === 'simple') {
+        return { gate: g, rows: computeHybridHorizontalGate({ gate_width_in: w, posts: g.posts }, hybHFamily, hybHHeight).rows };
+      }
+      if (g.kind === 'adjacent') {
+        return {
+          gate: g,
+          rows: computeHybridHorizontalAdjacentGate({ gate_line_width_in: w, adjoining: g.adjoining }).rows,
+        };
+      }
+      return {
+        gate: g,
+        rows: computeHybridHorizontalDoubleGate({
+          gate_line_width_in: w,
+          adjoining: (g.adjoining === 2 ? 1 : g.adjoining) as 0 | 1,
+        }).rows,
+      };
+    });
+    const totals = sumFmsHybridRows([
+      ...runs.filter((r) => r.result).map((r) => r.result!.rows),
+      ...gates.filter((g) => g.rows).map((g) => g.rows!),
+    ]);
+    const hasAny = runs.some((r) => r.result) || gates.some((g) => g.rows);
+    return { runs, gates, totals, hasAny };
+  }, [hybHLines, hybHGates, hybHFamily, hybHHeight]);
+
+  /** Hybrid vertical — same structure for the 6'4" PVC sheet. */
+  const hybridVJob = useMemo(() => {
+    const runs = hybVLines.map((row) => {
+      const L = Math.max(0, Number(String(row.length_ft).replace(/,/g, '')) || 0);
+      if (L <= 0) return { row, result: null as null | ReturnType<typeof computeHybridVerticalPvc64Fence> };
+      return {
+        row,
+        result: computeHybridVerticalPvc64Fence({ length_ft: L, h_post: row.h_post, u_channel: row.u_channel }),
+      };
+    });
+    const gates = hybVGates.map((g) => {
+      const w = Math.max(0, Number(String(g.width_in).replace(/,/g, '')) || 0);
+      if (w <= 0) return { gate: g, rows: null as null | FmsHybridItemRow[] };
+      const rows =
+        g.kind === 'single'
+          ? computeHybridVerticalGateSingle({ gate_width_in: w, posts: g.posts }).rows
+          : computeHybridVerticalGateDouble({ gate_width_in: w, posts: g.posts }).rows;
+      return { gate: g, rows };
+    });
+    const totals = sumFmsHybridRows([
+      ...runs.filter((r) => r.result).map((r) => r.result!.rows),
+      ...gates.filter((g) => g.rows).map((g) => g.rows!),
+    ]);
+    const hasAny = runs.some((r) => r.result) || gates.some((g) => g.rows);
+    return { runs, gates, totals, hasAny };
+  }, [hybVLines, hybVGates]);
 
   const buildSupplierMaterialQuoteLines = useCallback((): MaterialQuoteLine[] => {
     const rows: MaterialQuoteLine[] = [];
@@ -1679,8 +1772,12 @@ export default function MaterialCalculatorHubPage() {
       return rows;
     }
 
-    if (tab === 'hybrid' && hybridPreview) {
-      for (const r of hybridPreview) add(`Hybrid — ${r.label}`, r.qty);
+    if (tab === 'hybrid_h' && hybridHJob.hasAny) {
+      for (const r of hybridHJob.totals) add(`Hybrid horizontal — ${r.item}`, r.final);
+    }
+
+    if (tab === 'hybrid_v' && hybridVJob.hasAny) {
+      for (const r of hybridVJob.totals) add(`Hybrid vertical — ${r.item}`, r.final);
     }
 
     return rows;
@@ -1692,7 +1789,8 @@ export default function MaterialCalculatorHubPage() {
     pvcBreakdownColour,
     chainFenceAgg,
     chainGateAgg,
-    hybridPreview,
+    hybridHJob,
+    hybridVJob,
   ]);
 
   function addLine() {
@@ -1772,6 +1870,15 @@ export default function MaterialCalculatorHubPage() {
 
   function removeChainLine(id: string) {
     setChainLines((rows) => {
+      const idx = rows.findIndex((r) => r.id === id);
+      if (idx < 0) return rows;
+      syncSketchAfterSegmentRemoved(idx);
+      return rows.filter((r) => r.id !== id);
+    });
+  }
+
+  function removeHybVLine(id: string) {
+    setHybVLines((rows) => {
       const idx = rows.findIndex((r) => r.id === id);
       if (idx < 0) return rows;
       syncSketchAfterSegmentRemoved(idx);
@@ -2034,11 +2141,23 @@ export default function MaterialCalculatorHubPage() {
               </button>
               <button
                 type="button"
-                className={`${tabBase} ${tab === 'hybrid' ? tabActive : tabIdle}`}
-                onClick={() => setTab('hybrid')}
+                className={`${tabBase} ${tab === 'hybrid_h' ? tabActive : tabIdle}`}
+                onClick={() => setTab('hybrid_h')}
               >
-                <span className="text-sm font-semibold">Hybrid</span>
-                <span className={`text-xs ${tab === 'hybrid' ? 'text-white/70' : 'text-slate-500'}`}>WPC + PVC</span>
+                <span className="text-sm font-semibold">Hybrid Horizontal</span>
+                <span className={`text-xs ${tab === 'hybrid_h' ? 'text-white/70' : 'text-slate-500'}`}>
+                  WPC / Aluminum boards
+                </span>
+              </button>
+              <button
+                type="button"
+                className={`${tabBase} ${tab === 'hybrid_v' ? tabActive : tabIdle}`}
+                onClick={() => setTab('hybrid_v')}
+              >
+                <span className="text-sm font-semibold">Hybrid Vertical</span>
+                <span className={`text-xs ${tab === 'hybrid_v' ? 'text-white/70' : 'text-slate-500'}`}>
+                  PVC panels 6&apos;4&quot;
+                </span>
               </button>
             </div>
           </div>
@@ -2063,6 +2182,42 @@ export default function MaterialCalculatorHubPage() {
                 <select
                   value={pvcBreakdownColour}
                   onChange={(e) => setPvcBreakdownColour(e.target.value as FmsPvcCalculatorColour)}
+                  className={`${field} w-full`}
+                >
+                  {FMS_PVC_CALCULATOR_COLOURS.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            {tab === 'hybrid_h' ? (
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Color (label only)
+                </label>
+                <select
+                  value={hybridWpcColour}
+                  onChange={(e) => setHybridWpcColour(e.target.value as FmsWpcCalculatorColour)}
+                  className={`${field} w-full`}
+                >
+                  {FMS_WPC_CALCULATOR_COLOURS.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            {tab === 'hybrid_v' ? (
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Color (label only)
+                </label>
+                <select
+                  value={hybridPvcColour}
+                  onChange={(e) => setHybridPvcColour(e.target.value as FmsPvcCalculatorColour)}
                   className={`${field} w-full`}
                 >
                   {FMS_PVC_CALCULATOR_COLOURS.map((c) => (
@@ -2574,6 +2729,7 @@ export default function MaterialCalculatorHubPage() {
                   >
                     <span className="text-sm font-semibold text-slate-800">{row.label || `Run ${idx + 1}`}</span>
                     <span className="text-sm text-slate-600">{Number(row.length_ft) || 0} ft</span>
+                    <span className="text-xs text-slate-500">{chainRunInfoText(row.length_ft)}</span>
                     <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-800">
                       From sketch
                     </span>
@@ -2630,6 +2786,9 @@ export default function MaterialCalculatorHubPage() {
                   <button type="button" className={btnGhost} onClick={() => removeChainLine(row.id)}>
                     Remove
                   </button>
+                  {chainRunInfoText(row.length_ft) ? (
+                    <span className="w-full text-xs text-slate-500">{chainRunInfoText(row.length_ft)}</span>
+                  ) : null}
                 </div>
               ))}
               <button
@@ -2743,6 +2902,7 @@ export default function MaterialCalculatorHubPage() {
                       <tbody>
                         {(
                           [
+                            ['Posts (all runs)', chainFenceAgg.posts],
                             ['Terminal post', chainFenceAgg.terminal_post],
                             ['Line post', chainFenceAgg.line_post],
                             ['Terminal post cap', chainFenceAgg.terminal_post_cap],
@@ -2799,205 +2959,273 @@ export default function MaterialCalculatorHubPage() {
         </>
       )}
 
-      {tab === 'hybrid' && (
+      {tab === 'hybrid_h' && (
         <>
           <section className={card}>
             <div className="border-b border-amber-100 bg-amber-50/30 px-5 py-4">
-              <h2 className={h2}>{fmsWpcHorizontalCalculatorTitle(hybridWpcColour)}</h2>
+              <h2 className={h2}>{fmsHybridHoBlockTitle(hybHFamily, hybHHeight)}</h2>
               <p className="mt-1 text-xs text-slate-600">
-                Horizontal-board (WPC) section. Enter the length by hand — it isn&apos;t taken from the sketch. Leave
-                blank to skip.
+                Horizontal-board hybrid, 6&apos; post spacing. Each run below is one fence-line block on the Excel
+                sheet. Lengths are entered by hand on this tab.
               </p>
             </div>
-            <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-500">WPC colour (sheet)</label>
+                <label className="mb-1 block text-xs font-semibold text-slate-500">Material</label>
                 <select
-                  value={hybridWpcColour}
-                  onChange={(e) => setHybridWpcColour(e.target.value as FmsWpcCalculatorColour)}
+                  value={hybHFamily}
+                  onChange={(e) => setHybHFamily(e.target.value as FmsHybridHoFamily)}
                   className={`${field} w-full`}
                 >
-                  {FMS_WPC_CALCULATOR_COLOURS.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
+                  {FMS_HYBRID_HO_FAMILIES.map((f) => (
+                    <option key={f.value} value={f.value}>
+                      {f.label}
                     </option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-500">Length (ft)</label>
-                <input
-                  type="number"
-                  min={0}
-                  step={0.1}
-                  value={hybHLen}
-                  onChange={(e) => setHybHLen(e.target.value)}
-                  className={`${field} w-full`}
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-500">H-post type (0–2)</label>
+                <label className="mb-1 block text-xs font-semibold text-slate-500">Height</label>
                 <select
-                  value={hybHHPost}
-                  onChange={(e) => setHybHHPost(Number(e.target.value) as 0 | 1 | 2)}
+                  value={hybHHeight}
+                  onChange={(e) => setHybHHeight(Number(e.target.value) === 7 ? 7 : 6)}
                   className={`${field} w-full`}
                 >
-                  <option value={0}>0</option>
-                  <option value={1}>1</option>
-                  <option value={2}>2</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-500">U-channel (0–2)</label>
-                <select value={hybHU} onChange={(e) => setHybHU(Number(e.target.value) as 0 | 1 | 2)} className={`${field} w-full`}>
-                  <option value={0}>0</option>
-                  <option value={1}>1</option>
-                  <option value={2}>2</option>
-                </select>
-              </div>
-            </div>
-            <div className="border-t border-slate-100 px-5 py-4">
-              <label className="flex items-center gap-2 text-sm text-slate-800">
-                <input type="checkbox" checked={hybHGateOn} onChange={(e) => setHybHGateOn(e.target.checked)} />
-                Horizontal gate
-              </label>
-              {hybHGateOn && (
-                <div className="mt-3 flex flex-wrap gap-3">
-                  <div>
-                    <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">Width (in)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={hybHGateW}
-                      onChange={(e) => setHybHGateW(e.target.value)}
-                      className={`${field} w-28`}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">Posts</label>
-                    <select
-                      value={hybHGateP}
-                      onChange={(e) => setHybHGateP(Number(e.target.value) as FmsPvcGatePosts)}
-                      className={`${field} w-20`}
-                    >
-                      <option value={0}>0</option>
-                      <option value={1}>1</option>
-                      <option value={2}>2</option>
-                    </select>
-                  </div>
-                </div>
-              )}
-            </div>
-          </section>
-
-          <section className={card}>
-            <div className="border-b border-blue-100 bg-blue-50/20 px-5 py-4">
-              <h2 className={h2}>{fmsPvcVerticalCalculatorTitle(hybridPvcColour)}</h2>
-              <p className="mt-1 text-xs text-slate-600">
-                Vertical-panel (PVC) section. Length and end posts come from your sketch — adjust if the vertical run is
-                shorter than the full perimeter.
-              </p>
-            </div>
-            <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-500">PVC colour (sheet)</label>
-                <select
-                  value={hybridPvcColour}
-                  onChange={(e) => setHybridPvcColour(e.target.value as FmsPvcCalculatorColour)}
-                  className={`${field} w-full`}
-                >
-                  {FMS_PVC_CALCULATOR_COLOURS.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-500">Length (ft)</label>
-                <input
-                  type="number"
-                  min={0}
-                  step={0.1}
-                  value={hybVLen}
-                  onChange={(e) => setHybVLen(e.target.value)}
-                  className={`${field} w-full`}
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-500">H-post type (0–2)</label>
-                <select
-                  value={hybVHPost}
-                  onChange={(e) => setHybVHPost(Number(e.target.value) as 0 | 1 | 2)}
-                  className={`${field} w-full`}
-                >
-                  <option value={0}>0</option>
-                  <option value={1}>1</option>
-                  <option value={2}>2</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-500">U-channel (0–2)</label>
-                <select value={hybVU} onChange={(e) => setHybVU(Number(e.target.value) as 0 | 1 | 2)} className={`${field} w-full`}>
-                  <option value={0}>0</option>
-                  <option value={1}>1</option>
-                  <option value={2}>2</option>
+                  <option value={6}>6&apos; tall</option>
+                  <option value={7}>7&apos; tall</option>
                 </select>
               </div>
             </div>
             <div className="space-y-4 border-t border-slate-100 px-5 py-4">
-              <div>
-                <label className="flex items-center gap-2 text-sm text-slate-800">
-                  <input type="checkbox" checked={hybVSingleOn} onChange={(e) => setHybVSingleOn(e.target.checked)} />
-                  Single gate
-                </label>
-                {hybVSingleOn && (
-                  <div className="mt-2 flex flex-wrap gap-3">
-                    <input
-                      type="number"
-                      placeholder="Width in"
-                      value={hybVSingleW}
-                      onChange={(e) => setHybVSingleW(e.target.value)}
-                      className={`${field} w-28`}
-                    />
-                    <select
-                      value={hybVSingleP}
-                      onChange={(e) => setHybVSingleP(Number(e.target.value) as FmsPvcGatePosts)}
-                      className={`${field} w-20`}
+              {hybridHJob.runs.map(({ row, result }) => (
+                <div key={row.id} className="rounded-xl border border-slate-100 bg-slate-50/40 p-4">
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">Label</label>
+                      <input
+                        type="text"
+                        value={row.label}
+                        onChange={(e) =>
+                          setHybHLines((rows) => rows.map((r) => (r.id === row.id ? { ...r, label: e.target.value } : r)))
+                        }
+                        className={`${field} w-32`}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
+                        Length (ft)
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.1}
+                        value={row.length_ft}
+                        onChange={(e) =>
+                          setHybHLines((rows) =>
+                            rows.map((r) => (r.id === row.id ? { ...r, length_ft: e.target.value } : r))
+                          )
+                        }
+                        className={`${field} w-28`}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
+                        H posts (0–2)
+                      </label>
+                      <select
+                        value={row.h_post}
+                        onChange={(e) =>
+                          setHybHLines((rows) =>
+                            rows.map((r) =>
+                              r.id === row.id ? { ...r, h_post: Number(e.target.value) as 0 | 1 | 2 } : r
+                            )
+                          )
+                        }
+                        className={`${field} w-20`}
+                      >
+                        <option value={0}>0</option>
+                        <option value={1}>1</option>
+                        <option value={2}>2</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
+                        U channel (0–2)
+                      </label>
+                      <select
+                        value={row.u_channel}
+                        onChange={(e) =>
+                          setHybHLines((rows) =>
+                            rows.map((r) =>
+                              r.id === row.id ? { ...r, u_channel: Number(e.target.value) as 0 | 1 | 2 } : r
+                            )
+                          )
+                        }
+                        className={`${field} w-20`}
+                      >
+                        <option value={0}>0</option>
+                        <option value={1}>1</option>
+                        <option value={2}>2</option>
+                      </select>
+                    </div>
+                    <button
+                      type="button"
+                      className={btnGhost}
+                      onClick={() => setHybHLines((rows) => rows.filter((r) => r.id !== row.id))}
                     >
-                      <option value={0}>0</option>
-                      <option value={1}>1</option>
-                      <option value={2}>2</option>
-                    </select>
+                      Remove
+                    </button>
                   </div>
-                )}
-              </div>
-              <div>
-                <label className="flex items-center gap-2 text-sm text-slate-800">
-                  <input type="checkbox" checked={hybVDoubleOn} onChange={(e) => setHybVDoubleOn(e.target.checked)} />
-                  Double gate
-                </label>
-                {hybVDoubleOn && (
-                  <div className="mt-2 flex flex-wrap gap-3">
-                    <input
-                      type="number"
-                      placeholder="Width in"
-                      value={hybVDoubleW}
-                      onChange={(e) => setHybVDoubleW(e.target.value)}
-                      className={`${field} w-28`}
-                    />
-                    <select
-                      value={hybVDoubleP}
-                      onChange={(e) => setHybVDoubleP(Number(e.target.value) as FmsPvcGatePosts)}
-                      className={`${field} w-20`}
+                  {result ? (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-xs text-slate-500">
+                        Panels {fmtQty(result.panels_raw)} → rounded {fmtQty(result.panels_half)} → whole{' '}
+                        {result.panels_whole} · Posts {result.posts}
+                      </p>
+                      <HybridItemTable rows={result.rows} />
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+              <button
+                type="button"
+                className={btnGhost}
+                onClick={() =>
+                  setHybHLines((rows) => [
+                    ...rows,
+                    {
+                      id: newLineId(),
+                      label: `Run ${rows.length + 1}`,
+                      length_ft: '',
+                      h_post: rows.length ? 1 : 2,
+                      u_channel: 0,
+                    },
+                  ])
+                }
+              >
+                + Add run
+              </button>
+            </div>
+          </section>
+
+          <section className={card}>
+            <div className="border-b border-slate-100 px-5 py-4">
+              <h2 className={h2}>Hybrid horizontal gates</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Three Excel gate blocks: standard gate (under 56&Prime;), gate + side panel (56–125&Prime;) and double
+                gate (106–202&Prime;).
+              </p>
+            </div>
+            <div className="space-y-3 p-5">
+              <button
+                type="button"
+                className={btnGhost}
+                onClick={() =>
+                  setHybHGates((g) => [
+                    ...g,
+                    { id: newLineId(), kind: 'simple', width_in: '', posts: 1, adjoining: 0 },
+                  ])
+                }
+              >
+                + Add gate
+              </button>
+              {hybridHJob.gates.map(({ gate: g, rows }) => (
+                <div key={g.id} className="rounded-lg border border-slate-100 bg-white p-3">
+                  <div className="flex flex-wrap items-end gap-2">
+                    <div>
+                      <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">
+                        Gate type
+                      </label>
+                      <select
+                        value={g.kind}
+                        onChange={(e) =>
+                          setHybHGates((rows2) =>
+                            rows2.map((r) =>
+                              r.id === g.id ? { ...r, kind: e.target.value as HybridHGateKind } : r
+                            )
+                          )
+                        }
+                        className={`${field} w-56`}
+                      >
+                        <option value="simple">Gate (under 56&Prime;)</option>
+                        <option value="adjacent">Gate + side panel (56–125&Prime;)</option>
+                        <option value="double">Double gate (106–202&Prime;)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">
+                        Gate line width (in)
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={g.width_in}
+                        onChange={(e) =>
+                          setHybHGates((rows2) =>
+                            rows2.map((r) => (r.id === g.id ? { ...r, width_in: e.target.value } : r))
+                          )
+                        }
+                        className={`${field} w-28`}
+                      />
+                    </div>
+                    {g.kind === 'simple' ? (
+                      <div>
+                        <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">
+                          Posts (0–2)
+                        </label>
+                        <select
+                          value={g.posts}
+                          onChange={(e) =>
+                            setHybHGates((rows2) =>
+                              rows2.map((r) =>
+                                r.id === g.id ? { ...r, posts: Number(e.target.value) as 0 | 1 | 2 } : r
+                              )
+                            )
+                          }
+                          className={`${field} w-20`}
+                        >
+                          <option value={0}>0</option>
+                          <option value={1}>1</option>
+                          <option value={2}>2</option>
+                        </select>
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">
+                          Adjoining fence
+                        </label>
+                        <select
+                          value={g.adjoining}
+                          onChange={(e) =>
+                            setHybHGates((rows2) =>
+                              rows2.map((r) =>
+                                r.id === g.id ? { ...r, adjoining: Number(e.target.value) as 0 | 1 | 2 } : r
+                              )
+                            )
+                          }
+                          className={`${field} w-44`}
+                        >
+                          <option value={0}>Adjoins existing fence</option>
+                          <option value={1}>Standalone</option>
+                          {g.kind === 'adjacent' ? <option value={2}>Gate in the middle</option> : null}
+                        </select>
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      className={btnGhost}
+                      onClick={() => setHybHGates((rows2) => rows2.filter((r) => r.id !== g.id))}
                     >
-                      <option value={0}>0</option>
-                      <option value={1}>1</option>
-                      <option value={2}>2</option>
-                    </select>
+                      Remove
+                    </button>
                   </div>
-                )}
-              </div>
+                  {rows ? (
+                    <div className="mt-3">
+                      <HybridItemTable rows={rows} />
+                    </div>
+                  ) : null}
+                </div>
+              ))}
             </div>
           </section>
 
@@ -3008,30 +3236,268 @@ export default function MaterialCalculatorHubPage() {
 
           <section className={card}>
             <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className={h2}>Combined material list</h2>
+              <h2 className={h2}>Job totals — {fmsHybridHoBlockTitle(hybHFamily, hybHHeight)}</h2>
               <p className="mt-1 text-xs text-slate-600">
-                Full parts list combining{' '}
-                <strong className="font-medium text-slate-800">{hybridWpcColour}</strong> horizontal boards and{' '}
-                <strong className="font-medium text-slate-800">{hybridPvcColour}</strong> vertical panels.
-              </p>
-              <p className="mt-2 text-xs text-amber-800/90">
-                Simplified estimate — double-check totals on large or unusual hybrid jobs before ordering.
+                Colour: <strong className="font-medium text-slate-800">{hybridWpcColour}</strong>. Summed across all
+                runs and gates, line by line from the Excel sheet.
               </p>
             </div>
             <div className="p-5">
-              {!hybridPreview ? (
-                <p className="text-sm text-slate-500">Enter at least one horizontal or vertical fence length.</p>
+              {!hybridHJob.hasAny ? (
+                <p className="text-sm text-slate-500">Enter at least one fence run length or gate width.</p>
               ) : (
-                <table className="w-full max-w-xl text-sm">
-                  <tbody>
-                    {hybridPreview.map((r) => (
-                      <tr key={r.label} className="border-b border-slate-100">
-                        <td className="py-1.5 font-medium text-slate-800">{r.label}</td>
-                        <td className="py-1.5 text-right tabular-nums">{r.qty}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <HybridItemTable rows={hybridHJob.totals} />
+              )}
+            </div>
+          </section>
+        </>
+      )}
+
+      {tab === 'hybrid_v' && (
+        <>
+          <section className={card}>
+            <div className="border-b border-blue-100 bg-blue-50/20 px-5 py-4">
+              <h2 className={h2}>{FMS_HYBRID_VE_BLOCK_TITLE}</h2>
+              <p className="mt-1 text-xs text-slate-600">
+                Vertical-panel PVC hybrid, 8&apos; post spacing. Runs come from your sketch — adjust or add runs by
+                hand if needed. Each run is one fence-line block on the Excel sheet.
+              </p>
+            </div>
+            <div className="space-y-4 p-5">
+              {hybridVJob.runs.map(({ row, result }, idx) => (
+                <div key={row.id} className="rounded-xl border border-slate-100 bg-slate-50/40 p-4">
+                  {row.fromSketch ? (
+                    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+                      <span className="text-sm font-semibold text-slate-800">{row.label || `Run ${idx + 1}`}</span>
+                      <span className="text-sm text-slate-600">{Number(row.length_ft) || 0} ft</span>
+                      <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-800">
+                        From sketch
+                      </span>
+                      <button type="button" className={btnGhost} onClick={() => removeHybVLine(row.id)}>
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-end gap-3">
+                      <div>
+                        <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">Label</label>
+                        <input
+                          type="text"
+                          value={row.label}
+                          onChange={(e) =>
+                            setHybVLines((rows) =>
+                              rows.map((r) => (r.id === row.id ? { ...r, label: e.target.value } : r))
+                            )
+                          }
+                          className={`${field} w-32`}
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
+                          Length (ft)
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.1}
+                          value={row.length_ft}
+                          onChange={(e) =>
+                            setHybVLines((rows) =>
+                              rows.map((r) => (r.id === row.id ? { ...r, length_ft: e.target.value } : r))
+                            )
+                          }
+                          className={`${field} w-28`}
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
+                          H posts (0–2)
+                        </label>
+                        <select
+                          value={row.h_post}
+                          onChange={(e) =>
+                            setHybVLines((rows) =>
+                              rows.map((r) =>
+                                r.id === row.id ? { ...r, h_post: Number(e.target.value) as 0 | 1 | 2 } : r
+                              )
+                            )
+                          }
+                          className={`${field} w-20`}
+                        >
+                          <option value={0}>0</option>
+                          <option value={1}>1</option>
+                          <option value={2}>2</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
+                          U channel (0–2)
+                        </label>
+                        <select
+                          value={row.u_channel}
+                          onChange={(e) =>
+                            setHybVLines((rows) =>
+                              rows.map((r) =>
+                                r.id === row.id ? { ...r, u_channel: Number(e.target.value) as 0 | 1 | 2 } : r
+                              )
+                            )
+                          }
+                          className={`${field} w-20`}
+                        >
+                          <option value={0}>0</option>
+                          <option value={1}>1</option>
+                          <option value={2}>2</option>
+                        </select>
+                      </div>
+                      <button type="button" className={btnGhost} onClick={() => removeHybVLine(row.id)}>
+                        Remove
+                      </button>
+                    </div>
+                  )}
+                  {result ? (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-xs text-slate-500">
+                        Panels {fmtQty(result.panels_raw)} → rounded {fmtQty(result.panels_half)} → whole{' '}
+                        {result.panels_whole} · Posts {result.posts}
+                      </p>
+                      <HybridItemTable rows={result.rows} />
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+              <button
+                type="button"
+                className={btnGhost}
+                onClick={() =>
+                  setHybVLines((rows) => [
+                    ...rows,
+                    {
+                      id: newLineId(),
+                      label: `Run ${rows.length + 1}`,
+                      length_ft: '',
+                      h_post: rows.length ? 1 : 2,
+                      u_channel: 0,
+                    },
+                  ])
+                }
+              >
+                + Add run
+              </button>
+            </div>
+          </section>
+
+          <section className={card}>
+            <div className="border-b border-slate-100 px-5 py-4">
+              <h2 className={h2}>Hybrid vertical gates</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Single gate (under 56&Prime;) and double gate (max 96&Prime;) — gates placed on the sketch show up here
+                automatically.
+              </p>
+            </div>
+            <div className="space-y-3 p-5">
+              <button
+                type="button"
+                className={btnGhost}
+                onClick={() =>
+                  setHybVGates((g) => [...g, { id: newLineId(), kind: 'single', width_in: '', posts: 1 }])
+                }
+              >
+                + Add gate
+              </button>
+              {hybridVJob.gates.map(({ gate: g, rows }) => (
+                <div key={g.id} className="rounded-lg border border-slate-100 bg-white p-3">
+                  <div className="flex flex-wrap items-end gap-2">
+                    <div>
+                      <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">
+                        Gate type
+                      </label>
+                      <select
+                        value={g.kind}
+                        onChange={(e) =>
+                          setHybVGates((rows2) =>
+                            rows2.map((r) =>
+                              r.id === g.id ? { ...r, kind: e.target.value === 'double' ? 'double' : 'single' } : r
+                            )
+                          )
+                        }
+                        className={`${field} w-48`}
+                      >
+                        <option value="single">Single gate (under 56&Prime;)</option>
+                        <option value="double">Double gate (max 96&Prime;)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">
+                        Gate line width (in)
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={g.width_in}
+                        onChange={(e) =>
+                          setHybVGates((rows2) =>
+                            rows2.map((r) => (r.id === g.id ? { ...r, width_in: e.target.value } : r))
+                          )
+                        }
+                        className={`${field} w-28`}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">
+                        Posts (0–2)
+                      </label>
+                      <select
+                        value={g.posts}
+                        onChange={(e) =>
+                          setHybVGates((rows2) =>
+                            rows2.map((r) =>
+                              r.id === g.id ? { ...r, posts: Number(e.target.value) as 0 | 1 | 2 } : r
+                            )
+                          )
+                        }
+                        className={`${field} w-20`}
+                      >
+                        <option value={0}>0</option>
+                        <option value={1}>1</option>
+                        <option value={2}>2</option>
+                      </select>
+                    </div>
+                    <button
+                      type="button"
+                      className={btnGhost}
+                      onClick={() => setHybVGates((rows2) => rows2.filter((r) => r.id !== g.id))}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  {rows ? (
+                    <div className="mt-3">
+                      <HybridItemTable rows={rows} />
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <div className={stageLabel}>
+            <span>Your materials</span>
+            <span className="h-px flex-1 bg-slate-200" />
+          </div>
+
+          <section className={card}>
+            <div className="border-b border-slate-100 px-5 py-4">
+              <h2 className={h2}>Job totals — {FMS_HYBRID_VE_BLOCK_TITLE}</h2>
+              <p className="mt-1 text-xs text-slate-600">
+                Colour: <strong className="font-medium text-slate-800">{hybridPvcColour}</strong>. Summed across all
+                runs and gates, line by line from the Excel sheet.
+              </p>
+            </div>
+            <div className="p-5">
+              {!hybridVJob.hasAny ? (
+                <p className="text-sm text-slate-500">Enter at least one fence run length or gate width.</p>
+              ) : (
+                <HybridItemTable rows={hybridVJob.totals} />
               )}
             </div>
           </section>
