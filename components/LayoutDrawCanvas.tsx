@@ -954,15 +954,15 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         const labelText = lineLengths[si]?.trim()
           ? `Line ${si + 1}: ${lineLengths[si].trim()} ft`
           : `Line ${si + 1}`;
-        /** Keep labels compact vs sketch (feet in SVG space); was ~2.6% of view — smaller reads cleaner on dense layouts. */
-        const labelFontFt = Math.max(1.45, Math.min(vw, vh) * 0.017);
+        /** Scale with sketch size — large enough to read at a glance on customer/layout previews. */
+        const labelFontFt = Math.max(2.35, Math.min(vw, vh) * 0.032);
         const estHalfW = labelText.length * labelFontFt * 0.36;
         const perpOffset =
-          Math.max(len * 0.042 + 0.55, estHalfW * 0.78 + 1.15, 4.25) * neighborBoost;
+          Math.max(len * 0.048 + 0.65, estHalfW * 0.82 + 1.25, 4.75) * neighborBoost;
         const px = mx + perpX * perpOffset;
         const py = my + perpY * perpOffset;
-        const r = Math.max(estHalfW * 0.9, labelFontFt * 0.62, 3.25);
-        const strokeW = Math.max(0.14, labelFontFt * 0.3);
+        const r = Math.max(estHalfW * 0.92, labelFontFt * 0.68, 3.75);
+        const strokeW = Math.max(0.2, labelFontFt * 0.42);
         labs.push({
           si,
           x: px,
@@ -1136,9 +1136,10 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                 dominantBaseline="middle"
                 fill="#0f172a"
                 fontSize={pl.fontSize}
-                fontWeight="600"
+                fontWeight="700"
+                fontFamily="system-ui, -apple-system, sans-serif"
                 paintOrder="stroke"
-                stroke="#f8fafc"
+                stroke="#ffffff"
                 strokeWidth={pl.strokeW}
                 strokeLinejoin="round"
               >
