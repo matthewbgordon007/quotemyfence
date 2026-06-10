@@ -1853,29 +1853,30 @@ export default function MaterialCalculatorHubPage() {
     return sum as unknown as ReturnType<typeof computeFmsChainLinkGate>;
   }, [chainGateResults]);
 
-  /** Chain fence totals (label/qty) with extra items added — shared by the totals table and supplier quote. */
+  /** Chain fence totals (with extra items added) — shared by the master table, PDF and supplier quote. */
   const chainFenceRows = useMemo(() => {
     if (!chainFenceAgg) return null;
     const ex = (k: string) => styleExtraValue(chainExtras, k);
+    const row = (key: string, label: string, base: number) => ({ key, label, qty: base + ex(key) });
     return [
-      ['Terminal post', chainFenceAgg.terminal_post + ex('terminal_post')],
-      ['Line post', chainFenceAgg.line_post + ex('line_post')],
-      ['Terminal post cap', chainFenceAgg.terminal_post_cap + ex('terminal_post_cap')],
-      ['Line post loop cap', chainFenceAgg.line_post_loop_cap + ex('line_post_loop_cap')],
-      ['Rail end', chainFenceAgg.rail_end + ex('rail_end')],
-      [`Rail (total ft ÷ ${chainRailFt || '10'}')`, chainFenceAgg.rail + ex('rail')],
-      ['Center band', chainFenceAgg.center_band + ex('center_band')],
-      ['Offset band', chainFenceAgg.offset_band + ex('offset_band')],
-      ['Tension bar', chainFenceAgg.tension_bar + ex('tension_bar')],
-      [`Mesh rolls (total ft ÷ ${chainMeshFt || '50'}')`, chainFenceAgg.mesh + ex('mesh')],
-      ['Bottom wire (ft)', chainFenceAgg.bottom_wire + ex('bottom_wire')],
-      ['Ties (est.)', chainFenceAgg.ties + ex('ties')],
-      ['Carriage bolt + nut', chainFenceAgg.carriage_bolt_nut + ex('carriage_bolt_nut')],
-      ['Hog rings (note L/2)', chainFenceAgg.hog_rings_note + ex('hog_rings')],
-    ] as [string, number][];
+      row('terminal_post', 'Terminal post', chainFenceAgg.terminal_post),
+      row('line_post', 'Line post', chainFenceAgg.line_post),
+      row('terminal_post_cap', 'Terminal post cap', chainFenceAgg.terminal_post_cap),
+      row('line_post_loop_cap', 'Line post loop cap', chainFenceAgg.line_post_loop_cap),
+      row('rail_end', 'Rail end', chainFenceAgg.rail_end),
+      row('rail', `Rail (total ft ÷ ${chainRailFt || '10'}')`, chainFenceAgg.rail),
+      row('center_band', 'Center band', chainFenceAgg.center_band),
+      row('offset_band', 'Offset band', chainFenceAgg.offset_band),
+      row('tension_bar', 'Tension bar', chainFenceAgg.tension_bar),
+      row('mesh', `Mesh rolls (total ft ÷ ${chainMeshFt || '50'}')`, chainFenceAgg.mesh),
+      row('bottom_wire', 'Bottom wire (ft)', chainFenceAgg.bottom_wire),
+      row('ties', 'Ties (est.)', chainFenceAgg.ties),
+      row('carriage_bolt_nut', 'Carriage bolt + nut', chainFenceAgg.carriage_bolt_nut),
+      row('hog_rings', 'Hog rings (note L/2)', chainFenceAgg.hog_rings_note),
+    ];
   }, [chainFenceAgg, chainExtras, chainRailFt, chainMeshFt]);
 
-  /** Chain gate totals (label/qty) with extra items added. */
+  /** Chain gate totals (with extra items added). */
   const chainGateRows = useMemo(() => {
     const ex = (k: string) => styleExtraValue(chainExtras, k);
     const base = chainGateAgg ?? {
@@ -1886,14 +1887,76 @@ export default function MaterialCalculatorHubPage() {
       hardware_kit: 0,
     };
     const rows = [
-      ['Pre-assembled frame', base.pre_assembled_frame + ex('gate_frame')],
-      ['Post', base.post + ex('gate_post')],
-      ['End post cap', base.end_post_cap + ex('gate_end_post_cap')],
-      ['Gate extension kit', base.gate_extension_kit + ex('gate_extension_kit')],
-      ['Hardware kit', base.hardware_kit + ex('gate_hardware_kit')],
-    ] as [string, number][];
-    return rows.some(([, q]) => q > 0) ? rows : null;
+      { key: 'gate_frame', label: 'Pre-assembled frame', qty: base.pre_assembled_frame + ex('gate_frame') },
+      { key: 'gate_post', label: 'Post', qty: base.post + ex('gate_post') },
+      { key: 'gate_end_post_cap', label: 'End post cap', qty: base.end_post_cap + ex('gate_end_post_cap') },
+      { key: 'gate_extension_kit', label: 'Gate extension kit', qty: base.gate_extension_kit + ex('gate_extension_kit') },
+      { key: 'gate_hardware_kit', label: 'Hardware kit', qty: base.hardware_kit + ex('gate_hardware_kit') },
+    ];
+    return rows.some((r) => r.qty > 0) ? rows : null;
   }, [chainGateAgg, chainExtras]);
+
+  /** One combined chain link master list: fence + gate items, ready for the table / PDF / quote. */
+  const chainMasterRows = useMemo(() => {
+    if (!chainFenceRows) return null;
+    return [
+      ...chainFenceRows,
+      ...(chainGateRows ?? []).map((r) => ({ ...r, label: `Gate — ${r.label}` })),
+    ];
+  }, [chainFenceRows, chainGateRows]);
+
+  const downloadChainMasterListPdf = useCallback(async () => {
+    if (!chainFenceRows || !chainFenceAgg) return;
+    const ex = (k: string) => styleExtraValue(chainExtras, k);
+    const fmt = (n: number) => {
+      const r = Math.round(n * 100) / 100;
+      return Number.isFinite(r) ? String(r) : '';
+    };
+    const pdfRows: import('@/lib/master-material-list-pdf-data').MasterMaterialListPdfRow[] = [
+      ...chainFenceRows.map((r) => ({
+        label: r.label,
+        adobe: fmt(r.qty),
+        extras: ex(r.key) > 0 ? fmt(ex(r.key)) : '',
+        section: 'structure' as const,
+      })),
+      ...(chainGateRows ?? []).map((r) => ({
+        label: `Gate — ${r.label}`,
+        adobe: fmt(r.qty),
+        extras: ex(r.key) > 0 ? fmt(ex(r.key)) : '',
+        section: 'hardware' as const,
+      })),
+      { label: '', adobe: '', extras: '', section: 'spacer' as const },
+      { label: 'Total Linear Ft', adobe: fmt(chainFenceAgg.total_linear_ft), extras: '', section: 'totals' as const },
+      { label: 'Total Gates', adobe: fmt(chainGateResults.length), extras: '', section: 'totals' as const },
+      { label: 'Total B4 Tax', adobe: '', extras: '', section: 'taxRow' as const },
+    ];
+    const [{ pdf }, { MasterMaterialListPdfDocument }] = await Promise.all([
+      import('@react-pdf/renderer'),
+      import('@/lib/master-material-list-pdf-document'),
+    ]);
+    const blob = await pdf(
+      <MasterMaterialListPdfDocument
+        subtitle="Chain Link"
+        addressLine={jobAddress.trim() || '—'}
+        colourColumnTitle="Chain Link"
+        rows={pdfRows}
+      />
+    ).toBlob();
+    const slug = (jobAddress || 'chain-link-material-list')
+      .replace(/[^\w\s-]/g, '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .slice(0, 72);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${slug || 'chain-link-material-list'}.pdf`;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, [chainFenceRows, chainGateRows, chainFenceAgg, chainGateResults, chainExtras, jobAddress]);
 
   /** Hybrid horizontal — one Excel block result per run, plus gate blocks and summed totals. */
   const hybridHJob = useMemo(() => {
@@ -1985,10 +2048,10 @@ export default function MaterialCalculatorHubPage() {
 
     if (tab === 'chain') {
       if (chainFenceRows) {
-        chainFenceRows.forEach(([label, qty]) => add(`Chain link — ${label}`, qty));
+        chainFenceRows.forEach((r) => add(`Chain link — ${r.label}`, r.qty));
       }
       if (chainGateRows) {
-        chainGateRows.forEach(([label, qty]) => add(`Chain gate — ${label}`, qty));
+        chainGateRows.forEach((r) => add(`Chain gate — ${r.label}`, r.qty));
       }
       return rows;
     }
@@ -3150,52 +3213,40 @@ export default function MaterialCalculatorHubPage() {
 
           <section className={card}>
             <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className={h2}>Totals</h2>
+              <h2 className={h2}>Master material list</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Runs and gates combined into one list. Posts, caps, bands &amp; ties are figured per run; rails &amp;
+                mesh from the job&apos;s total linear ft.
+              </p>
             </div>
             <div className="overflow-x-auto p-5">
-              {!chainFenceAgg ? (
+              {!chainFenceAgg || !chainMasterRows ? (
                 <p className="text-sm text-slate-500">Enter at least one fence run length.</p>
               ) : (
-                <div className="grid gap-6 lg:grid-cols-2">
-                  <div>
-                    <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">Fence (summed runs)</h3>
-                    <p className="mb-2 text-[11px] text-slate-500">
-                      Posts, caps, bands &amp; ties are figured per run. Rails &amp; mesh are figured from the job total of{' '}
-                      {chainFenceAgg.total_linear_ft} linear ft.
-                    </p>
-                    <table className="w-full text-sm">
-                      <tbody>
-                        {[['Posts (all runs)', chainFenceAgg.posts] as [string, number], ...(chainFenceRows ?? [])].map(
-                          ([label, qty]) => (
-                            <tr key={label} className="border-b border-slate-100">
-                              <td className="py-1.5 font-medium text-slate-800">{label}</td>
-                              <td className="py-1.5 text-right tabular-nums">{qty}</td>
-                            </tr>
-                          )
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div>
-                    <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">Gates (summed)</h3>
-                    {!chainGateRows ? (
-                      <p className="text-xs text-slate-500">No gates with width entered.</p>
-                    ) : (
-                      <table className="w-full text-sm">
-                        <tbody>
-                          {chainGateRows.map(([label, qty]) => (
-                            <tr key={label} className="border-b border-slate-100">
-                              <td className="py-1.5 font-medium text-slate-800">{label}</td>
-                              <td className="py-1.5 text-right tabular-nums">{qty}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
-                </div>
+                <table className="w-full max-w-xl text-sm">
+                  <tbody>
+                    {[
+                      { key: '_posts', label: 'Posts (all runs)', qty: chainFenceAgg.posts },
+                      ...chainMasterRows,
+                      { key: '_lin_ft', label: 'Total linear ft', qty: chainFenceAgg.total_linear_ft },
+                      { key: '_gates', label: 'Total gates', qty: chainGateResults.length },
+                    ].map((r) => (
+                      <tr key={r.key} className="border-b border-slate-100">
+                        <td className="py-1.5 font-medium text-slate-800">{r.label}</td>
+                        <td className="py-1.5 text-right tabular-nums">{r.qty}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
             </div>
+            {chainMasterRows ? (
+              <div className="flex flex-wrap gap-2 border-t border-slate-100 px-5 py-4">
+                <button type="button" className={btnGhost} onClick={() => void downloadChainMasterListPdf()}>
+                  Download PDF
+                </button>
+              </div>
+            ) : null}
           </section>
         </>
       )}
