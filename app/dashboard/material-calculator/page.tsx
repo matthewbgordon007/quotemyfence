@@ -5,6 +5,15 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { inferFmsHubMaterialFromQuoteProject } from '@/lib/material-quote-fms-calculator-style';
 import {
+  excludeMaterialLabels,
+  isMaterialIncluded,
+  parseMaterialExclusions,
+  postRelatedMaterialLabels,
+  toggleMaterialExclusion,
+  type MaterialCalcTab,
+  type MaterialExclusions,
+} from '@/lib/material-exclusions';
+import {
   aggregateFmsPvcFenceLines,
   FMS_PVC_PANEL_HEIGHT_LABELS,
   defaultFmsPvcPanelSpacingFt,
@@ -148,19 +157,54 @@ function WareHeaderTr({ title }: { title: string }) {
   );
 }
 
-function HybridItemTable({ rows, groupWare = false }: { rows: FmsHybridItemRow[]; groupWare?: boolean }) {
+function HybridItemTable({
+  rows,
+  groupWare = false,
+  tab,
+  materialExclusions,
+  onToggleInclude,
+}: {
+  rows: FmsHybridItemRow[];
+  groupWare?: boolean;
+  tab?: MaterialCalcTab;
+  materialExclusions?: MaterialExclusions;
+  onToggleInclude?: (label: string, included: boolean) => void;
+}) {
+  const showInclude = Boolean(tab && materialExclusions && onToggleInclude);
   const body = groupWare ? splitWare(rows, (r) => r.item) : null;
   const renderRows = (rs: FmsHybridItemRow[]) =>
-    rs.map((r) => (
-      <tr key={r.item} className="border-b border-slate-100">
-        <td className="py-1.5 font-medium text-slate-800">{r.item}</td>
-        <td className="py-1.5 text-right tabular-nums">{fmtQty(r.final)}</td>
-      </tr>
-    ));
+    rs.map((r) => {
+      const included = tab && materialExclusions ? isMaterialIncluded(materialExclusions, tab, r.item) : true;
+      return (
+        <tr
+          key={r.item}
+          className={`border-b border-slate-100 ${!included ? 'bg-slate-50/80 opacity-55' : ''}`}
+        >
+          {showInclude && tab && onToggleInclude ? (
+            <td className="w-10 py-1.5 pl-1">
+              <input
+                type="checkbox"
+                checked={included}
+                onChange={(e) => onToggleInclude(r.item, e.target.checked)}
+                title={included ? 'Include on order' : 'Excluded from order'}
+                className="h-4 w-4 rounded border-slate-300"
+              />
+            </td>
+          ) : null}
+          <td className={`py-1.5 font-medium ${included ? 'text-slate-800' : 'text-slate-500 line-through'}`}>
+            {r.item}
+          </td>
+          <td className={`py-1.5 text-right tabular-nums ${included ? '' : 'text-slate-400 line-through'}`}>
+            {fmtQty(r.final)}
+          </td>
+        </tr>
+      );
+    });
   return (
     <table className="w-full max-w-md text-sm">
       <thead>
         <tr className="border-b border-slate-200 text-left text-[10px] font-bold uppercase tracking-wide text-slate-400">
+          {showInclude ? <th className="w-10 py-1 pl-1 font-bold">Inc.</th> : null}
           <th className="py-1 font-bold">Item</th>
           <th className="py-1 text-right font-bold">Final</th>
         </tr>
@@ -1129,6 +1173,8 @@ export default function MaterialCalculatorHubPage() {
   const chainGatesSectionRef = useRef<HTMLElement | null>(null);
   const [masterExtrasOpen, setMasterExtrasOpen] = useState(false);
   const [masterExtras, setMasterExtras] = useState<Partial<Record<keyof FmsPvcMasterExtras, string>>>({});
+  /** Per-tab material labels excluded from order PDF / supplier quotes (customer already has them). */
+  const [materialExclusions, setMaterialExclusions] = useState<MaterialExclusions>({});
   /** Percentage uplift applied to the final board count (e.g. "5" → +5% boards, rounded up). */
   const [extraBoardsPct, setExtraBoardsPct] = useState('');
   /** Extra items for the non-PVC styles (keyed per StyleExtraDef). */
@@ -1286,6 +1332,7 @@ export default function MaterialCalculatorHubPage() {
       if (typeof d.masterExtrasOpen === 'boolean') setMasterExtrasOpen(d.masterExtrasOpen);
       const mx = parseMasterExtras(d.masterExtras);
       if (mx && Object.keys(mx).length > 0) setMasterExtras(mx);
+      setMaterialExclusions(parseMaterialExclusions(d.materialExclusions));
       if (typeof d.extraBoardsPct === 'string' || typeof d.extraBoardsPct === 'number')
         setExtraBoardsPct(String(d.extraBoardsPct));
       if (d.pvcPanelModule !== undefined) {
@@ -1368,6 +1415,7 @@ export default function MaterialCalculatorHubPage() {
       hybVGates,
       hybridWpcColour,
       hybridPvcColour,
+      materialExclusions,
     };
   }, [
     contractorId,
@@ -1400,7 +1448,18 @@ export default function MaterialCalculatorHubPage() {
     hybVGates,
     hybridWpcColour,
     hybridPvcColour,
+    materialExclusions,
   ]);
+
+  const toggleMaterialInclude = useCallback((matTab: MaterialCalcTab, label: string, included: boolean) => {
+    setMaterialExclusions((prev) => toggleMaterialExclusion(prev, matTab, label, included));
+  }, []);
+
+  const skipPostsForTab = useCallback((matTab: MaterialCalcTab, labels: string[]) => {
+    const postLabels = postRelatedMaterialLabels(labels);
+    if (!postLabels.length) return;
+    setMaterialExclusions((prev) => excludeMaterialLabels(prev, matTab, postLabels));
+  }, []);
 
   useEffect(() => {
     if (!contractorId) return;
@@ -1518,6 +1577,7 @@ export default function MaterialCalculatorHubPage() {
     setHybVGates([]);
     setHybridWpcColour('Ash');
     setHybridPvcColour('White');
+    setMaterialExclusions({});
     setFmsQuoteMaterialUnsupported(null);
     materialQuoteUnsupportedAlertKeyRef.current = '';
   }, [contractorId]);
@@ -1936,20 +1996,45 @@ export default function MaterialCalculatorHubPage() {
     const colourLine = ['PVC colour / breakdown tab', pvcBreakdownColour, '', ''].join('\t');
     const fenceHdr = ['Fence-only SKU rollup (Excel block)', '', '', ''].join('\t');
     const hdr = ['SKU', 'Qty'].join('\t');
-    const fenceRows = pvcJob.sku_rows.map((r) => `${r.label}\t${r.quantity}`);
+    const fenceRows = pvcJob.sku_rows
+      .filter((r) => isMaterialIncluded(materialExclusions, 'pvc', r.label))
+      .map((r) => `${r.label}\t${r.quantity}`);
     const extra = [`Whole panels (sum D9)`, `${pvcJob.sum_whole_panels}`, '', ''].join('\t');
-    const concF = [`Concrete (fence H-post only × 2.5)`, `${pvcJob.concrete_bags_est}`, '', ''].join('\t');
+    const concF = isMaterialIncluded(materialExclusions, 'pvc', 'Concrete')
+      ? [`Concrete (fence H-post only × 2.5)`, `${pvcJob.concrete_bags_est}`, '', ''].join('\t')
+      : null;
     const adobeH = [`${fmsPvcMaterialListBreakdownTitle(pvcBreakdownColour)} (J row → qty)`, '', '', ''].join('\t');
-    const adobeBody = adobeRows.map((r) => `${r.row}\t${r.label}\t${r.qty}`);
+    const adobeBody = adobeRows
+      .filter((r) => isMaterialIncluded(materialExclusions, 'pvc', r.label))
+      .map((r) => `${r.row}\t${r.label}\t${r.qty}`);
     const masterH = [`Master column C — ${pvcBreakdownColour}`, '', '', ''].join('\t');
     const masterHdr = ['Item', 'Total', 'Packs', 'Extras'].join('\t');
-    const masterBody = pvcMaster.map((r) =>
-      r.header
-        ? `— ${r.label} —`
-        : `${r.label}\t${r.qty}\t${formatPacksCell(r.packs ?? 0)}\t${formatLooseExtra(r.loose ?? 0)}`
-    );
-    return [head, colourLine, '', fenceHdr, hdr, ...fenceRows, extra, concF, '', adobeH, 'Row\tItem\tQty', ...adobeBody, '', masterH, masterHdr, ...masterBody].join('\n');
-  }, [pvcJob, jobAddress, pvcBreakdownColour, adobeRows, pvcMaster]);
+    const masterBody = pvcMaster
+      .filter((r) => r.header || !r.label?.trim() || isMaterialIncluded(materialExclusions, 'pvc', r.label))
+      .map((r) =>
+        r.header
+          ? `— ${r.label} —`
+          : `${r.label}\t${r.qty}\t${formatPacksCell(r.packs ?? 0)}\t${formatLooseExtra(r.loose ?? 0)}`
+      );
+    return [
+      head,
+      colourLine,
+      '',
+      fenceHdr,
+      hdr,
+      ...fenceRows,
+      extra,
+      ...(concF ? [concF] : []),
+      '',
+      adobeH,
+      'Row\tItem\tQty',
+      ...adobeBody,
+      '',
+      masterH,
+      masterHdr,
+      ...masterBody,
+    ].join('\n');
+  }, [pvcJob, jobAddress, pvcBreakdownColour, adobeRows, pvcMaster, materialExclusions]);
 
   const copyBom = useCallback(async () => {
     try {
@@ -1962,7 +2047,18 @@ export default function MaterialCalculatorHubPage() {
 
   const buildMasterMaterialListPdfBlob = useCallback(async (): Promise<{ blob: Blob; filename: string }> => {
     const { buildMasterMaterialListPdfRows } = await import('@/lib/master-material-list-pdf-data');
-    const rows = buildMasterMaterialListPdfRows(pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt, extraBoardsPctNum);
+    const rows = buildMasterMaterialListPdfRows(
+      pvcAdobe,
+      extrasParsed,
+      gateCount,
+      pvcFenceLinearFt,
+      extraBoardsPctNum
+    ).filter((r) => {
+      if (r.section === 'wareHeader' || r.section === 'spacer' || r.section === 'totals' || r.section === 'taxRow') {
+        return true;
+      }
+      return isMaterialIncluded(materialExclusions, 'pvc', r.label);
+    });
     const activeMod = pvcPanelModule;
     const heightLabel = activeMod === 'nominal_7ft' ? "7'" : "6'";
     const subtitle = `${pvcBreakdownColour} – ${heightLabel}`;
@@ -1984,7 +2080,17 @@ export default function MaterialCalculatorHubPage() {
       .replace(/\s+/g, '-')
       .slice(0, 72);
     return { blob, filename: `${slug || 'master-material-list'}.pdf` };
-  }, [pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt, extraBoardsPctNum, pvcPanelModule, pvcBreakdownColour, jobAddress]);
+  }, [
+    pvcAdobe,
+    extrasParsed,
+    gateCount,
+    pvcFenceLinearFt,
+    extraBoardsPctNum,
+    pvcPanelModule,
+    pvcBreakdownColour,
+    jobAddress,
+    materialExclusions,
+  ]);
 
   const downloadMasterMaterialListPdf = useCallback(async () => {
     const { blob, filename } = await buildMasterMaterialListPdfBlob();
@@ -2102,8 +2208,12 @@ export default function MaterialCalculatorHubPage() {
       return Number.isFinite(r) ? String(r) : '';
     };
     const itemRows = [
-      ...chainFenceRows.map((r) => ({ key: r.key, label: r.label, qty: r.qty })),
-      ...(chainGateRows ?? []).map((r) => ({ key: r.key, label: `Gate — ${r.label}`, qty: r.qty })),
+      ...chainFenceRows
+        .filter((r) => isMaterialIncluded(materialExclusions, 'chain', r.label))
+        .map((r) => ({ key: r.key, label: r.label, qty: r.qty })),
+      ...(chainGateRows ?? [])
+        .filter((r) => isMaterialIncluded(materialExclusions, 'chain', `Gate — ${r.label}`))
+        .map((r) => ({ key: r.key, label: `Gate — ${r.label}`, qty: r.qty })),
     ];
     const { large, small } = splitWare(itemRows, (r) => r.label);
     const toPdfRow = (r: { key: string; label: string; qty: number }, section: 'structure' | 'hardware') => ({
@@ -2149,7 +2259,7 @@ export default function MaterialCalculatorHubPage() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-  }, [chainFenceRows, chainGateRows, chainFenceAgg, chainGateResults, chainExtras, jobAddress]);
+  }, [chainFenceRows, chainGateRows, chainFenceAgg, chainGateResults, chainExtras, jobAddress, materialExclusions]);
 
   /** Hybrid horizontal — one Excel block result per run, plus gate blocks and summed totals. */
   const hybridHJob = useMemo(() => {
@@ -2246,7 +2356,11 @@ export default function MaterialCalculatorHubPage() {
       const linearFt = lines.reduce((a, r) => a + (Number(String(r.length_ft).replace(/,/g, '')) || 0), 0);
       const gateCount = job.gates.filter((g) => g.rows).length;
       const fmt = (n: number) => String(Math.round(n * 100) / 100);
-      const { large, small } = splitWare(job.master, (r) => r.item);
+      const matTab: MaterialCalcTab = which === 'h' ? 'hybrid_h' : 'hybrid_v';
+      const includedMaster = job.master.filter((r) =>
+        isMaterialIncluded(materialExclusions, matTab, r.item)
+      );
+      const { large, small } = splitWare(includedMaster, (r) => r.item);
       const toPdfRow = (r: FmsHybridItemRow, section: 'structure' | 'hardware') => ({
         label: r.item,
         adobe: fmt(r.final),
@@ -2304,6 +2418,7 @@ export default function MaterialCalculatorHubPage() {
       hybHFamily,
       hybHHeight,
       jobAddress,
+      materialExclusions,
     ]
   );
 
@@ -2316,30 +2431,57 @@ export default function MaterialCalculatorHubPage() {
     };
 
     if (tab === 'pvc') {
-      for (const r of pvcJob.sku_rows) add(`PVC fence — ${r.label}`, r.quantity);
-      for (const r of adobeRows) add(`${pvcBreakdownColour} (breakdown) — ${r.label}`, r.qty);
+      for (const r of pvcJob.sku_rows) {
+        if (isMaterialIncluded(materialExclusions, 'pvc', r.label)) {
+          add(`PVC fence — ${r.label}`, r.quantity);
+        }
+      }
+      for (const r of adobeRows) {
+        if (isMaterialIncluded(materialExclusions, 'pvc', r.label)) {
+          add(`${pvcBreakdownColour} (breakdown) — ${r.label}`, r.qty);
+        }
+      }
       for (const r of pvcMaster) {
-        if (r.label?.trim() && !r.header) add(`Master — ${r.label}`, r.qty);
+        if (r.label?.trim() && !r.header && isMaterialIncluded(materialExclusions, 'pvc', r.label)) {
+          add(`Master — ${r.label}`, r.qty);
+        }
       }
       return rows;
     }
 
     if (tab === 'chain') {
       if (chainFenceRows) {
-        chainFenceRows.forEach((r) => add(`Chain link — ${r.label}`, r.qty));
+        chainFenceRows.forEach((r) => {
+          if (isMaterialIncluded(materialExclusions, 'chain', r.label)) {
+            add(`Chain link — ${r.label}`, r.qty);
+          }
+        });
       }
       if (chainGateRows) {
-        chainGateRows.forEach((r) => add(`Chain gate — ${r.label}`, r.qty));
+        chainGateRows.forEach((r) => {
+          const label = `Gate — ${r.label}`;
+          if (isMaterialIncluded(materialExclusions, 'chain', label)) {
+            add(`Chain gate — ${r.label}`, r.qty);
+          }
+        });
       }
       return rows;
     }
 
     if (tab === 'hybrid_h' && hybridHJob.hasAny) {
-      for (const r of hybridHJob.master) add(`Hybrid horizontal — ${r.item}`, r.final);
+      for (const r of hybridHJob.master) {
+        if (isMaterialIncluded(materialExclusions, 'hybrid_h', r.item)) {
+          add(`Hybrid horizontal — ${r.item}`, r.final);
+        }
+      }
     }
 
     if (tab === 'hybrid_v' && hybridVJob.hasAny) {
-      for (const r of hybridVJob.master) add(`Hybrid vertical — ${r.item}`, r.final);
+      for (const r of hybridVJob.master) {
+        if (isMaterialIncluded(materialExclusions, 'hybrid_v', r.item)) {
+          add(`Hybrid vertical — ${r.item}`, r.final);
+        }
+      }
     }
 
     return rows;
@@ -2353,6 +2495,7 @@ export default function MaterialCalculatorHubPage() {
     chainGateRows,
     hybridHJob,
     hybridVJob,
+    materialExclusions,
   ]);
 
   function addLine() {
@@ -3243,12 +3386,28 @@ export default function MaterialCalculatorHubPage() {
 
           <section className={card}>
             <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className={h2}>Material list</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Your full parts list in {pvcBreakdownColour}. Left is the itemized breakdown; right is the order quantity
-                per part. Cut stock (rails, boards, stiffeners) is shared across runs and rounded up once for the whole
-                job, so offcuts from one run finish another — least scrap possible.
-              </p>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className={h2}>Material list</h2>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Your full parts list in {pvcBreakdownColour}. Uncheck items the customer already has — they stay
+                    visible here but are left off PDFs and supplier quotes. Cut stock is rounded up once for the whole
+                    job.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className={btnGhost}
+                  onClick={() =>
+                    skipPostsForTab(
+                      'pvc',
+                      pvcMaster.filter((r) => r.label?.trim() && !r.header).map((r) => r.label)
+                    )
+                  }
+                >
+                  Skip posts
+                </button>
+              </div>
             </div>
             <div className="grid gap-6 p-5 lg:grid-cols-2">
               <div>
@@ -3259,22 +3418,45 @@ export default function MaterialCalculatorHubPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold text-slate-500">
+                        <th className="w-10 px-1 py-2">Inc.</th>
                         <th className="px-2 py-2">#</th>
                         <th className="px-2 py-2">Item</th>
                         <th className="px-2 py-2 text-right">Qty</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {adobeRows.map((r) => (
-                        <tr key={r.row} className="border-b border-slate-100">
-                          <td className="px-2 py-1.5 tabular-nums text-slate-500">{r.row}</td>
-                          <td className="px-2 py-1.5 text-slate-800">{r.label}</td>
-                          <td className="px-2 py-1.5 text-right tabular-nums text-slate-900">{r.qty}</td>
-                        </tr>
-                      ))}
+                      {adobeRows.map((r) => {
+                        const included = isMaterialIncluded(materialExclusions, 'pvc', r.label);
+                        return (
+                          <tr
+                            key={r.row}
+                            className={`border-b border-slate-100 ${!included ? 'bg-slate-50/80 opacity-55' : ''}`}
+                          >
+                            <td className="w-10 px-1 py-1.5">
+                              <input
+                                type="checkbox"
+                                checked={included}
+                                onChange={(e) => toggleMaterialInclude('pvc', r.label, e.target.checked)}
+                                className="h-4 w-4 rounded border-slate-300"
+                              />
+                            </td>
+                            <td className="px-2 py-1.5 tabular-nums text-slate-500">{r.row}</td>
+                            <td
+                              className={`px-2 py-1.5 ${included ? 'text-slate-800' : 'text-slate-500 line-through'}`}
+                            >
+                              {r.label}
+                            </td>
+                            <td
+                              className={`px-2 py-1.5 text-right tabular-nums ${included ? 'text-slate-900' : 'text-slate-400 line-through'}`}
+                            >
+                              {r.qty}
+                            </td>
+                          </tr>
+                        );
+                      })}
                       {adobeRows.length === 0 && (
                         <tr>
-                          <td colSpan={3} className="px-2 py-4 text-center text-slate-500">
+                          <td colSpan={4} className="px-2 py-4 text-center text-slate-500">
                             Add fence lines or gates.
                           </td>
                         </tr>
@@ -3291,6 +3473,7 @@ export default function MaterialCalculatorHubPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold text-slate-500">
+                        <th className="w-10 px-1 py-2">Inc.</th>
                         <th className="px-2 py-2">Item</th>
                         <th className="px-2 py-2 text-right">Total</th>
                         <th className="px-2 py-2 text-right">Packs</th>
@@ -3298,29 +3481,61 @@ export default function MaterialCalculatorHubPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {pvcMaster.map((r, idx) =>
-                        r.header ? (
-                          <tr key={`${idx}-${r.label}`} className="border-b border-slate-200 bg-slate-100">
-                            <td
-                              colSpan={4}
-                              className="px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-600"
-                            >
-                              {r.label}
+                      {pvcMaster.map((r, idx) => {
+                        if (r.header) {
+                          return (
+                            <tr key={`${idx}-${r.label}`} className="border-b border-slate-200 bg-slate-100">
+                              <td
+                                colSpan={5}
+                                className="px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-600"
+                              >
+                                {r.label}
+                              </td>
+                            </tr>
+                          );
+                        }
+                        const label = r.label?.trim() ?? '';
+                        const canToggle = label.length > 0 && label !== 'Total Linear Ft' && label !== 'Total Gates';
+                        const included = !canToggle || isMaterialIncluded(materialExclusions, 'pvc', label);
+                        return (
+                          <tr
+                            key={`${idx}-${r.label || 'row'}`}
+                            className={`border-b border-slate-100 ${!included ? 'bg-slate-50/80 opacity-55' : ''}`}
+                          >
+                            <td className="w-10 px-1 py-1.5">
+                              {canToggle ? (
+                                <input
+                                  type="checkbox"
+                                  checked={included}
+                                  onChange={(e) => toggleMaterialInclude('pvc', label, e.target.checked)}
+                                  title={included ? 'Include on order' : 'Excluded from order'}
+                                  className="h-4 w-4 rounded border-slate-300"
+                                />
+                              ) : null}
                             </td>
-                          </tr>
-                        ) : (
-                          <tr key={`${idx}-${r.label || 'row'}`} className="border-b border-slate-100">
-                            <td className="px-2 py-1.5 font-medium text-slate-800">{r.label || '\u00a0'}</td>
-                            <td className="px-2 py-1.5 text-right tabular-nums text-slate-900">{r.qty}</td>
-                            <td className="px-2 py-1.5 text-right tabular-nums text-slate-700">
+                            <td
+                              className={`px-2 py-1.5 font-medium ${included ? 'text-slate-800' : 'text-slate-500 line-through'}`}
+                            >
+                              {r.label || '\u00a0'}
+                            </td>
+                            <td
+                              className={`px-2 py-1.5 text-right tabular-nums ${included ? 'text-slate-900' : 'text-slate-400 line-through'}`}
+                            >
+                              {r.qty}
+                            </td>
+                            <td
+                              className={`px-2 py-1.5 text-right tabular-nums ${included ? 'text-slate-700' : 'text-slate-400 line-through'}`}
+                            >
                               {formatPacksCell(r.packs ?? 0) || '\u00a0'}
                             </td>
-                            <td className="px-2 py-1.5 text-right tabular-nums text-slate-600">
+                            <td
+                              className={`px-2 py-1.5 text-right tabular-nums ${included ? 'text-slate-600' : 'text-slate-400 line-through'}`}
+                            >
                               {formatLooseExtra(r.loose ?? 0) || '\u00a0'}
                             </td>
                           </tr>
-                        )
-                      )}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -3659,35 +3874,87 @@ export default function MaterialCalculatorHubPage() {
 
           <section className={card}>
             <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className={h2}>Master material list</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Runs and gates combined into one list. Posts, caps, bands &amp; ties are figured per run; rails &amp;
-                mesh from the job&apos;s total linear ft.
-              </p>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className={h2}>Master material list</h2>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Uncheck items the customer already has. Excluded lines are omitted from PDFs and supplier quotes.
+                  </p>
+                </div>
+                {chainMasterRows ? (
+                  <button
+                    type="button"
+                    className={btnGhost}
+                    onClick={() =>
+                      skipPostsForTab('chain', [
+                        'Posts (all runs)',
+                        ...chainMasterRows.map((r) => r.label),
+                      ])
+                    }
+                  >
+                    Skip posts
+                  </button>
+                ) : null}
+              </div>
             </div>
             <div className="overflow-x-auto p-5">
               {!chainFenceAgg || !chainMasterRows ? (
                 <p className="text-sm text-slate-500">Enter at least one fence run length.</p>
               ) : (
                 <table className="w-full max-w-xl text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-left text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                      <th className="w-10 py-1 pl-1">Inc.</th>
+                      <th className="py-1">Item</th>
+                      <th className="py-1 text-right">Qty</th>
+                    </tr>
+                  </thead>
                   <tbody>
                     {(() => {
                       const { large, small } = splitWare(chainMasterRows, (r) => r.label);
-                      const itemRow = (r: { key: string; label: string; qty: number }) => (
-                        <tr key={r.key} className="border-b border-slate-100">
-                          <td className="py-1.5 font-medium text-slate-800">{r.label}</td>
-                          <td className="py-1.5 text-right tabular-nums">{r.qty}</td>
-                        </tr>
-                      );
+                      const itemRow = (r: { key: string; label: string; qty: number }, totals = false) => {
+                        const included =
+                          totals || isMaterialIncluded(materialExclusions, 'chain', r.label);
+                        return (
+                          <tr
+                            key={r.key}
+                            className={`border-b border-slate-100 ${!included ? 'bg-slate-50/80 opacity-55' : ''}`}
+                          >
+                            <td className="w-10 py-1.5 pl-1">
+                              {!totals ? (
+                                <input
+                                  type="checkbox"
+                                  checked={included}
+                                  onChange={(e) => toggleMaterialInclude('chain', r.label, e.target.checked)}
+                                  className="h-4 w-4 rounded border-slate-300"
+                                />
+                              ) : null}
+                            </td>
+                            <td
+                              className={`py-1.5 font-medium ${included ? 'text-slate-800' : 'text-slate-500 line-through'}`}
+                            >
+                              {r.label}
+                            </td>
+                            <td
+                              className={`py-1.5 text-right tabular-nums ${included ? '' : 'text-slate-400 line-through'}`}
+                            >
+                              {r.qty}
+                            </td>
+                          </tr>
+                        );
+                      };
                       return (
                         <>
                           {itemRow({ key: '_posts', label: 'Posts (all runs)', qty: chainFenceAgg.posts })}
                           <WareHeaderTr title={LARGE_WARE_TITLE} />
-                          {large.map(itemRow)}
+                          {large.map((r) => itemRow(r))}
                           <WareHeaderTr title={SMALL_WARE_TITLE} />
-                          {small.map(itemRow)}
-                          {itemRow({ key: '_lin_ft', label: 'Total linear ft', qty: chainFenceAgg.total_linear_ft })}
-                          {itemRow({ key: '_gates', label: 'Total gates', qty: chainGateResults.length })}
+                          {small.map((r) => itemRow(r))}
+                          {itemRow(
+                            { key: '_lin_ft', label: 'Total linear ft', qty: chainFenceAgg.total_linear_ft },
+                            true
+                          )}
+                          {itemRow({ key: '_gates', label: 'Total gates', qty: chainGateResults.length }, true)}
                         </>
                       );
                     })()}
@@ -4028,7 +4295,13 @@ export default function MaterialCalculatorHubPage() {
                       (plus matching plugs), concrete = 2.5 per post. Cut stock (rails, boards, stiffeners) is shared
                       across runs and rounded up once for the whole job to minimize scrap.
                     </p>
-                    <HybridItemTable rows={hybridHJob.master} groupWare />
+                    <HybridItemTable
+                      rows={hybridHJob.master}
+                      groupWare
+                      tab="hybrid_h"
+                      materialExclusions={materialExclusions}
+                      onToggleInclude={(label, included) => toggleMaterialInclude('hybrid_h', label, included)}
+                    />
                   </div>
                   <details className="rounded-xl border border-slate-100 bg-slate-50/40">
                     <summary className="cursor-pointer list-none px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500 [&::-webkit-details-marker]:hidden">
@@ -4042,7 +4315,19 @@ export default function MaterialCalculatorHubPage() {
               )}
             </div>
             {hybridHJob.hasAny ? (
-              <div className="flex flex-wrap gap-2 border-t border-slate-100 px-5 py-4">
+              <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 px-5 py-4">
+                <button
+                  type="button"
+                  className={btnGhost}
+                  onClick={() =>
+                    skipPostsForTab(
+                      'hybrid_h',
+                      hybridHJob.master.map((r) => r.item)
+                    )
+                  }
+                >
+                  Skip posts
+                </button>
                 <button type="button" className={btnGhost} onClick={() => void downloadHybridMasterListPdf('h')}>
                   Download PDF
                 </button>
@@ -4322,7 +4607,13 @@ export default function MaterialCalculatorHubPage() {
                       (plus matching plugs), concrete = 2.5 per post. Cut stock (rails, boards, stiffeners) is shared
                       across runs and rounded up once for the whole job to minimize scrap.
                     </p>
-                    <HybridItemTable rows={hybridVJob.master} groupWare />
+                    <HybridItemTable
+                      rows={hybridVJob.master}
+                      groupWare
+                      tab="hybrid_v"
+                      materialExclusions={materialExclusions}
+                      onToggleInclude={(label, included) => toggleMaterialInclude('hybrid_v', label, included)}
+                    />
                   </div>
                   <details className="rounded-xl border border-slate-100 bg-slate-50/40">
                     <summary className="cursor-pointer list-none px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500 [&::-webkit-details-marker]:hidden">
@@ -4336,7 +4627,19 @@ export default function MaterialCalculatorHubPage() {
               )}
             </div>
             {hybridVJob.hasAny ? (
-              <div className="flex flex-wrap gap-2 border-t border-slate-100 px-5 py-4">
+              <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 px-5 py-4">
+                <button
+                  type="button"
+                  className={btnGhost}
+                  onClick={() =>
+                    skipPostsForTab(
+                      'hybrid_v',
+                      hybridVJob.master.map((r) => r.item)
+                    )
+                  }
+                >
+                  Skip posts
+                </button>
                 <button type="button" className={btnGhost} onClick={() => void downloadHybridMasterListPdf('v')}>
                   Download PDF
                 </button>
