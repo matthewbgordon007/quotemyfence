@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { isContractorAdminRole } from '@/lib/contractor-auth-helpers';
@@ -27,11 +28,13 @@ export default function BillingPage() {
       .then((data: { user_role?: string }) => {
         if (cancelled) return;
         if (!isContractorAdminRole(data?.user_role)) {
-          router.replace('/dashboard');
+          // Non-admins can't manage billing; send them to the free layout tools
+          // (going to /dashboard would bounce unpaid accounts right back here).
+          router.replace('/dashboard/layout');
         }
       })
       .catch(() => {
-        if (!cancelled) router.replace('/dashboard');
+        if (!cancelled) router.replace('/dashboard/layout');
       });
     return () => {
       cancelled = true;
@@ -161,6 +164,36 @@ export default function BillingPage() {
           </button>
         </div>
       </div>
+
+      {!loading && !state?.billing_active ? (
+        <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-6 shadow-sm md:p-8">
+          <h2 className="text-base font-semibold text-slate-900">Free on every account</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            No subscription needed for these — link up with your supplier, draw your fence layouts, and send them
+            over for a material list.
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <Link
+              href="/dashboard/suppliers"
+              className="rounded-xl border border-emerald-200 bg-white p-4 transition hover:border-emerald-300 hover:shadow-sm"
+            >
+              <div className="text-sm font-semibold text-slate-900">Link a supplier →</div>
+              <div className="mt-1 text-xs text-slate-500">
+                Connect your account to your material supplier.
+              </div>
+            </Link>
+            <Link
+              href="/dashboard/layout"
+              className="rounded-xl border border-emerald-200 bg-white p-4 transition hover:border-emerald-300 hover:shadow-sm"
+            >
+              <div className="text-sm font-semibold text-slate-900">Draw a fence layout →</div>
+              <div className="mt-1 text-xs text-slate-500">
+                Sketch the job, then send it to your linked supplier for a material list.
+              </div>
+            </Link>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

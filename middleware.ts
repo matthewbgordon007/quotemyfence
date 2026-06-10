@@ -2,6 +2,26 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { isBillingActive } from '@/lib/billing';
 
+/**
+ * Free tier: contractors without an active subscription can still link suppliers,
+ * draw fence layouts, and send a layout to a linked supplier for a material list.
+ * Everything else stays behind billing.
+ */
+const FREE_TIER_DASHBOARD_PREFIXES = ['/dashboard/layout', '/dashboard/suppliers'];
+const FREE_TIER_API_PREFIXES = [
+  '/api/contractor/layouts',
+  '/api/contractor/suppliers',
+  '/api/contractor/material-quote', // includes /attachment
+  '/api/contractor/material-quote-requests', // so they can see supplier responses
+  '/api/contractor/me',
+];
+
+function isFreeTierPath(pathname: string): boolean {
+  return [...FREE_TIER_DASHBOARD_PREFIXES, ...FREE_TIER_API_PREFIXES].some(
+    (p) => pathname === p || pathname.startsWith(p + '/')
+  );
+}
+
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next({ request });
 
@@ -77,6 +97,9 @@ export async function middleware(request: NextRequest) {
 
       const hasOverride = contractor?.billing_access_override === true;
       if (!hasOverride && !isBillingActive(contractor?.stripe_subscription_status)) {
+        if (isFreeTierPath(request.nextUrl.pathname)) {
+          return response;
+        }
         if (isContractorApi) {
           return NextResponse.json({ error: 'Billing required' }, { status: 402 });
         }
