@@ -24,6 +24,9 @@ export const LAYOUT_STRAIGHT_MAX_DEG = 10;
 /** Snap sketch segment starts to the prior segment’s end (ft) so one physical post = one vertex. */
 export const LAYOUT_CHAIN_ALIGN_FT = 0.5;
 
+/** Merge sketch endpoints within this distance (ft) onto one post — covers small canvas gaps at corners. */
+export const LAYOUT_ENDPOINT_MERGE_FT = 1.5;
+
 /** After chaining, drop links shorter than this (ft) to remove jitter / duplicate dots on one post. */
 export const LAYOUT_MIN_SKETCH_SEGMENT_FT = 0.08;
 
@@ -476,6 +479,39 @@ export function sketchSegmentStartConnectedToPrev(
 }
 
 /**
+ * True when another run ends (or starts) at the same post as segment i's start — e.g. T-junctions where
+ * the vertical run starts where a horizontal run ends. That post is owned by the ending run, not both.
+ */
+export function sketchSegmentStartSharesExistingPost(
+  al: LayoutSegmentFeet[],
+  segmentIndex: number,
+  mergeFt = LAYOUT_ENDPOINT_MERGE_FT
+): boolean {
+  if (segmentIndex < 0 || segmentIndex >= al.length) return false;
+  const start = al[segmentIndex].a;
+  for (let j = 0; j < al.length; j++) {
+    if (j === segmentIndex) continue;
+    if (dist(start, al[j].b) <= mergeFt) return true;
+  }
+  return false;
+}
+
+function snapToPriorEndpoints(p: LayoutPt, prior: LayoutSegmentFeet[], mergeFt: number): LayoutPt {
+  let best: LayoutPt | null = null;
+  let bestD = Infinity;
+  for (const s of prior) {
+    for (const anchor of [s.a, s.b]) {
+      const d = dist(p, anchor);
+      if (d <= mergeFt && d < bestD) {
+        bestD = d;
+        best = anchor;
+      }
+    }
+  }
+  return best ? { ...best } : p;
+}
+
+/**
  * Joint vertex positions: each open end and corner that needs a post marker.
  * Connected segments share one joint at their meeting point; disconnected runs include both ends.
  */
@@ -533,14 +569,15 @@ export function alignChainedSketchSegments(
   segments: LayoutPt[][],
   lengthPerSegmentFt: number[],
   chainAlignFt = LAYOUT_CHAIN_ALIGN_FT,
-  minSegFt = LAYOUT_MIN_SKETCH_SEGMENT_FT
+  minSegFt = LAYOUT_MIN_SKETCH_SEGMENT_FT,
+  endpointMergeFt = LAYOUT_ENDPOINT_MERGE_FT
 ): LayoutSegmentFeet[] {
   const out: LayoutSegmentFeet[] = [];
   for (let i = 0; i < segments.length; i++) {
     const seg = segments[i];
     if (!seg || seg.length < 2) continue;
-    let a = { ...seg[0] };
-    const b = { ...seg[1] };
+    let a = snapToPriorEndpoints({ ...seg[0] }, out, endpointMergeFt);
+    let b = snapToPriorEndpoints({ ...seg[1] }, out, endpointMergeFt);
     const Lraw = lengthPerSegmentFt[i];
     const Lnum = Number(Lraw);
     const hasExplicit = Number.isFinite(Lnum);
@@ -649,11 +686,14 @@ export function layoutSegmentsToPvcFenceInputsPerSketchSegment(
   return segs.map((seg, i) => {
     const { start, end } = jointRanges[i];
     const connectedToPrev = sketchSegmentStartConnectedToPrev(segs, i, chainAlign);
+    const sharesStartPost = sketchSegmentStartSharesExistingPost(segs, i);
     const endPost = joints[end]?.h_post ? 1 : 0;
-    // Each run owns the post at its end; its start post is owned by the previous run when connected.
-    // Disconnected runs (and the first run) also count the post at their start joint.
-    const startPost = !connectedToPrev && joints[start]?.h_post ? 1 : 0;
-    const startU = !connectedToPrev && joints[start]?.u_channel ? 1 : 0;
+    // Each run owns the post at its end; its start post is owned by the previous run when connected,
+    // or by any other run that ends at the same point (T-junction / horizontal meeting vertical).
+    const startPost =
+      !connectedToPrev && !sharesStartPost && joints[start]?.h_post ? 1 : 0;
+    const startU =
+      !connectedToPrev && !sharesStartPost && joints[start]?.u_channel ? 1 : 0;
     const d6 = Math.min(2, endPost + startPost) as 0 | 1 | 2;
     const d7 = (joints[end]?.u_channel ? 1 : 0) + startU;
     return {

@@ -465,11 +465,11 @@ function buildInputs(rows: PvcLineRow[], panelSpacingFt: number): FmsPvcFenceLin
     .map((r) => {
       const L = Math.max(0, Number(String(r.length_ft).replace(/,/g, '')) || 0);
       const { d6, d7 } = presetToExcel(r.end_preset, r.h_post_type, r.u_channel);
-      // Gate-only sketch runs can have 0 ft of fence left but still need corner posts / U-channels.
+      // Gate-only sketch runs can have 0 ft of fence left; keep U-channels but posts are on adjacent runs.
       if (L <= 0 && d6 <= 0 && d7 <= 0) return null;
       return {
         length_ft: L,
-        fence_terminated_h_post_type: d6,
+        fence_terminated_h_post_type: (L <= 0 ? 0 : d6) as 0 | 1 | 2,
         fence_terminated_u_channel: d7,
         panel_module: r.panel_module,
         ...(spacing ? { panel_spacing_ft: spacing } : {}),
