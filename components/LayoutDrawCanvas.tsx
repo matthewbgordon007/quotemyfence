@@ -12,7 +12,6 @@ import {
 } from 'react';
 import {
   alignChainedSketchSegments,
-  applyGateBoundaryJointOverrides,
   defaultJointTerminationsFromAligned,
   deflectionAtVertexDeg,
   gateSpanAlongSegment,
@@ -566,12 +565,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         type: g.type,
         line_index: g.line_index,
       }));
-      const def = applyGateBoundaryJointOverrides(
-        defaultJointTerminationsFromAligned(al),
-        segments,
-        nums,
-        gatePlacements
-      );
+      const def = defaultJointTerminationsFromAligned(al);
       if (def.length === 0) {
         setJointTerminations([]);
         return;

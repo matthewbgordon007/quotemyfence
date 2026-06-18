@@ -97,6 +97,7 @@ import {
   sketchGateSegmentRole,
   sketchSegmentRunLabel,
   type SegmentRunEnds,
+  isSplitGateFenceSide,
   jointPositionsFromAligned,
   LAYOUT_CHAIN_ALIGN_FT,
   LAYOUT_MIN_SKETCH_SEGMENT_FT,
@@ -742,9 +743,25 @@ function buildInputForPvcLineRow(
   const calcL = sketchCtx
     ? fenceCalcLengthFtForSketchSegment(sketchCtx.segmentIndex, grossL, sketchCtx.sketch)
     : grossL;
-  const { d6, d7 } = r.run_ends
-    ? d6d7FromRunEnds(r.run_ends)
-    : presetToExcel(r.end_preset, r.h_post_type, r.u_channel);
+  let d6: 0 | 1 | 2;
+  let d7: number;
+  if (r.run_ends && r.manualRunEdit) {
+    ({ d6, d7 } = d6d7FromRunEnds(r.run_ends));
+  } else if (
+    sketchCtx &&
+    isSplitGateFenceSide(
+      sketchCtx.segmentIndex,
+      sketchCtx.sketch.segments.length,
+      sketchCtx.sketch.gate_placements
+    )
+  ) {
+    d6 = 2;
+    d7 = 0;
+  } else if (r.run_ends) {
+    ({ d6, d7 } = d6d7FromRunEnds(r.run_ends));
+  } else {
+    ({ d6, d7 } = presetToExcel(r.end_preset, r.h_post_type, r.u_channel));
+  }
   if (!pvcLineIncludedInInputs(r, calcL)) return null;
   const spacing = Number.isFinite(panelSpacingFt) && panelSpacingFt > 0 ? panelSpacingFt : undefined;
   return {
@@ -786,6 +803,9 @@ function fenceCalcLengthFtForSketchSegment(
   sketch: LayoutSketchDrawingPayload | null | undefined
 ): number {
   if (!sketch?.segments?.length) return grossLengthFt;
+  if (isSplitGateFenceSide(segmentIndex, sketch.segments.length, sketch.gate_placements)) {
+    return grossLengthFt;
+  }
   return netFenceLengthFtForSegment(
     segmentIndex,
     grossLengthFt,
@@ -3907,7 +3927,7 @@ export default function MaterialCalculatorHubPage() {
             <div className="border-b border-slate-100 bg-gradient-to-r from-amber-50/40 via-white to-slate-50/80 px-5 py-4">
               <h2 className={h2}>Gates</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Enter each gate&apos;s opening width (1 post per gate). Gates from your sketch appear here automatically.
+                Enter each gate&apos;s opening width (2 posts per gate at the opening). Gates from your sketch appear here automatically.
               </p>
             </div>
             <div className="space-y-4 p-5">

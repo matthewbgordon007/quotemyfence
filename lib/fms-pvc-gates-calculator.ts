@@ -10,8 +10,8 @@ const PANEL_FT = 8.20833333;
 
 export type FmsPvcGatePosts = 0 | 1 | 2;
 
-/** One gate post per opening (customer counts the hinge/latch post only; the other side is an existing fence post). */
-export const FMS_GATE_POST_COUNT: FmsPvcGatePosts = 1;
+/** Two posts per gate opening (one at each side of the opening). */
+export const FMS_GATE_POST_COUNT: FmsPvcGatePosts = 2;
 
 export interface FmsPvcShortGateInput {
   gate_width_in: number;
