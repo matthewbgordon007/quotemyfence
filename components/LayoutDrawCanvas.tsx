@@ -12,6 +12,7 @@ import {
 } from 'react';
 import {
   alignChainedSketchSegments,
+  applyGateBoundaryJointOverrides,
   defaultJointTerminationsFromAligned,
   deflectionAtVertexDeg,
   gateSpanAlongSegment,
@@ -585,7 +586,16 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       }
       const nums = lengthNumsForAlign(segments, lineLengths);
       const al = alignChainedSketchSegments(segments, nums, LAYOUT_CHAIN_ALIGN_FT, LAYOUT_MIN_SKETCH_SEGMENT_FT);
-      const def = defaultJointTerminationsFromAligned(al);
+      const gatePlacements = placedGates.map((g) => ({
+        type: g.type,
+        line_index: g.line_index,
+      }));
+      const def = applyGateBoundaryJointOverrides(
+        defaultJointTerminationsFromAligned(al),
+        segments,
+        nums,
+        gatePlacements
+      );
       if (def.length === 0) {
         setJointTerminations([]);
         return;
@@ -607,7 +617,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         }
         return merged;
       });
-    }, [segments, lineLengths]);
+    }, [segments, lineLengths, placedGates]);
 
     useEffect(() => {
       setSelectedJointIndex((j) => (j != null && j >= jointTerminations.length ? null : j));

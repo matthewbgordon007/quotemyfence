@@ -93,6 +93,7 @@ import {
   removeLayoutDrawingGatePlacement,
   removeLayoutDrawingSegment,
   sketchGateWidthInches,
+  sketchGateSegmentRole,
   jointPositionsFromAligned,
   LAYOUT_CHAIN_ALIGN_FT,
   LAYOUT_MIN_SKETCH_SEGMENT_FT,
@@ -351,6 +352,7 @@ function drawingDataToPvcLineRows(
   );
   const inputs = layoutSegmentsToPvcFenceInputsPerSketchSegment(pairs, grossPerSeg, panelModule, {
     jointTerminations: drawing.joint_terminations ?? null,
+    gatePlacements,
   });
   return drawing.segments.map((_, i) => {
     const inp = inputs[i];
@@ -390,6 +392,7 @@ function drawingDataToChainLineRows(
   );
   const inputs = layoutSegmentsToPvcFenceInputsPerSketchSegment(pairs, grossPerSeg, panelModule, {
     jointTerminations: drawing.joint_terminations ?? null,
+    gatePlacements,
   });
   return drawing.segments.map((_, i) => {
     const inp = inputs[i];
@@ -426,6 +429,7 @@ function drawingDataToHybridVLineRows(
   );
   const inputs = layoutSegmentsToPvcFenceInputsPerSketchSegment(pairs, grossPerSeg, panelModule, {
     jointTerminations: drawing.joint_terminations ?? null,
+    gatePlacements,
   });
   return drawing.segments.map((_, i) => {
     const inp = inputs[i];
@@ -661,6 +665,12 @@ function buildInputForPvcLineRow(
   sketchCtx?: { segmentIndex: number; sketch: LayoutSketchDrawingPayload }
 ): FmsPvcFenceLineInput | null {
   const grossL = Math.max(0, Number(String(r.length_ft).replace(/,/g, '')) || 0);
+  if (
+    sketchCtx &&
+    sketchGateSegmentRole(sketchCtx.segmentIndex, sketchCtx.sketch.gate_placements) === 'gate'
+  ) {
+    return null;
+  }
   const calcL = sketchCtx
     ? fenceCalcLengthFtForSketchSegment(sketchCtx.segmentIndex, grossL, sketchCtx.sketch)
     : grossL;
@@ -2329,6 +2339,15 @@ export default function MaterialCalculatorHubPage() {
       const gateOnly = netL <= 0;
       if (gateOnly) {
         const primary = gatesOnRun[0];
+        const gateTotals = gatesOnRun.reduce(
+          (acc, g) => ({
+            h_post: acc.h_post + g.h_post,
+            u_channel: acc.u_channel + g.u_channel,
+            rail: acc.rail + g.rail,
+            board: acc.board + g.board,
+          }),
+          { h_post: 0, u_channel: 0, rail: 0, board: 0 }
+        );
         return {
           kind: 'gate',
           id: lr.id,
@@ -2337,7 +2356,8 @@ export default function MaterialCalculatorHubPage() {
           length_ft: gateFt,
           panelLabel: gateTypeLabel,
           hasGate: true,
-          ...merged,
+          panels: 0,
+          ...gateTotals,
         };
       }
 
