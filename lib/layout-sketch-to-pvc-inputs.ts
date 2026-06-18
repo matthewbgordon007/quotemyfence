@@ -199,7 +199,8 @@ export function sketchSegmentRunLabel(
   segmentIndex: number,
   segmentCount: number,
   netLengthFt: number,
-  gatePlacements?: SketchGatePlacement[] | null
+  gatePlacements?: SketchGatePlacement[] | null,
+  segments?: { length_ft?: number }[] | null
 ): string {
   const role = sketchGateSegmentRole(segmentIndex, gatePlacements, segmentCount, segments);
   if (role && gatePlacements?.length) {

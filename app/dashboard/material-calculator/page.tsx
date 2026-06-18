@@ -393,7 +393,7 @@ function drawingDataToPvcLineRows(
     const d6d7 = runEnds ? d6d7FromRunEnds(runEnds) : { d6: inp?.fence_terminated_h_post_type ?? 0, d7: Number(inp?.fence_terminated_u_channel ?? 0) };
     return {
       id: newLineId(),
-      label: sketchSegmentRunLabel(i, drawing.segments.length, net, gatePlacements),
+      label: sketchSegmentRunLabel(i, drawing.segments.length, net, gatePlacements, drawing.segments),
       length_ft: gross > 0 ? String(gross) : '',
       panel_module: panelModule,
       end_preset: 'custom' as const,
@@ -434,7 +434,7 @@ function drawingDataToChainLineRows(
     const net = netPerSeg[i] ?? 0;
     return {
       id: newLineId(),
-      label: sketchSegmentRunLabel(i, drawing.segments.length, net, gatePlacements),
+      label: sketchSegmentRunLabel(i, drawing.segments.length, net, gatePlacements, drawing.segments),
       length_ft: gross > 0 ? String(gross) : '',
       terminal_post: String(inp?.fence_terminated_h_post_type ?? 0),
       fromSketch: true,
@@ -481,7 +481,7 @@ function drawingDataToHybridVLineRows(
         };
     return {
       id: newLineId(),
-      label: sketchSegmentRunLabel(i, drawing.segments.length, net, gatePlacements),
+      label: sketchSegmentRunLabel(i, drawing.segments.length, net, gatePlacements, drawing.segments),
       length_ft: gross > 0 ? String(gross) : '',
       h_post: d6d7.d6,
       u_channel: Math.max(0, Math.min(2, Math.round(d6d7.d7))) as 0 | 1 | 2,
