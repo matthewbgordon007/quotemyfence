@@ -36,6 +36,7 @@ import {
   type FmsCalculatorRecipeV1,
 } from '@/lib/fms-calculator-recipe';
 import { FmsCalculatorRecipeEditor } from '@/components/dashboard/FmsCalculatorRecipeEditor';
+import { buildMasterMaterialListPdfRows } from '@/lib/master-material-list-pdf-data';
 import {
   computeFmsPvcDoubleGate,
   computeFmsPvcShortGate,
@@ -3052,20 +3053,25 @@ export default function MaterialCalculatorHubPage() {
     };
 
     if (tab === 'pvc') {
-      for (const r of pvcJob.sku_rows) {
-        if (isMaterialIncluded(materialExclusions, 'pvc', r.label)) {
-          add(`PVC fence — ${r.label}`, r.quantity);
+      const pdfRows = buildMasterMaterialListPdfRows(
+        pvcAdobe,
+        extrasParsed,
+        gateCount,
+        pvcFenceLinearFt,
+        pvcPercentUplifts,
+        fmsRecipe
+      );
+      for (const r of pdfRows) {
+        if (r.section === 'wareHeader' || r.section === 'taxRow' || r.section === 'spacer') continue;
+        if (!r.label?.trim()) continue;
+        if (!isMaterialIncluded(materialExclusions, 'pvc', r.label)) continue;
+        const qty = Number(String(r.adobe).replace(/^\+/, '')) || 0;
+        if (r.section === 'totals') {
+          add(r.label, qty);
+          continue;
         }
-      }
-      for (const r of adobeRows) {
-        if (isMaterialIncluded(materialExclusions, 'pvc', r.label)) {
-          add(`${pvcBreakdownColour} (breakdown) — ${r.label}`, r.qty);
-        }
-      }
-      for (const r of pvcMaster) {
-        if (r.label?.trim() && !r.header && isMaterialIncluded(materialExclusions, 'pvc', r.label)) {
-          add(`Master — ${r.label}`, r.qty);
-        }
+        if (qty <= 0) continue;
+        add(r.label, qty);
       }
       return rows;
     }
@@ -3074,7 +3080,7 @@ export default function MaterialCalculatorHubPage() {
       if (chainFenceRows) {
         chainFenceRows.forEach((r) => {
           if (isMaterialIncluded(materialExclusions, 'chain', r.label)) {
-            add(`Chain link — ${r.label}`, r.qty);
+            add(r.label, r.qty);
           }
         });
       }
@@ -3082,7 +3088,7 @@ export default function MaterialCalculatorHubPage() {
         chainGateRows.forEach((r) => {
           const label = `Gate — ${r.label}`;
           if (isMaterialIncluded(materialExclusions, 'chain', label)) {
-            add(`Chain gate — ${r.label}`, r.qty);
+            add(label, r.qty);
           }
         });
       }
@@ -3092,7 +3098,7 @@ export default function MaterialCalculatorHubPage() {
     if (tab === 'hybrid_h' && hybridHJob.hasAny) {
       for (const r of hybridHJob.master) {
         if (isMaterialIncluded(materialExclusions, 'hybrid_h', r.item)) {
-          add(`Hybrid horizontal — ${r.item}`, r.final);
+          add(r.item, r.final);
         }
       }
     }
@@ -3100,7 +3106,7 @@ export default function MaterialCalculatorHubPage() {
     if (tab === 'hybrid_v' && hybridVJob.hasAny) {
       for (const r of hybridVJob.master) {
         if (isMaterialIncluded(materialExclusions, 'hybrid_v', r.item)) {
-          add(`Hybrid vertical — ${r.item}`, r.final);
+          add(r.item, r.final);
         }
       }
     }
@@ -3108,10 +3114,12 @@ export default function MaterialCalculatorHubPage() {
     return rows;
   }, [
     tab,
-    pvcJob,
-    adobeRows,
-    pvcMaster,
-    pvcBreakdownColour,
+    pvcAdobe,
+    extrasParsed,
+    gateCount,
+    pvcFenceLinearFt,
+    pvcPercentUplifts,
+    fmsRecipe,
     chainFenceRows,
     chainGateRows,
     hybridHJob,
