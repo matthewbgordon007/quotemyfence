@@ -121,14 +121,27 @@ export function buildFmsHybridMasterList(
 export type FmsHybridHoFamily = 'woodGrain' | 'slatted' | 'aluminum';
 export type FmsHybridHoHeight = 6 | 7;
 
-export const FMS_HYBRID_HO_FAMILIES: { value: FmsHybridHoFamily; label: string }[] = [
-  { value: 'woodGrain', label: 'Wood Grain WPC' },
-  { value: 'slatted', label: 'Slatted WPC + PVC' },
-  { value: 'aluminum', label: 'Aluminum' },
+export type FmsHybridHoFamilyGroup = 'wpc' | 'aluminum';
+
+export const FMS_HYBRID_HO_FAMILIES: {
+  value: FmsHybridHoFamily;
+  label: string;
+  group: FmsHybridHoFamilyGroup;
+}[] = [
+  { value: 'woodGrain', label: 'Wood Grain WPC', group: 'wpc' },
+  { value: 'slatted', label: 'Slatted WPC', group: 'wpc' },
+  { value: 'aluminum', label: 'Aluminum', group: 'aluminum' },
 ];
 
 export function fmsHybridHoFamilyLabel(family: FmsHybridHoFamily): string {
   return FMS_HYBRID_HO_FAMILIES.find((f) => f.value === family)?.label ?? family;
+}
+
+/** Slatted horizontal uses PVC colour names for posts/rails; wood grain uses WPC colours. */
+export function fmsHybridHoFamilyColourSource(family: FmsHybridHoFamily): 'wpc' | 'pvc' | null {
+  if (family === 'woodGrain') return 'wpc';
+  if (family === 'slatted') return 'pvc';
+  return null;
 }
 
 /** Excel block title, e.g. `Horizontal Hybrid ***Wood Grain WPC*** Calculator 6' Tall (6' post spacing)`. */

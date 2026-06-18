@@ -63,6 +63,7 @@ import {
   classifyHybridVGateInputs,
   computeHybridVerticalPvc64Fence,
   fmsHybridHoBlockTitle,
+  fmsHybridHoFamilyColourSource,
   sumFmsHybridRows,
   type FmsHybridHoFamily,
   type FmsHybridHoHeight,
@@ -3179,7 +3180,14 @@ export default function MaterialCalculatorHubPage() {
       const defs = which === 'h' ? HYBRID_H_EXTRA_ITEMS : HYBRID_V_EXTRA_ITEMS;
       const values = which === 'h' ? hybHExtras : hybVExtras;
       const lines = which === 'h' ? hybHLines : hybVLines;
-      const colour = which === 'h' ? hybridWpcColour : hybridPvcColour;
+      const colour =
+        which === 'h'
+          ? fmsHybridHoFamilyColourSource(hybHFamily) === 'pvc'
+            ? hybridPvcColour
+            : fmsHybridHoFamilyColourSource(hybHFamily) === 'wpc'
+              ? hybridWpcColour
+              : 'Aluminum'
+          : hybridPvcColour;
       const subtitle = which === 'h' ? fmsHybridHoBlockTitle(hybHFamily, hybHHeight) : FMS_HYBRID_VE_BLOCK_TITLE;
 
       const extrasByItem = new Map<string, number>();
@@ -3358,13 +3366,17 @@ export default function MaterialCalculatorHubPage() {
     let colour = '';
     if (tab === 'pvc') colour = pvcBreakdownColour;
     else if (tab === 'chain') colour = 'Chain link';
-    else if (tab === 'hybrid_h') colour = `${hybridWpcColour} (horizontal)`;
+    else if (tab === 'hybrid_h') {
+      const src = fmsHybridHoFamilyColourSource(hybHFamily);
+      if (src === 'wpc') colour = `${hybridWpcColour} (horizontal)`;
+      else if (src === 'pvc') colour = `${hybridPvcColour} (horizontal)`;
+    }
     else if (tab === 'hybrid_v') colour = hybridPvcColour;
     return {
       ...(job ? { job_site_address: job } : {}),
       ...(colour ? { calculator_fence_colour: colour } : {}),
     };
-  }, [jobAddress, tab, pvcBreakdownColour, hybridWpcColour, hybridPvcColour]);
+  }, [jobAddress, tab, pvcBreakdownColour, hybridWpcColour, hybridPvcColour, hybHFamily]);
 
   const activeTabMaterialListPdfAvailable = useMemo(() => {
     if (fmsQuoteMaterialUnsupported) return false;
@@ -4600,17 +4612,33 @@ export default function MaterialCalculatorHubPage() {
                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Color (label only)
                 </label>
-                <select
-                  value={hybridWpcColour}
-                  onChange={(e) => setHybridWpcColour(e.target.value as FmsWpcCalculatorColour)}
-                  className={`${field} w-full`}
-                >
-                  {FMS_WPC_CALCULATOR_COLOURS.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
+                {fmsHybridHoFamilyColourSource(hybHFamily) === 'pvc' ? (
+                  <select
+                    value={hybridPvcColour}
+                    onChange={(e) => setHybridPvcColour(e.target.value as FmsPvcCalculatorColour)}
+                    className={`${field} w-full`}
+                  >
+                    {FMS_PVC_CALCULATOR_COLOURS.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                ) : fmsHybridHoFamilyColourSource(hybHFamily) === 'wpc' ? (
+                  <select
+                    value={hybridWpcColour}
+                    onChange={(e) => setHybridWpcColour(e.target.value as FmsWpcCalculatorColour)}
+                    className={`${field} w-full`}
+                  >
+                    {FMS_WPC_CALCULATOR_COLOURS.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-xs text-slate-500">No colour breakdown for aluminum.</p>
+                )}
               </div>
             ) : null}
             {tab === 'hybrid_v' ? (
@@ -5474,11 +5502,20 @@ export default function MaterialCalculatorHubPage() {
                   onChange={(e) => setHybHFamily(e.target.value as FmsHybridHoFamily)}
                   className={`${field} w-full`}
                 >
-                  {FMS_HYBRID_HO_FAMILIES.map((f) => (
-                    <option key={f.value} value={f.value}>
-                      {f.label}
-                    </option>
-                  ))}
+                  <optgroup label="WPC boards">
+                    {FMS_HYBRID_HO_FAMILIES.filter((f) => f.group === 'wpc').map((f) => (
+                      <option key={f.value} value={f.value}>
+                        {f.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Aluminum">
+                    {FMS_HYBRID_HO_FAMILIES.filter((f) => f.group === 'aluminum').map((f) => (
+                      <option key={f.value} value={f.value}>
+                        {f.label}
+                      </option>
+                    ))}
+                  </optgroup>
                 </select>
               </div>
               <div>
@@ -5598,8 +5635,17 @@ export default function MaterialCalculatorHubPage() {
             <div className="border-b border-slate-100 px-5 py-4">
               <h2 className={h2}>Job totals — {fmsHybridHoBlockTitle(hybHFamily, hybHHeight)}</h2>
               <p className="mt-1 text-xs text-slate-600">
-                Colour: <strong className="font-medium text-slate-800">{hybridWpcColour}</strong>. Summed across all
-                runs and gates, line by line from the Excel sheet.
+                {fmsHybridHoFamilyColourSource(hybHFamily) ? (
+                  <>
+                    Colour:{' '}
+                    <strong className="font-medium text-slate-800">
+                      {fmsHybridHoFamilyColourSource(hybHFamily) === 'pvc' ? hybridPvcColour : hybridWpcColour}
+                    </strong>
+                    . Summed across all runs and gates, line by line from the Excel sheet.
+                  </>
+                ) : (
+                  <>Summed across all runs and gates, line by line from the Excel sheet.</>
+                )}
               </p>
             </div>
             <div className="space-y-4 p-5">
