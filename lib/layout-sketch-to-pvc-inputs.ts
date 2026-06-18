@@ -576,12 +576,29 @@ export function alignChainedSketchSegments(
   minSegFt = LAYOUT_MIN_SKETCH_SEGMENT_FT,
   endpointMergeFt = LAYOUT_ENDPOINT_MERGE_FT
 ): LayoutSegmentFeet[] {
-  const out: LayoutSegmentFeet[] = [];
+  return alignChainedSketchSegmentsIndexed(
+    segments,
+    lengthPerSegmentFt,
+    chainAlignFt,
+    minSegFt,
+    endpointMergeFt
+  ).map((x) => x.seg);
+}
+
+/** Like `alignChainedSketchSegments` but keeps the original sketch segment index for each aligned row. */
+export function alignChainedSketchSegmentsIndexed(
+  segments: LayoutPt[][],
+  lengthPerSegmentFt: number[],
+  chainAlignFt = LAYOUT_CHAIN_ALIGN_FT,
+  minSegFt = LAYOUT_MIN_SKETCH_SEGMENT_FT,
+  endpointMergeFt = LAYOUT_ENDPOINT_MERGE_FT
+): { seg: LayoutSegmentFeet; sourceIndex: number }[] {
+  const out: { seg: LayoutSegmentFeet; sourceIndex: number }[] = [];
   for (let i = 0; i < segments.length; i++) {
     const seg = segments[i];
     if (!seg || seg.length < 2) continue;
-    let a = snapToPriorEndpoints({ ...seg[0] }, out, endpointMergeFt);
-    let b = snapToPriorEndpoints({ ...seg[1] }, out, endpointMergeFt);
+    let a = snapToPriorEndpoints({ ...seg[0] }, out.map((x) => x.seg), endpointMergeFt);
+    let b = snapToPriorEndpoints({ ...seg[1] }, out.map((x) => x.seg), endpointMergeFt);
     const Lraw = lengthPerSegmentFt[i];
     const Lnum = Number(Lraw);
     const hasExplicit = Number.isFinite(Lnum);
@@ -589,7 +606,7 @@ export function alignChainedSketchSegments(
     if (length_ft <= 0) continue;
 
     if (out.length > 0) {
-      const joint = out[out.length - 1].b;
+      const joint = out[out.length - 1].seg.b;
       if (dist(a, joint) <= chainAlignFt) {
         a = { ...joint };
         if (!hasExplicit) {
@@ -598,9 +615,22 @@ export function alignChainedSketchSegments(
       }
     }
 
-    if (dist(a, b) < minSegFt) continue;
+    if (dist(a, b) < minSegFt) {
+      if (hasExplicit && length_ft > 0) {
+        const ox = seg[1].x - seg[0].x;
+        const oy = seg[1].y - seg[0].y;
+        const olen = hypot(ox, oy);
+        if (olen >= 1e-9) {
+          b = { x: a.x + (ox / olen) * length_ft, y: a.y + (oy / olen) * length_ft };
+        } else {
+          b = { x: a.x + length_ft, y: a.y };
+        }
+      } else {
+        continue;
+      }
+    }
 
-    out.push({ a, b, length_ft });
+    out.push({ seg: { a, b, length_ft }, sourceIndex: i });
   }
   return out;
 }
@@ -677,7 +707,8 @@ export function layoutSegmentsToPvcFenceInputsPerSketchSegment(
   const minSeg = opts?.minSegFt ?? LAYOUT_MIN_SKETCH_SEGMENT_FT;
   const jointTerminations = opts?.jointTerminations;
 
-  const segs = alignChainedSketchSegments(segments, lengthPerSegmentFt, chainAlign, minSeg);
+  const indexed = alignChainedSketchSegmentsIndexed(segments, lengthPerSegmentFt, chainAlign, minSeg);
+  const segs = indexed.map((x) => x.seg);
   if (segs.length === 0) return [];
 
   const jointRanges = segmentJointIndexRanges(segs, chainAlign);
@@ -687,7 +718,7 @@ export function layoutSegmentsToPvcFenceInputsPerSketchSegment(
   // than `straightMax` from straight get a post + U-channel at that point.
   const joints = useJoints ? jointTerminations! : defaultJointTerminationsFromAligned(segs, straightMax);
 
-  return segs.map((seg, i) => {
+  const perAligned = segs.map((seg, i) => {
     const { start, end } = jointRanges[i];
     const connectedToPrev = sketchSegmentStartConnectedToPrev(segs, i, chainAlign);
     const sharesStartPost = sketchSegmentStartSharesExistingPost(segs, i);
@@ -704,6 +735,23 @@ export function layoutSegmentsToPvcFenceInputsPerSketchSegment(
       length_ft: seg.length_ft,
       fence_terminated_h_post_type: d6,
       fence_terminated_u_channel: d7,
+      panel_module: panelModule,
+    };
+  });
+
+  const bySource = new Map<number, (typeof perAligned)[0]>();
+  indexed.forEach((item, j) => {
+    bySource.set(item.sourceIndex, perAligned[j]);
+  });
+
+  return segments.map((_, i) => {
+    const hit = bySource.get(i);
+    if (hit) return hit;
+    const L = Math.max(0, Number(lengthPerSegmentFt[i]) || 0);
+    return {
+      length_ft: L,
+      fence_terminated_h_post_type: 0 as const,
+      fence_terminated_u_channel: 0,
       panel_module: panelModule,
     };
   });

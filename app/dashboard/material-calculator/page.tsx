@@ -340,16 +340,20 @@ function drawingDataToPvcLineRows(
   const inputs = layoutSegmentsToPvcFenceInputsPerSketchSegment(pairs, grossPerSeg, panelModule, {
     jointTerminations: drawing.joint_terminations ?? null,
   });
-  return inputs.map((inp, i) => ({
-    id: newLineId(),
-    label: `Run ${i + 1}`,
-    length_ft: String(netPerSeg[i] ?? 0),
-    panel_module: panelModule,
-    end_preset: 'custom',
-    h_post_type: inp.fence_terminated_h_post_type as 0 | 1 | 2,
-    u_channel: String(inp.fence_terminated_u_channel),
-    fromSketch: true,
-  }));
+  return drawing.segments.map((_, i) => {
+    const inp = inputs[i];
+    const net = netPerSeg[i] ?? 0;
+    return {
+      id: newLineId(),
+      label: `Run ${i + 1}`,
+      length_ft: String(net),
+      panel_module: panelModule,
+      end_preset: 'custom' as const,
+      h_post_type: (inp?.fence_terminated_h_post_type ?? 0) as 0 | 1 | 2,
+      u_channel: String(inp?.fence_terminated_u_channel ?? 0),
+      fromSketch: true,
+    };
+  });
 }
 
 /** Same segment geometry as PVC; chain link uses Excel D6 per run (`terminal_post`). */
@@ -374,13 +378,17 @@ function drawingDataToChainLineRows(
   const inputs = layoutSegmentsToPvcFenceInputsPerSketchSegment(pairs, grossPerSeg, panelModule, {
     jointTerminations: drawing.joint_terminations ?? null,
   });
-  return inputs.map((inp, i) => ({
-    id: newLineId(),
-    label: `Run ${i + 1}`,
-    length_ft: String(netPerSeg[i] ?? 0),
-    terminal_post: String(inp.fence_terminated_h_post_type),
-    fromSketch: true,
-  }));
+  return drawing.segments.map((_, i) => {
+    const inp = inputs[i];
+    const net = netPerSeg[i] ?? 0;
+    return {
+      id: newLineId(),
+      label: `Run ${i + 1}`,
+      length_ft: String(net),
+      terminal_post: String(inp?.fence_terminated_h_post_type ?? 0),
+      fromSketch: true,
+    };
+  });
 }
 
 /** Same segment geometry as PVC; hybrid vertical uses Excel D6 (H post) / D7 (U channel) per run. */
@@ -405,14 +413,18 @@ function drawingDataToHybridVLineRows(
   const inputs = layoutSegmentsToPvcFenceInputsPerSketchSegment(pairs, grossPerSeg, panelModule, {
     jointTerminations: drawing.joint_terminations ?? null,
   });
-  return inputs.map((inp, i) => ({
-    id: newLineId(),
-    label: `Run ${i + 1}`,
-    length_ft: String(netPerSeg[i] ?? 0),
-    h_post: inp.fence_terminated_h_post_type as 0 | 1 | 2,
-    u_channel: Math.max(0, Math.min(2, Math.round(Number(inp.fence_terminated_u_channel) || 0))) as 0 | 1 | 2,
-    fromSketch: true,
-  }));
+  return drawing.segments.map((_, i) => {
+    const inp = inputs[i];
+    const net = netPerSeg[i] ?? 0;
+    return {
+      id: newLineId(),
+      label: `Run ${i + 1}`,
+      length_ft: String(net),
+      h_post: (inp?.fence_terminated_h_post_type ?? 0) as 0 | 1 | 2,
+      u_channel: Math.max(0, Math.min(2, Math.round(Number(inp?.fence_terminated_u_channel) || 0))) as 0 | 1 | 2,
+      fromSketch: true,
+    };
+  });
 }
 
 /** Sketch redraw: refresh linked runs; leave hand-edited runs untouched for the material list. */
@@ -1931,32 +1943,39 @@ export default function MaterialCalculatorHubPage() {
     }
     sketchHadSegmentsRef.current = true;
     const key = layoutSketchDataKey(payload);
-    if (key === sketchToLinesSyncKeyRef.current) return;
-    sketchToLinesSyncKeyRef.current = key;
-
     const panelModule = pvcPanelModule;
+
+    const shouldRefreshSketchLines = <T extends { fromSketch?: boolean; manualRunEdit?: boolean }>(
+      prev: T[],
+      next: T[] | null
+    ) => {
+      if (!next?.length) return false;
+      if (key !== sketchToLinesSyncKeyRef.current) return true;
+      if (prev.every((l) => l.fromSketch && !l.manualRunEdit) && prev.length !== next.length) return true;
+      return false;
+    };
 
     setLines((prev) => {
       const next = drawingDataToPvcLineRows(payload, panelModule);
-      if (!next?.length) return prev;
-      return next.map((row, i) => mergeFenceLineFromSketch(row, prev[i]));
+      if (!shouldRefreshSketchLines(prev, next)) return prev;
+      return next!.map((row, i) => mergeFenceLineFromSketch(row, prev[i]));
     });
     setChainLines((prev) => {
       const next = drawingDataToChainLineRows(payload, panelModule);
-      if (!next?.length) return prev;
-      return next.map((row, i) => mergeFenceLineFromSketch(row, prev[i]));
+      if (!shouldRefreshSketchLines(prev, next)) return prev;
+      return next!.map((row, i) => mergeFenceLineFromSketch(row, prev[i]));
     });
     setHybVLines((prev) => {
       const next = drawingDataToHybridVLineRows(payload, panelModule);
-      if (!next?.length) return prev;
-      return next.map((row, i) => mergeFenceLineFromSketch(row, prev[i]));
+      if (!shouldRefreshSketchLines(prev, next)) return prev;
+      return next!.map((row, i) => mergeFenceLineFromSketch(row, prev[i]));
     });
-    // Hybrid horizontal shares the same per-segment geometry (H post / U channel ends).
     setHybHLines((prev) => {
       const next = drawingDataToHybridVLineRows(payload, panelModule);
-      if (!next?.length) return prev;
-      return next.map((row, i) => mergeFenceLineFromSketch(row, prev[i]));
+      if (!shouldRefreshSketchLines(prev, next)) return prev;
+      return next!.map((row, i) => mergeFenceLineFromSketch(row, prev[i]));
     });
+    sketchToLinesSyncKeyRef.current = key;
   }, [layoutSketchData, pvcPanelModule]);
 
   /** New gates placed on the layout sketch → PVC + chain link gate rows; scroll to the active tab’s gate block. */
@@ -2102,24 +2121,41 @@ export default function MaterialCalculatorHubPage() {
     let j = 0;
     for (let i = 0; i < lines.length; i++) {
       const lr = lines[i];
-      if (!pvcLineIncludedInInputs(lr)) continue;
-      const r = pvcJob.lines[j];
-      j += 1;
-      if (!r) continue;
+      const netL = Math.max(0, Number(String(lr.length_ft).replace(/,/g, '')) || 0);
+      const panelLabel = formatPvcPanelSummary(lr.panel_module, effectivePvcPanelSpacingFt);
+      if (pvcLineIncludedInInputs(lr)) {
+        const r = pvcJob.lines[j];
+        j += 1;
+        if (r) {
+          out.push({
+            kind: 'fence',
+            id: lr.id,
+            label: lr.label || `Run ${i + 1}`,
+            length_ft: r.input.length_ft,
+            panelLabel: formatPvcPanelSummary(
+              lr.panel_module,
+              r.input.panel_spacing_ft ?? effectivePvcPanelSpacingFt
+            ),
+            panels: r.total_whole_panels,
+            h_post: r.h_post,
+            u_channel: r.u_channel,
+            rail: r.rail,
+            board: r.board,
+          });
+          continue;
+        }
+      }
       out.push({
         kind: 'fence',
         id: lr.id,
         label: lr.label || `Run ${i + 1}`,
-        length_ft: r.input.length_ft,
-        panelLabel: formatPvcPanelSummary(
-          lr.panel_module,
-          r.input.panel_spacing_ft ?? effectivePvcPanelSpacingFt
-        ),
-        panels: r.total_whole_panels,
-        h_post: r.h_post,
-        u_channel: r.u_channel,
-        rail: r.rail,
-        board: r.board,
+        length_ft: netL,
+        panelLabel: netL > 0 ? panelLabel : 'Gate opening (no fence left)',
+        panels: 0,
+        h_post: 0,
+        u_channel: 0,
+        rail: 0,
+        board: 0,
       });
     }
     out.push(
