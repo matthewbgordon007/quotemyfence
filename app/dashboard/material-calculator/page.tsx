@@ -319,6 +319,17 @@ type HybridVGateRow = {
   sketchPlacementIndex?: number;
 };
 
+function sketchRunLabel(
+  segmentIndex: number,
+  netLengthFt: number,
+  gatePlacements?: SketchGatePlacement[] | null
+): string {
+  const n = segmentIndex + 1;
+  const gateOnSeg = gatePlacements?.some((g) => g.line_index === segmentIndex);
+  if (gateOnSeg && netLengthFt <= 0) return `Run ${n} Gate`;
+  return `Run ${n}`;
+}
+
 function drawingDataToPvcLineRows(
   drawing: {
     points: { x: number; y: number }[];
@@ -346,7 +357,7 @@ function drawingDataToPvcLineRows(
     const net = netPerSeg[i] ?? 0;
     return {
       id: newLineId(),
-      label: `Run ${i + 1}`,
+      label: sketchRunLabel(i, net, gatePlacements),
       length_ft: String(net),
       panel_module: panelModule,
       end_preset: 'custom' as const,
@@ -384,7 +395,7 @@ function drawingDataToChainLineRows(
     const net = netPerSeg[i] ?? 0;
     return {
       id: newLineId(),
-      label: `Run ${i + 1}`,
+      label: sketchRunLabel(i, net, gatePlacements),
       length_ft: String(net),
       terminal_post: String(inp?.fence_terminated_h_post_type ?? 0),
       fromSketch: true,
@@ -419,7 +430,7 @@ function drawingDataToHybridVLineRows(
     const net = netPerSeg[i] ?? 0;
     return {
       id: newLineId(),
-      label: `Run ${i + 1}`,
+      label: sketchRunLabel(i, net, gatePlacements),
       length_ft: String(net),
       h_post: (inp?.fence_terminated_h_post_type ?? 0) as 0 | 1 | 2,
       u_channel: Math.max(0, Math.min(2, Math.round(Number(inp?.fence_terminated_u_channel) || 0))) as 0 | 1 | 2,
@@ -2302,7 +2313,7 @@ export default function MaterialCalculatorHubPage() {
         return {
           kind: 'gate',
           id: lr.id,
-          label: `${runLabel} with gate`,
+          label: `${runLabel} Gate`,
           gateKind: primary.kind === 'gate' ? primary.gateKind : 'short',
           length_ft: gateFt,
           panelLabel: gateTypeLabel,
@@ -4006,7 +4017,7 @@ export default function MaterialCalculatorHubPage() {
 
           <CollapsibleCard
             title="Run-by-run breakdown"
-            subtitle="Each sketch line is one row; gates on that line are combined as “with gate”."
+            subtitle="Each sketch segment is one row; a gate-only segment shows as “Run N Gate”; fence + gate on one line shows as “with gate”."
           >
             <div className="overflow-x-auto p-5">
               <table className="w-full min-w-[720px] text-xs">

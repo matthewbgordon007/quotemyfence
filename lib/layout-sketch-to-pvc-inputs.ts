@@ -104,7 +104,7 @@ export function gateSpanAlongSegment(
   };
 }
 
-/** True when a gate on this segment should split it into left fence | gate | right fence. */
+/** True when a gate on this segment should split it into left fence | gate run | right fence. */
 export function shouldSplitSegmentForGate(segmentLengthFt: number, gateWidthFt: number): boolean {
   return segmentLengthFt > gateWidthFt + LAYOUT_MIN_SKETCH_SEGMENT_FT;
 }

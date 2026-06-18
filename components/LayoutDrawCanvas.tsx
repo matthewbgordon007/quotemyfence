@@ -210,13 +210,11 @@ function gateSegmentRole(
 ): 'gate' | 'left_fence' | 'right_fence' | null {
   for (const g of gates) {
     const gi = g.line_index;
-    if (gi <= 0 || gi >= segmentCount - 1) {
-      if (gi === lineIndex) return null;
-      continue;
-    }
     if (lineIndex === gi) return 'gate';
-    if (lineIndex === gi - 1) return 'left_fence';
-    if (lineIndex === gi + 1) return 'right_fence';
+    if (gi > 0 && gi < segmentCount - 1) {
+      if (lineIndex === gi - 1) return 'left_fence';
+      if (lineIndex === gi + 1) return 'right_fence';
+    }
   }
   return null;
 }
@@ -224,10 +222,10 @@ function gateSegmentRole(
 function lineLengthLabel(lineIndex: number, gates: PlacedGate[], segmentCount: number): string {
   const role = gateSegmentRole(lineIndex, gates, segmentCount);
   const n = lineIndex + 1;
-  if (role === 'gate') return `Gate (line ${n})`;
-  if (role === 'left_fence') return `Left fence (line ${n})`;
-  if (role === 'right_fence') return `Right fence (line ${n})`;
-  return `Line ${n}`;
+  if (role === 'gate') return `Run ${n} Gate`;
+  if (role === 'left_fence') return `Left fence (run ${n})`;
+  if (role === 'right_fence') return `Right fence (run ${n})`;
+  return `Run ${n}`;
 }
 
 function segmentLengthFtForGate(
@@ -1155,13 +1153,13 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         const lenStr = lineLengths[si]?.trim();
         let labelText: string;
         if (role === 'gate') {
-          labelText = lenStr ? `GATE ${lenStr} ft` : 'GATE';
+          labelText = lenStr ? `Run ${si + 1} Gate · ${lenStr} ft` : `Run ${si + 1} Gate`;
         } else if (role === 'left_fence') {
           labelText = lenStr ? `← ${lenStr} ft` : '← fence';
         } else if (role === 'right_fence') {
           labelText = lenStr ? `${lenStr} ft →` : 'fence →';
         } else {
-          labelText = lenStr ? `Line ${si + 1}: ${lenStr} ft` : `Line ${si + 1}`;
+          labelText = lenStr ? `Run ${si + 1}: ${lenStr} ft` : `Run ${si + 1}`;
         }
         /** Scale with sketch size — large enough to read at a glance on customer/layout previews. */
         const labelFontFt = Math.max(2.35, Math.min(vw, vh) * 0.032);
@@ -1692,9 +1690,9 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         {mode === 'place_single_gate' && (
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <p className="text-sm text-[var(--muted)]">
-              Click on a line to place a single gate (blue S). On a line longer than the gate opening, the line splits
-              into left fence, gate, and right fence — adjust those lengths below to center or offset the gate. Press Esc
-              or Cancel to exit.
+              Click on a line to place a single gate (blue S). If the line is longer than the gate, it splits into
+              left fence, gate run, and right fence — each labeled below. If the line is only a gate opening, it stays
+              one merged run. Press Esc or Cancel to exit.
             </p>
             <button
               type="button"
@@ -1708,8 +1706,8 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         {mode === 'place_double_gate' && (
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <p className="text-sm text-[var(--muted)]">
-              Click on a line to place a double gate (blue D). Long lines auto-split so you can set left fence, gate
-              opening, and right fence lengths. Press Esc or Cancel to exit.
+              Click on a line to place a double gate (blue D). Long lines split into fence + Run N Gate + fence; a
+              gate-only line stays merged as one run. Press Esc or Cancel to exit.
             </p>
             <button
               type="button"
