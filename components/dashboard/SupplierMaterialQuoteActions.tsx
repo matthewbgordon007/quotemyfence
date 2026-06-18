@@ -22,12 +22,18 @@ async function blobToBase64(blob: Blob): Promise<string> {
   return btoa(binary);
 }
 
+export type MaterialQuoteExportMeta = {
+  job_site_address?: string;
+  calculator_fence_colour?: string;
+};
+
 export function SupplierMaterialQuoteActions({
   requestId,
   onDownloadMasterPdf,
   buildMasterPdfBlob,
   masterPdfAvailable = true,
   buildMaterialRowsForQuote,
+  quoteExportMeta,
   quoteDetailHref,
   calculatorBlocked = false,
 }: {
@@ -36,6 +42,8 @@ export function SupplierMaterialQuoteActions({
   buildMasterPdfBlob?: () => Promise<{ blob: Blob; filename: string }>;
   masterPdfAvailable?: boolean;
   buildMaterialRowsForQuote?: () => MaterialQuoteLine[];
+  /** Job label + fence colour from the material calculator — saved on the quote when sending. */
+  quoteExportMeta?: MaterialQuoteExportMeta;
   quoteDetailHref?: string;
   calculatorBlocked?: boolean;
 }) {
@@ -47,6 +55,16 @@ export function SupplierMaterialQuoteActions({
   const detailHref =
     quoteDetailHref?.trim() ||
     (requestId.trim() ? `/dashboard/supplier/contractor-quotes/${encodeURIComponent(requestId.trim())}` : '');
+
+  function quoteExportPatchBody(extra: Record<string, unknown> = {}) {
+    const job = quoteExportMeta?.job_site_address?.trim();
+    const colour = quoteExportMeta?.calculator_fence_colour?.trim();
+    return {
+      ...extra,
+      ...(job ? { job_site_address: job } : {}),
+      ...(colour ? { calculator_fence_colour: colour } : {}),
+    };
+  }
 
   async function saveCalculatorToQuoteAndReturn() {
     const id = requestId.trim();
@@ -64,9 +82,11 @@ export function SupplierMaterialQuoteActions({
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          supplier_material_list_json: rows,
-        }),
+        body: JSON.stringify(
+          quoteExportPatchBody({
+            supplier_material_list_json: rows,
+          })
+        ),
       });
       const j = (await r.json()) as { error?: string };
       if (!r.ok) throw new Error(j.error || 'Save failed');
@@ -107,11 +127,13 @@ export function SupplierMaterialQuoteActions({
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: 'quoted',
-          supplier_material_list_json: rows,
-          ...(pdfPayload || {}),
-        }),
+        body: JSON.stringify(
+          quoteExportPatchBody({
+            status: 'quoted',
+            supplier_material_list_json: rows,
+            ...(pdfPayload || {}),
+          })
+        ),
       });
       const j = (await r.json()) as { error?: string };
       if (!r.ok) throw new Error(j.error || 'Send failed');

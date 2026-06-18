@@ -48,6 +48,8 @@ export type MaterialQuoteRequestDto = {
   supplier_seen_at?: string | null;
   supplier_material_list?: MaterialQuoteLine[] | null;
   supplier_quoted_emailed_at?: string | null;
+  job_site_address?: string | null;
+  calculator_fence_colour?: string | null;
   contractor: MaterialQuoteRequestContractor;
   project: MaterialQuoteRequestProject;
 };
@@ -93,6 +95,7 @@ type RawMaterialQuoteRow = {
   supplier_fence_style_id?: string | null;
   supplier_colour_option_id?: string | null;
   job_site_address?: string | null;
+  calculator_fence_colour?: string | null;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -371,6 +374,17 @@ export async function enrichMaterialQuoteRequests(_supabase: any, rows: RawMater
         (r.quote_session_id ? homeAddressBySessionId.get(r.quote_session_id) ?? null : null);
       const mapSegments = fenceId ? segmentsByFenceId.get(fenceId) || [] : [];
       const mapGates = fenceId ? gatesByFenceId.get(fenceId) || [] : [];
+      const calcColour = String(r.calculator_fence_colour || '').trim() || null;
+      const design_option =
+        calcColour && designOption
+          ? { ...designOption, colour: calcColour }
+          : calcColour && !designOption
+            ? { colour: calcColour }
+            : designOption;
+      const design_summary =
+        calcColour && designSummary
+          ? designSummary.replace(/( • [^•]+)$/, ` • ${calcColour}`)
+          : designSummary;
       const { supplier_material_list_json, ...rest } = r;
       return {
         ...rest,
@@ -387,8 +401,8 @@ export async function enrichMaterialQuoteRequests(_supabase: any, rows: RawMater
               ? Number(fence.total_length_ft)
               : layoutFootage?.total_length_ft ?? null,
           home_address: homeAddress,
-          design_summary: designSummary,
-          design_option: designOption,
+          design_summary,
+          design_option,
           has_removal: fence?.has_removal ?? false,
           segments: mapSegments,
           gates: mapGates.length > 0 ? mapGates : layoutFootage?.gates ?? [],

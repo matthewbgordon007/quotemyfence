@@ -73,11 +73,24 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
   }
 
+  const job_site_address =
+    body.job_site_address !== undefined ? String(body.job_site_address).trim() || null : undefined;
+  const calculator_fence_colour =
+    body.calculator_fence_colour !== undefined
+      ? String(body.calculator_fence_colour).trim() || null
+      : undefined;
+
   if (status !== undefined && !ALLOWED_STATUS.has(status)) {
     return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
   }
 
-  if (supplier_response === undefined && status === undefined && supplier_material_list_json === undefined) {
+  if (
+    supplier_response === undefined &&
+    status === undefined &&
+    supplier_material_list_json === undefined &&
+    job_site_address === undefined &&
+    calculator_fence_colour === undefined
+  ) {
     return NextResponse.json({ error: 'No changes' }, { status: 400 });
   }
 
@@ -95,6 +108,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (supplier_response !== undefined) updates.supplier_response = supplier_response;
   if (status !== undefined) updates.status = status;
   if (supplier_material_list_json !== undefined) updates.supplier_material_list_json = supplier_material_list_json;
+  if (job_site_address !== undefined) updates.job_site_address = job_site_address;
+  if (calculator_fence_colour !== undefined) updates.calculator_fence_colour = calculator_fence_colour;
 
   const { data: row, error } = await supabase
     .from('material_quote_requests')

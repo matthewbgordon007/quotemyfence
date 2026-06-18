@@ -2054,6 +2054,11 @@ export default function MaterialCalculatorHubPage() {
         setImportedMaterialRequest(req);
         const addr = req.project?.home_address?.trim();
         if (addr) setJobAddress(addr);
+        const savedCalcColour = req.calculator_fence_colour?.trim();
+        if (savedCalcColour) {
+          const pvcCol = coerceFmsPvcCalculatorColour(savedCalcColour);
+          if (pvcCol) setPvcBreakdownColour(pvcCol);
+        }
         const sketch = layoutSketchFromMaterialQuoteProject(req.project);
         setShortGates([]);
         setSingleGates([]);
@@ -2096,7 +2101,7 @@ export default function MaterialCalculatorHubPage() {
         } else {
           setFmsQuoteMaterialUnsupported(null);
           materialQuoteUnsupportedAlertKeyRef.current = alertKey;
-          if (inferred.kind === 'pvc' && inferred.pvcColour) {
+          if (inferred.kind === 'pvc' && inferred.pvcColour && !savedCalcColour) {
             setPvcBreakdownColour(inferred.pvcColour);
           }
           if (inferred.kind === 'hybrid') {
@@ -2990,6 +2995,19 @@ export default function MaterialCalculatorHubPage() {
     hybridVJob,
     materialExclusions,
   ]);
+
+  const quoteExportMeta = useMemo(() => {
+    const job = jobAddress.trim();
+    let colour = '';
+    if (tab === 'pvc') colour = pvcBreakdownColour;
+    else if (tab === 'chain') colour = 'Chain link';
+    else if (tab === 'hybrid_h') colour = `${hybridWpcColour} (horizontal)`;
+    else if (tab === 'hybrid_v') colour = hybridPvcColour;
+    return {
+      ...(job ? { job_site_address: job } : {}),
+      ...(colour ? { calculator_fence_colour: colour } : {}),
+    };
+  }, [jobAddress, tab, pvcBreakdownColour, hybridWpcColour, hybridPvcColour]);
 
   function addLine() {
     setLines((p) => [
@@ -5224,6 +5242,7 @@ export default function MaterialCalculatorHubPage() {
           buildMasterPdfBlob={tab === 'pvc' ? buildMasterMaterialListPdfBlob : undefined}
           masterPdfAvailable={tab === 'pvc' && !fmsQuoteMaterialUnsupported}
           buildMaterialRowsForQuote={buildSupplierMaterialQuoteLines}
+          quoteExportMeta={quoteExportMeta}
           quoteDetailHref={`/dashboard/supplier/contractor-quotes/${encodeURIComponent(materialRequestId)}`}
           calculatorBlocked={Boolean(fmsQuoteMaterialUnsupported)}
         />
