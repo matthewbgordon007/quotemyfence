@@ -53,7 +53,7 @@ import {
   type FmsChainLinkFenceInput,
 } from '@/lib/fms-chain-link-calculator';
 import {
-  FMS_HYBRID_HO_FAMILIES,
+  FMS_HYBRID_HO_BOARD_MATERIALS,
   FMS_HYBRID_MATERIAL_LINES,
   FMS_HYBRID_VE_BLOCK_TITLE,
   buildFmsHybridMasterList,
@@ -63,10 +63,13 @@ import {
   computeHybridVerticalGateBlockRows,
   classifyHybridVGateInputs,
   computeHybridVerticalPvc64Fence,
-  fmsHybridHoBlockTitle,
-  fmsHybridHoFamilyLabel,
+  coerceFmsHybridHoBoardMaterial,
+  fmsHybridHoBoardMaterialCalculatorFamily,
+  fmsHybridHoBoardMaterialColourLine,
+  fmsHybridHoBoardMaterialLabel,
+  inferFmsHybridHoBoardMaterialFromStyle,
   sumFmsHybridRows,
-  type FmsHybridHoFamily,
+  type FmsHybridHoBoardMaterial,
   type FmsHybridHoHeight,
   type FmsHybridItemRow,
 } from '@/lib/fms-hybrid-calculators';
@@ -1354,16 +1357,18 @@ function isStyleTabParam(x: string): boolean {
   return ['pvc', 'chain', 'hybrid', 'hybrid_h', 'hybrid_v', 'hybrid-horizontal', 'hybrid-vertical'].includes(x);
 }
 
-function coerceHybridHoFamily(x: unknown): FmsHybridHoFamily {
-  return x === 'woodGrain' || x === 'slatted' || x === 'aluminum' ? x : 'woodGrain';
-}
-
 function coerceHybridHoHeight(x: unknown): FmsHybridHoHeight {
   return Number(x) === 7 ? 7 : 6;
 }
 
 function coerceHybridMaterialLine(x: unknown): FmsHybridMaterialLine {
   return x === 'pvc' ? 'pvc' : 'wpc';
+}
+
+function hybridHExportColour(board: FmsHybridHoBoardMaterial, colour: string): string {
+  const line = fmsHybridHoBoardMaterialColourLine(board);
+  if (!line) return 'Aluminum (horizontal)';
+  return fmsHybridColourExportLabel('horizontal', line, colour);
 }
 
 function HybridColourSelect({
@@ -1737,14 +1742,13 @@ export default function MaterialCalculatorHubPage() {
   }, [fmsRecipe]);
 
   /** Hybrid horizontal (Excel `Horizontal Material Calculator `). */
-  const [hybHFamily, setHybHFamily] = useState<FmsHybridHoFamily>('woodGrain');
+  const [hybHBoardMaterial, setHybHBoardMaterial] = useState<FmsHybridHoBoardMaterial>('wpcWoodGrain');
   const [hybHHeight, setHybHHeight] = useState<FmsHybridHoHeight>(6);
   const [hybHLines, setHybHLines] = useState<HybridLineRow[]>(() => defaultHybridLines());
   const [hybHShortGates, setHybHShortGates] = useState<HybridHFenceGateRow[]>([]);
   const [hybHSingleGates, setHybHSingleGates] = useState<HybridHFenceGateRow[]>([]);
   const [hybHDoubleGates, setHybHDoubleGates] = useState<HybridHFenceGateRow[]>([]);
   /** Hybrid vertical (Excel `Vertical Material Calculator - `). */
-  const [hybHMaterial, setHybHMaterial] = useState<FmsHybridMaterialLine>('wpc');
   const [hybVMaterial, setHybVMaterial] = useState<FmsHybridMaterialLine>('pvc');
   const [hybVLines, setHybVLines] = useState<HybridLineRow[]>(() => defaultHybridLines());
   const [hybVShortGates, setHybVShortGates] = useState<HybridVFenceGateRow[]>([]);
@@ -1752,13 +1756,26 @@ export default function MaterialCalculatorHubPage() {
   const [hybVDoubleGates, setHybVDoubleGates] = useState<HybridVFenceGateRow[]>([]);
   const [hybridColour, setHybridColour] = useState('Ash');
 
-  const activeHybridMaterial: FmsHybridMaterialLine = tab === 'hybrid_v' ? hybVMaterial : hybHMaterial;
+  const hybHCalculatorFamily = useMemo(
+    () => fmsHybridHoBoardMaterialCalculatorFamily(hybHBoardMaterial),
+    [hybHBoardMaterial]
+  );
+
+  const activeHybridMaterial: FmsHybridMaterialLine =
+    tab === 'hybrid_v'
+      ? hybVMaterial
+      : (fmsHybridHoBoardMaterialColourLine(hybHBoardMaterial) ?? 'wpc');
+
+  const hybridHHasColour = fmsHybridHoBoardMaterialColourLine(hybHBoardMaterial) !== null;
 
   useEffect(() => {
-    if (tab !== 'hybrid_h' && tab !== 'hybrid_v') return;
-    const material = tab === 'hybrid_v' ? hybVMaterial : hybHMaterial;
-    setHybridColour((c) => fmsHybridColourForMaterial(material, c));
-  }, [tab, hybHMaterial, hybVMaterial]);
+    if (tab === 'hybrid_h') {
+      const material = fmsHybridHoBoardMaterialColourLine(hybHBoardMaterial);
+      if (material) setHybridColour((c) => fmsHybridColourForMaterial(material, c));
+    } else if (tab === 'hybrid_v') {
+      setHybridColour((c) => fmsHybridColourForMaterial(hybVMaterial, c));
+    }
+  }, [tab, hybHBoardMaterial, hybVMaterial]);
   const [materialQuoteSketchLoadState, setMaterialQuoteSketchLoadState] = useState<
     'idle' | 'loading' | 'ok' | 'none'
   >('idle');
@@ -1923,7 +1940,11 @@ export default function MaterialCalculatorHubPage() {
           else if (pvc) setHybridColour(pvc);
         }
       }
-      if (d.hybHMaterial !== undefined) setHybHMaterial(coerceHybridMaterialLine(d.hybHMaterial));
+      if (d.hybHBoardMaterial !== undefined || d.hybHFamily !== undefined || d.hybHMaterial !== undefined) {
+        setHybHBoardMaterial(
+          coerceFmsHybridHoBoardMaterial(d.hybHBoardMaterial, d.hybHFamily, d.hybHMaterial)
+        );
+      }
       if (d.hybVMaterial !== undefined) setHybVMaterial(coerceHybridMaterialLine(d.hybVMaterial));
 
       if (!skipPvcLinesAndSketch) {
@@ -1995,7 +2016,6 @@ export default function MaterialCalculatorHubPage() {
       const cg = parseChainGates(d.chainGates);
       if (cg) setChainGates(cg);
 
-      if (d.hybHFamily !== undefined) setHybHFamily(coerceHybridHoFamily(d.hybHFamily));
       if (d.hybHHeight !== undefined) setHybHHeight(coerceHybridHoHeight(d.hybHHeight));
       const hhl = parseHybridLines(d.hybHLines);
       if (hhl) setHybHLines(hhl);
@@ -2068,9 +2088,8 @@ export default function MaterialCalculatorHubPage() {
       chainMeshFt,
       chainTiesPerBag,
       chainGates,
-      hybHFamily,
+      hybHBoardMaterial,
       hybHHeight,
-      hybHMaterial,
       hybHLines,
       hybHShortGates,
       hybHSingleGates,
@@ -2108,9 +2127,8 @@ export default function MaterialCalculatorHubPage() {
     chainMeshFt,
     chainTiesPerBag,
     chainGates,
-    hybHFamily,
+    hybHBoardMaterial,
     hybHHeight,
-    hybHMaterial,
     hybHLines,
     hybHShortGates,
     hybHSingleGates,
@@ -2172,9 +2190,8 @@ export default function MaterialCalculatorHubPage() {
     chainMeshFt,
     chainTiesPerBag,
     chainGates,
-    hybHFamily,
+    hybHBoardMaterial,
     hybHHeight,
-    hybHMaterial,
     hybHLines,
     hybHShortGates,
     hybHSingleGates,
@@ -2251,13 +2268,12 @@ export default function MaterialCalculatorHubPage() {
     setChainMeshFt('50');
     setChainTiesPerBag('100');
     setChainGates([]);
-    setHybHFamily('woodGrain');
+    setHybHBoardMaterial('wpcWoodGrain');
     setHybHHeight(6);
     setHybHLines(defaultHybridLines());
     setHybHShortGates([]);
     setHybHSingleGates([]);
     setHybHDoubleGates([]);
-    setHybHMaterial('wpc');
     setHybVMaterial('pvc');
     setHybVLines(defaultHybridLines());
     setHybVShortGates([]);
@@ -2351,7 +2367,7 @@ export default function MaterialCalculatorHubPage() {
           setJobAddress,
           setPvcBreakdownColour,
           setHybridColour,
-          setHybHMaterial,
+          setHybHBoardMaterial,
           setHybVMaterial,
         });
         const sketch = layoutSketchFromMaterialQuoteProject(req.project);
@@ -2411,8 +2427,14 @@ export default function MaterialCalculatorHubPage() {
               if (c) setHybridColour(fmsHybridColourForMaterial(material, c));
             }
             if (inferred.hybridMaterialLine) {
-              if (inferred.tab === 'hybrid_v') setHybVMaterial(inferred.hybridMaterialLine);
-              else setHybHMaterial(inferred.hybridMaterialLine);
+              if (inferred.tab === 'hybrid_v') {
+                setHybVMaterial(inferred.hybridMaterialLine);
+              } else {
+                const style = String(req.project?.design_option?.style ?? '');
+                setHybHBoardMaterial(
+                  inferFmsHybridHoBoardMaterialFromStyle(style, inferred.hybridMaterialLine)
+                );
+              }
             }
           }
           if (inferred.tab) {
@@ -3160,7 +3182,7 @@ export default function MaterialCalculatorHubPage() {
         row,
         result: computeHybridHorizontalFence(
           { length_ft: input.length_ft, h_post: input.h_post, u_channel: input.u_channel },
-          hybHFamily,
+          hybHCalculatorFamily,
           hybHHeight
         ),
       };
@@ -3168,7 +3190,7 @@ export default function MaterialCalculatorHubPage() {
     const classified = classifyHybridHGateInputs(hybHShortGates, hybHSingleGates, hybHDoubleGates);
     const gates = classified.map((gate) => ({
       gate,
-      rows: computeHybridHorizontalGateBlockRows(gate, hybHFamily, hybHHeight),
+      rows: computeHybridHorizontalGateBlockRows(gate, hybHCalculatorFamily, hybHHeight),
     }));
     const totals = sumFmsHybridRows([
       ...runs.filter((r) => r.result).map((r) => r.result!.rows),
@@ -3182,10 +3204,11 @@ export default function MaterialCalculatorHubPage() {
     hybHShortGates,
     hybHSingleGates,
     hybHDoubleGates,
-    hybHFamily,
+    hybHBoardMaterial,
     hybHHeight,
     hybHExtras,
     layoutSketchData,
+    hybHCalculatorFamily,
   ]);
 
   /** Hybrid vertical — same fence/gate routing as PVC; 6'4" hybrid PVC sheet for materials. */
@@ -3244,9 +3267,12 @@ export default function MaterialCalculatorHubPage() {
       const lines = which === 'h' ? hybHLines : hybVLines;
       const colour =
         which === 'h'
-          ? fmsHybridColourExportLabel('horizontal', hybHMaterial, hybridColour)
+          ? hybridHExportColour(hybHBoardMaterial, hybridColour)
           : fmsHybridColourExportLabel('vertical', hybVMaterial, hybridColour);
-      const subtitle = which === 'h' ? fmsHybridHoBlockTitle(hybHFamily, hybHHeight) : FMS_HYBRID_VE_BLOCK_TITLE;
+      const subtitle =
+        which === 'h'
+          ? `${fmsHybridHoBoardMaterialLabel(hybHBoardMaterial)} hybrid — ${hybHHeight}' tall`
+          : FMS_HYBRID_VE_BLOCK_TITLE;
 
       const extrasByItem = new Map<string, number>();
       for (const def of defs) {
@@ -3312,9 +3338,8 @@ export default function MaterialCalculatorHubPage() {
       hybHLines,
       hybVLines,
       hybridColour,
-      hybHMaterial,
+      hybHBoardMaterial,
       hybVMaterial,
-      hybHFamily,
       hybHHeight,
       jobAddress,
       materialExclusions,
@@ -3425,16 +3450,15 @@ export default function MaterialCalculatorHubPage() {
     let colour = '';
     if (tab === 'pvc') colour = pvcBreakdownColour;
     else if (tab === 'chain') colour = 'Chain link';
-    else if (tab === 'hybrid_h') {
-      colour = fmsHybridColourExportLabel('horizontal', hybHMaterial, hybridColour);
-    } else if (tab === 'hybrid_v') {
+    else if (tab === 'hybrid_h') colour = hybridHExportColour(hybHBoardMaterial, hybridColour);
+    else if (tab === 'hybrid_v') {
       colour = fmsHybridColourExportLabel('vertical', hybVMaterial, hybridColour);
     }
     return {
       ...(job ? { job_site_address: job } : {}),
       ...(colour ? { calculator_fence_colour: colour } : {}),
     };
-  }, [jobAddress, tab, pvcBreakdownColour, hybridColour, hybHMaterial, hybVMaterial]);
+  }, [jobAddress, tab, pvcBreakdownColour, hybridColour, hybHBoardMaterial, hybVMaterial]);
 
   const activeTabMaterialListPdfAvailable = useMemo(() => {
     if (fmsQuoteMaterialUnsupported) return false;
@@ -4238,7 +4262,7 @@ export default function MaterialCalculatorHubPage() {
                 kind === 'double' ? [g] : []
               )[0];
               const gateRows = classified
-                ? computeHybridHorizontalGateBlockRows(classified, hybHFamily, hybHHeight)
+                ? computeHybridHorizontalGateBlockRows(classified, hybHCalculatorFamily, hybHHeight)
                 : [];
               return (
                 <div key={g.id} className="rounded-lg bg-white p-2 ring-1 ring-slate-100">
@@ -4670,12 +4694,16 @@ export default function MaterialCalculatorHubPage() {
                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                   {activeHybridMaterial === 'wpc' ? 'WPC colour' : 'PVC colour'} (label only)
                 </label>
-                <HybridColourSelect
-                  material={activeHybridMaterial}
-                  value={hybridColour}
-                  onChange={setHybridColour}
-                  className={`${field} w-full`}
-                />
+                {tab === 'hybrid_h' && !hybridHHasColour ? (
+                  <p className="text-xs text-slate-500">No colour breakdown for aluminum.</p>
+                ) : (
+                  <HybridColourSelect
+                    material={activeHybridMaterial}
+                    value={hybridColour}
+                    onChange={setHybridColour}
+                    className={`${field} w-full`}
+                  />
+                )}
               </div>
             ) : null}
           </div>
@@ -5508,52 +5536,34 @@ export default function MaterialCalculatorHubPage() {
         <>
           <section className={card}>
             <div className="border-b border-amber-100 bg-amber-50/30 px-5 py-4">
-              <h2 className={h2}>{fmsHybridHoBlockTitle(hybHFamily, hybHHeight)}</h2>
+              <h2 className={h2}>
+                {fmsHybridHoBoardMaterialLabel(hybHBoardMaterial)} hybrid — {hybHHeight}&apos; tall
+              </h2>
               <p className="mt-1 text-xs text-slate-600">
-                Horizontal hybrid, 6&apos; post spacing. Board profile sets panel counts; board material sets which
-                colour list applies (PVC or WPC).
+                Horizontal hybrid, 6&apos; post spacing. Board material sets panel counts and which colour list
+                applies.
               </p>
             </div>
-            <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
               <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-500">Board material</label>
                 <select
-                  value={hybHMaterial}
+                  value={hybHBoardMaterial}
                   onChange={(e) => {
-                    const material = coerceHybridMaterialLine(e.target.value);
-                    setHybHMaterial(material);
-                    setHybridColour((c) => fmsHybridColourForMaterial(material, c));
+                    const board = coerceFmsHybridHoBoardMaterial(e.target.value);
+                    setHybHBoardMaterial(board);
+                    const colourLine = fmsHybridHoBoardMaterialColourLine(board);
+                    if (colourLine) {
+                      setHybridColour((c) => fmsHybridColourForMaterial(colourLine, c));
+                    }
                   }}
                   className={`${field} w-full`}
                 >
-                  {FMS_HYBRID_MATERIAL_LINES.map((m) => (
+                  {FMS_HYBRID_HO_BOARD_MATERIALS.map((m) => (
                     <option key={m.value} value={m.value}>
                       {m.label}
                     </option>
                   ))}
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-500">Board profile</label>
-                <select
-                  value={hybHFamily}
-                  onChange={(e) => setHybHFamily(e.target.value as FmsHybridHoFamily)}
-                  className={`${field} w-full`}
-                >
-                  <optgroup label="WPC boards">
-                    {FMS_HYBRID_HO_FAMILIES.filter((f) => f.group === 'wpc').map((f) => (
-                      <option key={f.value} value={f.value}>
-                        {f.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Aluminum">
-                    {FMS_HYBRID_HO_FAMILIES.filter((f) => f.group === 'aluminum').map((f) => (
-                      <option key={f.value} value={f.value}>
-                        {f.label}
-                      </option>
-                    ))}
-                  </optgroup>
                 </select>
               </div>
               <div>
@@ -5567,23 +5577,29 @@ export default function MaterialCalculatorHubPage() {
                   <option value={7}>7&apos; tall</option>
                 </select>
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-500">
-                  {hybHMaterial === 'wpc' ? 'WPC colour' : 'PVC colour'} (label only)
-                </label>
-                <HybridColourSelect
-                  material={hybHMaterial}
-                  value={hybridColour}
-                  onChange={setHybridColour}
-                  className={`${field} w-full`}
-                />
-              </div>
+              {hybridHHasColour ? (
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-500">
+                    {fmsHybridHoBoardMaterialColourLine(hybHBoardMaterial) === 'wpc'
+                      ? 'WPC colour'
+                      : 'PVC colour'}{' '}
+                    (label only)
+                  </label>
+                  <HybridColourSelect
+                    material={fmsHybridHoBoardMaterialColourLine(hybHBoardMaterial)!}
+                    value={hybridColour}
+                    onChange={setHybridColour}
+                    className={`${field} w-full`}
+                  />
+                </div>
+              ) : null}
             </div>
           </section>
 
           {renderFenceRunsSection({
             rows: hybHLines,
-            getSubtitle: () => fmsHybridHoBlockTitle(hybHFamily, hybHHeight),
+            getSubtitle: () =>
+              `${fmsHybridHoBoardMaterialLabel(hybHBoardMaterial)} · ${hybHHeight}' tall · 6' post spacing`,
             getRunEnds: (row) => effectiveHybridRunEnds(hybHLines.find((l) => l.id === row.id)!),
             onLengthChange: (id, length_ft) => updateHybHLine(id, { length_ft }),
             onRunEndChange: (id, which, field, checked) =>
@@ -5682,11 +5698,18 @@ export default function MaterialCalculatorHubPage() {
 
           <section className={card}>
             <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className={h2}>Job totals — {fmsHybridHoBlockTitle(hybHFamily, hybHHeight)}</h2>
+              <h2 className={h2}>
+                Job totals — {fmsHybridHoBoardMaterialLabel(hybHBoardMaterial)} hybrid · {hybHHeight}&apos; tall
+              </h2>
               <p className="mt-1 text-xs text-slate-600">
-                {fmsHybridHoFamilyLabel(hybHFamily)} · {hybHMaterial.toUpperCase()} · Colour{' '}
-                <strong className="font-medium text-slate-800">{hybridColour}</strong>. Summed across all runs and
-                gates, line by line from the Excel sheet.
+                {hybridHHasColour ? (
+                  <>
+                    Colour: <strong className="font-medium text-slate-800">{hybridColour}</strong>. Summed across all
+                    runs and gates, line by line from the Excel sheet.
+                  </>
+                ) : (
+                  <>Summed across all runs and gates, line by line from the Excel sheet.</>
+                )}
               </p>
             </div>
             <div className="space-y-4 p-5">

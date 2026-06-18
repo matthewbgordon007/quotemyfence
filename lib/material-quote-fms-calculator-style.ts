@@ -9,6 +9,10 @@ import {
   type FmsWpcCalculatorColour,
 } from '@/lib/fms-calculator-colour-presets';
 import { stripSupplierFromTypeName } from '@/lib/supplier-import-label';
+import {
+  inferFmsHybridHoBoardMaterialFromStyle,
+  type FmsHybridHoBoardMaterial,
+} from '@/lib/fms-hybrid-calculators';
 
 export type FmsHubMaterialKind = 'pvc' | 'chain' | 'hybrid' | 'unsupported';
 
@@ -148,7 +152,7 @@ export type ApplyMaterialQuoteCalculatorFields = {
   setJobAddress: (v: string) => void;
   setPvcBreakdownColour: (v: FmsPvcCalculatorColour) => void;
   setHybridColour: (v: string) => void;
-  setHybHMaterial?: (v: FmsHybridMaterialLine) => void;
+  setHybHBoardMaterial?: (v: FmsHybridHoBoardMaterial) => void;
   setHybVMaterial?: (v: FmsHybridMaterialLine) => void;
 };
 
@@ -173,8 +177,11 @@ export function applyMaterialQuoteCalculatorFields(
     const parsed = parseFmsHybridColourExportLabel(savedCalcColour);
     if (parsed) {
       setters.setHybridColour(parsed.colour);
-      if (parsed.material && parsed.orientation === 'horizontal' && setters.setHybHMaterial) {
-        setters.setHybHMaterial(parsed.material);
+      if (parsed.material && parsed.orientation === 'horizontal' && setters.setHybHBoardMaterial) {
+        const style = String(req.project?.design_option?.style ?? '');
+        setters.setHybHBoardMaterial(
+          inferFmsHybridHoBoardMaterialFromStyle(style, parsed.material)
+        );
       }
       if (parsed.material && parsed.orientation === 'vertical' && setters.setHybVMaterial) {
         setters.setHybVMaterial(parsed.material);

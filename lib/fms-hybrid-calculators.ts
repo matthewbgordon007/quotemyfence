@@ -121,6 +121,16 @@ export function buildFmsHybridMasterList(
 export type FmsHybridHoFamily = 'woodGrain' | 'slatted' | 'aluminum';
 export type FmsHybridHoHeight = 6 | 7;
 
+/** User-facing horizontal board material (maps onto Excel calculator families). */
+export type FmsHybridHoBoardMaterial = 'pvc' | 'wpcSlatted' | 'wpcWoodGrain' | 'aluminum';
+
+export const FMS_HYBRID_HO_BOARD_MATERIALS: { value: FmsHybridHoBoardMaterial; label: string }[] = [
+  { value: 'pvc', label: 'PVC' },
+  { value: 'wpcSlatted', label: 'WPC Slatted' },
+  { value: 'wpcWoodGrain', label: 'WPC Wood Grain' },
+  { value: 'aluminum', label: 'Aluminum' },
+];
+
 export type FmsHybridHoFamilyGroup = 'wpc' | 'aluminum';
 
 export const FMS_HYBRID_HO_FAMILIES: {
@@ -132,6 +142,55 @@ export const FMS_HYBRID_HO_FAMILIES: {
   { value: 'slatted', label: 'Slatted WPC', group: 'wpc' },
   { value: 'aluminum', label: 'Aluminum', group: 'aluminum' },
 ];
+
+export function fmsHybridHoBoardMaterialLabel(material: FmsHybridHoBoardMaterial): string {
+  return FMS_HYBRID_HO_BOARD_MATERIALS.find((m) => m.value === material)?.label ?? material;
+}
+
+/** Excel calculator block used for panel / board counts. */
+export function fmsHybridHoBoardMaterialCalculatorFamily(material: FmsHybridHoBoardMaterial): FmsHybridHoFamily {
+  if (material === 'wpcWoodGrain') return 'woodGrain';
+  if (material === 'aluminum') return 'aluminum';
+  return 'slatted';
+}
+
+/** PVC and WPC slatted share the slatted Excel block; wood grain uses its own block. */
+export function fmsHybridHoBoardMaterialColourLine(
+  material: FmsHybridHoBoardMaterial
+): FmsHybridMaterialLine | null {
+  if (material === 'pvc') return 'pvc';
+  if (material === 'wpcSlatted' || material === 'wpcWoodGrain') return 'wpc';
+  return null;
+}
+
+export function coerceFmsHybridHoBoardMaterial(
+  raw: unknown,
+  legacyFamily?: unknown,
+  legacyMaterial?: unknown
+): FmsHybridHoBoardMaterial {
+  if (raw === 'pvc' || raw === 'wpcSlatted' || raw === 'wpcWoodGrain' || raw === 'aluminum') return raw;
+  const family =
+    legacyFamily === 'woodGrain' || legacyFamily === 'slatted' || legacyFamily === 'aluminum'
+      ? legacyFamily
+      : null;
+  const mat = legacyMaterial === 'pvc' ? 'pvc' : legacyMaterial === 'wpc' ? 'wpc' : null;
+  if (family === 'aluminum') return 'aluminum';
+  if (family === 'woodGrain') return 'wpcWoodGrain';
+  if (family === 'slatted') return mat === 'pvc' ? 'pvc' : 'wpcSlatted';
+  return 'wpcWoodGrain';
+}
+
+export function inferFmsHybridHoBoardMaterialFromStyle(
+  style: string,
+  materialLine: FmsHybridMaterialLine = 'wpc'
+): FmsHybridHoBoardMaterial {
+  const s = style.toLowerCase();
+  if (/\baluminum\b/.test(s)) return 'aluminum';
+  if (/wood\s*grain/.test(s)) return 'wpcWoodGrain';
+  if (/slatted/.test(s)) return materialLine === 'pvc' ? 'pvc' : 'wpcSlatted';
+  if (/\bpvc\b/.test(s)) return 'pvc';
+  return materialLine === 'pvc' ? 'pvc' : 'wpcWoodGrain';
+}
 
 export function fmsHybridHoFamilyLabel(family: FmsHybridHoFamily): string {
   return FMS_HYBRID_HO_FAMILIES.find((f) => f.value === family)?.label ?? family;
