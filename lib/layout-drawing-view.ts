@@ -44,11 +44,13 @@ export function parseSavedLayoutDrawing(raw: unknown): LayoutDrawingCanvasInitia
         const x = Number(q.x);
         const y = Number(q.y);
         const width_in = Number(q.width_in);
+        const left_ft = Number(q.left_ft);
         return {
           type,
           line_index,
           ...(Number.isFinite(x) && Number.isFinite(y) ? { x, y } : {}),
           ...(Number.isFinite(width_in) && width_in > 0 ? { width_in } : {}),
+          ...(Number.isFinite(left_ft) ? { left_ft } : {}),
         };
       })
     : [];

@@ -1159,11 +1159,13 @@ function parseLayoutSketch(raw: unknown): LayoutSketchDrawingPayload | null {
       const x = Number(q.x);
       const y = Number(q.y);
       const width_in = Number(q.width_in);
+      const left_ft = Number(q.left_ft);
       return {
         type: type as 'single' | 'double',
         line_index,
         ...(Number.isFinite(x) && Number.isFinite(y) ? { x, y } : {}),
         ...(Number.isFinite(width_in) && width_in > 0 ? { width_in } : {}),
+        ...(Number.isFinite(left_ft) ? { left_ft } : {}),
       };
     })
     .filter((_, i) => i < 500);

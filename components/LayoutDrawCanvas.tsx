@@ -14,13 +14,16 @@ import {
   alignChainedSketchSegments,
   defaultJointTerminationsFromAligned,
   deflectionAtVertexDeg,
+  gateSpanAlongSegment,
   jointPositionsFromAligned,
   LAYOUT_CHAIN_ALIGN_FT,
   LAYOUT_MIN_SKETCH_SEGMENT_FT,
   LAYOUT_STRAIGHT_MAX_DEG,
   layoutPointsToSegmentPairs,
   segmentEndpointAnchors,
+  shouldSplitSegmentForGate,
   sketchGateWidthInches,
+  splitSegmentGeometryAtGate,
   snapEndColinearWithPrev,
   snapPointToSketchGeometry,
   type SketchJointTermination,
@@ -56,6 +59,8 @@ export type LayoutGatePlacement = {
   x?: number;
   y?: number;
   width_in?: number;
+  /** Fence length (ft) from line start to gate — set when the line was auto-split. */
+  left_ft?: number;
 };
 
 export interface LayoutDrawCanvasProps {
@@ -174,6 +179,7 @@ type PlacedGate = {
   y: number;
   line_index: number;
   width_in?: number;
+  left_ft?: number;
 };
 
 /** After removing segment index `removed`, drop its gates and shift indices for segments that moved. */
@@ -197,6 +203,33 @@ function viewSpanFt(vw: number, vh: number): number {
   return Math.min(vw, vh);
 }
 
+function gateSegmentRole(
+  lineIndex: number,
+  gates: PlacedGate[],
+  segmentCount: number
+): 'gate' | 'left_fence' | 'right_fence' | null {
+  for (const g of gates) {
+    const gi = g.line_index;
+    if (gi <= 0 || gi >= segmentCount - 1) {
+      if (gi === lineIndex) return null;
+      continue;
+    }
+    if (lineIndex === gi) return 'gate';
+    if (lineIndex === gi - 1) return 'left_fence';
+    if (lineIndex === gi + 1) return 'right_fence';
+  }
+  return null;
+}
+
+function lineLengthLabel(lineIndex: number, gates: PlacedGate[], segmentCount: number): string {
+  const role = gateSegmentRole(lineIndex, gates, segmentCount);
+  const n = lineIndex + 1;
+  if (role === 'gate') return `Gate (line ${n})`;
+  if (role === 'left_fence') return `Left fence (line ${n})`;
+  if (role === 'right_fence') return `Right fence (line ${n})`;
+  return `Line ${n}`;
+}
+
 function segmentLengthFtForGate(
   seg: { x: number; y: number }[],
   lengthStr: string,
@@ -207,45 +240,6 @@ function segmentLengthFtForGate(
   if (manualLengths) return 0;
   if (seg.length >= 2) return dist(seg[0], seg[1]);
   return 0;
-}
-
-/**
- * Green gate span along the fence line, centered on the gate marker.
- * Uses typed segment length (ft) for width proportion so schematic geometry still shows the right span.
- */
-function gateSpanAlongSegment(
-  seg: [{ x: number; y: number }, { x: number; y: number }],
-  center: { x: number; y: number },
-  gateWidthFt: number,
-  segmentLengthFt: number
-): { x1: number; y1: number; x2: number; y2: number } | null {
-  const ax = seg[0].x;
-  const ay = seg[0].y;
-  const bx = seg[1].x;
-  const by = seg[1].y;
-  const dx = bx - ax;
-  const dy = by - ay;
-  const geomLen = Math.hypot(dx, dy);
-  if (geomLen < 1e-6 || gateWidthFt <= 0) return null;
-  const typedLen = segmentLengthFt > 0 ? segmentLengthFt : geomLen;
-  if (typedLen <= 0) return null;
-
-  const ux = dx / geomLen;
-  const uy = dy / geomLen;
-  let t = ((center.x - ax) * ux + (center.y - ay) * uy) / geomLen;
-  t = Math.max(0, Math.min(1, t));
-
-  const halfNorm = gateWidthFt / 2 / typedLen;
-  let t0 = Math.max(0, t - halfNorm);
-  let t1 = Math.min(1, t + halfNorm);
-  if (t1 - t0 < 0.001) return null;
-
-  return {
-    x1: ax + dx * t0,
-    y1: ay + dy * t0,
-    x2: ax + dx * t1,
-    y2: ay + dy * t1,
-  };
 }
 
 type FeetBBox = { minX: number; minY: number; maxX: number; maxY: number };
@@ -370,12 +364,14 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
             const rx = Number(row.x);
             const ry = Number(row.y);
             const rw = Number(row.width_in);
+            const rl = Number(row.left_ft);
             return {
               type: t,
               x: Number.isFinite(rx) && Number.isFinite(ry) ? rx : mx,
               y: Number.isFinite(rx) && Number.isFinite(ry) ? ry : my,
               line_index: li,
               ...(Number.isFinite(rw) && rw > 0 ? { width_in: rw } : {}),
+              ...(Number.isFinite(rl) ? { left_ft: rl } : {}),
             };
           }
           return { type: t, x: 0, y: 0, line_index: li };
@@ -544,6 +540,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         x: g.x,
         y: g.y,
         ...(g.width_in != null && g.width_in > 0 ? { width_in: g.width_in } : {}),
+        ...(g.left_ft != null && Number.isFinite(g.left_ft) ? { left_ft: g.left_ft } : {}),
       }));
       const nums = lengthNumsForAlign(segs, lengths);
       const al = alignChainedSketchSegments(segs, nums, LAYOUT_CHAIN_ALIGN_FT, LAYOUT_MIN_SKETCH_SEGMENT_FT);
@@ -764,24 +761,80 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       }
 
       if (mode === 'place_single_gate' || mode === 'place_double_gate') {
-        let best: { segIdx: number; point: { x: number; y: number }; d: number } | null = null;
-        segments.forEach((seg, i) => {
-          if (seg.length < 2) return;
+        let hit: { segIdx: number; point: { x: number; y: number }; d: number } | null = null;
+        for (let i = 0; i < segments.length; i++) {
+          const seg = segments[i];
+          if (seg.length < 2) continue;
           const d = pointToSegmentDist(pt, seg[0], seg[1]);
-          if (d < HIT_THRESHOLD && (!best || d < best.d)) {
-            best = { segIdx: i, point: nearestPointOnSegment(pt, seg[0], seg[1]), d };
+          if (d < HIT_THRESHOLD && (!hit || d < hit.d)) {
+            hit = { segIdx: i, point: nearestPointOnSegment(pt, seg[0], seg[1]), d };
           }
-        });
-        if (best) {
-          setPlacedGates((prev) => [
-            ...prev,
-            {
-              type: mode === 'place_double_gate' ? 'double' : 'single',
-              x: best!.point.x,
-              y: best!.point.y,
-              line_index: best!.segIdx,
-            },
-          ]);
+        }
+        const hitGate = hit;
+        if (hitGate) {
+          const segIdx = hitGate.segIdx;
+          const seg = segments[segIdx];
+          if (seg && seg.length >= 2) {
+            const gateType = mode === 'place_double_gate' ? 'double' : 'single';
+            const segMeta = segments.map((s, si) => ({
+              length_ft: segmentLengthFtForGate(s, lineLengths[si] || '', manualLengths),
+            }));
+            const segLen = segMeta[segIdx]?.length_ft ?? 0;
+            const widthIn = sketchGateWidthInches({ type: gateType, line_index: segIdx }, segMeta);
+            const gateWidthFt = widthIn / 12;
+            const center = hitGate.point;
+
+            if (shouldSplitSegmentForGate(segLen, gateWidthFt)) {
+              const split = splitSegmentGeometryAtGate(
+                [seg[0], seg[1]],
+                center,
+                gateWidthFt,
+                segLen
+              );
+              if (split) {
+                setSegments((prev) => {
+                  const next = [...prev];
+                  next.splice(segIdx, 1, split.leftSeg, split.gateSeg, split.rightSeg);
+                  return next;
+                });
+                setLineLengths((prev) => {
+                  const next = [...prev];
+                  next.splice(
+                    segIdx,
+                    1,
+                    String(split.leftFt),
+                    String(split.gateFt),
+                    String(split.rightFt)
+                  );
+                  return next;
+                });
+                setPlacedGates((prev) => [
+                  ...prev.map((g) =>
+                    g.line_index > segIdx ? { ...g, line_index: g.line_index + 2 } : g
+                  ),
+                  {
+                    type: gateType,
+                    x: center.x,
+                    y: center.y,
+                    line_index: segIdx + 1,
+                    left_ft: split.leftFt,
+                  },
+                ]);
+                setMode('draw');
+                return;
+              }
+            }
+
+            setPlacedGates((prev) => [
+              ...prev,
+              {
+                type: gateType,
+                x: center.x,
+                y: center.y,
+                line_index: segIdx,
+              },
+            ]);
+          }
           setMode('draw');
         }
         return;
@@ -1098,9 +1151,18 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
           perpX = -perpX;
           perpY = -perpY;
         }
-        const labelText = lineLengths[si]?.trim()
-          ? `Line ${si + 1}: ${lineLengths[si].trim()} ft`
-          : `Line ${si + 1}`;
+        const role = gateSegmentRole(si, placedGates, n);
+        const lenStr = lineLengths[si]?.trim();
+        let labelText: string;
+        if (role === 'gate') {
+          labelText = lenStr ? `GATE ${lenStr} ft` : 'GATE';
+        } else if (role === 'left_fence') {
+          labelText = lenStr ? `← ${lenStr} ft` : '← fence';
+        } else if (role === 'right_fence') {
+          labelText = lenStr ? `${lenStr} ft →` : 'fence →';
+        } else {
+          labelText = lenStr ? `Line ${si + 1}: ${lenStr} ft` : `Line ${si + 1}`;
+        }
         /** Scale with sketch size — large enough to read at a glance on customer/layout previews. */
         const labelFontFt = Math.max(2.35, Math.min(vw, vh) * 0.032);
         const estHalfW = labelText.length * labelFontFt * 0.36;
@@ -1173,7 +1235,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       clampDrift();
 
       return labs;
-    }, [segments, lineLengths, mapView]);
+    }, [segments, lineLengths, placedGates, mapView]);
 
     useEffect(() => {
       const el = containerRef.current;
@@ -1538,7 +1600,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
               <span className="text-base font-medium text-[var(--muted)]">Lengths (ft):</span>
               {segments.length <= 40 ? segments.map((_, i) => (
                 <div key={i} className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-base">Line {i + 1}:</span>
+                  <span className="text-base">{lineLengthLabel(i, placedGates, segments.length)}:</span>
                   <input
                     type="text"
                     value={lineLengths[i] ?? ''}
@@ -1630,7 +1692,9 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         {mode === 'place_single_gate' && (
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <p className="text-sm text-[var(--muted)]">
-              Click on a line to place a single gate (small blue circle with S). Press Esc or click Cancel to exit.
+              Click on a line to place a single gate (blue S). On a line longer than the gate opening, the line splits
+              into left fence, gate, and right fence — adjust those lengths below to center or offset the gate. Press Esc
+              or Cancel to exit.
             </p>
             <button
               type="button"
@@ -1644,7 +1708,8 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         {mode === 'place_double_gate' && (
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <p className="text-sm text-[var(--muted)]">
-              Click on a line to place a double gate (larger blue circle with D). Press Esc or click Cancel to exit.
+              Click on a line to place a double gate (blue D). Long lines auto-split so you can set left fence, gate
+              opening, and right fence lengths. Press Esc or Cancel to exit.
             </p>
             <button
               type="button"

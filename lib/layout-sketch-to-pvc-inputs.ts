@@ -43,9 +43,97 @@ export type SketchGatePlacement = {
   y?: number;
   /** User-edited opening width (in) from the material calculator; overrides defaults. */
   width_in?: number;
+  /** Fence length (ft) from line start to gate opening — set when line was split for this gate. */
+  left_ft?: number;
 };
 
 export type LayoutPt = { x: number; y: number };
+
+/**
+ * Gate opening span along a segment (ft coords), centered on `center`.
+ * Returns edge points and left/right fence lengths using the segment's typed length.
+ */
+export function gateSpanAlongSegment(
+  seg: [LayoutPt, LayoutPt],
+  center: LayoutPt,
+  gateWidthFt: number,
+  segmentLengthFt: number
+): {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  t0: number;
+  t1: number;
+  leftFt: number;
+  rightFt: number;
+} | null {
+  const ax = seg[0].x;
+  const ay = seg[0].y;
+  const bx = seg[1].x;
+  const by = seg[1].y;
+  const dx = bx - ax;
+  const dy = by - ay;
+  const geomLen = dist(seg[0], seg[1]);
+  if (geomLen < 1e-6 || gateWidthFt <= 0) return null;
+  const typedLen = segmentLengthFt > 0 ? segmentLengthFt : geomLen;
+  if (typedLen <= 0) return null;
+
+  const ux = dx / geomLen;
+  const uy = dy / geomLen;
+  let t = ((center.x - ax) * ux + (center.y - ay) * uy) / geomLen;
+  t = Math.max(0, Math.min(1, t));
+
+  const halfNorm = gateWidthFt / 2 / typedLen;
+  const t0 = Math.max(0, t - halfNorm);
+  const t1 = Math.min(1, t + halfNorm);
+  if (t1 - t0 < 0.001) return null;
+
+  const leftFt = Math.round(t0 * typedLen * 100) / 100;
+  const rightFt = Math.round((1 - t1) * typedLen * 100) / 100;
+
+  return {
+    x1: ax + dx * t0,
+    y1: ay + dy * t0,
+    x2: ax + dx * t1,
+    y2: ay + dy * t1,
+    t0,
+    t1,
+    leftFt,
+    rightFt,
+  };
+}
+
+/** True when a gate on this segment should split it into left fence | gate | right fence. */
+export function shouldSplitSegmentForGate(segmentLengthFt: number, gateWidthFt: number): boolean {
+  return segmentLengthFt > gateWidthFt + LAYOUT_MIN_SKETCH_SEGMENT_FT;
+}
+
+export function splitSegmentGeometryAtGate(
+  seg: [LayoutPt, LayoutPt],
+  center: LayoutPt,
+  gateWidthFt: number,
+  segmentLengthFt: number
+): {
+  leftSeg: [LayoutPt, LayoutPt];
+  gateSeg: [LayoutPt, LayoutPt];
+  rightSeg: [LayoutPt, LayoutPt];
+  leftFt: number;
+  gateFt: number;
+  rightFt: number;
+} | null {
+  const span = gateSpanAlongSegment(seg, center, gateWidthFt, segmentLengthFt);
+  if (!span) return null;
+  const gateFt = Math.round(gateWidthFt * 100) / 100;
+  return {
+    leftSeg: [seg[0], { x: span.x1, y: span.y1 }],
+    gateSeg: [{ x: span.x1, y: span.y1 }, { x: span.x2, y: span.y2 }],
+    rightSeg: [{ x: span.x2, y: span.y2 }, seg[1]],
+    leftFt: span.leftFt,
+    gateFt,
+    rightFt: span.rightFt,
+  };
+}
 
 /** Per vertex along the sketch: open ends, disconnected run starts, and corners. */
 export type SketchJointTermination = { h_post: boolean; u_channel: boolean };
