@@ -94,6 +94,7 @@ import {
   removeLayoutDrawingSegment,
   sketchGateWidthInches,
   sketchGateSegmentRole,
+  sketchSegmentRunLabel,
   jointPositionsFromAligned,
   LAYOUT_CHAIN_ALIGN_FT,
   LAYOUT_MIN_SKETCH_SEGMENT_FT,
@@ -320,17 +321,6 @@ type HybridVGateRow = {
   sketchPlacementIndex?: number;
 };
 
-function sketchRunLabel(
-  segmentIndex: number,
-  netLengthFt: number,
-  gatePlacements?: SketchGatePlacement[] | null
-): string {
-  const n = segmentIndex + 1;
-  const gateOnSeg = gatePlacements?.some((g) => g.line_index === segmentIndex);
-  if (gateOnSeg && netLengthFt <= 0) return `Run ${n} Gate`;
-  return `Run ${n}`;
-}
-
 function drawingDataToPvcLineRows(
   drawing: {
     points: { x: number; y: number }[];
@@ -360,7 +350,7 @@ function drawingDataToPvcLineRows(
     const net = netPerSeg[i] ?? 0;
     return {
       id: newLineId(),
-      label: sketchRunLabel(i, net, gatePlacements),
+      label: sketchSegmentRunLabel(i, drawing.segments.length, net, gatePlacements),
       length_ft: gross > 0 ? String(gross) : '',
       panel_module: panelModule,
       end_preset: 'custom' as const,
@@ -400,7 +390,7 @@ function drawingDataToChainLineRows(
     const net = netPerSeg[i] ?? 0;
     return {
       id: newLineId(),
-      label: sketchRunLabel(i, net, gatePlacements),
+      label: sketchSegmentRunLabel(i, drawing.segments.length, net, gatePlacements),
       length_ft: gross > 0 ? String(gross) : '',
       terminal_post: String(inp?.fence_terminated_h_post_type ?? 0),
       fromSketch: true,
@@ -437,7 +427,7 @@ function drawingDataToHybridVLineRows(
     const net = netPerSeg[i] ?? 0;
     return {
       id: newLineId(),
-      label: sketchRunLabel(i, net, gatePlacements),
+      label: sketchSegmentRunLabel(i, drawing.segments.length, net, gatePlacements),
       length_ft: gross > 0 ? String(gross) : '',
       h_post: (inp?.fence_terminated_h_post_type ?? 0) as 0 | 1 | 2,
       u_channel: Math.max(0, Math.min(2, Math.round(Number(inp?.fence_terminated_u_channel) || 0))) as 0 | 1 | 2,
@@ -2351,7 +2341,7 @@ export default function MaterialCalculatorHubPage() {
         return {
           kind: 'gate',
           id: lr.id,
-          label: `${runLabel} Gate`,
+          label: runLabel,
           gateKind: primary.kind === 'gate' ? primary.gateKind : 'short',
           length_ft: gateFt,
           panelLabel: gateTypeLabel,

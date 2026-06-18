@@ -24,6 +24,7 @@ import {
   segmentEndpointAnchors,
   shouldSplitSegmentForGate,
   sketchGateWidthInches,
+  sketchSegmentRunLabel,
   splitSegmentGeometryAtGate,
   snapEndColinearWithPrev,
   snapPointToSketchGeometry,
@@ -202,31 +203,6 @@ function strokeForLineMode(mode: LineHighlightMode | undefined): string {
 /** Visible world span (ft) — scales marker sizes so they stay readable at any zoom. */
 function viewSpanFt(vw: number, vh: number): number {
   return Math.min(vw, vh);
-}
-
-function gateSegmentRole(
-  lineIndex: number,
-  gates: PlacedGate[],
-  segmentCount: number
-): 'gate' | 'left_fence' | 'right_fence' | null {
-  for (const g of gates) {
-    const gi = g.line_index;
-    if (lineIndex === gi) return 'gate';
-    if (gi > 0 && gi < segmentCount - 1) {
-      if (lineIndex === gi - 1) return 'left_fence';
-      if (lineIndex === gi + 1) return 'right_fence';
-    }
-  }
-  return null;
-}
-
-function lineLengthLabel(lineIndex: number, gates: PlacedGate[], segmentCount: number): string {
-  const role = gateSegmentRole(lineIndex, gates, segmentCount);
-  const n = lineIndex + 1;
-  if (role === 'gate') return `Run ${n} Gate`;
-  if (role === 'left_fence') return `Left fence (run ${n})`;
-  if (role === 'right_fence') return `Right fence (run ${n})`;
-  return `Run ${n}`;
 }
 
 function segmentLengthFtForGate(
@@ -1159,18 +1135,14 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
           perpX = -perpX;
           perpY = -perpY;
         }
-        const role = gateSegmentRole(si, placedGates, n);
+        const gatePlacementsForLabel = placedGates.map((g) => ({
+          type: g.type,
+          line_index: g.line_index,
+        }));
+        const netLen = segmentLengthFtForGate(seg, lineLengths[si] || '', manualLengths);
+        const baseLabel = sketchSegmentRunLabel(si, n, netLen, gatePlacementsForLabel);
         const lenStr = lineLengths[si]?.trim();
-        let labelText: string;
-        if (role === 'gate') {
-          labelText = lenStr ? `Run ${si + 1} Gate · ${lenStr} ft` : `Run ${si + 1} Gate`;
-        } else if (role === 'left_fence') {
-          labelText = lenStr ? `← ${lenStr} ft` : '← fence';
-        } else if (role === 'right_fence') {
-          labelText = lenStr ? `${lenStr} ft →` : 'fence →';
-        } else {
-          labelText = lenStr ? `Run ${si + 1}: ${lenStr} ft` : `Run ${si + 1}`;
-        }
+        const labelText = lenStr ? `${baseLabel} · ${lenStr} ft` : baseLabel;
         /** Scale with sketch size — large enough to read at a glance on customer/layout previews. */
         const labelFontFt = Math.max(2.35, Math.min(vw, vh) * 0.032);
         const estHalfW = labelText.length * labelFontFt * 0.36;
@@ -1608,7 +1580,15 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
               <span className="text-base font-medium text-[var(--muted)]">Lengths (ft):</span>
               {segments.length <= 40 ? segments.map((_, i) => (
                 <div key={i} className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-base">{lineLengthLabel(i, placedGates, segments.length)}:</span>
+                  <span className="text-base">
+                    {sketchSegmentRunLabel(
+                      i,
+                      segments.length,
+                      segmentLengthFtForGate(segments[i], lineLengths[i] || '', manualLengths),
+                      placedGates.map((g) => ({ type: g.type, line_index: g.line_index }))
+                    )}
+                    :
+                  </span>
                   <input
                     type="text"
                     value={lineLengths[i] ?? ''}

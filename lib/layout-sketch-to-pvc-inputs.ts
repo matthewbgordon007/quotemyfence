@@ -150,6 +150,35 @@ export function sketchGateSegmentRole(
   return null;
 }
 
+/**
+ * Display label for a sketch segment. When a gate splits a run, all three parts share the
+ * original run number: "Run 3 left side", "Run 3 gate", "Run 3 right side".
+ */
+export function sketchSegmentRunLabel(
+  segmentIndex: number,
+  segmentCount: number,
+  netLengthFt: number,
+  gatePlacements?: SketchGatePlacement[] | null
+): string {
+  const role = sketchGateSegmentRole(segmentIndex, gatePlacements);
+  if (role && gatePlacements?.length) {
+    for (const g of gatePlacements) {
+      const gi = g.line_index;
+      if (gi <= 0 || gi >= segmentCount - 1) continue;
+      if (segmentIndex === gi - 1 || segmentIndex === gi || segmentIndex === gi + 1) {
+        const parent = gi;
+        if (role === 'left_fence') return `Run ${parent} left side`;
+        if (role === 'gate') return `Run ${parent} gate`;
+        if (role === 'right_fence') return `Run ${parent} right side`;
+      }
+    }
+  }
+  const n = segmentIndex + 1;
+  const gateOnSeg = gatePlacements?.some((g) => g.line_index === segmentIndex);
+  if (gateOnSeg && netLengthFt <= 0) return `Run ${n} gate`;
+  return `Run ${n}`;
+}
+
 /** Joint indices at gate opening edges — fence runs must not add U-channels here (gate block owns them). */
 export function gateBoundaryJointIndices(
   segments: LayoutPt[][],
