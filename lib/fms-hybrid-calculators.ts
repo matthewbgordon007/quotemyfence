@@ -13,6 +13,7 @@
  */
 
 import { excelCeiling, excelIfHPostTypeAdjustLongScrew, excelRound, excelRoundUp } from '@/lib/fms-excel-math';
+import type { FmsPvcCalculatorColour } from '@/lib/fms-calculator-colour-presets';
 
 export interface FmsHybridItemRow {
   item: string;
@@ -418,12 +419,47 @@ export function computeHybridHorizontalDoubleGate(input: FmsHybridHoDoubleGateIn
 }
 
 /* ------------------------------------------------------------------ */
-/* Vertical Material Calculator (6'4" PVC, 8' post spacing)            */
+/* Vertical Material Calculator (6'4" panels, 8' post spacing)          */
 /* ------------------------------------------------------------------ */
 
 export const FMS_HYBRID_VE_PANEL_DIVISOR = 8;
 
+/** Excel block title — panel profile is PVC; premium jobs use WPC colour sheets (Moonlit, Teak). */
 export const FMS_HYBRID_VE_BLOCK_TITLE = `Vertical Hybrid ***PVC*** Calculator 6' 4" Tall (8' post spacing)`;
+
+export type FmsHybridVeStyle = 'standard' | 'premium';
+
+export const FMS_HYBRID_VE_STYLES: { value: FmsHybridVeStyle; label: string }[] = [
+  { value: 'standard', label: 'Standard / Triple Top' },
+  { value: 'premium', label: 'Premium / Triple Top Premium (WPC)' },
+];
+
+export const FMS_HYBRID_VE_STANDARD_COLOURS = [
+  'White',
+  'Adobe',
+  'Light Grey',
+  'Westport Grey',
+  'Dark Grey',
+] as const satisfies readonly FmsPvcCalculatorColour[];
+
+export const FMS_HYBRID_VE_PREMIUM_COLOURS = ['Moonlit', 'Teak'] as const satisfies readonly FmsPvcCalculatorColour[];
+
+export function fmsHybridVeStyleLabel(style: FmsHybridVeStyle): string {
+  return FMS_HYBRID_VE_STYLES.find((s) => s.value === style)?.label ?? style;
+}
+
+/** Standard styles use PVC colour names; premium uses WPC premium colours (same Excel math). */
+export function fmsHybridVeStyleColourSource(style: FmsHybridVeStyle): 'pvc' | 'wpc' {
+  return style === 'premium' ? 'wpc' : 'pvc';
+}
+
+export function fmsHybridVeColoursForStyle(style: FmsHybridVeStyle): readonly FmsPvcCalculatorColour[] {
+  return style === 'premium' ? FMS_HYBRID_VE_PREMIUM_COLOURS : FMS_HYBRID_VE_STANDARD_COLOURS;
+}
+
+export function fmsHybridVeDefaultColour(style: FmsHybridVeStyle): FmsPvcCalculatorColour {
+  return style === 'premium' ? 'Moonlit' : 'White';
+}
 
 export interface FmsHybridVeFenceInput {
   length_ft: number;

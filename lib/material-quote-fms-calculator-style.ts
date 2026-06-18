@@ -62,7 +62,7 @@ export function inferFmsHubMaterialFromQuoteProject(project: {
   if (isHybrid) {
     const pvcColour = pvcHint ?? 'White';
     const wpcColour = wpcHint ?? 'Ash';
-    // Vertical hybrid (6'4" PVC panels) vs horizontal hybrid (WPC / aluminum boards).
+    // Vertical hybrid (6'4" panels) vs horizontal hybrid (WPC / aluminum boards).
     const isVertical = /\bvertical\b/i.test(blob);
     return {
       kind: 'hybrid',
