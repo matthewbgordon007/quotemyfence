@@ -84,7 +84,8 @@ export function gateSpanAlongSegment(
   let t = ((center.x - ax) * ux + (center.y - ay) * uy) / geomLen;
   t = Math.max(0, Math.min(1, t));
 
-  const halfNorm = gateWidthFt / 2 / typedLen;
+  // Gate opening span follows drawn geometry; material left/right lengths use typed total.
+  const halfNorm = gateWidthFt / 2 / geomLen;
   const t0 = Math.max(0, t - halfNorm);
   const t1 = Math.min(1, t + halfNorm);
   if (t1 - t0 < 0.001) return null;

@@ -138,6 +138,20 @@ function segmentsShareEndpoint(
   return false;
 }
 
+/** Left | gate | right trio after an in-line gate split — labels stay near the drawn segment. */
+function segmentInInlineGateSplit(
+  segmentIndex: number,
+  segmentCount: number,
+  gates: { line_index: number }[]
+): boolean {
+  for (const g of gates) {
+    const gi = g.line_index;
+    if (gi <= 0 || gi >= segmentCount - 1) continue;
+    if (segmentIndex === gi - 1 || segmentIndex === gi || segmentIndex === gi + 1) return true;
+  }
+  return false;
+}
+
 function nearestPointOnSegment(
   p: { x: number; y: number },
   a: { x: number; y: number },
@@ -1080,6 +1094,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         text: string;
         fontSize: number;
         strokeW: number;
+        maxDrift: number;
       };
 
       const share: boolean[][] = Array.from({ length: n }, () => Array(n).fill(false));
@@ -1100,6 +1115,8 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       const vh = mapView.vh;
       const contentCx = mapView.contentCx;
       const contentCy = mapView.contentCy;
+
+      const baseMaxDrift = Math.max(22, Math.min(vw, vh) * 0.12);
 
       for (let si = 0; si < n; si++) {
         const seg = segments[si];
@@ -1146,6 +1163,10 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
         const py = my + perpY * perpOffset;
         const r = Math.max(estHalfW * 0.92, labelFontFt * 0.68, 3.75);
         const strokeW = Math.max(0.2, labelFontFt * 0.42);
+        const inlineGateSplit = segmentInInlineGateSplit(si, n, placedGates);
+        const maxDrift = inlineGateSplit
+          ? Math.min(baseMaxDrift, Math.max(2.5, len * 1.15))
+          : baseMaxDrift;
         labs.push({
           si,
           x: px,
@@ -1156,10 +1177,9 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
           text: labelText,
           fontSize: labelFontFt,
           strokeW,
+          maxDrift,
         });
       }
-
-      const maxDrift = Math.max(22, Math.min(vw, vh) * 0.12);
 
       const repelPasses = (passes: number) => {
         for (let pass = 0; pass < passes; pass++) {
@@ -1195,8 +1215,8 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       const clampDrift = () => {
         for (const L of labs) {
           const ddc = Math.hypot(L.x - L.ox, L.y - L.oy);
-          if (ddc > maxDrift) {
-            const t = maxDrift / ddc;
+          if (ddc > L.maxDrift) {
+            const t = L.maxDrift / ddc;
             L.x = L.ox + (L.x - L.ox) * t;
             L.y = L.oy + (L.y - L.oy) * t;
           }

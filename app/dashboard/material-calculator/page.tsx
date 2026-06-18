@@ -82,7 +82,6 @@ import {
   type MapFenceSegment,
 } from '@/lib/map-fence-to-layout-drawing';
 import {
-  adjustLayoutDrawingSegmentLength,
   alignChainedSketchSegments,
   grossLengthFtForSketchSegment,
   layoutPointsToSegmentPairs,
@@ -1498,7 +1497,6 @@ export default function MaterialCalculatorHubPage() {
   const [layoutCanvasRemountKey, setLayoutCanvasRemountKey] = useState(0);
   /** Ignore canvas echo updates briefly after we push sketch geometry from run-table edits. */
   const programmaticSketchUpdateAtRef = useRef(0);
-  const sketchLengthPushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [shortGates, setShortGates] = useState<PvcGateRow[]>([]);
   const [singleGates, setSingleGates] = useState<PvcGateRow[]>([]);
@@ -3004,35 +3002,6 @@ export default function MaterialCalculatorHubPage() {
     ]);
   }
 
-  function pushSketchSegmentLength(segmentIndex: number, grossLengthFt: number) {
-    const sketch = layoutSketchDataRef.current;
-    if (!sketch?.segments?.length) return;
-    if (segmentIndex < 0 || segmentIndex >= sketch.segments.length) return;
-    if (grossLengthFt <= 0) return;
-    const sk = adjustLayoutDrawingSegmentLength(sketch, segmentIndex, grossLengthFt);
-    if (!sk) return;
-    programmaticSketchUpdateAtRef.current = Date.now();
-    queueMicrotask(() => {
-      setLayoutSketchData(sk as LayoutSketchDrawingPayload);
-      setLayoutCanvasRemountKey((k) => k + 1);
-    });
-  }
-
-  function scheduleSketchSegmentLengthPush(segmentIndex: number, netLengthFt: number, flush = false) {
-    if (sketchLengthPushTimerRef.current) {
-      clearTimeout(sketchLengthPushTimerRef.current);
-      sketchLengthPushTimerRef.current = null;
-    }
-    if (flush) {
-      pushSketchSegmentLength(segmentIndex, netLengthFt);
-      return;
-    }
-    sketchLengthPushTimerRef.current = setTimeout(() => {
-      sketchLengthPushTimerRef.current = null;
-      pushSketchSegmentLength(segmentIndex, netLengthFt);
-    }, 400);
-  }
-
   function updateLine(id: string, patch: Partial<PvcLineRow>) {
     const endEdit =
       'run_ends' in patch ||
@@ -3051,16 +3020,7 @@ export default function MaterialCalculatorHubPage() {
         };
       }
     }
-    setLines((rows) => {
-      const next = rows.map((r) => (r.id === id ? { ...r, ...mergedPatch } : r));
-      const idx = next.findIndex((r) => r.id === id);
-      if (idx >= 0 && 'length_ft' in patch) {
-        const merged = next[idx];
-        const newL = Math.max(0, Number(String(merged.length_ft).replace(/,/g, '')) || 0);
-        scheduleSketchSegmentLengthPush(idx, newL);
-      }
-      return next;
-    });
+    setLines((rows) => rows.map((r) => (r.id === id ? { ...r, ...mergedPatch } : r)));
   }
 
   function updateLineRunEnd(
@@ -3122,56 +3082,16 @@ export default function MaterialCalculatorHubPage() {
     return l.includes(' gate') && !l.includes('left') && !l.includes('right');
   }
 
-  function flushSketchSegmentLengthForLine(id: string) {
-    const rows = lines;
-    const idx = rows.findIndex((r) => r.id === id);
-    if (idx < 0) return;
-    const newL = Math.max(0, Number(String(rows[idx].length_ft).replace(/,/g, '')) || 0);
-    scheduleSketchSegmentLengthPush(idx, newL, true);
-  }
-
-  function flushSketchSegmentLengthForChainLine(id: string) {
-    const rows = chainLines;
-    const idx = rows.findIndex((r) => r.id === id);
-    if (idx < 0) return;
-    const newL = Math.max(0, Number(String(rows[idx].length_ft).replace(/,/g, '')) || 0);
-    scheduleSketchSegmentLengthPush(idx, newL, true);
-  }
-
   function updateChainLine(id: string, patch: Partial<ChainLineRow>) {
-    setChainLines((rows) => {
-      const next = rows.map((r) => (r.id === id ? { ...r, ...patch } : r));
-      const idx = next.findIndex((r) => r.id === id);
-      if (idx >= 0 && 'length_ft' in patch) {
-        const newL = Math.max(0, Number(String(next[idx].length_ft).replace(/,/g, '')) || 0);
-        scheduleSketchSegmentLengthPush(idx, newL);
-      }
-      return next;
-    });
+    setChainLines((rows) => rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   }
 
   function updateHybHLine(id: string, patch: Partial<HybridLineRow>) {
-    setHybHLines((rows) => {
-      const next = rows.map((r) => (r.id === id ? { ...r, ...patch } : r));
-      const idx = next.findIndex((r) => r.id === id);
-      if (idx >= 0 && 'length_ft' in patch) {
-        const newL = Math.max(0, Number(String(next[idx].length_ft).replace(/,/g, '')) || 0);
-        scheduleSketchSegmentLengthPush(idx, newL);
-      }
-      return next;
-    });
+    setHybHLines((rows) => rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   }
 
   function updateHybVLine(id: string, patch: Partial<HybridLineRow>) {
-    setHybVLines((rows) => {
-      const next = rows.map((r) => (r.id === id ? { ...r, ...patch } : r));
-      const idx = next.findIndex((r) => r.id === id);
-      if (idx >= 0 && 'length_ft' in patch) {
-        const newL = Math.max(0, Number(String(next[idx].length_ft).replace(/,/g, '')) || 0);
-        scheduleSketchSegmentLengthPush(idx, newL);
-      }
-      return next;
-    });
+    setHybVLines((rows) => rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   }
 
   function applySketchGateWidth(placementIndex: number, widthInStr: string) {
@@ -3796,7 +3716,6 @@ export default function MaterialCalculatorHubPage() {
                           step={0.1}
                           value={row.length_ft}
                           onChange={(e) => updateLine(row.id, { length_ft: e.target.value })}
-                          onBlur={() => flushSketchSegmentLengthForLine(row.id)}
                           className={`${field} w-28`}
                         />
                       </div>
@@ -4374,7 +4293,6 @@ export default function MaterialCalculatorHubPage() {
                         step={0.1}
                         value={row.length_ft}
                         onChange={(e) => updateChainLine(row.id, { length_ft: e.target.value })}
-                        onBlur={() => flushSketchSegmentLengthForChainLine(row.id)}
                         className={`${field} w-28`}
                       />
                     </div>
@@ -4406,7 +4324,6 @@ export default function MaterialCalculatorHubPage() {
                       value={row.length_ft}
                       disabled={row.fromSketch && !row.manualRunEdit}
                       onChange={(e) => updateChainLine(row.id, { length_ft: e.target.value })}
-                      onBlur={() => flushSketchSegmentLengthForChainLine(row.id)}
                       className={`${field} w-28 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70`}
                     />
                   </div>
