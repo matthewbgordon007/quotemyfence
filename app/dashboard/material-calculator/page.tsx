@@ -735,7 +735,11 @@ function buildInputForPvcLineRow(
   const grossL = Math.max(0, Number(String(r.length_ft).replace(/,/g, '')) || 0);
   if (
     sketchCtx &&
-    sketchGateSegmentRole(sketchCtx.segmentIndex, sketchCtx.sketch.gate_placements) === 'gate'
+    sketchGateSegmentRole(
+      sketchCtx.segmentIndex,
+      sketchCtx.sketch.gate_placements,
+      sketchCtx.sketch.segments.length
+    ) === 'gate'
   ) {
     return null;
   }
