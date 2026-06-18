@@ -13,7 +13,15 @@
  */
 
 import { excelRoundUp } from '@/lib/fms-excel-math';
-import { resolveFmsCalculatorRecipe, type FmsCalculatorRecipeV1 } from '@/lib/fms-calculator-recipe';
+import {
+  resolveFmsCalculatorRecipe,
+  FENCE_SKU_CATALOG_SLOT,
+  catalogSlotLabel,
+  enabledCustomCatalogItems,
+  isCatalogSlotEnabled,
+  type FmsCalculatorRecipeV1,
+  type FmsProductSlot,
+} from '@/lib/fms-calculator-recipe';
 import { LARGE_WARE_TITLE, SMALL_WARE_TITLE, splitWare } from '@/lib/material-ware';
 import {
   boardStiffenersForBoardCount,
@@ -174,29 +182,46 @@ export function computePvcMasterColumn(
   const postPack = splitPostGalvPack(hPost, galv);
   const uChannelPack = splitIntoPacks(uChannel, packs.u_channel_per_pack);
 
-  const items: FmsPvcMasterRow[] = [
-    masterRowPlain(labels.concrete, concrete),
-    masterRow(labels.rail, railPack.primary),
-    masterRow(labels.rail_stiffener, railPack.secondary),
-    masterRow(labels.board, boardPack.primary),
-    masterRow(labels.board_stiffener, boardPack.secondary),
-    masterRow(labels.h_post, postPack.hPost),
-    masterRow(labels.galvanized_post, postPack.galv),
-    masterRow(labels.u_channel, uChannelPack),
-    masterRowPlain(labels.h_post_stiffener, hPostStiff),
-    masterRowPlain(labels.post_filler, postFiller),
-    masterRowPlain(labels.overhead_brace, overhead),
-    masterRowPlain(labels.diagonal_brace, diagonal),
-    masterRowPlain(labels.base_plates, 0),
-    masterRowPlain(labels.lattice, 0),
-    masterRowPlain(labels.post_cap, postCap),
-    masterRowPlain(labels.hole_plug, holePlug),
-    masterRowPlain(labels.large_screw, largeScrew),
-    masterRowPlain(labels.short_screw, shortScrew),
-    masterRowPlain(labels.latch, latch),
-    masterRowPlain(labels.hinge, hinge),
-    masterRowPlain(labels.drop_rod, 0),
+  const wholePanels = j(adobe, 2);
+
+  type SlotRow = { slot: FmsProductSlot; row: FmsPvcMasterRow };
+  const slotRows: SlotRow[] = [
+    { slot: 'concrete', row: masterRowPlain(labels.concrete, concrete) },
+    { slot: 'rail', row: masterRow(labels.rail, railPack.primary) },
+    { slot: 'rail_stiffener', row: masterRow(labels.rail_stiffener, railPack.secondary) },
+    { slot: 'board', row: masterRow(labels.board, boardPack.primary) },
+    { slot: 'board_stiffener', row: masterRow(labels.board_stiffener, boardPack.secondary) },
+    { slot: 'h_post', row: masterRow(labels.h_post, postPack.hPost) },
+    { slot: 'galvanized_post', row: masterRow(labels.galvanized_post, postPack.galv) },
+    { slot: 'u_channel', row: masterRow(labels.u_channel, uChannelPack) },
+    { slot: 'h_post_stiffener', row: masterRowPlain(labels.h_post_stiffener, hPostStiff) },
+    { slot: 'post_filler', row: masterRowPlain(labels.post_filler, postFiller) },
+    { slot: 'overhead_brace', row: masterRowPlain(labels.overhead_brace, overhead) },
+    { slot: 'diagonal_brace', row: masterRowPlain(labels.diagonal_brace, diagonal) },
+    { slot: 'base_plates', row: masterRowPlain(labels.base_plates, 0) },
+    { slot: 'lattice', row: masterRowPlain(labels.lattice, 0) },
+    { slot: 'post_cap', row: masterRowPlain(labels.post_cap, postCap) },
+    { slot: 'hole_plug', row: masterRowPlain(labels.hole_plug, holePlug) },
+    { slot: 'large_screw', row: masterRowPlain(labels.large_screw, largeScrew) },
+    { slot: 'short_screw', row: masterRowPlain(labels.short_screw, shortScrew) },
+    { slot: 'latch', row: masterRowPlain(labels.latch, latch) },
+    { slot: 'hinge', row: masterRowPlain(labels.hinge, hinge) },
+    { slot: 'drop_rod', row: masterRowPlain(labels.drop_rod, 0) },
   ];
+
+  const items: FmsPvcMasterRow[] = slotRows
+    .filter(({ slot }) => isCatalogSlotEnabled(r, slot))
+    .map(({ slot, row }) => ({
+      ...row,
+      label: catalogSlotLabel(r, slot, row.label),
+    }));
+
+  for (const custom of enabledCustomCatalogItems(r)) {
+    if (!custom.surfaces?.includes('master')) continue;
+    const qty = wholePanels * (custom.qty_per_panel ?? 0);
+    if (qty <= 0) continue;
+    items.push(masterRowPlain(custom.label, qty));
+  }
   const { large, small } = splitWare(items, (r) => r.label);
 
   return [
@@ -256,30 +281,43 @@ export function adobeBreakdownToRows(adobe: Record<number, number>): { label: st
 
 /** Fence + gate totals on one line per material (matches how the master list groups items). */
 export function adobeBreakdownToMergedRows(
-  adobe: Record<number, number>
+  adobe: Record<number, number>,
+  recipe?: FmsCalculatorRecipeV1 | null
 ): { label: string; qty: number }[] {
+  const r = resolveFmsCalculatorRecipe(recipe);
   const j = (row: number) => adobe[row] ?? 0;
-  const add = (...rows: number[]) => rows.reduce((acc, r) => acc + j(r), 0);
+  const add = (...rows: number[]) => rows.reduce((acc, row) => acc + j(row), 0);
 
-  const items: { label: string; qty: number }[] = [
-    { label: 'Panels', qty: j(2) },
-    { label: 'Galvanized Post', qty: add(3, 18) },
-    { label: 'H Post', qty: add(4, 19) },
-    { label: 'Cap (H Post)', qty: add(5, 20) },
-    { label: 'Rail', qty: add(6, 21) },
-    { label: 'Rail Stiffener', qty: add(7, 22) },
-    { label: 'Board', qty: add(8, 23) },
-    { label: 'Board Stiffener', qty: add(9, 24) },
-    { label: 'Long Screw', qty: add(10, 26) },
-    { label: 'Short Screw', qty: add(11, 25) },
-    { label: 'Plug', qty: add(12, 27) },
-    { label: 'U Channel', qty: add(13, 28) },
-    { label: 'H Post Stiffener', qty: add(14, 33) },
-    { label: 'Cross Brace', qty: j(29) },
-    { label: 'Overhead Brace', qty: j(30) },
-    { label: 'Latch kit', qty: j(31) },
-    { label: 'Hinge Kit', qty: j(32) },
+  const rowDefs: { slot: FmsProductSlot; qty: number; fallback: string }[] = [
+    { slot: 'galvanized_post', qty: add(3, 18), fallback: 'Galvanized Post' },
+    { slot: 'h_post', qty: add(4, 19), fallback: 'H Post' },
+    { slot: 'cap_h_post', qty: add(5, 20), fallback: 'Cap (H Post)' },
+    { slot: 'rail', qty: add(6, 21), fallback: 'Rail' },
+    { slot: 'rail_stiffener', qty: add(7, 22), fallback: 'Rail Stiffener' },
+    { slot: 'board', qty: add(8, 23), fallback: 'Board' },
+    { slot: 'board_stiffener', qty: add(9, 24), fallback: 'Board Stiffener' },
+    { slot: 'large_screw', qty: add(10, 26), fallback: 'Long Screw' },
+    { slot: 'short_screw', qty: add(11, 25), fallback: 'Short Screw' },
+    { slot: 'hole_plug', qty: add(12, 27), fallback: 'Plug' },
+    { slot: 'u_channel', qty: add(13, 28), fallback: 'U Channel' },
+    { slot: 'h_post_stiffener', qty: add(14, 33), fallback: 'H Post Stiffener' },
+    { slot: 'diagonal_brace', qty: j(29), fallback: 'Cross Brace' },
+    { slot: 'overhead_brace', qty: j(30), fallback: 'Overhead Brace' },
+    { slot: 'latch', qty: j(31), fallback: 'Latch kit' },
+    { slot: 'hinge', qty: j(32), fallback: 'Hinge Kit' },
   ];
 
-  return items.filter((r) => r.qty !== 0);
+  const items = rowDefs
+    .filter(({ slot, qty }) => qty !== 0 && isCatalogSlotEnabled(r, slot))
+    .map(({ slot, qty, fallback }) => ({
+      label: catalogSlotLabel(r, slot, fallback),
+      qty,
+    }));
+
+  const panels = j(2);
+  if (panels > 0) {
+    items.unshift({ label: 'Panels', qty: panels });
+  }
+
+  return items;
 }

@@ -2516,7 +2516,7 @@ export default function MaterialCalculatorHubPage() {
     return [...runRows, ...unlinkedGates];
   }, [lines, shortGates, singleGates, doubleGates, effectivePvcPanelSpacingFt, layoutSketchData, fmsRecipe]);
 
-  const adobeRows = useMemo(() => adobeBreakdownToMergedRows(pvcAdobe), [pvcAdobe]);
+  const adobeRows = useMemo(() => adobeBreakdownToMergedRows(pvcAdobe, fmsRecipe), [pvcAdobe, fmsRecipe]);
 
   const bomTsv = useMemo(() => {
     const head = ['Job address/PO #', jobAddress || '—', '', ''].join('\t');

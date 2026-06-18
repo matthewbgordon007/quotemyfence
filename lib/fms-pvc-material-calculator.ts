@@ -3,7 +3,14 @@
  * transcribed from `docs/2026 FMS - Fencing Material Calculator.xlsx` for numeric parity with Excel.
  */
 
-import { resolveFmsCalculatorRecipe, type FmsCalculatorRecipeV1 } from '@/lib/fms-calculator-recipe';
+import {
+  resolveFmsCalculatorRecipe,
+  FENCE_SKU_CATALOG_SLOT,
+  catalogSlotLabel,
+  enabledCustomCatalogItems,
+  isCatalogSlotEnabled,
+  type FmsCalculatorRecipeV1,
+} from '@/lib/fms-calculator-recipe';
 import { excelRound, excelRoundUp } from '@/lib/fms-excel-math';
 
 export { excelRound, excelRoundUp } from '@/lib/fms-excel-math';
@@ -214,10 +221,25 @@ export function aggregateFmsPvcFenceLines(
   const sumH = results.reduce((a, line) => a + line.h_post, 0);
   const concrete = sumH * r.concrete_bags_per_h_post;
 
-  const sku_rows = FENCE_SKU_KEYS.map((key) => ({
-    label: r.fence_sku_labels[key],
-    quantity: results.reduce((a, line) => a + (Number(line[key]) || 0), 0),
-  }));
+  const sku_rows = FENCE_SKU_KEYS.flatMap((key) => {
+    const slot = FENCE_SKU_CATALOG_SLOT[key];
+    if (!isCatalogSlotEnabled(r, slot)) return [];
+    const quantity = results.reduce((a, line) => a + (Number(line[key]) || 0), 0);
+    if (quantity <= 0) return [];
+    return [
+      {
+        label: catalogSlotLabel(r, slot, r.fence_sku_labels[key]),
+        quantity,
+      },
+    ];
+  });
+
+  for (const custom of enabledCustomCatalogItems(r)) {
+    if (!custom.surfaces?.includes('fence')) continue;
+    const quantity = sumWhole * (custom.qty_per_panel ?? 0);
+    if (quantity <= 0) continue;
+    sku_rows.push({ label: custom.label, quantity });
+  }
 
   return {
     lines: results,

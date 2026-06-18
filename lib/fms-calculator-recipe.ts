@@ -91,6 +91,23 @@ export type FmsCalculatorRecipeV1 = {
     single: FmsGateRecipeAddons;
     double: FmsGateRecipeAddons;
   };
+  /** Supplier product names, visibility, and custom per-panel add-ons. */
+  product_catalog: FmsProductCatalogItem[];
+};
+
+/** Built-in calculator slot — maps to formula output rows. */
+export type FmsProductSlot = keyof FmsCalculatorRecipeV1['master_labels'] | 'cap_h_post';
+
+export type FmsProductCatalogItem = {
+  id: string;
+  /** Built-in formula slot; omit for supplier-added products. */
+  slot?: FmsProductSlot;
+  label: string;
+  enabled: boolean;
+  /** Custom products: qty × whole panel count. */
+  qty_per_panel?: number;
+  /** Custom products: where totals appear (default master only). */
+  surfaces?: ('master' | 'fence')[];
 };
 
 const DEFAULT_GATE_ADDONS: FmsGateRecipeAddons = {
@@ -188,7 +205,182 @@ export const DEFAULT_FMS_CALCULATOR_RECIPE: FmsCalculatorRecipeV1 = {
       h_post_stiffener: 2,
     },
   },
+  product_catalog: [],
 };
+
+/** Fence SKU column key → built-in catalog slot. */
+export const FENCE_SKU_CATALOG_SLOT: Record<
+  keyof FmsCalculatorRecipeV1['fence_sku_labels'],
+  FmsProductSlot
+> = {
+  galvanized_post: 'galvanized_post',
+  h_post: 'h_post',
+  cap_h_post: 'cap_h_post',
+  rail: 'rail',
+  rail_stiffener: 'rail_stiffener',
+  board: 'board',
+  board_stiffener: 'board_stiffener',
+  long_screw: 'large_screw',
+  short_screw: 'short_screw',
+  plug: 'hole_plug',
+  u_channel: 'u_channel',
+  h_post_stiffener: 'h_post_stiffener',
+};
+
+/** Per-panel recipe key → catalog slot (fence line BOM). */
+export const PER_PANEL_CATALOG_SLOT: Record<
+  keyof FmsCalculatorRecipeV1['fence']['per_panel'],
+  FmsProductSlot
+> = {
+  galvanized: 'galvanized_post',
+  h_post: 'h_post',
+  cap_h_post: 'cap_h_post',
+  rail: 'rail',
+  rail_stiffener: 'rail_stiffener',
+  board: 'board',
+  board_stiffener: 'board_stiffener',
+  long_screw: 'large_screw',
+  short_screw: 'short_screw',
+  plug: 'hole_plug',
+};
+
+export function newFmsCatalogProductId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `custom_${crypto.randomUUID()}`;
+  }
+  return `custom_${Date.now()}`;
+}
+
+function buildDefaultProductCatalog(
+  recipe: Omit<FmsCalculatorRecipeV1, 'product_catalog'>
+): FmsProductCatalogItem[] {
+  const items: FmsProductCatalogItem[] = [];
+  for (const slot of Object.keys(recipe.master_labels) as (keyof typeof recipe.master_labels)[]) {
+    items.push({
+      id: `builtin_${slot}`,
+      slot,
+      label: recipe.master_labels[slot],
+      enabled: true,
+    });
+  }
+  items.push({
+    id: 'builtin_cap_h_post',
+    slot: 'cap_h_post',
+    label: recipe.fence_sku_labels.cap_h_post,
+    enabled: true,
+  });
+  return items;
+}
+
+function normalizeCatalogItem(
+  raw: unknown,
+  defaults: FmsProductCatalogItem[]
+): FmsProductCatalogItem | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  const slot = typeof o.slot === 'string' ? (o.slot as FmsProductSlot) : undefined;
+  const def = slot ? defaults.find((d) => d.slot === slot) : undefined;
+  const id =
+    typeof o.id === 'string' && o.id.trim()
+      ? o.id.trim()
+      : slot
+        ? `builtin_${slot}`
+        : newFmsCatalogProductId();
+  const label = clampLabel(o.label, def?.label ?? 'New product');
+  const enabled = o.enabled === false ? false : true;
+  const qty = o.qty_per_panel != null ? clampQty(o.qty_per_panel, 0) : undefined;
+  let surfaces: ('master' | 'fence')[] | undefined;
+  if (Array.isArray(o.surfaces)) {
+    surfaces = o.surfaces.filter((s): s is 'master' | 'fence' => s === 'master' || s === 'fence');
+  }
+  if (!slot) {
+    return {
+      id,
+      label,
+      enabled,
+      qty_per_panel: qty ?? 1,
+      surfaces: surfaces?.length ? surfaces : ['master'],
+    };
+  }
+  return { id, slot, label, enabled };
+}
+
+function normalizeProductCatalog(
+  raw: unknown,
+  recipe: Omit<FmsCalculatorRecipeV1, 'product_catalog'>
+): FmsProductCatalogItem[] {
+  const defaults = buildDefaultProductCatalog(recipe);
+  if (!Array.isArray(raw) || raw.length === 0) return defaults;
+
+  const items: FmsProductCatalogItem[] = [];
+  const seenSlots = new Set<string>();
+  const seenIds = new Set<string>();
+
+  for (const row of raw) {
+    const item = normalizeCatalogItem(row, defaults);
+    if (!item || seenIds.has(item.id)) continue;
+    if (item.slot) {
+      if (seenSlots.has(item.slot)) continue;
+      seenSlots.add(item.slot);
+    }
+    seenIds.add(item.id);
+    items.push(item);
+  }
+
+  for (const def of defaults) {
+    if (def.slot && !seenSlots.has(def.slot)) items.push(def);
+  }
+
+  return items;
+}
+
+function syncLabelsFromCatalog(recipe: FmsCalculatorRecipeV1): FmsCalculatorRecipeV1 {
+  const master_labels = { ...recipe.master_labels };
+  const fence_sku_labels = { ...recipe.fence_sku_labels };
+  for (const item of recipe.product_catalog) {
+    if (!item.slot) continue;
+    if (item.slot in master_labels) {
+      master_labels[item.slot as keyof typeof master_labels] = item.label;
+    }
+    if (item.slot === 'cap_h_post') {
+      fence_sku_labels.cap_h_post = item.label;
+    }
+    for (const [fenceKey, slot] of Object.entries(FENCE_SKU_CATALOG_SLOT) as [
+      keyof typeof fence_sku_labels,
+      FmsProductSlot,
+    ][]) {
+      if (slot === item.slot) fence_sku_labels[fenceKey] = item.label;
+    }
+  }
+  return { ...recipe, master_labels, fence_sku_labels };
+}
+
+export function catalogEntryForSlot(
+  recipe: FmsCalculatorRecipeV1,
+  slot: FmsProductSlot
+): FmsProductCatalogItem | undefined {
+  return recipe.product_catalog.find((p) => p.slot === slot);
+}
+
+export function isCatalogSlotEnabled(recipe: FmsCalculatorRecipeV1, slot: FmsProductSlot): boolean {
+  const entry = catalogEntryForSlot(recipe, slot);
+  return entry ? entry.enabled : true;
+}
+
+export function catalogSlotLabel(
+  recipe: FmsCalculatorRecipeV1,
+  slot: FmsProductSlot,
+  fallback: string
+): string {
+  const entry = catalogEntryForSlot(recipe, slot);
+  return entry?.label?.trim() || fallback;
+}
+
+export function enabledCustomCatalogItems(recipe: FmsCalculatorRecipeV1): FmsProductCatalogItem[] {
+  return recipe.product_catalog.filter((p) => !p.slot && p.enabled);
+}
+
+DEFAULT_FMS_CALCULATOR_RECIPE.product_catalog = buildDefaultProductCatalog(DEFAULT_FMS_CALCULATOR_RECIPE);
 
 function clampQty(v: unknown, fallback: number): number {
   const n = Number(v);
@@ -249,7 +441,7 @@ export function normalizeFmsCalculatorRecipe(raw: unknown): FmsCalculatorRecipeV
   >;
   const gate = (o.gate && typeof o.gate === 'object' ? o.gate : {}) as Record<string, unknown>;
 
-  return {
+  const partial: Omit<FmsCalculatorRecipeV1, 'product_catalog'> = {
     version: 1,
     fence: {
       panel_spacing_ft: {
@@ -325,6 +517,9 @@ export function normalizeFmsCalculatorRecipe(raw: unknown): FmsCalculatorRecipeV
       double: mergeGateAddons(gate.double, d.gate.double),
     },
   };
+
+  const product_catalog = normalizeProductCatalog(o.product_catalog, partial);
+  return syncLabelsFromCatalog({ ...partial, product_catalog });
 }
 
 export function resolveFmsCalculatorRecipe(recipe?: FmsCalculatorRecipeV1 | null): FmsCalculatorRecipeV1 {

@@ -3,9 +3,13 @@
 import { useCallback, useState } from 'react';
 import {
   DEFAULT_FMS_CALCULATOR_RECIPE,
+  PER_PANEL_CATALOG_SLOT,
+  newFmsCatalogProductId,
   normalizeFmsCalculatorRecipe,
   type FmsCalculatorRecipeV1,
   type FmsGateRecipeAddons,
+  type FmsProductCatalogItem,
+  type FmsProductSlot,
 } from '@/lib/fms-calculator-recipe';
 
 const card =
@@ -16,6 +20,8 @@ const field =
 const btn =
   'rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-50';
 const btnAlt = 'rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50';
+const btnDanger =
+  'rounded-lg border border-red-200 bg-white px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-40';
 
 type Props = {
   recipe: FmsCalculatorRecipeV1;
@@ -23,6 +29,24 @@ type Props = {
   onChange: (recipe: FmsCalculatorRecipeV1) => void;
   onSave: () => Promise<void>;
 };
+
+function perPanelKeyForSlot(
+  slot: FmsProductSlot
+): keyof FmsCalculatorRecipeV1['fence']['per_panel'] | null {
+  for (const [key, mapped] of Object.entries(PER_PANEL_CATALOG_SLOT) as [
+    keyof FmsCalculatorRecipeV1['fence']['per_panel'],
+    FmsProductSlot,
+  ][]) {
+    if (mapped === slot) return key;
+  }
+  return null;
+}
+
+function builtinSlotHint(slot?: FmsProductSlot): string {
+  if (!slot) return 'Custom';
+  if (slot === 'cap_h_post') return 'Fence detail';
+  return 'Built-in';
+}
 
 function numInput(
   value: number,
@@ -42,35 +66,6 @@ function numInput(
     />
   );
 }
-
-function textInput(value: string, onChange: (s: string) => void, disabled: boolean) {
-  return (
-    <input
-      type="text"
-      disabled={disabled}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={`${field} w-full`}
-    />
-  );
-}
-
-const PER_PANEL_FIELDS: {
-  key: keyof FmsCalculatorRecipeV1['fence']['per_panel'];
-  skuKey: keyof FmsCalculatorRecipeV1['fence_sku_labels'];
-  label: string;
-}[] = [
-  { key: 'galvanized', skuKey: 'galvanized_post', label: 'Galvanized post' },
-  { key: 'h_post', skuKey: 'h_post', label: 'H-post' },
-  { key: 'cap_h_post', skuKey: 'cap_h_post', label: 'Cap (H-post)' },
-  { key: 'rail', skuKey: 'rail', label: 'Rail' },
-  { key: 'rail_stiffener', skuKey: 'rail_stiffener', label: 'Rail stiffener' },
-  { key: 'board', skuKey: 'board', label: 'Board' },
-  { key: 'board_stiffener', skuKey: 'board_stiffener', label: 'Board stiffener' },
-  { key: 'long_screw', skuKey: 'long_screw', label: 'Large screw' },
-  { key: 'short_screw', skuKey: 'short_screw', label: 'Short screw' },
-  { key: 'plug', skuKey: 'plug', label: 'Hole plug' },
-];
 
 const GATE_ADDON_FIELDS: { key: keyof FmsGateRecipeAddons; label: string }[] = [
   { key: 'long_screw_base', label: 'Large screw base' },
@@ -93,6 +88,48 @@ export function FmsCalculatorRecipeEditor({ recipe, canEdit, onChange, onSave }:
     [onChange, recipe]
   );
 
+  const updateCatalogItem = useCallback(
+    (id: string, updates: Partial<FmsProductCatalogItem>) => {
+      patch((p) => ({
+        ...p,
+        product_catalog: p.product_catalog.map((item) => (item.id === id ? { ...item, ...updates } : item)),
+      }));
+    },
+    [patch]
+  );
+
+  const removeCatalogItem = useCallback(
+    (item: FmsProductCatalogItem) => {
+      if (!canEdit) return;
+      if (item.slot) {
+        updateCatalogItem(item.id, { enabled: false });
+        return;
+      }
+      patch((p) => ({
+        ...p,
+        product_catalog: p.product_catalog.filter((row) => row.id !== item.id),
+      }));
+    },
+    [canEdit, patch, updateCatalogItem]
+  );
+
+  const addCustomProduct = useCallback(() => {
+    if (!canEdit) return;
+    patch((p) => ({
+      ...p,
+      product_catalog: [
+        ...p.product_catalog,
+        {
+          id: newFmsCatalogProductId(),
+          label: 'New product',
+          enabled: true,
+          qty_per_panel: 1,
+          surfaces: ['master'],
+        },
+      ],
+    }));
+  }, [canEdit, patch]);
+
   async function handleSave() {
     setSaving(true);
     try {
@@ -108,115 +145,216 @@ export function FmsCalculatorRecipeEditor({ recipe, canEdit, onChange, onSave }:
     onChange(normalizeFmsCalculatorRecipe(DEFAULT_FMS_CALCULATOR_RECIPE));
   }
 
+  const visibleCatalog = recipe.product_catalog;
+
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3 text-sm text-blue-950">
-        <strong className="font-semibold">Product setup</strong> — adjust pieces per panel, labels, pack sizes, and gate
-        add-ons. Formulas stay the same; only your quantities and names change for contractors using your catalog.
+        <strong className="font-semibold">Product setup</strong> — rename products to match your catalog, hide lines you
+        don&apos;t sell, and add custom items (qty × panel count). Formulas stay the same; only names and visibility
+        change on PDFs and material lists.
       </div>
 
       <section className={card}>
-        <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-blue-50/30 px-5 py-4">
-          <h2 className={h2}>Panel spacing &amp; per-panel quantities</h2>
-          <p className="mt-1 text-xs text-slate-500">Defaults match the FMS 2026 workbook.</p>
-        </div>
-        <div className="space-y-4 p-5">
-          <div className="grid gap-4 sm:grid-cols-2">
+        <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-emerald-50/30 px-5 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">7 ft panel spacing (ft)</label>
-              {numInput(
-                recipe.fence.panel_spacing_ft.nominal_7ft,
-                (n) =>
-                  patch((p) => ({
-                    ...p,
-                    fence: {
-                      ...p.fence,
-                      panel_spacing_ft: { ...p.fence.panel_spacing_ft, nominal_7ft: n },
-                    },
-                  })),
-                !canEdit,
-                0.000001
-              )}
+              <h2 className={h2}>Product catalog</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Edit names, hide built-in lines, or add your own products. Disabled built-ins stay in setup but won&apos;t
+                appear on lists.
+              </p>
             </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">6 ft panel spacing (ft)</label>
-              {numInput(
-                recipe.fence.panel_spacing_ft.nominal_6ft,
-                (n) =>
-                  patch((p) => ({
-                    ...p,
-                    fence: {
-                      ...p.fence,
-                      panel_spacing_ft: { ...p.fence.panel_spacing_ft, nominal_6ft: n },
-                    },
-                  })),
-                !canEdit
-              )}
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">6 ft board multiplier</label>
-              {numInput(
-                recipe.fence.board_multiplier_6ft,
-                (n) =>
-                  patch((p) => ({
-                    ...p,
-                    fence: { ...p.fence, board_multiplier_6ft: n },
-                  })),
-                !canEdit
-              )}
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Concrete bags per H-post</label>
-              {numInput(
-                recipe.concrete_bags_per_h_post,
-                (n) => patch((p) => ({ ...p, concrete_bags_per_h_post: n })),
-                !canEdit
-              )}
-            </div>
+            {canEdit ? (
+              <button type="button" className={btnAlt} onClick={addCustomProduct}>
+                + Add product
+              </button>
+            ) : null}
           </div>
+        </div>
+        <div className="overflow-x-auto p-5">
+          <table className="min-w-full text-sm">
+            <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-3 py-2">Product name</th>
+                <th className="px-3 py-2">Type</th>
+                <th className="px-3 py-2">Qty / panel</th>
+                <th className="px-3 py-2">Master list</th>
+                <th className="px-3 py-2">Fence rollup</th>
+                <th className="px-3 py-2">On</th>
+                <th className="px-3 py-2" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {visibleCatalog.map((item) => {
+                const perPanelKey = item.slot ? perPanelKeyForSlot(item.slot) : null;
+                const isCustom = !item.slot;
+                const surfaces = item.surfaces ?? ['master'];
+                const rowMuted = !item.enabled;
 
-          <div className="overflow-x-auto rounded-xl border border-slate-100">
-            <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-3 py-2">Item</th>
-                  <th className="px-3 py-2">Qty per panel</th>
-                  <th className="px-3 py-2">Fence SKU label</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {PER_PANEL_FIELDS.map(({ key, skuKey, label }) => (
-                  <tr key={key}>
-                    <td className="px-3 py-2 font-medium text-slate-800">{label}</td>
+                return (
+                  <tr key={item.id} className={rowMuted ? 'bg-slate-50/80 opacity-60' : undefined}>
                     <td className="px-3 py-2">
-                      {numInput(
-                        recipe.fence.per_panel[key],
-                        (n) =>
-                          patch((p) => ({
-                            ...p,
-                            fence: {
-                              ...p.fence,
-                              per_panel: { ...p.fence.per_panel, [key]: n },
-                            },
-                          })),
-                        !canEdit
+                      <input
+                        type="text"
+                        disabled={!canEdit}
+                        value={item.label}
+                        onChange={(e) => updateCatalogItem(item.id, { label: e.target.value })}
+                        className={`${field} min-w-[10rem]`}
+                      />
+                    </td>
+                    <td className="px-3 py-2 text-xs text-slate-500">{builtinSlotHint(item.slot)}</td>
+                    <td className="px-3 py-2">
+                      {isCustom ? (
+                        numInput(
+                          item.qty_per_panel ?? 1,
+                          (n) => updateCatalogItem(item.id, { qty_per_panel: n }),
+                          !canEdit
+                        )
+                      ) : perPanelKey ? (
+                        numInput(
+                          recipe.fence.per_panel[perPanelKey],
+                          (n) =>
+                            patch((p) => ({
+                              ...p,
+                              fence: {
+                                ...p.fence,
+                                per_panel: { ...p.fence.per_panel, [perPanelKey]: n },
+                              },
+                            })),
+                          !canEdit
+                        )
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
                       )}
                     </td>
-                    <td className="px-3 py-2">
-                      {textInput(
-                        recipe.fence_sku_labels[skuKey],
-                        (s) =>
-                          patch((p) => ({
-                            ...p,
-                            fence_sku_labels: { ...p.fence_sku_labels, [skuKey]: s },
-                          })),
-                        !canEdit
+                    <td className="px-3 py-2 text-center">
+                      {isCustom ? (
+                        <input
+                          type="checkbox"
+                          disabled={!canEdit}
+                          checked={surfaces.includes('master')}
+                          onChange={(e) => {
+                            const next = new Set(surfaces);
+                            if (e.target.checked) next.add('master');
+                            else next.delete('master');
+                            updateCatalogItem(item.id, {
+                              surfaces: Array.from(next) as ('master' | 'fence')[],
+                            });
+                          }}
+                          className="h-4 w-4 rounded border-slate-300"
+                        />
+                      ) : (
+                        <span className="text-xs text-emerald-700">✓</span>
                       )}
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      {isCustom ? (
+                        <input
+                          type="checkbox"
+                          disabled={!canEdit}
+                          checked={surfaces.includes('fence')}
+                          onChange={(e) => {
+                            const next = new Set(surfaces);
+                            if (e.target.checked) next.add('fence');
+                            else next.delete('fence');
+                            updateCatalogItem(item.id, {
+                              surfaces: Array.from(next) as ('master' | 'fence')[],
+                            });
+                          }}
+                          className="h-4 w-4 rounded border-slate-300"
+                        />
+                      ) : perPanelKey || item.slot === 'cap_h_post' ? (
+                        <span className="text-xs text-emerald-700">✓</span>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <input
+                        type="checkbox"
+                        disabled={!canEdit}
+                        checked={item.enabled}
+                        onChange={(e) => updateCatalogItem(item.id, { enabled: e.target.checked })}
+                        className="h-4 w-4 rounded border-slate-300"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      {canEdit ? (
+                        <button
+                          type="button"
+                          className={btnDanger}
+                          onClick={() => removeCatalogItem(item)}
+                          title={item.slot ? 'Hide from lists' : 'Delete product'}
+                        >
+                          {item.slot ? 'Hide' : 'Delete'}
+                        </button>
+                      ) : null}
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                );
+              })}
+            </tbody>
+          </table>
+          {recipe.product_catalog.some((p) => !p.enabled && p.slot) ? (
+            <p className="mt-3 text-xs text-slate-500">
+              Hidden built-in products are dimmed above — turn them back on with the checkbox.
+            </p>
+          ) : null}
+        </div>
+      </section>
+
+      <section className={card}>
+        <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-blue-50/30 px-5 py-4">
+          <h2 className={h2}>Panel spacing</h2>
+        </div>
+        <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">7 ft panel spacing (ft)</label>
+            {numInput(
+              recipe.fence.panel_spacing_ft.nominal_7ft,
+              (n) =>
+                patch((p) => ({
+                  ...p,
+                  fence: {
+                    ...p.fence,
+                    panel_spacing_ft: { ...p.fence.panel_spacing_ft, nominal_7ft: n },
+                  },
+                })),
+              !canEdit,
+              0.000001
+            )}
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">6 ft panel spacing (ft)</label>
+            {numInput(
+              recipe.fence.panel_spacing_ft.nominal_6ft,
+              (n) =>
+                patch((p) => ({
+                  ...p,
+                  fence: {
+                    ...p.fence,
+                    panel_spacing_ft: { ...p.fence.panel_spacing_ft, nominal_6ft: n },
+                  },
+                })),
+              !canEdit
+            )}
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">6 ft board multiplier</label>
+            {numInput(
+              recipe.fence.board_multiplier_6ft,
+              (n) => patch((p) => ({ ...p, fence: { ...p.fence, board_multiplier_6ft: n } })),
+              !canEdit
+            )}
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Concrete bags per H-post</label>
+            {numInput(
+              recipe.concrete_bags_per_h_post,
+              (n) => patch((p) => ({ ...p, concrete_bags_per_h_post: n })),
+              !canEdit
+            )}
           </div>
         </div>
       </section>
