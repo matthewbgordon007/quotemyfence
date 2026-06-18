@@ -50,6 +50,30 @@ export function fmsHybridAllColours(): readonly string[] {
   return Array.from(HYBRID_COLOUR_SET);
 }
 
+export function fmsHybridColoursForMaterial(material: FmsHybridMaterialLine): readonly string[] {
+  return material === 'pvc'
+    ? FMS_HYBRID_COLOUR_GROUPS[0]!.colours
+    : FMS_HYBRID_COLOUR_GROUPS[1]!.colours;
+}
+
+export function fmsHybridDefaultColour(material: FmsHybridMaterialLine): string {
+  return material === 'pvc' ? 'White' : 'Ash';
+}
+
+export function fmsHybridColourForMaterial(material: FmsHybridMaterialLine, colour: string): string {
+  const allowed = fmsHybridColoursForMaterial(material);
+  return allowed.includes(colour) ? colour : fmsHybridDefaultColour(material);
+}
+
+export function coerceFmsHybridCalculatorColourForMaterial(
+  material: FmsHybridMaterialLine,
+  raw: string | null | undefined
+): string | null {
+  const s = (raw ?? '').trim();
+  if (!s) return null;
+  return fmsHybridColoursForMaterial(material).includes(s) ? s : null;
+}
+
 export function coerceFmsHybridCalculatorColour(raw: string | null | undefined): string | null {
   const s = (raw ?? '').trim();
   if (!s || !HYBRID_COLOUR_SET.has(s)) return null;

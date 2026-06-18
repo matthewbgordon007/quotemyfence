@@ -72,11 +72,12 @@ import {
 } from '@/lib/fms-hybrid-calculators';
 import {
   FMS_PVC_CALCULATOR_COLOURS,
-  FMS_HYBRID_COLOUR_GROUPS,
   coerceFmsHybridCalculatorColour,
   coerceFmsPvcCalculatorColour,
   coerceFmsWpcCalculatorColour,
   fmsHybridColourExportLabel,
+  fmsHybridColourForMaterial,
+  fmsHybridColoursForMaterial,
   fmsPvcMaterialListBreakdownTitle,
   type FmsHybridMaterialLine,
   type FmsPvcCalculatorColour,
@@ -1366,24 +1367,22 @@ function coerceHybridMaterialLine(x: unknown): FmsHybridMaterialLine {
 }
 
 function HybridColourSelect({
+  material,
   value,
   onChange,
   className,
 }: {
+  material: FmsHybridMaterialLine;
   value: string;
   onChange: (value: string) => void;
   className?: string;
 }) {
   return (
     <select value={value} onChange={(e) => onChange(e.target.value)} className={className}>
-      {FMS_HYBRID_COLOUR_GROUPS.map((group) => (
-        <optgroup key={group.label} label={group.label}>
-          {group.colours.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </optgroup>
+      {fmsHybridColoursForMaterial(material).map((c) => (
+        <option key={c} value={c}>
+          {c}
+        </option>
       ))}
     </select>
   );
@@ -1753,7 +1752,13 @@ export default function MaterialCalculatorHubPage() {
   const [hybVDoubleGates, setHybVDoubleGates] = useState<HybridVFenceGateRow[]>([]);
   const [hybridColour, setHybridColour] = useState('Ash');
 
-  /** Plan sketch from `?from_material_quote=` (loading / found / missing). */
+  const activeHybridMaterial: FmsHybridMaterialLine = tab === 'hybrid_v' ? hybVMaterial : hybHMaterial;
+
+  useEffect(() => {
+    if (tab !== 'hybrid_h' && tab !== 'hybrid_v') return;
+    const material = tab === 'hybrid_v' ? hybVMaterial : hybHMaterial;
+    setHybridColour((c) => fmsHybridColourForMaterial(material, c));
+  }, [tab, hybHMaterial, hybVMaterial]);
   const [materialQuoteSketchLoadState, setMaterialQuoteSketchLoadState] = useState<
     'idle' | 'loading' | 'ok' | 'none'
   >('idle');
@@ -2398,11 +2403,12 @@ export default function MaterialCalculatorHubPage() {
           }
           if (inferred.kind === 'hybrid') {
             if (!savedCalcColour) {
+              const material = inferred.hybridMaterialLine ?? (inferred.tab === 'hybrid_v' ? 'pvc' : 'wpc');
               const c =
                 inferred.wpcColour ??
                 inferred.pvcColour ??
                 coerceFmsHybridCalculatorColour(req.project?.design_option?.colour ?? '');
-              if (c) setHybridColour(c);
+              if (c) setHybridColour(fmsHybridColourForMaterial(material, c));
             }
             if (inferred.hybridMaterialLine) {
               if (inferred.tab === 'hybrid_v') setHybVMaterial(inferred.hybridMaterialLine);
@@ -4662,9 +4668,10 @@ export default function MaterialCalculatorHubPage() {
             {tab === 'hybrid_h' || tab === 'hybrid_v' ? (
               <div>
                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Color (label only)
+                  {activeHybridMaterial === 'wpc' ? 'WPC colour' : 'PVC colour'} (label only)
                 </label>
                 <HybridColourSelect
+                  material={activeHybridMaterial}
                   value={hybridColour}
                   onChange={setHybridColour}
                   className={`${field} w-full`}
@@ -5503,8 +5510,8 @@ export default function MaterialCalculatorHubPage() {
             <div className="border-b border-amber-100 bg-amber-50/30 px-5 py-4">
               <h2 className={h2}>{fmsHybridHoBlockTitle(hybHFamily, hybHHeight)}</h2>
               <p className="mt-1 text-xs text-slate-600">
-                Horizontal hybrid, 6&apos; post spacing. Pick PVC or WPC material, any board profile and colour — panel
-                counts follow the Excel board profile; colour is label-only.
+                Horizontal hybrid, 6&apos; post spacing. Board profile sets panel counts; board material sets which
+                colour list applies (PVC or WPC).
               </p>
             </div>
             <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -5512,7 +5519,11 @@ export default function MaterialCalculatorHubPage() {
                 <label className="mb-1 block text-xs font-semibold text-slate-500">Board material</label>
                 <select
                   value={hybHMaterial}
-                  onChange={(e) => setHybHMaterial(coerceHybridMaterialLine(e.target.value))}
+                  onChange={(e) => {
+                    const material = coerceHybridMaterialLine(e.target.value);
+                    setHybHMaterial(material);
+                    setHybridColour((c) => fmsHybridColourForMaterial(material, c));
+                  }}
                   className={`${field} w-full`}
                 >
                   {FMS_HYBRID_MATERIAL_LINES.map((m) => (
@@ -5557,8 +5568,11 @@ export default function MaterialCalculatorHubPage() {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-500">Colour (label only)</label>
+                <label className="mb-1 block text-xs font-semibold text-slate-500">
+                  {hybHMaterial === 'wpc' ? 'WPC colour' : 'PVC colour'} (label only)
+                </label>
                 <HybridColourSelect
+                  material={hybHMaterial}
                   value={hybridColour}
                   onChange={setHybridColour}
                   className={`${field} w-full`}
@@ -5735,8 +5749,8 @@ export default function MaterialCalculatorHubPage() {
             <div className="border-b border-blue-100 bg-blue-50/20 px-5 py-4">
               <h2 className={h2}>{FMS_HYBRID_VE_BLOCK_TITLE}</h2>
               <p className="mt-1 text-xs text-slate-600">
-                Vertical 6&apos;4&quot; hybrid panels, 8&apos; post spacing. Pick PVC or WPC material and any colour —
-                panel counts are the same either way.
+                Vertical 6&apos;4&quot; hybrid panels, 8&apos; post spacing. Panel material sets which colour list
+                applies (PVC or WPC).
               </p>
             </div>
             <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -5744,7 +5758,11 @@ export default function MaterialCalculatorHubPage() {
                 <label className="mb-1 block text-xs font-semibold text-slate-500">Panel material</label>
                 <select
                   value={hybVMaterial}
-                  onChange={(e) => setHybVMaterial(coerceHybridMaterialLine(e.target.value))}
+                  onChange={(e) => {
+                    const material = coerceHybridMaterialLine(e.target.value);
+                    setHybVMaterial(material);
+                    setHybridColour((c) => fmsHybridColourForMaterial(material, c));
+                  }}
                   className={`${field} w-full`}
                 >
                   {FMS_HYBRID_MATERIAL_LINES.map((m) => (
@@ -5755,8 +5773,11 @@ export default function MaterialCalculatorHubPage() {
                 </select>
               </div>
               <div className="sm:col-span-2">
-                <label className="mb-1 block text-xs font-semibold text-slate-500">Colour (label only)</label>
+                <label className="mb-1 block text-xs font-semibold text-slate-500">
+                  {hybVMaterial === 'wpc' ? 'WPC colour' : 'PVC colour'} (label only)
+                </label>
                 <HybridColourSelect
+                  material={hybVMaterial}
                   value={hybridColour}
                   onChange={setHybridColour}
                   className={`${field} w-full`}
