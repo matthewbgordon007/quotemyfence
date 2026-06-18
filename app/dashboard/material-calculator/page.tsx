@@ -96,6 +96,7 @@ import {
   netFenceLengthFtForSegment,
   PVC_DOUBLE_GATE_MIN_IN,
   PVC_SHORT_GATE_MAX_IN,
+  PVC_STANDARD_GATE_WIDTH_IN,
   removeLayoutDrawingGatePlacement,
   removeLayoutDrawingSegment,
   segmentRunEndTerminationsForSketch,
@@ -801,8 +802,13 @@ function buildInputs(
     .filter(Boolean) as FmsPvcFenceLineInput[];
 }
 
-function emptyGateRow(): PvcGateRow {
-  return { id: newLineId(), width_in: '', posts: FMS_GATE_POST_COUNT };
+function defaultPvcGateWidthIn(kind: 'short' | 'single' | 'double'): string {
+  if (kind === 'double') return String(PVC_DOUBLE_GATE_MIN_IN);
+  return String(PVC_STANDARD_GATE_WIDTH_IN);
+}
+
+function emptyGateRow(kind: 'short' | 'single' | 'double'): PvcGateRow {
+  return { id: newLineId(), width_in: defaultPvcGateWidthIn(kind), posts: FMS_GATE_POST_COUNT };
 }
 
 /**
@@ -3425,7 +3431,7 @@ export default function MaterialCalculatorHubPage() {
   }
 
   function addPvcGate(kind: 'short' | 'single' | 'double') {
-    const row = emptyGateRow();
+    const row = emptyGateRow(kind);
     if (kind === 'short') setShortGates((p) => [...p, row]);
     else if (kind === 'single') setSingleGates((p) => [...p, row]);
     else setDoubleGates((p) => [...p, row]);
@@ -4095,13 +4101,29 @@ export default function MaterialCalculatorHubPage() {
             <div className="border-b border-slate-100 bg-gradient-to-r from-amber-50/40 via-white to-slate-50/80 px-5 py-4">
               <h2 className={h2}>Gates</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Enter each gate&apos;s opening width (2 posts per gate at the opening). Gates from your sketch appear here automatically.
+                Enter each gate&apos;s opening width (2 posts per gate). Gates from your sketch default to a standard
+                48″ walk gate on fence lines; dedicated short runs use the full line length.
               </p>
             </div>
             <div className="space-y-4 p-5">
-              {renderPvcGateSection('Walk gates (small)', 'Openings under 59.5″.', 'short', shortGates)}
-              {renderPvcGateSection('Single gates', 'Openings 65.5″ and wider.', 'single', singleGates)}
-              {renderPvcGateSection('Double gates', 'Openings 106″ and wider.', 'double', doubleGates)}
+              {renderPvcGateSection(
+                'Walk gates (small)',
+                'Line lengths under 59.5″ — opening equals the full run (or a standard 48″ gate).',
+                'short',
+                shortGates
+              )}
+              {renderPvcGateSection(
+                'Single gates',
+                'Fence lines 59.5″ and longer — default 48″ opening; widen here for larger single-leaf gates.',
+                'single',
+                singleGates
+              )}
+              {renderPvcGateSection(
+                'Double gates',
+                'Double gates on fence lines — default 106″ opening (workbook minimum).',
+                'double',
+                doubleGates
+              )}
             </div>
           </section>
 

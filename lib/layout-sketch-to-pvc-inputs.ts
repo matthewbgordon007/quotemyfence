@@ -34,6 +34,8 @@ export const LAYOUT_MIN_SKETCH_SEGMENT_FT = 0.08;
 export const PVC_SHORT_GATE_MAX_IN = 59.5;
 export const PVC_SINGLE_GATE_MIN_IN = 65.5;
 export const PVC_DOUBLE_GATE_MIN_IN = 106;
+/** Default pedestrian gate opening when dropped on a fence line (standard 4′ walk gate). */
+export const PVC_STANDARD_GATE_WIDTH_IN = 48;
 
 export type SketchGatePlacement = {
   type: 'single' | 'double';
@@ -400,8 +402,9 @@ function hypot(a: number, b: number): number {
 
 /**
  * Gate opening width (in) for a sketch placement.
- * - Dedicated short gate run (segment &lt; 59.5″): the whole segment length is the opening.
- * - Gate on a longer fence line: standard single/double minimum from the PVC workbook — never the full line.
+ * - Dedicated short gate run (line length &lt; 59.5″): the whole segment length is the opening.
+ * - Single gate on a longer fence line: standard 48″ walk gate (not the full line length).
+ * - Double gate on a fence line: workbook minimum 106″ unless a custom width is set.
  */
 export function sketchGateWidthInches(
   placement: SketchGatePlacement,
@@ -416,7 +419,7 @@ export function sketchGateWidthInches(
 
   if (widthRawIn > 0 && widthRawIn < PVC_SHORT_GATE_MAX_IN) return widthRawIn;
   if (placement.type === 'double') return PVC_DOUBLE_GATE_MIN_IN;
-  return PVC_SINGLE_GATE_MIN_IN;
+  return PVC_STANDARD_GATE_WIDTH_IN;
 }
 
 /** Fence run length after subtracting gate openings placed on that segment (avoids double-counting). */
