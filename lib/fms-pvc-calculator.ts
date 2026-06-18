@@ -80,7 +80,7 @@ export function fmsPvcColorLineMaterialFinals(line: FmsPvcLineInputs): { rows: F
   const postBase = d9 + d6 - 1;
   const railFinal = excelRoundUp(c9 * 2, 0);
   const boardFinal = excelRoundUp(c8 * 16, 10);
-  const boardStiffFinal = excelRoundUp(c8 * 3, 1);
+  const boardStiffFinal = excelRound(c8 * 3, 0);
   const shortScrewFinal = postBase;
   const c20 = d9 * 4;
   const c21 = d9 * 4;

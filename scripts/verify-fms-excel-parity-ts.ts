@@ -47,7 +47,7 @@ const line7 = computeFmsPvcFenceLine({
 });
 assertEq('7ft line 4′ rail D15', line7.rail, 1);
 assertEq('7ft line 4′ board D17', line7.board, 8);
-assertEq('7ft line 4′ board stiff D18', line7.board_stiffener, 1.5);
+assertEq('7ft line 4′ board stiff D18', line7.board_stiffener, 1);
 assertEq('7ft line 4′ posts D12', line7.h_post, 0);
 
 const line6 = computeFmsPvcFenceLine({
@@ -58,7 +58,7 @@ const line6 = computeFmsPvcFenceLine({
 });
 assertEq('6ft line 87′ rail I15', line6.rail, 29);
 assertEq('6ft line 87′ boards I17', line6.board, 169);
-assertEq('6ft line 87′ board stiff I18', line6.board_stiffener, 43.5);
+assertEq('6ft line 87′ board stiff I18', line6.board_stiffener, 44);
 assertEq('6ft line 87′ posts I12', line6.h_post, 15);
 
 // Short gate 48″, 1 post
@@ -144,7 +144,7 @@ const veFence = computeHybridVerticalPvc64Fence({ length_ft: 1.5, h_post: 1, u_c
 assertEq('hyb V 1.5′ h post', pickHybrid(veFence.rows, 'Aluminum H Post'), 1);
 assertEq('hyb V 1.5′ 8ft rail', pickHybrid(veFence.rows, "8' Rail"), 1);
 assertEq('hyb V 1.5′ 72in board', pickHybrid(veFence.rows, '72" Board'), 3);
-assertEq('hyb V 1.5′ board stiff', pickHybrid(veFence.rows, 'Board Stiffener'), 0.5625);
+assertEq('hyb V 1.5′ board stiff', pickHybrid(veFence.rows, 'Board Stiffener'), 1);
 assertEq('hyb V 1.5′ long screw', pickHybrid(veFence.rows, 'Long Black Screw (2.5)'), 4);
 
 const veFenceLong = computeHybridVerticalPvc64Fence({ length_ft: 16, h_post: 2, u_channel: 1 });

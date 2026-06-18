@@ -95,7 +95,7 @@ export function buildFmsHybridMasterList(
     { item: '3" Aluminum Pocket Rail 96"', final: excelRoundUp(rail96, 0) },
     { item: '3" Aluminum Pocket Rail 72"', final: excelRoundUp(rail72, 0) },
     { item: 'Board', final: excelRoundUp(board, 0) },
-    { item: 'Board Stiffener', final: excelRoundUp(boardStiff, 0) },
+    { item: 'Board Stiffener', final: excelRound(boardStiff, 0) },
     { item: 'Outer U-Channel', final: uChannel },
     { item: 'Inner U-Channel', final: uChannel },
     { item: 'Aluminum Gate Side Frame', final: gateSideFrame },
@@ -447,7 +447,7 @@ export function computeHybridVerticalPvc64Fence(input: FmsHybridVeFenceInput): F
   // Excel leaves C15/C16 fractional — keep them fractional per run so cut material is shared
   // across runs; the master list rounds the job total up once.
   const board72 = 16 * c8;
-  const boardStiff = 3 * c8;
+  const boardStiff = excelRound(3 * c8, 0);
   const smallScrew = d7 * 6;
   const c19 = d9 * 4;
   const longScrew = excelIfHPostTypeAdjustLongScrew(c19, d7);
