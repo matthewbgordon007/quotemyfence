@@ -428,13 +428,49 @@ function drawingDataToHybridVLineRows(
   });
 }
 
-/** Sketch redraw: refresh linked runs; leave hand-edited runs untouched for the material list. */
+/** Sketch redraw: refresh linked runs; keep post/end overrides when user unlocked edit mode. */
+function mergePvcLineFromSketch(row: PvcLineRow, old: PvcLineRow | undefined): PvcLineRow {
+  if (!old) return row;
+  if (old.manualRunEdit) {
+    return {
+      ...row,
+      id: old.id,
+      label: old.label || row.label,
+      length_ft: row.length_ft,
+      end_preset: old.end_preset,
+      h_post_type: old.h_post_type,
+      u_channel: old.u_channel,
+      manualRunEdit: true,
+      fromSketch: false,
+    };
+  }
+  return { ...row, id: old.id, label: old.label || row.label };
+}
+
 function mergeFenceLineFromSketch<
-  T extends { fromSketch?: boolean; manualRunEdit?: boolean; id: string; label: string },
+  T extends { fromSketch?: boolean; manualRunEdit?: boolean; id: string; label: string; length_ft: string },
 >(row: T, old: T | undefined): T {
   if (!old) return row;
-  if (old.manualRunEdit || !old.fromSketch) return old;
+  if (old.manualRunEdit) {
+    return { ...row, id: old.id, label: old.label || row.label, manualRunEdit: true, fromSketch: false };
+  }
   return { ...row, id: old.id, label: old.label || row.label };
+}
+
+function sketchFenceRowsNeedRefresh<T extends { length_ft: string }>(
+  prev: T[],
+  next: T[] | null,
+  sketchKey: string,
+  lastSketchKey: string
+): boolean {
+  if (!next?.length) return false;
+  if (sketchKey !== lastSketchKey) return true;
+  if (prev.length !== next.length) return true;
+  for (let i = 0; i < next.length; i++) {
+    if (!prev[i]) return true;
+    if (String(next[i].length_ft) !== String(prev[i].length_ft)) return true;
+  }
+  return false;
 }
 
 function layoutSketchDataKey(data: {
@@ -1370,10 +1406,58 @@ export default function MaterialCalculatorHubPage() {
   /** True after the canvas has had at least one segment this session (avoids clearing imported layout lines). */
   const sketchHadSegmentsRef = useRef(false);
 
-  const handleLayoutDrawingChange = useCallback((data: LayoutSketchDrawingPayload) => {
-    if (Date.now() - programmaticSketchUpdateAtRef.current < 400) return;
-    setLayoutSketchData(data);
-  }, []);
+  const applySketchToFenceRuns = useCallback(
+    (payload: LayoutSketchDrawingPayload, opts?: { force?: boolean }) => {
+      if (!payload.segments?.length) return;
+      const key = layoutSketchDataKey(payload);
+      const panelModule = pvcPanelModule;
+      const nextPvc = drawingDataToPvcLineRows(payload, panelModule);
+      const nextChain = drawingDataToChainLineRows(payload, panelModule);
+      const nextHyb = drawingDataToHybridVLineRows(payload, panelModule);
+      if (!nextPvc?.length) return;
+
+      setLines((prev) => {
+        if (!opts?.force && !sketchFenceRowsNeedRefresh(prev, nextPvc, key, sketchToLinesSyncKeyRef.current)) {
+          return prev;
+        }
+        return nextPvc.map((row, i) => mergePvcLineFromSketch(row, prev[i]));
+      });
+      if (nextChain?.length) {
+        setChainLines((prev) => {
+          if (!opts?.force && !sketchFenceRowsNeedRefresh(prev, nextChain, key, sketchToLinesSyncKeyRef.current)) {
+            return prev;
+          }
+          return nextChain.map((row, i) => mergeFenceLineFromSketch(row, prev[i]));
+        });
+      }
+      if (nextHyb?.length) {
+        setHybVLines((prev) => {
+          if (!opts?.force && !sketchFenceRowsNeedRefresh(prev, nextHyb, key, sketchToLinesSyncKeyRef.current)) {
+            return prev;
+          }
+          return nextHyb.map((row, i) => mergeFenceLineFromSketch(row, prev[i]));
+        });
+        setHybHLines((prev) => {
+          if (!opts?.force && !sketchFenceRowsNeedRefresh(prev, nextHyb, key, sketchToLinesSyncKeyRef.current)) {
+            return prev;
+          }
+          return nextHyb.map((row, i) => mergeFenceLineFromSketch(row, prev[i]));
+        });
+      }
+      sketchToLinesSyncKeyRef.current = key;
+      sketchHadSegmentsRef.current = true;
+    },
+    [pvcPanelModule]
+  );
+
+  const handleLayoutDrawingChange = useCallback(
+    (data: LayoutSketchDrawingPayload) => {
+      if (Date.now() - programmaticSketchUpdateAtRef.current < 400) return;
+      setLayoutSketchData(data);
+      applySketchToFenceRuns(data, { force: true });
+    },
+    [applySketchToFenceRuns]
+  );
 
   useEffect(() => {
     if (isStyleTabParam(tabParam)) {
@@ -1450,6 +1534,7 @@ export default function MaterialCalculatorHubPage() {
         if (pl) setLines(pl);
         const sketch = parseLayoutSketch(d.layoutSketchData);
         if (sketch) {
+          sketchToLinesSyncKeyRef.current = '';
           setLayoutSketchData(sketch);
           setLayoutCanvasRemountKey((k) => k + 1);
         }
@@ -1946,44 +2031,8 @@ export default function MaterialCalculatorHubPage() {
       }
       return;
     }
-    sketchHadSegmentsRef.current = true;
-    const key = layoutSketchDataKey(payload);
-    const panelModule = pvcPanelModule;
-
-    const shouldRefreshSketchLines = <T extends { fromSketch?: boolean; manualRunEdit?: boolean; length_ft?: string }>(
-      prev: T[],
-      next: T[] | null
-    ) => {
-      if (!next?.length) return false;
-      if (key !== sketchToLinesSyncKeyRef.current) return true;
-      const sketchManaged = prev.length > 0 && prev.every((l) => l.fromSketch && !l.manualRunEdit);
-      if (!sketchManaged) return false;
-      if (prev.length !== next.length) return true;
-      return next.some((n, i) => String(n.length_ft) !== String(prev[i]?.length_ft));
-    };
-
-    setLines((prev) => {
-      const next = drawingDataToPvcLineRows(payload, panelModule);
-      if (!shouldRefreshSketchLines(prev, next)) return prev;
-      return next!.map((row, i) => mergeFenceLineFromSketch(row, prev[i]));
-    });
-    setChainLines((prev) => {
-      const next = drawingDataToChainLineRows(payload, panelModule);
-      if (!shouldRefreshSketchLines(prev, next)) return prev;
-      return next!.map((row, i) => mergeFenceLineFromSketch(row, prev[i]));
-    });
-    setHybVLines((prev) => {
-      const next = drawingDataToHybridVLineRows(payload, panelModule);
-      if (!shouldRefreshSketchLines(prev, next)) return prev;
-      return next!.map((row, i) => mergeFenceLineFromSketch(row, prev[i]));
-    });
-    setHybHLines((prev) => {
-      const next = drawingDataToHybridVLineRows(payload, panelModule);
-      if (!shouldRefreshSketchLines(prev, next)) return prev;
-      return next!.map((row, i) => mergeFenceLineFromSketch(row, prev[i]));
-    });
-    sketchToLinesSyncKeyRef.current = key;
-  }, [layoutSketchData, pvcPanelModule]);
+    applySketchToFenceRuns(payload);
+  }, [layoutSketchData, applySketchToFenceRuns]);
 
   /** New gates placed on the layout sketch → PVC + chain link gate rows; scroll to the active tab’s gate block. */
   useEffect(() => {
