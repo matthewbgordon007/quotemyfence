@@ -153,20 +153,24 @@ export function isInlineGateSplitPlacement(gateLineIndex: number, segmentCount: 
 export function isDedicatedGateSegmentIndex(
   segmentIndex: number,
   gatePlacements: SketchGatePlacement[] | null | undefined,
-  segmentCount: number
+  segmentCount: number,
+  segments?: { length_ft?: number }[] | null
 ): boolean {
   if (!gatePlacements?.length) return false;
-  return gatePlacements.some(
-    (g) =>
-      g.line_index === segmentIndex &&
-      !isInlineGateSplitPlacement(g.line_index, segmentCount)
-  );
+  const segLenIn = Math.max(0, Number(segments?.[segmentIndex]?.length_ft) || 0) * 12;
+  return gatePlacements.some((g) => {
+    if (g.line_index !== segmentIndex) return false;
+    if (isInlineGateSplitPlacement(g.line_index, segmentCount)) return false;
+    // Long fence runs with an inline gate are not dedicated gate-only segments.
+    return segLenIn > 0 && segLenIn < PVC_SHORT_GATE_MAX_IN;
+  });
 }
 
 export function sketchGateSegmentRole(
   segmentIndex: number,
   gatePlacements?: SketchGatePlacement[] | null,
-  segmentCount?: number
+  segmentCount?: number,
+  segments?: { length_ft?: number }[] | null
 ): 'gate' | 'left_fence' | 'right_fence' | null {
   if (!gatePlacements?.length) return null;
   const n =
@@ -174,7 +178,12 @@ export function sketchGateSegmentRole(
     Math.max(segmentIndex + 1, ...gatePlacements.map((g) => g.line_index + 2));
   for (const g of gatePlacements) {
     const gi = g.line_index;
-    if (gi === segmentIndex) return 'gate';
+    if (gi === segmentIndex) {
+      if (isInlineGateSplitPlacement(gi, n)) return 'gate';
+      const segLenIn = Math.max(0, Number(segments?.[segmentIndex]?.length_ft) || 0) * 12;
+      if (segLenIn > 0 && segLenIn < PVC_SHORT_GATE_MAX_IN) return 'gate';
+      return null;
+    }
     if (!isInlineGateSplitPlacement(gi, n)) continue;
     if (segmentIndex === gi - 1) return 'left_fence';
     if (segmentIndex === gi + 1) return 'right_fence';
@@ -192,7 +201,7 @@ export function sketchSegmentRunLabel(
   netLengthFt: number,
   gatePlacements?: SketchGatePlacement[] | null
 ): string {
-  const role = sketchGateSegmentRole(segmentIndex, gatePlacements, segmentCount);
+  const role = sketchGateSegmentRole(segmentIndex, gatePlacements, segmentCount, segments);
   if (role && gatePlacements?.length) {
     for (const g of gatePlacements) {
       const gi = g.line_index;
@@ -219,9 +228,10 @@ function computeSegmentRunEndsAtAlignedIndex(
   sourceIndex: number,
   gatePlacements: SketchGatePlacement[] | null | undefined,
   chainAlign: number,
-  segmentCount: number
+  segmentCount: number,
+  segmentLengthsFt: { length_ft?: number }[]
 ): SegmentRunEnds {
-  const gateRole = sketchGateSegmentRole(sourceIndex, gatePlacements, segmentCount);
+  const gateRole = sketchGateSegmentRole(sourceIndex, gatePlacements, segmentCount, segmentLengthsFt);
   if (gateRole === 'gate') {
     return {
       start: { h_post: false, u_channel: false },
@@ -247,7 +257,8 @@ function computeSegmentRunEndsAtAlignedIndex(
   const fenceEndsAtDedicatedGate = isDedicatedGateSegmentIndex(
     sourceIndex + 1,
     gatePlacements,
-    segmentCount
+    segmentCount,
+    segmentLengthsFt
   );
   return {
     start: { h_post: startPost, u_channel: startU },
@@ -284,6 +295,7 @@ export function segmentRunEndTerminationsForSketch(
   let joints = useJoints
     ? opts.jointTerminations!
     : defaultJointTerminationsFromAligned(segs, straightMax);
+  const segmentLengthsFt = lengthPerSegmentFt.map((ft) => ({ length_ft: ft }));
   return computeSegmentRunEndsAtAlignedIndex(
     segs,
     jointRanges,
@@ -292,7 +304,8 @@ export function segmentRunEndTerminationsForSketch(
     segmentIndex,
     opts?.gatePlacements,
     chainAlign,
-    segments.length
+    segments.length,
+    segmentLengthsFt
   );
 }
 
@@ -300,12 +313,37 @@ export function segmentRunEndTerminationsForSketch(
 export function isSplitGateFenceSide(
   segmentIndex: number,
   segmentCount: number,
-  gatePlacements?: SketchGatePlacement[] | null
+  gatePlacements?: SketchGatePlacement[] | null,
+  segments?: { length_ft?: number }[] | null
 ): boolean {
-  const role = sketchGateSegmentRole(segmentIndex, gatePlacements, segmentCount);
+  const role = sketchGateSegmentRole(segmentIndex, gatePlacements, segmentCount, segments);
   if (role !== 'left_fence' && role !== 'right_fence') return false;
   const gi = role === 'left_fence' ? segmentIndex + 1 : segmentIndex - 1;
   return isInlineGateSplitPlacement(gi, segmentCount);
+}
+
+/**
+ * Fence-run length for material math: split fence sides use gross; inline gates subtract opening;
+ * standalone gate-only segments return 0.
+ */
+export function fenceCalcLengthFtForSketchFenceRun(
+  segmentIndex: number,
+  grossLengthFt: number,
+  sketch: {
+    segments?: { length_ft?: number }[];
+    gate_placements?: SketchGatePlacement[] | null;
+  } | null | undefined
+): number {
+  if (!sketch?.segments?.length) return grossLengthFt;
+  const { segments, gate_placements } = sketch;
+  const segmentCount = segments.length;
+  if (sketchGateSegmentRole(segmentIndex, gate_placements, segmentCount, segments) === 'gate') {
+    return 0;
+  }
+  if (isSplitGateFenceSide(segmentIndex, segmentCount, gate_placements, segments)) {
+    return grossLengthFt;
+  }
+  return netFenceLengthFtForSegment(segmentIndex, grossLengthFt, gate_placements, segments);
 }
 
 /** Joint indices at gate opening edges — fence runs must not add U-channels here (gate block owns them). */
@@ -1029,9 +1067,10 @@ export function layoutSegmentsToPvcFenceInputsPerSketchSegment(
   let joints = useJoints ? jointTerminations! : defaultJointTerminationsFromAligned(segs, straightMax);
 
   const segmentCount = segments.length;
+  const segmentLengthsFt = lengthPerSegmentFt.map((ft) => ({ length_ft: ft }));
   const perAligned = segs.map((seg, i) => {
     const srcIdx = indexed[i].sourceIndex;
-    const gateRole = sketchGateSegmentRole(srcIdx, gatePlacements, segmentCount);
+    const gateRole = sketchGateSegmentRole(srcIdx, gatePlacements, segmentCount, segmentLengthsFt);
     if (gateRole === 'gate') {
       return {
         length_ft: seg.length_ft,
@@ -1040,7 +1079,7 @@ export function layoutSegmentsToPvcFenceInputsPerSketchSegment(
         panel_module: panelModule,
       };
     }
-    if (isSplitGateFenceSide(srcIdx, segmentCount, gatePlacements)) {
+    if (isSplitGateFenceSide(srcIdx, segmentCount, gatePlacements, segmentLengthsFt)) {
       return {
         length_ft: seg.length_ft,
         fence_terminated_h_post_type: 2 as const,
@@ -1056,7 +1095,8 @@ export function layoutSegmentsToPvcFenceInputsPerSketchSegment(
       srcIdx,
       gatePlacements,
       chainAlign,
-      segmentCount
+      segmentCount,
+      segmentLengthsFt
     );
     const d6 = Math.min(
       2,

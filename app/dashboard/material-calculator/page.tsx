@@ -101,6 +101,7 @@ import {
   removeLayoutDrawingGatePlacement,
   removeLayoutDrawingSegment,
   segmentRunEndTerminationsForSketch,
+  fenceCalcLengthFtForSketchFenceRun,
   sketchGateWidthInches,
   sketchGateSegmentRole,
   sketchSegmentRunLabel,
@@ -749,13 +750,14 @@ function buildInputForPvcLineRow(
     sketchGateSegmentRole(
       sketchCtx.segmentIndex,
       sketchCtx.sketch.gate_placements,
-      sketchCtx.sketch.segments.length
+      sketchCtx.sketch.segments.length,
+      sketchCtx.sketch.segments
     ) === 'gate'
   ) {
     return null;
   }
   const calcL = sketchCtx
-    ? fenceCalcLengthFtForSketchSegment(sketchCtx.segmentIndex, grossL, sketchCtx.sketch)
+    ? fenceCalcLengthFtForSketchFenceRun(sketchCtx.segmentIndex, grossL, sketchCtx.sketch)
     : grossL;
   let d6: 0 | 1 | 2;
   let d7: number;
@@ -766,7 +768,8 @@ function buildInputForPvcLineRow(
     isSplitGateFenceSide(
       sketchCtx.segmentIndex,
       sketchCtx.sketch.segments.length,
-      sketchCtx.sketch.gate_placements
+      sketchCtx.sketch.gate_placements,
+      sketchCtx.sketch.segments
     )
   ) {
     d6 = 2;
@@ -821,16 +824,30 @@ function fenceCalcLengthFtForSketchSegment(
   grossLengthFt: number,
   sketch: LayoutSketchDrawingPayload | null | undefined
 ): number {
-  if (!sketch?.segments?.length) return grossLengthFt;
-  if (isSplitGateFenceSide(segmentIndex, sketch.segments.length, sketch.gate_placements)) {
-    return grossLengthFt;
+  return fenceCalcLengthFtForSketchFenceRun(segmentIndex, grossLengthFt, sketch);
+}
+
+/** Subtract manually added hybrid gates (no sketch placement) from a single fence run. */
+function subtractManualHybridGateWidthFt(
+  segmentIndex: number,
+  lengthFt: number,
+  lineCount: number,
+  hybGates: { sketchPlacementIndex?: number; width_in: string }[],
+  hasSketchGatePlacements: boolean
+): number {
+  if (hasSketchGatePlacements) return lengthFt;
+  let subtractIn = 0;
+  for (const g of hybGates) {
+    if (g.sketchPlacementIndex != null) continue;
+    const w = Number(String(g.width_in).replace(/,/g, ''));
+    if (!Number.isFinite(w) || w <= 0) continue;
+    subtractIn += w;
   }
-  return netFenceLengthFtForSegment(
-    segmentIndex,
-    grossLengthFt,
-    sketch.gate_placements,
-    sketch.segments
-  );
+  if (subtractIn <= 0) return lengthFt;
+  if (lineCount === 1 && segmentIndex === 0) {
+    return Math.max(0, Math.round((lengthFt - subtractIn / 12) * 100) / 100);
+  }
+  return lengthFt;
 }
 
 function pvcGateFromSketchPlacement(
@@ -2882,9 +2899,11 @@ export default function MaterialCalculatorHubPage() {
 
   /** Hybrid horizontal — one Excel block result per run, plus gate blocks and summed totals. */
   const hybridHJob = useMemo(() => {
+    const hasSketchGates = Boolean(layoutSketchData?.gate_placements?.length);
     const runs = hybHLines.map((row, i) => {
       const grossL = Math.max(0, Number(String(row.length_ft).replace(/,/g, '')) || 0);
-      const L = fenceCalcLengthFtForSketchSegment(i, grossL, layoutSketchData);
+      let L = fenceCalcLengthFtForSketchFenceRun(i, grossL, layoutSketchData);
+      L = subtractManualHybridGateWidthFt(i, L, hybHLines.length, hybHGates, hasSketchGates);
       if (L <= 0) return { row, result: null as null | ReturnType<typeof computeHybridHorizontalFence> };
       return {
         row,
@@ -2927,9 +2946,11 @@ export default function MaterialCalculatorHubPage() {
 
   /** Hybrid vertical — same structure for the 6'4" PVC sheet. */
   const hybridVJob = useMemo(() => {
+    const hasSketchGates = Boolean(layoutSketchData?.gate_placements?.length);
     const runs = hybVLines.map((row, i) => {
       const grossL = Math.max(0, Number(String(row.length_ft).replace(/,/g, '')) || 0);
-      const L = fenceCalcLengthFtForSketchSegment(i, grossL, layoutSketchData);
+      let L = fenceCalcLengthFtForSketchFenceRun(i, grossL, layoutSketchData);
+      L = subtractManualHybridGateWidthFt(i, L, hybVLines.length, hybVGates, hasSketchGates);
       if (L <= 0) return { row, result: null as null | ReturnType<typeof computeHybridVerticalPvc64Fence> };
       return {
         row,
