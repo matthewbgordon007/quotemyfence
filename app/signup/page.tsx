@@ -51,7 +51,7 @@ export default function SignupPage() {
       const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: `${location.origin}/auth/callback?next=/dashboard` },
+        options: { emailRedirectTo: `${location.origin}/auth/callback?next=/dashboard/layout` },
       });
 
       if (signUpError) {
@@ -88,7 +88,7 @@ export default function SignupPage() {
         return;
       }
 
-      router.push('/dashboard');
+      router.push('/dashboard/layout');
       router.refresh();
     } catch (err) {
       setError('Something went wrong. Please try again.');
@@ -105,7 +105,8 @@ export default function SignupPage() {
         <div className="rounded-2xl border border-[var(--line)] bg-white p-8 shadow-xl">
           <h1 className="text-2xl font-bold tracking-tight">Create your account</h1>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Set up your company profile, then start your 7-day free trial to unlock dashboard access.
+            Create your company profile. You can link a supplier and get material lists for free — start a trial anytime
+            to unlock quotes and leads.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-5">

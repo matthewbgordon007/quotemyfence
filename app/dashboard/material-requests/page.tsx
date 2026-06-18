@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { FreeContractorOnboarding } from '@/components/dashboard/FreeContractorOnboarding';
+import { isBillingActive } from '@/lib/billing';
 import type { MaterialQuoteRequestDto } from '@/lib/supplier-material-quote-requests-enrich';
 import { materialQuoteRequestTitle } from '@/lib/supplier-material-quote-requests-enrich';
 
@@ -30,6 +32,21 @@ export default function MaterialRequestsPage() {
   const [requests, setRequests] = useState<RequestRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [billingActive, setBillingActive] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/contractor/me', { credentials: 'include', cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((me) => {
+        if (!me) return;
+        setBillingActive(
+          me.account_type === 'supplier' ||
+            me.billing_access_override === true ||
+            isBillingActive(me.stripe_subscription_status)
+        );
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -75,18 +92,20 @@ export default function MaterialRequestsPage() {
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--accent,#2563eb)] border-t-transparent" />
         </div>
       ) : requests.length === 0 ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">
-          <p className="text-sm font-medium text-slate-700">No material requests yet.</p>
-          <p className="mt-1 text-sm text-slate-500">
-            Draw your fence layout, then click <span className="font-semibold">Get material list</span> to send it to a
-            supplier.
-          </p>
-          <Link
-            href="/dashboard/layout"
-            className="mt-4 inline-block rounded-xl bg-[var(--accent,#2563eb)] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
-          >
-            Open the drawing page
-          </Link>
+        <div className="space-y-6">
+          {!billingActive ? <FreeContractorOnboarding /> : null}
+          <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">
+            <p className="text-sm font-medium text-slate-700">No material requests yet.</p>
+            <p className="mt-1 text-sm text-slate-500">
+              Draw a layout and tap <span className="font-semibold">Get material list</span> to send it to your supplier.
+            </p>
+            <Link
+              href="/dashboard/layout"
+              className="mt-4 inline-block rounded-xl bg-[var(--accent,#2563eb)] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+            >
+              Open the drawing page
+            </Link>
+          </div>
         </div>
       ) : (
         <div className="space-y-3">

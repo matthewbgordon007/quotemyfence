@@ -246,10 +246,11 @@ export function DashboardNav({
   const filteredBusiness = businessLinks.filter((l) => !l.adminOnly || isAdmin);
   // Free (unpaid) contractor accounts only get Draw, Requests and Suppliers outside Business.
   const drawNavLink = workspaceLinks.find((l) => l.href === '/dashboard/layout')!;
+  const freeDrawNavLink = { ...drawNavLink, label: 'Draw layout' };
   const contractorWorkspace = (
     billingActive
       ? [...workspaceLinks, materialRequestsNavLink, suppliersNavLink]
-      : [drawNavLink, materialRequestsNavLink, suppliersNavLink]
+      : [freeDrawNavLink, suppliersNavLink, materialRequestsNavLink]
   ) as NavLink[];
   const mobileLinks = (
     isSupplier

@@ -103,6 +103,10 @@ export async function middleware(request: NextRequest) {
         if (isFreeTierPath(request.nextUrl.pathname)) {
           return response;
         }
+        // Unpaid contractors land on the free drawing flow — not the billing wall.
+        if (request.nextUrl.pathname === '/dashboard' || request.nextUrl.pathname === '/dashboard/') {
+          return NextResponse.redirect(new URL('/dashboard/layout', request.url));
+        }
         if (isContractorApi) {
           return NextResponse.json({ error: 'Billing required' }, { status: 402 });
         }

@@ -106,7 +106,8 @@ export default function BillingPage() {
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Activate your subscription</h1>
         <p className="mt-2 text-sm text-slate-600">
-          Start a 7-day free trial, then continue at {priceLabel}. Access is locked until billing is active.
+          Start a 7-day free trial to unlock quotes, leads, and the full calculator. Material lists stay free without a
+          subscription.
         </p>
 
         {loading ? (

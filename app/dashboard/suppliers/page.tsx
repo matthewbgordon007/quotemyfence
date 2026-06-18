@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { FreeContractorOnboarding } from '@/components/dashboard/FreeContractorOnboarding';
+import { isBillingActive } from '@/lib/billing';
 
 type SupplierRow = { id: string; company_name: string; logo_url: string | null; slug: string };
 
@@ -43,6 +45,7 @@ export default function SuppliersPage() {
   const [status, setStatus] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
   const [catalogSearch, setCatalogSearch] = useState('');
   const [supplierSearch, setSupplierSearch] = useState('');
+  const [billingActive, setBillingActive] = useState(true);
 
   const refreshDirectory = useCallback(async () => {
     const r = await fetch('/api/contractor/suppliers', { credentials: 'include' });
@@ -88,6 +91,9 @@ export default function SuppliersPage() {
           setLoading(false);
           return;
         }
+        setBillingActive(
+          me?.billing_access_override === true || isBillingActive(me?.stripe_subscription_status)
+        );
         setIsAdmin(me?.user_role === 'owner' || me?.user_role === 'admin');
         const hierarchyRes = await fetch('/api/contractor/product-hierarchy', { credentials: 'include' });
         const hierarchy = hierarchyRes.ok ? await hierarchyRes.json() : {};
@@ -319,10 +325,13 @@ export default function SuppliersPage() {
         </p>
       </div>
 
+      {!billingActive ? <FreeContractorOnboarding className="mt-8" /> : null}
+
       <section className="mt-10">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Find supplier</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Search for a supplier you already know. Results appear after 3 characters so contractors cannot browse the full supplier network.
+          Search your supplier by company name (at least 3 letters). Click <span className="font-semibold">Link</span>{' '}
+          when you find them — that&apos;s step 1.
         </p>
         <div
           className="mt-4 rounded-2xl border bg-white p-4 shadow-sm"

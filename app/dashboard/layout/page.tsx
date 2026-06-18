@@ -11,6 +11,7 @@ import {
   type LineHighlightMode,
 } from '@/components/LayoutDrawCanvas';
 import { LeadSearchModal } from '@/components/dashboard/LeadSearchModal';
+import { FreeContractorOnboarding } from '@/components/dashboard/FreeContractorOnboarding';
 import { SupplierProductPicker, type SupplierProductValue } from '@/components/SupplierProductPicker';
 import { mapFenceSegmentsToLayoutDrawing } from '@/lib/map-fence-to-layout-drawing';
 import { isBillingActive } from '@/lib/billing';
@@ -398,6 +399,10 @@ export default function LayoutPage() {
 
   async function handleGetMaterialList() {
     const desc = materialDesc.trim();
+    if (!billingActive && linkedSuppliers.length === 0) {
+      alert('Link your material supplier first (Suppliers in the menu), then come back to send this layout.');
+      return;
+    }
     if (!materialJobAddress.trim()) {
       alert('Enter the job address/PO # before sending the material request.');
       return;
@@ -550,14 +555,21 @@ export default function LayoutPage() {
 
   return (
     <div className="flex h-[calc(100vh-4rem)] min-h-0 flex-col">
+      {!billingActive ? (
+        <div className="border-b border-[var(--line)] bg-white px-4 py-3">
+          <FreeContractorOnboarding variant="compact" />
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--line)] bg-white px-4 py-3">
         <div className="flex flex-wrap items-center gap-4">
-          <Link
-            href="/dashboard"
-            className="text-sm font-medium text-[var(--accent)] hover:underline"
-          >
-            ← Dashboard
-          </Link>
+          {billingActive ? (
+            <Link
+              href="/dashboard"
+              className="text-sm font-medium text-[var(--accent)] hover:underline"
+            >
+              ← Dashboard
+            </Link>
+          ) : null}
           <h1 className="text-lg font-bold">Layout drawing</h1>
           <input
             type="text"
@@ -661,19 +673,38 @@ export default function LayoutPage() {
         <button
           type="button"
           onClick={() => {
+            if (!billingActive && linkedSuppliers.length === 0) {
+              window.location.href = '/dashboard/suppliers';
+              return;
+            }
             setMaterialSupplierId(linkedSuppliers[0]?.id ?? 'master');
             setMaterialProduct({ fenceTypeId: '', fenceStyleId: '', colourOptionId: '' });
             setMaterialProductReady(false);
             setMaterialJobAddress(homeowners.find((h) => h.address?.trim())?.address?.trim() || '');
             setShowMaterialModal(true);
           }}
-          className="rounded-lg border border-[var(--accent)] bg-white px-4 py-2 text-sm font-medium text-[var(--accent)] hover:bg-[var(--accent)]/5"
+          className="rounded-lg bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-90"
         >
-          Get material list
+          {linkedSuppliers.length === 0 && !billingActive ? 'Link supplier first' : 'Get material list'}
         </button>
-        <p className="mt-1 text-xs text-[var(--muted)]">
-          Draw your layout, enter the line lengths, then send it to a linked supplier (or the platform team) — no need
-          to save first. Track responses under <Link href="/dashboard/material-requests" className="font-medium text-[var(--accent)] hover:underline">Requests</Link>.
+        <p className="mt-1.5 text-xs text-[var(--muted)]">
+          {linkedSuppliers.length === 0 && !billingActive ? (
+            <>
+              Step 1:{' '}
+              <Link href="/dashboard/suppliers" className="font-semibold text-[var(--accent)] hover:underline">
+                Link your supplier
+              </Link>
+              . Then draw lines, enter each length, and send.
+            </>
+          ) : (
+            <>
+              1) Draw your fence · 2) Enter every line length · 3) Send to your supplier. Responses appear under{' '}
+              <Link href="/dashboard/material-requests" className="font-semibold text-[var(--accent)] hover:underline">
+                Requests
+              </Link>
+              .
+            </>
+          )}
         </p>
       </div>
 
@@ -774,8 +805,24 @@ export default function LayoutPage() {
           <div className="w-full max-w-lg rounded-2xl border border-[var(--line)] bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold">Request material quote</h3>
             <p className="mt-1 text-sm text-[var(--muted)]">
-              Pick a supplier and product. Notes are optional. Link suppliers under Dashboard → Suppliers.
+              {linkedSuppliers.length === 0
+                ? 'Link a supplier on the Suppliers page first, then pick their product and colour here.'
+                : 'Pick product and colour, enter job address/PO #, and send. Notes are optional.'}
             </p>
+            {!billingActive && linkedSuppliers.length === 0 ? (
+              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                <p className="font-semibold">Link your supplier first</p>
+                <p className="mt-1 text-xs text-amber-900/90">
+                  Free accounts send material lists to a linked supplier — search by name and connect in one click.
+                </p>
+                <Link
+                  href="/dashboard/suppliers"
+                  className="mt-2 inline-flex rounded-lg bg-amber-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-900"
+                >
+                  Go to Suppliers →
+                </Link>
+              </div>
+            ) : null}
             <label className="mt-4 block text-sm font-medium text-[var(--text)]">Send to</label>
             <select
               value={materialSupplierId}
@@ -786,14 +833,14 @@ export default function LayoutPage() {
               }}
               className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
             >
-              <option value="master">Platform team (legacy)</option>
+              {billingActive ? <option value="master">Platform team (legacy)</option> : null}
               {linkedSuppliers.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.company_name}
                 </option>
               ))}
             </select>
-            {linkedSuppliers.length === 0 && (
+            {linkedSuppliers.length === 0 && billingActive && (
               <p className="mt-2 text-xs text-amber-800">No linked suppliers yet — only the platform team option is available.</p>
             )}
             {materialSupplierId !== 'master' && (
@@ -839,6 +886,7 @@ export default function LayoutPage() {
                 disabled={
                   submittingMaterial ||
                   !materialJobAddress.trim() ||
+                  linkedSuppliers.length === 0 ||
                   (materialSupplierId !== 'master' && !materialProductReady)
                 }
                 className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50 hover:opacity-90"
@@ -859,6 +907,7 @@ export default function LayoutPage() {
       )}
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:flex-row">
+        {billingActive ? (
         <aside className="max-h-[min(52vh,28rem)] shrink-0 overflow-y-auto border-b border-[var(--line)] bg-[var(--bg2)] px-4 py-4 lg:max-h-none lg:w-[22rem] lg:border-b-0 lg:border-r lg:border-[var(--line)]">
           <h2 className="text-sm font-bold text-slate-900">Homeowners &amp; lines</h2>
           <p className="mt-1 text-xs text-[var(--muted)]">
@@ -977,6 +1026,7 @@ export default function LayoutPage() {
             </div>
           )}
         </aside>
+        ) : null}
         <div ref={canvasContainerRef} className="relative flex min-h-[min(45vh,20rem)] flex-1 flex-col p-4 lg:min-h-0">
           <LayoutDrawCanvas
             ref={drawRef}

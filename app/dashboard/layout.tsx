@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { isBillingActive } from '@/lib/billing';
 import { DashboardNav } from './DashboardNav';
+import { FreeContractorOnboarding } from '@/components/dashboard/FreeContractorOnboarding';
 
 function hexToRgb(hex: string | null | undefined): string {
   const raw = String(hex || '').trim().replace('#', '');
@@ -156,16 +157,20 @@ export default async function DashboardLayout({
           />
         </div>
         <div className="px-4 pb-4">
-          <div
-            className="rounded-2xl p-3 text-xs text-slate-600 shadow-sm"
-            style={{
-              border: '1px solid var(--dashboard-line)',
-              background: 'linear-gradient(135deg, rgb(var(--dashboard-brand-rgb) / 0.10), rgb(255 255 255 / 0.96))',
-            }}
-          >
-            <p className="font-semibold text-slate-900">{c?.company_name || 'QuoteMyFence'}</p>
-            <p className="mt-1">Branded workspace active</p>
-          </div>
+          {!billingActive && !isSupplier ? (
+            <FreeContractorOnboarding variant="sidebar" />
+          ) : (
+            <div
+              className="rounded-2xl p-3 text-xs text-slate-600 shadow-sm"
+              style={{
+                border: '1px solid var(--dashboard-line)',
+                background: 'linear-gradient(135deg, rgb(var(--dashboard-brand-rgb) / 0.10), rgb(255 255 255 / 0.96))',
+              }}
+            >
+              <p className="font-semibold text-slate-900">{c?.company_name || 'QuoteMyFence'}</p>
+              <p className="mt-1">Branded workspace active</p>
+            </div>
+          )}
         </div>
       </aside>
 
