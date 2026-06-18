@@ -453,7 +453,7 @@ function mergePvcLineFromSketch(row: PvcLineRow, old: PvcLineRow | undefined): P
     return {
       ...row,
       id: old.id,
-      label: old.label || row.label,
+      label: row.label,
       length_ft: row.length_ft,
       run_ends: old.run_ends ?? row.run_ends,
       end_preset: old.end_preset,
@@ -463,7 +463,7 @@ function mergePvcLineFromSketch(row: PvcLineRow, old: PvcLineRow | undefined): P
       fromSketch: false,
     };
   }
-  return { ...row, id: old.id, label: old.label || row.label, run_ends: row.run_ends };
+  return { ...row, id: old.id, label: row.label, run_ends: row.run_ends };
 }
 
 function mergeFenceLineFromSketch<
@@ -471,9 +471,9 @@ function mergeFenceLineFromSketch<
 >(row: T, old: T | undefined): T {
   if (!old) return row;
   if (old.manualRunEdit) {
-    return { ...row, id: old.id, label: old.label || row.label, manualRunEdit: true, fromSketch: false };
+    return { ...row, id: old.id, label: row.label, manualRunEdit: true, fromSketch: false };
   }
-  return { ...row, id: old.id, label: old.label || row.label };
+  return { ...row, id: old.id, label: row.label };
 }
 
 function sketchFenceRowsNeedRefresh<T extends { length_ft: string }>(
@@ -3002,6 +3002,22 @@ export default function MaterialCalculatorHubPage() {
     ]);
   }
 
+  function syncSketchSegmentLengthMetadata(segmentIndex: number, lengthFt: number) {
+    const sketch = layoutSketchDataRef.current;
+    if (!sketch?.segments?.length) return;
+    if (segmentIndex < 0 || segmentIndex >= sketch.segments.length) return;
+    if (lengthFt <= 0) return;
+    const segments = sketch.segments.map((s, i) =>
+      i === segmentIndex ? { ...s, length_ft: Math.round(lengthFt * 100) / 100 } : s
+    );
+    const total = segments.reduce((a, s) => a + (Number(s.length_ft) || 0), 0);
+    programmaticSketchUpdateAtRef.current = Date.now();
+    queueMicrotask(() => {
+      setLayoutSketchData({ ...sketch, segments, total_length_ft: Math.round(total * 100) / 100 });
+      setLayoutCanvasRemountKey((k) => k + 1);
+    });
+  }
+
   function updateLine(id: string, patch: Partial<PvcLineRow>) {
     const endEdit =
       'run_ends' in patch ||
@@ -3020,7 +3036,17 @@ export default function MaterialCalculatorHubPage() {
         };
       }
     }
-    setLines((rows) => rows.map((r) => (r.id === id ? { ...r, ...mergedPatch } : r)));
+    setLines((rows) => {
+      const next = rows.map((r) => (r.id === id ? { ...r, ...mergedPatch } : r));
+      if ('length_ft' in patch) {
+        const idx = next.findIndex((r) => r.id === id);
+        if (idx >= 0 && next[idx].fromSketch) {
+          const newL = Math.max(0, Number(String(next[idx].length_ft).replace(/,/g, '')) || 0);
+          if (newL > 0) syncSketchSegmentLengthMetadata(idx, newL);
+        }
+      }
+      return next;
+    });
   }
 
   function updateLineRunEnd(

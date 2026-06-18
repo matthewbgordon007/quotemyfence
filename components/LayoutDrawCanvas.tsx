@@ -195,7 +195,79 @@ type PlacedGate = {
   line_index: number;
   width_in?: number;
   left_ft?: number;
+  /** Gate marker placed before line length was entered — split once length is set. */
+  awaiting_length?: boolean;
 };
+
+type GateSplitResult = {
+  segments: { x: number; y: number }[][];
+  lineLengths: string[];
+  placedGates: PlacedGate[];
+};
+
+/** Split one segment into left | gate | right at the clicked center. */
+function applyInlineGateSplit(
+  segments: { x: number; y: number }[][],
+  lineLengths: string[],
+  placedGates: PlacedGate[],
+  segIdx: number,
+  gateType: 'single' | 'double',
+  center: { x: number; y: number },
+  typedLenFt: number,
+  manualLengths: boolean
+): GateSplitResult | null {
+  const seg = segments[segIdx];
+  if (!seg || seg.length < 2 || typedLenFt <= 0) return null;
+
+  const segMeta = segments.map((s, si) => ({
+    length_ft:
+      si === segIdx
+        ? typedLenFt
+        : segmentLengthFtForGate(s, lineLengths[si] || '', manualLengths),
+  }));
+  const widthIn = sketchGateWidthInches({ type: gateType, line_index: segIdx }, segMeta);
+  const gateWidthFt = widthIn / 12;
+  if (!shouldSplitSegmentForGate(typedLenFt, gateWidthFt)) return null;
+
+  const split = splitSegmentGeometryAtGate(
+    [seg[0], seg[1]],
+    center,
+    gateWidthFt,
+    typedLenFt
+  );
+  if (!split) return null;
+
+  const nextSegments = [...segments];
+  nextSegments.splice(segIdx, 1, split.leftSeg, split.gateSeg, split.rightSeg);
+
+  const nextLengths = [...lineLengths];
+  nextLengths.splice(
+    segIdx,
+    1,
+    String(split.leftFt),
+    String(split.gateFt),
+    String(split.rightFt)
+  );
+
+  const gateIdx = segIdx + 1;
+  const withoutAwaiting = placedGates.filter(
+    (g) => !(g.awaiting_length && g.line_index === segIdx)
+  );
+  const nextGates = [
+    ...withoutAwaiting.map((g) =>
+      g.line_index > segIdx ? { ...g, line_index: g.line_index + 2 } : g
+    ),
+    {
+      type: gateType,
+      x: center.x,
+      y: center.y,
+      line_index: gateIdx,
+      left_ft: split.leftFt,
+    },
+  ];
+
+  return { segments: nextSegments, lineLengths: nextLengths, placedGates: nextGates };
+}
 
 /** After removing segment index `removed`, drop its gates and shift indices for segments that moved. */
 function adjustPlacedGatesAfterSegmentRemoved(
@@ -603,6 +675,32 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
       });
     }, [segments, lineLengths, placedGates]);
 
+    /** Once a line length is entered, split any gate that was waiting (keeps click position, sizes gate from length). */
+    useEffect(() => {
+      for (const gate of placedGates) {
+        if (gate.left_ft != null) continue;
+        const segIdx = gate.line_index;
+        const typed = parseFloat(lineLengths[segIdx] || '');
+        if (!Number.isFinite(typed) || typed <= 0) continue;
+        const result = applyInlineGateSplit(
+          segments,
+          lineLengths,
+          placedGates,
+          segIdx,
+          gate.type,
+          { x: gate.x, y: gate.y },
+          typed,
+          manualLengths
+        );
+        if (result) {
+          setSegments(result.segments);
+          setLineLengths(result.lineLengths);
+          setPlacedGates(result.placedGates);
+          return;
+        }
+      }
+    }, [lineLengths, placedGates, segments, manualLengths]);
+
     useEffect(() => {
       setSelectedJointIndex((j) => (j != null && j >= jointTerminations.length ? null : j));
     }, [jointTerminations.length]);
@@ -768,50 +866,25 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
           const seg = segments[segIdx];
           if (seg && seg.length >= 2) {
             const gateType = mode === 'place_double_gate' ? 'double' : 'single';
-            const segMeta = segments.map((s, si) => ({
-              length_ft: segmentLengthFtForGate(s, lineLengths[si] || '', manualLengths),
-            }));
-            const segLen = segMeta[segIdx]?.length_ft ?? 0;
-            const widthIn = sketchGateWidthInches({ type: gateType, line_index: segIdx }, segMeta);
-            const gateWidthFt = widthIn / 12;
+            const typed = parseFloat(lineLengths[segIdx] || '');
+            const hasTypedLength = Number.isFinite(typed) && typed > 0;
             const center = hitGate.point;
 
-            if (shouldSplitSegmentForGate(segLen, gateWidthFt)) {
-              const split = splitSegmentGeometryAtGate(
-                [seg[0], seg[1]],
+            if (hasTypedLength) {
+              const result = applyInlineGateSplit(
+                segments,
+                lineLengths,
+                placedGates,
+                segIdx,
+                gateType,
                 center,
-                gateWidthFt,
-                segLen
+                typed,
+                manualLengths
               );
-              if (split) {
-                setSegments((prev) => {
-                  const next = [...prev];
-                  next.splice(segIdx, 1, split.leftSeg, split.gateSeg, split.rightSeg);
-                  return next;
-                });
-                setLineLengths((prev) => {
-                  const next = [...prev];
-                  next.splice(
-                    segIdx,
-                    1,
-                    String(split.leftFt),
-                    String(split.gateFt),
-                    String(split.rightFt)
-                  );
-                  return next;
-                });
-                setPlacedGates((prev) => [
-                  ...prev.map((g) =>
-                    g.line_index > segIdx ? { ...g, line_index: g.line_index + 2 } : g
-                  ),
-                  {
-                    type: gateType,
-                    x: center.x,
-                    y: center.y,
-                    line_index: segIdx + 1,
-                    left_ft: split.leftFt,
-                  },
-                ]);
+              if (result) {
+                setSegments(result.segments);
+                setLineLengths(result.lineLengths);
+                setPlacedGates(result.placedGates);
                 setMode('draw');
                 return;
               }
@@ -824,6 +897,7 @@ export const LayoutDrawCanvas = forwardRef<LayoutDrawCanvasRef, LayoutDrawCanvas
                 x: center.x,
                 y: center.y,
                 line_index: segIdx,
+                awaiting_length: !hasTypedLength,
               },
             ]);
           }
