@@ -29,6 +29,68 @@ export const FMS_WPC_CALCULATOR_COLOURS = [
 
 export type FmsWpcCalculatorColour = (typeof FMS_WPC_CALCULATOR_COLOURS)[number];
 
+/** Wood-grain hybrid board colours from the product catalog (breakdown / label sheets). */
+export const FMS_HYBRID_EXTRA_WPC_COLOURS = ['Mahogany', 'Green Teak'] as const;
+
+export type FmsHybridMaterialLine = 'pvc' | 'wpc';
+
+export const FMS_HYBRID_COLOUR_GROUPS: { label: string; colours: readonly string[] }[] = [
+  { label: 'PVC', colours: FMS_PVC_CALCULATOR_COLOURS },
+  {
+    label: 'WPC',
+    colours: [...FMS_WPC_CALCULATOR_COLOURS, ...FMS_HYBRID_EXTRA_WPC_COLOURS],
+  },
+];
+
+const HYBRID_COLOUR_SET = new Set<string>(
+  FMS_HYBRID_COLOUR_GROUPS.flatMap((g) => g.colours)
+);
+
+export function fmsHybridAllColours(): readonly string[] {
+  return Array.from(HYBRID_COLOUR_SET);
+}
+
+export function coerceFmsHybridCalculatorColour(raw: string | null | undefined): string | null {
+  const s = (raw ?? '').trim();
+  if (!s || !HYBRID_COLOUR_SET.has(s)) return null;
+  return s;
+}
+
+export function fmsHybridColourExportLabel(
+  orientation: 'horizontal' | 'vertical',
+  material: FmsHybridMaterialLine,
+  colour: string
+): string {
+  const tag = orientation === 'horizontal' ? 'horizontal' : 'vertical';
+  return `${colour} (${material.toUpperCase()} ${tag})`;
+}
+
+/** Parse saved calculator colour labels like `Ash (WPC horizontal)`. */
+export function parseFmsHybridColourExportLabel(raw: string | null | undefined): {
+  colour: string;
+  material: FmsHybridMaterialLine | null;
+  orientation: 'horizontal' | 'vertical' | null;
+} | null {
+  const s = (raw ?? '').trim();
+  const m = /^(.+?)\s*\((PVC|WPC)\s+(horizontal|vertical)\)\s*$/i.exec(s);
+  if (!m) return null;
+  const colour = coerceFmsHybridCalculatorColour(m[1]) ?? m[1].trim();
+  if (!colour) return null;
+  return {
+    colour,
+    material: m[2].toLowerCase() as FmsHybridMaterialLine,
+    orientation: m[3].toLowerCase() as 'horizontal' | 'vertical',
+  };
+}
+
+/** Guess PVC vs WPC material line from quote type/style text. */
+export function inferHybridMaterialLineFromText(blob: string): FmsHybridMaterialLine {
+  const b = blob.toLowerCase();
+  if (/\bpremium\b/.test(b) || /\bwood\s*grain\b/.test(b) || /\bwpc\b/.test(b)) return 'wpc';
+  if (/\bstandard\b/.test(b) || /\bslatted\b/.test(b) || /\bpvc\b/.test(b) || /\bvinyl\b/.test(b)) return 'pvc';
+  return 'wpc';
+}
+
 const PVC_SET = new Set<string>(FMS_PVC_CALCULATOR_COLOURS);
 const WPC_SET = new Set<string>(FMS_WPC_CALCULATOR_COLOURS);
 

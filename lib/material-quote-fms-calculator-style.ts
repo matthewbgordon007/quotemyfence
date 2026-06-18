@@ -1,6 +1,10 @@
 import {
+  coerceFmsHybridCalculatorColour,
   coerceFmsPvcCalculatorColour,
   coerceFmsWpcCalculatorColour,
+  inferHybridMaterialLineFromText,
+  parseFmsHybridColourExportLabel,
+  type FmsHybridMaterialLine,
   type FmsPvcCalculatorColour,
   type FmsWpcCalculatorColour,
 } from '@/lib/fms-calculator-colour-presets';
@@ -14,6 +18,7 @@ export type FmsHubMaterialInference = {
   tab: 'pvc' | 'chain' | 'hybrid_h' | 'hybrid_v' | null;
   pvcColour: FmsPvcCalculatorColour | null;
   wpcColour: FmsWpcCalculatorColour | null;
+  hybridMaterialLine: FmsHybridMaterialLine | null;
   /** Shown in UI / alerts when unsupported. */
   materialLabel: string;
 };
@@ -30,14 +35,17 @@ function splitSummaryParts(summary: string): string[] {
 function coloursFromBlob(colourField: string | null | undefined, summary: string): {
   pvc: FmsPvcCalculatorColour | null;
   wpc: FmsWpcCalculatorColour | null;
+  hybrid: string | null;
 } {
   let pvc = coerceFmsPvcCalculatorColour(colourField);
   let wpc = coerceFmsWpcCalculatorColour(colourField);
+  let hybrid = coerceFmsHybridCalculatorColour(colourField);
   for (const part of splitSummaryParts(summary)) {
     if (!pvc) pvc = coerceFmsPvcCalculatorColour(part);
     if (!wpc) wpc = coerceFmsWpcCalculatorColour(part);
+    if (!hybrid) hybrid = coerceFmsHybridCalculatorColour(part);
   }
-  return { pvc, wpc };
+  return { pvc, wpc, hybrid };
 }
 
 /**
@@ -56,19 +64,20 @@ export function inferFmsHubMaterialFromQuoteProject(project: {
   const blob = `${rawType} ${rawStyle} ${summary}`.toLowerCase();
   const materialLabel = rawType || summary || 'This job';
 
-  const { pvc: pvcHint, wpc: wpcHint } = coloursFromBlob(colourField, summary);
+  const { pvc: pvcHint, wpc: wpcHint, hybrid: hybridHint } = coloursFromBlob(colourField, summary);
 
   const isHybrid = /\bhybrid\b/i.test(blob);
   if (isHybrid) {
     const pvcColour = pvcHint ?? 'White';
     const wpcColour = wpcHint ?? 'Ash';
-    // Vertical hybrid (6'4" panels) vs horizontal hybrid (WPC / aluminum boards).
+    const hybridMaterialLine = inferHybridMaterialLineFromText(blob);
     const isVertical = /\bvertical\b/i.test(blob);
     return {
       kind: 'hybrid',
       tab: isVertical ? 'hybrid_v' : 'hybrid_h',
       pvcColour,
       wpcColour,
+      hybridMaterialLine,
       materialLabel: rawType || rawStyle || 'Hybrid',
     };
   }
@@ -83,6 +92,7 @@ export function inferFmsHubMaterialFromQuoteProject(project: {
       tab: 'chain',
       pvcColour: null,
       wpcColour: null,
+      hybridMaterialLine: null,
       materialLabel: rawType || 'Chain link',
     };
   }
@@ -100,6 +110,7 @@ export function inferFmsHubMaterialFromQuoteProject(project: {
       tab: 'pvc',
       pvcColour,
       wpcColour: null,
+      hybridMaterialLine: null,
       materialLabel: rawType || 'PVC / Vinyl',
     };
   }
@@ -109,6 +120,7 @@ export function inferFmsHubMaterialFromQuoteProject(project: {
     tab: null,
     pvcColour: null,
     wpcColour: null,
+    hybridMaterialLine: null,
     materialLabel,
   };
 }
@@ -122,8 +134,11 @@ export function fmsCalculatorColourLabelFromDesignOption(design_option: DesignOp
   if (inferred.kind === 'pvc' && inferred.pvcColour) return inferred.pvcColour;
   if (inferred.kind === 'chain') return 'Chain link';
   if (inferred.kind === 'hybrid') {
-    if (inferred.tab === 'hybrid_v' && inferred.pvcColour) return inferred.pvcColour;
-    if (inferred.tab === 'hybrid_h' && inferred.wpcColour) return `${inferred.wpcColour} (horizontal)`;
+    const colour = inferred.wpcColour ?? inferred.pvcColour;
+    if (!colour) return null;
+    const orientation = inferred.tab === 'hybrid_v' ? 'vertical' : 'horizontal';
+    const material = inferred.hybridMaterialLine ?? 'wpc';
+    return `${colour} (${material.toUpperCase()} ${orientation})`;
   }
   const c = design_option?.colour?.trim();
   return c || null;
@@ -132,8 +147,9 @@ export function fmsCalculatorColourLabelFromDesignOption(design_option: DesignOp
 export type ApplyMaterialQuoteCalculatorFields = {
   setJobAddress: (v: string) => void;
   setPvcBreakdownColour: (v: FmsPvcCalculatorColour) => void;
-  setHybridWpcColour: (v: FmsWpcCalculatorColour) => void;
-  setHybridPvcColour: (v: FmsPvcCalculatorColour) => void;
+  setHybridColour: (v: string) => void;
+  setHybHMaterial?: (v: FmsHybridMaterialLine) => void;
+  setHybVMaterial?: (v: FmsHybridMaterialLine) => void;
 };
 
 /** Apply job label + FMS calculator colours from a material quote request. */
@@ -154,6 +170,18 @@ export function applyMaterialQuoteCalculatorFields(
 
   const savedCalcColour = String(req.calculator_fence_colour || '').trim() || null;
   if (savedCalcColour) {
+    const parsed = parseFmsHybridColourExportLabel(savedCalcColour);
+    if (parsed) {
+      setters.setHybridColour(parsed.colour);
+      if (parsed.material && parsed.orientation === 'horizontal' && setters.setHybHMaterial) {
+        setters.setHybHMaterial(parsed.material);
+      }
+      if (parsed.material && parsed.orientation === 'vertical' && setters.setHybVMaterial) {
+        setters.setHybVMaterial(parsed.material);
+      }
+      return { savedCalcColour };
+    }
+
     const pvcCol = coerceFmsPvcCalculatorColour(savedCalcColour);
     if (pvcCol) {
       setters.setPvcBreakdownColour(pvcCol);
@@ -161,13 +189,18 @@ export function applyMaterialQuoteCalculatorFields(
     }
     const horizontalMatch = /^(.+?)\s*\(horizontal\)\s*$/i.exec(savedCalcColour);
     if (horizontalMatch) {
-      const wpc = coerceFmsWpcCalculatorColour(horizontalMatch[1]);
-      if (wpc) setters.setHybridWpcColour(wpc);
+      const hybrid = coerceFmsHybridCalculatorColour(horizontalMatch[1]);
+      if (hybrid) setters.setHybridColour(hybrid);
+      return { savedCalcColour };
+    }
+    const hybrid = coerceFmsHybridCalculatorColour(savedCalcColour);
+    if (hybrid) {
+      setters.setHybridColour(hybrid);
       return { savedCalcColour };
     }
     const wpc = coerceFmsWpcCalculatorColour(savedCalcColour);
     if (wpc) {
-      setters.setHybridWpcColour(wpc);
+      setters.setHybridColour(wpc);
       return { savedCalcColour };
     }
   }

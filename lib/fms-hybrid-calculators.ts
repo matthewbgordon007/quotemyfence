@@ -13,7 +13,6 @@
  */
 
 import { excelCeiling, excelIfHPostTypeAdjustLongScrew, excelRound, excelRoundUp } from '@/lib/fms-excel-math';
-import type { FmsPvcCalculatorColour } from '@/lib/fms-calculator-colour-presets';
 
 export interface FmsHybridItemRow {
   item: string;
@@ -138,12 +137,12 @@ export function fmsHybridHoFamilyLabel(family: FmsHybridHoFamily): string {
   return FMS_HYBRID_HO_FAMILIES.find((f) => f.value === family)?.label ?? family;
 }
 
-/** Slatted horizontal uses PVC colour names for posts/rails; wood grain uses WPC colours. */
-export function fmsHybridHoFamilyColourSource(family: FmsHybridHoFamily): 'wpc' | 'pvc' | null {
-  if (family === 'woodGrain') return 'wpc';
-  if (family === 'slatted') return 'pvc';
-  return null;
-}
+export type FmsHybridMaterialLine = 'pvc' | 'wpc';
+
+export const FMS_HYBRID_MATERIAL_LINES: { value: FmsHybridMaterialLine; label: string }[] = [
+  { value: 'pvc', label: 'PVC boards / panels' },
+  { value: 'wpc', label: 'WPC boards / panels' },
+];
 
 /** Excel block title, e.g. `Horizontal Hybrid ***Wood Grain WPC*** Calculator 6' Tall (6' post spacing)`. */
 export function fmsHybridHoBlockTitle(family: FmsHybridHoFamily, height: FmsHybridHoHeight): string {
@@ -426,40 +425,6 @@ export const FMS_HYBRID_VE_PANEL_DIVISOR = 8;
 
 /** Excel block title — panel profile is PVC; premium jobs use WPC colour sheets (Moonlit, Teak). */
 export const FMS_HYBRID_VE_BLOCK_TITLE = `Vertical Hybrid ***PVC*** Calculator 6' 4" Tall (8' post spacing)`;
-
-export type FmsHybridVeStyle = 'standard' | 'premium';
-
-export const FMS_HYBRID_VE_STYLES: { value: FmsHybridVeStyle; label: string }[] = [
-  { value: 'standard', label: 'Standard / Triple Top' },
-  { value: 'premium', label: 'Premium / Triple Top Premium (WPC)' },
-];
-
-export const FMS_HYBRID_VE_STANDARD_COLOURS = [
-  'White',
-  'Adobe',
-  'Light Grey',
-  'Westport Grey',
-  'Dark Grey',
-] as const satisfies readonly FmsPvcCalculatorColour[];
-
-export const FMS_HYBRID_VE_PREMIUM_COLOURS = ['Moonlit', 'Teak'] as const satisfies readonly FmsPvcCalculatorColour[];
-
-export function fmsHybridVeStyleLabel(style: FmsHybridVeStyle): string {
-  return FMS_HYBRID_VE_STYLES.find((s) => s.value === style)?.label ?? style;
-}
-
-/** Standard styles use PVC colour names; premium uses WPC premium colours (same Excel math). */
-export function fmsHybridVeStyleColourSource(style: FmsHybridVeStyle): 'pvc' | 'wpc' {
-  return style === 'premium' ? 'wpc' : 'pvc';
-}
-
-export function fmsHybridVeColoursForStyle(style: FmsHybridVeStyle): readonly FmsPvcCalculatorColour[] {
-  return style === 'premium' ? FMS_HYBRID_VE_PREMIUM_COLOURS : FMS_HYBRID_VE_STANDARD_COLOURS;
-}
-
-export function fmsHybridVeDefaultColour(style: FmsHybridVeStyle): FmsPvcCalculatorColour {
-  return style === 'premium' ? 'Moonlit' : 'White';
-}
 
 export interface FmsHybridVeFenceInput {
   length_ft: number;
