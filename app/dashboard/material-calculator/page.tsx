@@ -56,6 +56,7 @@ import {
   FMS_HYBRID_HO_FAMILIES,
   FMS_HYBRID_VE_BLOCK_TITLE,
   buildFmsHybridMasterList,
+  classifyHybridHorizontalGateKind,
   computeHybridHorizontalAdjacentGate,
   computeHybridHorizontalDoubleGate,
   computeHybridHorizontalFence,
@@ -869,9 +870,11 @@ function hybHGateRowFromSketchPlacement(
   segments: { length_ft: number }[]
 ): HybridHGateRow {
   const { row } = pvcGateFromSketchPlacement(placement, segments);
+  const w = Math.max(0, Number(String(row.width_in).replace(/,/g, '')) || 0);
+  const preferred: HybridHGateKind = placement.type === 'double' ? 'double' : 'adjacent';
   return {
     id: newLineId(),
-    kind: placement.type === 'double' ? 'double' : 'simple',
+    kind: classifyHybridHorizontalGateKind(w, preferred),
     width_in: row.width_in,
     posts: FMS_GATE_POST_COUNT,
     adjoining: 1,
@@ -2895,10 +2898,11 @@ export default function MaterialCalculatorHubPage() {
     const gates = hybHGates.map((g) => {
       const w = Math.max(0, Number(String(g.width_in).replace(/,/g, '')) || 0);
       if (w <= 0) return { gate: g, rows: null as null | FmsHybridItemRow[] };
-      if (g.kind === 'simple') {
+      const kind = classifyHybridHorizontalGateKind(w, g.kind);
+      if (kind === 'simple') {
         return { gate: g, rows: computeHybridHorizontalGate({ gate_width_in: w, posts: g.posts }, hybHFamily, hybHHeight).rows };
       }
-      if (g.kind === 'adjacent') {
+      if (kind === 'adjacent') {
         return {
           gate: g,
           rows: computeHybridHorizontalAdjacentGate({ gate_line_width_in: w, adjoining: g.adjoining }).rows,
@@ -5053,7 +5057,7 @@ export default function MaterialCalculatorHubPage() {
                 onClick={() =>
                   setHybHGates((g) => [
                     ...g,
-                    { id: newLineId(), kind: 'simple', width_in: '', posts: FMS_GATE_POST_COUNT, adjoining: 0 },
+                    { id: newLineId(), kind: 'simple', width_in: '48', posts: FMS_GATE_POST_COUNT, adjoining: 0 },
                   ])
                 }
               >

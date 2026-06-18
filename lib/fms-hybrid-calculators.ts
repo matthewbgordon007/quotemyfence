@@ -12,7 +12,7 @@
  * Every function mirrors one Excel block; row labels match the sheet text.
  */
 
-import { excelCeiling, excelRound, excelRoundUp } from '@/lib/fms-excel-math';
+import { excelCeiling, excelIfHPostTypeAdjustLongScrew, excelRound, excelRoundUp } from '@/lib/fms-excel-math';
 
 export interface FmsHybridItemRow {
   item: string;
@@ -139,6 +139,27 @@ export function fmsHybridHoBlockTitle(family: FmsHybridHoFamily, height: FmsHybr
 /** Excel `=C/6.0833` — literal divisor on every horizontal block. */
 export const FMS_HYBRID_HO_PANEL_DIVISOR = 6.0833;
 
+/** Horizontal hybrid gate line width bands (Excel gate blocks on the same sheet). */
+export const HYBRID_H_GATE_SIMPLE_MAX_IN = 56;
+export const HYBRID_H_GATE_ADJACENT_MAX_IN = 125;
+export const HYBRID_H_GATE_DOUBLE_MIN_IN = 106;
+
+/**
+ * Pick the Excel gate block for a gate line width. Width always wins below 56″ or above 125″;
+ * between 106–125″ the user's block choice is respected (both Excel sections overlap there).
+ */
+export function classifyHybridHorizontalGateKind(
+  widthIn: number,
+  userKind: 'simple' | 'adjacent' | 'double'
+): 'simple' | 'adjacent' | 'double' {
+  const w = Math.max(0, Number(widthIn) || 0);
+  if (w < HYBRID_H_GATE_SIMPLE_MAX_IN) return 'simple';
+  if (w > HYBRID_H_GATE_ADJACENT_MAX_IN) return 'double';
+  if (w >= HYBRID_H_GATE_DOUBLE_MIN_IN && userKind === 'double') return 'double';
+  if (w >= HYBRID_H_GATE_SIMPLE_MAX_IN) return userKind === 'simple' ? 'adjacent' : userKind;
+  return 'simple';
+}
+
 /** Boards per whole panel (B16 row of each block): WG 12/14, Slatted 11/13, Aluminum 17/19. */
 export function fmsHybridHoBoardsPerPanel(family: FmsHybridHoFamily, height: FmsHybridHoHeight): number {
   if (family === 'woodGrain') return height === 6 ? 12 : 14;
@@ -186,7 +207,7 @@ export function computeHybridHorizontalFence(
   // offcuts can finish another run; the master list rounds up once for the whole job.
   const board = fmsHybridHoBoardsPerPanel(family, height) * c10;
   const c17 = d10 * 4;
-  const longScrew = d8 === 1 ? c17 - 2 : d8 === 0 ? c17 : c17 - 4;
+  const longScrew = excelIfHPostTypeAdjustLongScrew(c17, d8);
   const smallScrew = d8 * 6;
 
   return {
@@ -222,7 +243,8 @@ export function computeHybridHorizontalGate(
   const w = Math.max(0, Number(input.gate_width_in) || 0);
   const p = input.posts;
   const full = fmsHybridHoBoardsPerPanel(family, height);
-  const board = excelRoundUp(w > 37 ? full : w < 37 ? full / 2 : full, 0);
+  // Excel: `=IF(H7>37,G15,IF(H7<37,G15/2))` — exactly 37″ falls through to half boards.
+  const board = excelRoundUp(w > 37 ? full : full / 2, 0);
   return {
     rows: [
       { item: 'Gate Side Frame', final: 2 },
@@ -370,7 +392,7 @@ export function computeHybridVerticalPvc64Fence(input: FmsHybridVeFenceInput): F
   const boardStiff = 3 * c8;
   const smallScrew = d7 * 6;
   const c19 = d9 * 4;
-  const longScrew = d7 === 1 ? c19 - 2 : d7 === 0 ? c19 : c19 - 4;
+  const longScrew = excelIfHPostTypeAdjustLongScrew(c19, d7);
 
   return {
     rows: [
