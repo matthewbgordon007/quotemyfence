@@ -242,9 +242,23 @@ function computeSegmentRunEndsAtAlignedIndex(
   if (gateRole === 'left_fence' || gateRole === 'right_fence') {
     const gi = gateRole === 'left_fence' ? sourceIndex + 1 : sourceIndex - 1;
     if (isInlineGateSplitPlacement(gi, segmentCount)) {
+      const { start, end } = jointRanges[alignedIndex];
+      const connectedToPrev = sketchSegmentStartConnectedToPrev(segs, alignedIndex, chainAlign);
+      const sharesStartPost = sketchSegmentStartSharesExistingPost(segs, alignedIndex);
+      if (gateRole === 'left_fence') {
+        // Outer start only — gate-adjacent end posts belong to the gate block.
+        const startPost = !connectedToPrev && !sharesStartPost && !!joints[start]?.h_post;
+        const startU = !connectedToPrev && !sharesStartPost && !!joints[start]?.u_channel;
+        return {
+          start: { h_post: startPost, u_channel: startU },
+          end: { h_post: false, u_channel: false },
+        };
+      }
+      const endPost = !!joints[end]?.h_post;
+      const endU = !!joints[end]?.u_channel;
       return {
-        start: { h_post: true, u_channel: false },
-        end: { h_post: true, u_channel: false },
+        start: { h_post: false, u_channel: false },
+        end: { h_post: endPost, u_channel: endU },
       };
     }
   }
@@ -1076,14 +1090,6 @@ export function layoutSegmentsToPvcFenceInputsPerSketchSegment(
       return {
         length_ft: seg.length_ft,
         fence_terminated_h_post_type: 0 as const,
-        fence_terminated_u_channel: 0,
-        panel_module: panelModule,
-      };
-    }
-    if (isSplitGateFenceSide(srcIdx, segmentCount, gatePlacements, segmentLengthsFt)) {
-      return {
-        length_ft: seg.length_ft,
-        fence_terminated_h_post_type: 2 as const,
         fence_terminated_u_channel: 0,
         panel_module: panelModule,
       };

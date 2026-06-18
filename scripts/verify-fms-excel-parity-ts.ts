@@ -4,7 +4,11 @@
  */
 import { computeFmsPvcFenceLine } from '../lib/fms-pvc-material-calculator.ts';
 import { buildPvcAdobeBreakdown, computePvcMasterColumn } from '../lib/fms-pvc-breakdown-master.ts';
-import { computeFmsPvcShortGate, sumGateAdobeRows } from '../lib/fms-pvc-gates-calculator.ts';
+import { computeFmsPvcShortGate, FMS_GATE_POST_COUNT, sumGateAdobeRows } from '../lib/fms-pvc-gates-calculator.ts';
+import {
+  layoutPointsToSegmentPairs,
+  segmentRunEndTerminationsForSketch,
+} from '../lib/layout-sketch-to-pvc-inputs.ts';
 import {
   buildFmsHybridMasterList,
   classifyHybridHorizontalGateKind,
@@ -177,3 +181,47 @@ assertEq('hyb V master concrete', veMaster.find((r) => r.item === 'Concrete')?.f
 assertEq('hyb V master board', veMaster.find((r) => r.item === 'Board')?.final ?? 0, 11);
 
 console.log('OK: Hybrid vertical TypeScript parity checks passed.');
+
+function d6FromRunEnds(ends: { start: { h_post: boolean }; end: { h_post: boolean } }) {
+  return (ends.start.h_post ? 1 : 0) + (ends.end.h_post ? 1 : 0);
+}
+
+// Inline gate split: left 38′ | gate 4′ | right 38′ — fence sides must not post at the gate edge.
+const splitPts = [
+  { x: 0, y: 0 },
+  { x: 0, y: 38 },
+  { x: 0, y: 42 },
+  { x: 0, y: 80 },
+];
+const splitMeta = [{ length_ft: 38 }, { length_ft: 4 }, { length_ft: 38 }];
+const splitPairs = layoutPointsToSegmentPairs(splitPts, splitMeta);
+const splitLengths = [38, 4, 38];
+const splitGates = [{ type: 'single' as const, line_index: 1 }];
+const leftEnds = segmentRunEndTerminationsForSketch(splitPairs, splitLengths, 0, {
+  gatePlacements: splitGates,
+});
+const rightEnds = segmentRunEndTerminationsForSketch(splitPairs, splitLengths, 2, {
+  gatePlacements: splitGates,
+});
+assertEq('split left d6', d6FromRunEnds(leftEnds!), 1);
+assertEq('split left gate end no post', leftEnds!.end.h_post ? 1 : 0, 0);
+assertEq('split right d6', d6FromRunEnds(rightEnds!), 1);
+assertEq('split right gate start no post', rightEnds!.start.h_post ? 1 : 0, 0);
+
+const leftFence = computeFmsPvcFenceLine({
+  length_ft: 38,
+  fence_terminated_h_post_type: d6FromRunEnds(leftEnds!) as 0 | 1 | 2,
+  fence_terminated_u_channel: 0,
+  panel_module: 'nominal_7ft',
+});
+const rightFence = computeFmsPvcFenceLine({
+  length_ft: 38,
+  fence_terminated_h_post_type: d6FromRunEnds(rightEnds!) as 0 | 1 | 2,
+  fence_terminated_u_channel: 0,
+  panel_module: 'nominal_7ft',
+});
+const walkGate = computeFmsPvcShortGate({ gate_width_in: 48, posts: FMS_GATE_POST_COUNT });
+const splitPostTotal = leftFence.h_post + rightFence.h_post + (walkGate.adobe_gate_rows[18] ?? 0);
+assertEq('split inline gate post total', splitPostTotal, 12);
+
+console.log('OK: Inline gate split post checks passed.');

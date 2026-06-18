@@ -104,7 +104,6 @@ import {
   sketchGateSegmentRole,
   sketchSegmentRunLabel,
   type SegmentRunEnds,
-  isSplitGateFenceSide,
   jointPositionsFromAligned,
   LAYOUT_CHAIN_ALIGN_FT,
   LAYOUT_MIN_SKETCH_SEGMENT_FT,
@@ -817,17 +816,6 @@ function buildInputForPvcLineRow(
   let d7: number;
   if (r.run_ends && r.manualRunEdit) {
     ({ d6, d7 } = d6d7FromRunEnds(r.run_ends));
-  } else if (
-    sketchCtx &&
-    isSplitGateFenceSide(
-      sketchCtx.segmentIndex,
-      sketchCtx.sketch.segments.length,
-      sketchCtx.sketch.gate_placements,
-      sketchCtx.sketch.segments
-    )
-  ) {
-    d6 = 2;
-    d7 = 0;
   } else if (r.run_ends) {
     ({ d6, d7 } = d6d7FromRunEnds(r.run_ends));
   } else {
@@ -877,17 +865,6 @@ function buildInputForHybridLineRow(
   let u_channel: number;
   if (r.run_ends && r.manualRunEdit) {
     ({ d6: h_post, d7: u_channel } = d6d7FromRunEnds(r.run_ends));
-  } else if (
-    sketchCtx &&
-    isSplitGateFenceSide(
-      sketchCtx.segmentIndex,
-      sketchCtx.sketch.segments.length,
-      sketchCtx.sketch.gate_placements,
-      sketchCtx.sketch.segments
-    )
-  ) {
-    h_post = 2;
-    u_channel = 0;
   } else if (r.run_ends) {
     ({ d6: h_post, d7: u_channel } = d6d7FromRunEnds(r.run_ends));
   } else {
