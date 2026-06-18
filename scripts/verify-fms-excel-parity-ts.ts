@@ -1,5 +1,5 @@
 /**
- * Full PVC + hybrid horizontal calculator parity vs workbook sample cells.
+ * Full PVC + hybrid horizontal/vertical calculator parity vs workbook sample cells.
  * Run: npx tsx scripts/verify-fms-excel-parity-ts.ts
  */
 import { computeFmsPvcFenceLine } from '../lib/fms-pvc-material-calculator.ts';
@@ -8,10 +8,15 @@ import { computeFmsPvcShortGate, sumGateAdobeRows } from '../lib/fms-pvc-gates-c
 import {
   buildFmsHybridMasterList,
   classifyHybridHorizontalGateKind,
+  classifyHybridVGateInputs,
   computeHybridHorizontalAdjacentGate,
   computeHybridHorizontalDoubleGate,
   computeHybridHorizontalFence,
   computeHybridHorizontalGate,
+  computeHybridVerticalGateBlockRows,
+  computeHybridVerticalGateDouble,
+  computeHybridVerticalGateSingle,
+  computeHybridVerticalPvc64Fence,
   sumFmsHybridRows,
 } from '../lib/fms-hybrid-calculators.ts';
 
@@ -129,3 +134,46 @@ const hybMaster = buildFmsHybridMasterList(hybTotals, 'horizontal');
 assertEq('hyb master concrete', hybMaster.find((r) => r.item === 'Concrete')?.final ?? 0, 8 * 2.5);
 
 console.log('OK: Hybrid horizontal TypeScript parity checks passed.');
+
+// Vertical Material Calculator — saved workbook samples (6'4" PVC, 8' spacing)
+const veFence = computeHybridVerticalPvc64Fence({ length_ft: 1.5, h_post: 1, u_channel: 0 });
+assertEq('hyb V 1.5′ h post', pickHybrid(veFence.rows, 'Aluminum H Post'), 1);
+assertEq('hyb V 1.5′ 8ft rail', pickHybrid(veFence.rows, "8' Rail"), 1);
+assertEq('hyb V 1.5′ 72in board', pickHybrid(veFence.rows, '72" Board'), 3);
+assertEq('hyb V 1.5′ board stiff', pickHybrid(veFence.rows, 'Board Stiffener'), 0.5625);
+assertEq('hyb V 1.5′ long screw', pickHybrid(veFence.rows, 'Long Black Screw (2.5)'), 4);
+
+const veFenceLong = computeHybridVerticalPvc64Fence({ length_ft: 16, h_post: 2, u_channel: 1 });
+assertEq('hyb V 16′ h post', pickHybrid(veFenceLong.rows, 'Aluminum H Post'), 3);
+assertEq('hyb V 16′ u channel', pickHybrid(veFenceLong.rows, 'U Channel'), 1);
+assertEq('hyb V 16′ small screw u1', pickHybrid(veFenceLong.rows, 'Small Black Screw (3/4)'), 6);
+
+const veSingle = computeHybridVerticalGateSingle({ gate_width_in: 48, posts: 1 });
+assertEq('hyb V single gate board', pickHybrid(veSingle.rows, 'Board'), 8);
+assertEq('hyb V single gate side plate', pickHybrid(veSingle.rows, 'Gate Side Plate'), 2);
+
+const veDouble = computeHybridVerticalGateDouble({ gate_width_in: 96, posts: 1 });
+assertEq('hyb V double gate board', pickHybrid(veDouble.rows, 'Board'), 16);
+assertEq('hyb V double gate cross brace', pickHybrid(veDouble.rows, 'Gate Cross Brace (Hybrid/Metal)'), 2);
+assertEq('hyb V double drop rod', pickHybrid(veDouble.rows, 'Drop Rod + Sleeve'), 1);
+
+const veClassified = classifyHybridVGateInputs(
+  [{ width_in: '48', posts: 1 }],
+  [{ width_in: '72', posts: 1 }],
+  [{ width_in: '96', posts: 1 }]
+);
+assertEq('hyb V classify short→single', veClassified[0]?.block, 'single');
+assertEq('hyb V classify single', veClassified[1]?.block, 'single');
+assertEq('hyb V classify double', veClassified[2]?.block, 'double');
+assertEq(
+  'hyb V block rows 48',
+  pickHybrid(computeHybridVerticalGateBlockRows(veClassified[0]!), 'Board'),
+  8
+);
+
+const veTotals = sumFmsHybridRows([veFence.rows, veSingle.rows]);
+const veMaster = buildFmsHybridMasterList(veTotals, 'vertical');
+assertEq('hyb V master concrete', veMaster.find((r) => r.item === 'Concrete')?.final ?? 0, 5);
+assertEq('hyb V master board', veMaster.find((r) => r.item === 'Board')?.final ?? 0, 11);
+
+console.log('OK: Hybrid vertical TypeScript parity checks passed.');

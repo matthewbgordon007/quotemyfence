@@ -520,3 +520,44 @@ export function computeHybridVerticalGateDouble(input: FmsHybridVeGateInput): { 
     ],
   };
 }
+
+/** Vertical hybrid gate line width bands (Excel single F / double J blocks). */
+export const HYBRID_V_GATE_DOUBLE_MAX_IN = 96;
+
+export type HybridVGateClassified = {
+  gate_width_in: number;
+  posts: 0 | 1 | 2;
+  block: 'single' | 'double';
+};
+
+/**
+ * Same short / single / double gate routing as PVC; vertical sheet has single + double blocks only.
+ */
+export function classifyHybridVGateInputs(
+  shortRows: HybridHGateRowInput[],
+  singleRows: HybridHGateRowInput[],
+  doubleRows: HybridHGateRowInput[]
+): HybridVGateClassified[] {
+  const out: HybridVGateClassified[] = [];
+  const push = (r: HybridHGateRowInput, preferred: 'single' | 'double') => {
+    const w = Math.max(0, Number(String(r.width_in).replace(/,/g, '')) || 0);
+    if (w <= 0) return;
+    const posts = (r.posts ?? 1) as 0 | 1 | 2;
+    const block =
+      preferred === 'double' && w <= HYBRID_V_GATE_DOUBLE_MAX_IN && w >= HYBRID_H_GATE_SIMPLE_MAX_IN
+        ? 'double'
+        : 'single';
+    out.push({ gate_width_in: w, posts, block });
+  };
+  for (const r of shortRows) push(r, 'single');
+  for (const r of singleRows) push(r, 'single');
+  for (const r of doubleRows) push(r, 'double');
+  return out;
+}
+
+export function computeHybridVerticalGateBlockRows(gate: HybridVGateClassified): FmsHybridItemRow[] {
+  const input = { gate_width_in: gate.gate_width_in, posts: gate.posts };
+  return gate.block === 'double'
+    ? computeHybridVerticalGateDouble(input).rows
+    : computeHybridVerticalGateSingle(input).rows;
+}

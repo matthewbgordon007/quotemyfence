@@ -59,8 +59,8 @@ import {
   classifyHybridHGateInputs,
   computeHybridHorizontalFence,
   computeHybridHorizontalGateBlockRows,
-  computeHybridVerticalGateDouble,
-  computeHybridVerticalGateSingle,
+  computeHybridVerticalGateBlockRows,
+  classifyHybridVGateInputs,
   computeHybridVerticalPvc64Fence,
   fmsHybridHoBlockTitle,
   sumFmsHybridRows,
@@ -313,16 +313,51 @@ type HybridLineRow = {
   manualRunEdit?: boolean;
 };
 
-/** Hybrid gate row — same as PVC plus optional adjoining for adjacent/double workbook blocks. */
-type HybridFenceGateRow = PvcGateRow & { adjoining?: 0 | 1 | 2 };
+/** Hybrid horizontal gate row — same as PVC plus optional adjoining for adjacent/double blocks. */
+type HybridHFenceGateRow = PvcGateRow & { adjoining?: 0 | 1 | 2 };
+/** Hybrid vertical gate row — same as PVC. */
+type HybridVFenceGateRow = PvcGateRow;
 
-type HybridVGateRow = {
-  id: string;
-  kind: 'single' | 'double';
-  width_in: string;
-  posts: 0 | 1 | 2;
-  sketchPlacementIndex?: number;
-};
+function parseHybridVFenceGateRows(raw: unknown): HybridVFenceGateRow[] {
+  if (!Array.isArray(raw)) return [];
+  const out: HybridVFenceGateRow[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue;
+    const o = row as Record<string, unknown>;
+    out.push({
+      id: typeof o.id === 'string' && o.id ? o.id : newLineId(),
+      width_in: typeof o.width_in === 'string' || typeof o.width_in === 'number' ? String(o.width_in) : '',
+      posts: FMS_GATE_POST_COUNT,
+      sketchPlacementIndex: parseSketchPlacementIndex(o),
+    });
+  }
+  return out;
+}
+
+function migrateLegacyHybridVGates(raw: unknown): {
+  short: HybridVFenceGateRow[];
+  single: HybridVFenceGateRow[];
+  double: HybridVFenceGateRow[];
+} | null {
+  if (!Array.isArray(raw)) return null;
+  const short: HybridVFenceGateRow[] = [];
+  const single: HybridVFenceGateRow[] = [];
+  const double: HybridVFenceGateRow[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue;
+    const o = row as Record<string, unknown>;
+    const item: HybridVFenceGateRow = {
+      id: typeof o.id === 'string' && o.id ? o.id : newLineId(),
+      width_in: typeof o.width_in === 'string' || typeof o.width_in === 'number' ? String(o.width_in) : '',
+      posts: FMS_GATE_POST_COUNT,
+      sketchPlacementIndex: parseSketchPlacementIndex(o),
+    };
+    if (o.kind === 'double') double.push(item);
+    else if (Number(String(item.width_in).replace(/,/g, '')) < PVC_SHORT_GATE_MAX_IN) short.push(item);
+    else single.push(item);
+  }
+  return short.length || single.length || double.length ? { short, single, double } : null;
+}
 
 function drawingDataToPvcLineRows(
   drawing: {
@@ -951,18 +986,10 @@ function chainGateRowFromSketchPlacement(
   return { id: newLineId(), width_in: row.width_in, posts: row.posts, opening_in: '45' };
 }
 
-function hybVGateRowFromSketchPlacement(
-  placement: { type: 'single' | 'double'; line_index: number },
-  segments: { length_ft: number }[]
-): HybridVGateRow {
-  const { row } = pvcGateFromSketchPlacement(placement, segments);
-  return { id: newLineId(), kind: placement.type, width_in: row.width_in, posts: FMS_GATE_POST_COUNT };
-}
-
 function hybridFenceGateFromSketchPlacement(
   placement: { type: 'single' | 'double'; line_index: number },
   segments: { length_ft: number }[]
-): HybridFenceGateRow {
+): HybridHFenceGateRow {
   const { row } = pvcGateFromSketchPlacement(placement, segments);
   return { ...row, adjoining: 1 as const };
 }
@@ -1531,9 +1558,9 @@ function parseHybridLines(raw: unknown): HybridLineRow[] | null {
   return out.length ? out : null;
 }
 
-function parseHybridFenceGateRows(raw: unknown): HybridFenceGateRow[] {
+function parseHybridHFenceGateRows(raw: unknown): HybridHFenceGateRow[] {
   if (!Array.isArray(raw)) return [];
-  const out: HybridFenceGateRow[] = [];
+  const out: HybridHFenceGateRow[] = [];
   for (const row of raw) {
     if (!row || typeof row !== 'object') continue;
     const o = row as Record<string, unknown>;
@@ -1550,19 +1577,19 @@ function parseHybridFenceGateRows(raw: unknown): HybridFenceGateRow[] {
 
 /** Migrate saved jobs that used the old single-list hybrid H gate format. */
 function migrateLegacyHybridHGates(raw: unknown): {
-  short: HybridFenceGateRow[];
-  single: HybridFenceGateRow[];
-  double: HybridFenceGateRow[];
+  short: HybridHFenceGateRow[];
+  single: HybridHFenceGateRow[];
+  double: HybridHFenceGateRow[];
 } | null {
   if (!Array.isArray(raw)) return null;
-  const short: HybridFenceGateRow[] = [];
-  const single: HybridFenceGateRow[] = [];
-  const double: HybridFenceGateRow[] = [];
+  const short: HybridHFenceGateRow[] = [];
+  const single: HybridHFenceGateRow[] = [];
+  const double: HybridHFenceGateRow[] = [];
   for (const row of raw) {
     if (!row || typeof row !== 'object') continue;
     const o = row as Record<string, unknown>;
     const kind = o.kind === 'adjacent' || o.kind === 'double' ? o.kind : 'simple';
-    const item: HybridFenceGateRow = {
+    const item: HybridHFenceGateRow = {
       id: typeof o.id === 'string' && o.id ? o.id : newLineId(),
       width_in: typeof o.width_in === 'string' || typeof o.width_in === 'number' ? String(o.width_in) : '',
       posts: FMS_GATE_POST_COUNT,
@@ -1574,23 +1601,6 @@ function migrateLegacyHybridHGates(raw: unknown): {
     else short.push(item);
   }
   return short.length || single.length || double.length ? { short, single, double } : null;
-}
-
-function parseHybridVGates(raw: unknown): HybridVGateRow[] | null {
-  if (!Array.isArray(raw)) return null;
-  const out: HybridVGateRow[] = [];
-  for (const row of raw) {
-    if (!row || typeof row !== 'object') continue;
-    const o = row as Record<string, unknown>;
-    out.push({
-      id: typeof o.id === 'string' && o.id ? o.id : newLineId(),
-      kind: o.kind === 'double' ? 'double' : 'single',
-      width_in: typeof o.width_in === 'string' || typeof o.width_in === 'number' ? String(o.width_in) : '',
-      posts: FMS_GATE_POST_COUNT,
-      sketchPlacementIndex: parseSketchPlacementIndex(o),
-    });
-  }
-  return out;
 }
 
 function parseMasterExtras(raw: unknown): Partial<Record<keyof FmsPvcMasterExtras, string>> | null {
@@ -1680,12 +1690,14 @@ export default function MaterialCalculatorHubPage() {
   const [hybHFamily, setHybHFamily] = useState<FmsHybridHoFamily>('woodGrain');
   const [hybHHeight, setHybHHeight] = useState<FmsHybridHoHeight>(6);
   const [hybHLines, setHybHLines] = useState<HybridLineRow[]>(() => defaultHybridLines());
-  const [hybHShortGates, setHybHShortGates] = useState<HybridFenceGateRow[]>([]);
-  const [hybHSingleGates, setHybHSingleGates] = useState<HybridFenceGateRow[]>([]);
-  const [hybHDoubleGates, setHybHDoubleGates] = useState<HybridFenceGateRow[]>([]);
+  const [hybHShortGates, setHybHShortGates] = useState<HybridHFenceGateRow[]>([]);
+  const [hybHSingleGates, setHybHSingleGates] = useState<HybridHFenceGateRow[]>([]);
+  const [hybHDoubleGates, setHybHDoubleGates] = useState<HybridHFenceGateRow[]>([]);
   /** Hybrid vertical (Excel `Vertical Material Calculator - `). */
   const [hybVLines, setHybVLines] = useState<HybridLineRow[]>(() => defaultHybridLines());
-  const [hybVGates, setHybVGates] = useState<HybridVGateRow[]>([]);
+  const [hybVShortGates, setHybVShortGates] = useState<HybridVFenceGateRow[]>([]);
+  const [hybVSingleGates, setHybVSingleGates] = useState<HybridVFenceGateRow[]>([]);
+  const [hybVDoubleGates, setHybVDoubleGates] = useState<HybridVFenceGateRow[]>([]);
   const [hybridWpcColour, setHybridWpcColour] = useState<FmsWpcCalculatorColour>('Ash');
   const [hybridPvcColour, setHybridPvcColour] = useState<FmsPvcCalculatorColour>('White');
 
@@ -1921,9 +1933,9 @@ export default function MaterialCalculatorHubPage() {
       if (d.hybHHeight !== undefined) setHybHHeight(coerceHybridHoHeight(d.hybHHeight));
       const hhl = parseHybridLines(d.hybHLines);
       if (hhl) setHybHLines(hhl);
-      const hhgShort = parseHybridFenceGateRows(d.hybHShortGates);
-      const hhgSingle = parseHybridFenceGateRows(d.hybHSingleGates);
-      const hhgDouble = parseHybridFenceGateRows(d.hybHDoubleGates);
+      const hhgShort = parseHybridHFenceGateRows(d.hybHShortGates);
+      const hhgSingle = parseHybridHFenceGateRows(d.hybHSingleGates);
+      const hhgDouble = parseHybridHFenceGateRows(d.hybHDoubleGates);
       if (hhgShort.length || hhgSingle.length || hhgDouble.length) {
         setHybHShortGates(hhgShort);
         setHybHSingleGates(hhgSingle);
@@ -1938,8 +1950,21 @@ export default function MaterialCalculatorHubPage() {
       }
       const hvl = parseHybridLines(d.hybVLines);
       if (hvl) setHybVLines(hvl);
-      const hvg = parseHybridVGates(d.hybVGates);
-      if (hvg) setHybVGates(hvg);
+      const hvgShort = parseHybridVFenceGateRows(d.hybVShortGates);
+      const hvgSingle = parseHybridVFenceGateRows(d.hybVSingleGates);
+      const hvgDouble = parseHybridVFenceGateRows(d.hybVDoubleGates);
+      if (hvgShort.length || hvgSingle.length || hvgDouble.length) {
+        setHybVShortGates(hvgShort);
+        setHybVSingleGates(hvgSingle);
+        setHybVDoubleGates(hvgDouble);
+      } else {
+        const legacyV = migrateLegacyHybridVGates(d.hybVGates);
+        if (legacyV) {
+          setHybVShortGates(legacyV.short);
+          setHybVSingleGates(legacyV.single);
+          setHybVDoubleGates(legacyV.double);
+        }
+      }
       markHydrated();
     } catch {
       markHydrated();
@@ -1984,7 +2009,9 @@ export default function MaterialCalculatorHubPage() {
       hybHSingleGates,
       hybHDoubleGates,
       hybVLines,
-      hybVGates,
+      hybVShortGates,
+      hybVSingleGates,
+      hybVDoubleGates,
       hybridWpcColour,
       hybridPvcColour,
       materialExclusions,
@@ -2021,7 +2048,9 @@ export default function MaterialCalculatorHubPage() {
     hybHSingleGates,
     hybHDoubleGates,
     hybVLines,
-    hybVGates,
+    hybVShortGates,
+    hybVSingleGates,
+    hybVDoubleGates,
     hybridWpcColour,
     hybridPvcColour,
     materialExclusions,
@@ -2082,7 +2111,9 @@ export default function MaterialCalculatorHubPage() {
     hybHSingleGates,
     hybHDoubleGates,
     hybVLines,
-    hybVGates,
+    hybVShortGates,
+    hybVSingleGates,
+    hybVDoubleGates,
     hybridWpcColour,
     hybridPvcColour,
   ]);
@@ -2158,7 +2189,9 @@ export default function MaterialCalculatorHubPage() {
     setHybHSingleGates([]);
     setHybHDoubleGates([]);
     setHybVLines(defaultHybridLines());
-    setHybVGates([]);
+    setHybVShortGates([]);
+    setHybVSingleGates([]);
+    setHybVDoubleGates([]);
     setHybridWpcColour('Ash');
     setHybridPvcColour('White');
     setMaterialExclusions({});
@@ -2255,7 +2288,9 @@ export default function MaterialCalculatorHubPage() {
         setSingleGates([]);
         setDoubleGates([]);
         setChainGates([]);
-        setHybVGates([]);
+        setHybVShortGates([]);
+        setHybVSingleGates([]);
+        setHybVDoubleGates([]);
         sketchSyncedGatePlacementCountRef.current = 0;
         sketchToLinesSyncKeyRef.current = '';
         if (sketch) {
@@ -2350,7 +2385,9 @@ export default function MaterialCalculatorHubPage() {
         setSingleGates([]);
         setDoubleGates([]);
         setChainGates([]);
-        setHybVGates([]);
+        setHybVShortGates([]);
+        setHybVSingleGates([]);
+        setHybVDoubleGates([]);
         sketchSyncedGatePlacementCountRef.current = 0;
         sketchToLinesSyncKeyRef.current = '';
         if (sketch) {
@@ -2419,10 +2456,9 @@ export default function MaterialCalculatorHubPage() {
         ...p,
         { ...chainGateRowFromSketchPlacement(placement, segs), sketchPlacementIndex: placementIndex },
       ]);
-      setHybVGates((p) => [
-        ...p,
-        { ...hybVGateRowFromSketchPlacement(placement, segs), sketchPlacementIndex: placementIndex },
-      ]);
+      setHybVShortGates((p) => (kind === 'short' ? [...p, tagged] : p));
+      setHybVSingleGates((p) => (kind === 'single' ? [...p, tagged] : p));
+      setHybVDoubleGates((p) => (kind === 'double' ? [...p, tagged] : p));
       const hybGate = { ...hybridFenceGateFromSketchPlacement(placement, segs), sketchPlacementIndex: placementIndex };
       if (kind === 'short') setHybHShortGates((p) => [...p, hybGate]);
       else if (kind === 'single') setHybHSingleGates((p) => [...p, hybGate]);
@@ -3069,9 +3105,10 @@ export default function MaterialCalculatorHubPage() {
     layoutSketchData,
   ]);
 
-  /** Hybrid vertical — same fence routing as PVC; 6'4" hybrid PVC sheet for materials. */
+  /** Hybrid vertical — same fence/gate routing as PVC; 6'4" hybrid PVC sheet for materials. */
   const hybridVJob = useMemo(() => {
     const hasSketchGates = Boolean(layoutSketchData?.gate_placements?.length);
+    const manualGates = [...hybVShortGates, ...hybVSingleGates, ...hybVDoubleGates];
     const sketchCtx = layoutSketchData?.segments?.length ? layoutSketchData : undefined;
     const runs = hybVLines.map((row, i) => {
       let input = buildInputForHybridLineRow(row, sketchCtx ? { segmentIndex: i, sketch: sketchCtx } : undefined);
@@ -3082,7 +3119,7 @@ export default function MaterialCalculatorHubPage() {
             i,
             input.length_ft,
             hybVLines.length,
-            hybVGates,
+            manualGates,
             hasSketchGates
           ),
         };
@@ -3099,23 +3136,19 @@ export default function MaterialCalculatorHubPage() {
         }),
       };
     });
-    const gates = hybVGates.map((g) => {
-      const w = Math.max(0, Number(String(g.width_in).replace(/,/g, '')) || 0);
-      if (w <= 0) return { gate: g, rows: null as null | FmsHybridItemRow[] };
-      const rows =
-        g.kind === 'single'
-          ? computeHybridVerticalGateSingle({ gate_width_in: w, posts: g.posts }).rows
-          : computeHybridVerticalGateDouble({ gate_width_in: w, posts: g.posts }).rows;
-      return { gate: g, rows };
-    });
+    const classified = classifyHybridVGateInputs(hybVShortGates, hybVSingleGates, hybVDoubleGates);
+    const gates = classified.map((gate) => ({
+      gate,
+      rows: computeHybridVerticalGateBlockRows(gate),
+    }));
     const totals = sumFmsHybridRows([
       ...runs.filter((r) => r.result).map((r) => r.result!.rows),
       ...gates.filter((g) => g.rows).map((g) => g.rows!),
     ]);
     const master = applyHybridExtras(buildFmsHybridMasterList(totals, 'vertical'), HYBRID_V_EXTRA_ITEMS, hybVExtras);
-    const hasAny = runs.some((r) => r.result) || gates.some((g) => g.rows);
+    const hasAny = runs.some((r) => r.result) || gates.some((g) => g.rows?.length);
     return { runs, gates, totals, master, hasAny };
-  }, [hybVLines, hybVGates, hybVExtras, layoutSketchData]);
+  }, [hybVLines, hybVShortGates, hybVSingleGates, hybVDoubleGates, hybVExtras, layoutSketchData]);
 
   const buildHybridMaterialListPdfBlob = useCallback(
     async (which: 'h' | 'v'): Promise<{ blob: Blob; filename: string }> => {
@@ -3508,7 +3541,9 @@ export default function MaterialCalculatorHubPage() {
     setSingleGates(syncWidth);
     setDoubleGates(syncWidth);
     setChainGates(syncWidth);
-    setHybVGates(syncWidth);
+    setHybVShortGates(syncWidth);
+    setHybVSingleGates(syncWidth);
+    setHybVDoubleGates(syncWidth);
     setHybHShortGates(syncWidth);
     setHybHSingleGates(syncWidth);
     setHybHDoubleGates(syncWidth);
@@ -3529,7 +3564,9 @@ export default function MaterialCalculatorHubPage() {
     setSingleGates((rows) => shiftGatePlacementIndices(rows, placementIndex));
     setDoubleGates((rows) => shiftGatePlacementIndices(rows, placementIndex));
     setChainGates((rows) => shiftGatePlacementIndices(rows, placementIndex));
-    setHybVGates((rows) => shiftGatePlacementIndices(rows, placementIndex));
+    setHybVShortGates((rows) => shiftGatePlacementIndices(rows, placementIndex));
+    setHybVSingleGates((rows) => shiftGatePlacementIndices(rows, placementIndex));
+    setHybVDoubleGates((rows) => shiftGatePlacementIndices(rows, placementIndex));
     setHybHShortGates((rows) => shiftGatePlacementIndices(rows, placementIndex));
     setHybHSingleGates((rows) => shiftGatePlacementIndices(rows, placementIndex));
     setHybHDoubleGates((rows) => shiftGatePlacementIndices(rows, placementIndex));
@@ -3649,17 +3686,47 @@ export default function MaterialCalculatorHubPage() {
     setChainGates((rows) => rows.filter((r) => r.id !== id));
   }
 
-  function removeHybVGate(id: string) {
-    const row = hybVGates.find((r) => r.id === id);
+  function addHybVGate(kind: 'short' | 'single' | 'double') {
+    const row: HybridVFenceGateRow = {
+      id: newLineId(),
+      width_in: defaultPvcGateWidthIn(kind),
+      posts: FMS_GATE_POST_COUNT,
+    };
+    if (kind === 'short') setHybVShortGates((p) => [...p, row]);
+    else if (kind === 'single') setHybVSingleGates((p) => [...p, row]);
+    else setHybVDoubleGates((p) => [...p, row]);
+  }
+
+  function updateHybVGate(kind: 'short' | 'single' | 'double', id: string, patch: Partial<HybridVFenceGateRow>) {
+    if ('width_in' in patch) {
+      const rows = kind === 'short' ? hybVShortGates : kind === 'single' ? hybVSingleGates : hybVDoubleGates;
+      const row = rows.find((r) => r.id === id);
+      if (row?.sketchPlacementIndex != null) {
+        applySketchGateWidth(row.sketchPlacementIndex, String(patch.width_in ?? ''));
+        if (Object.keys(patch).length === 1) return;
+      }
+    }
+    const fn = (rows: HybridVFenceGateRow[]) => rows.map((r) => (r.id === id ? { ...r, ...patch } : r));
+    if (kind === 'short') setHybVShortGates(fn);
+    else if (kind === 'single') setHybVSingleGates(fn);
+    else setHybVDoubleGates(fn);
+  }
+
+  function removeHybVGate(kind: 'short' | 'single' | 'double', id: string) {
+    const rows = kind === 'short' ? hybVShortGates : kind === 'single' ? hybVSingleGates : hybVDoubleGates;
+    const row = rows.find((r) => r.id === id);
     if (row?.sketchPlacementIndex != null) {
       removeSketchLinkedGate(row.sketchPlacementIndex);
       return;
     }
-    setHybVGates((rows) => rows.filter((r) => r.id !== id));
+    const fn = (gateRows: HybridVFenceGateRow[]) => gateRows.filter((r) => r.id !== id);
+    if (kind === 'short') setHybVShortGates(fn);
+    else if (kind === 'single') setHybVSingleGates(fn);
+    else setHybVDoubleGates(fn);
   }
 
   function addHybHGate(kind: 'short' | 'single' | 'double') {
-    const row: HybridFenceGateRow = {
+    const row: HybridHFenceGateRow = {
       id: newLineId(),
       width_in: defaultPvcGateWidthIn(kind),
       posts: FMS_GATE_POST_COUNT,
@@ -3670,7 +3737,7 @@ export default function MaterialCalculatorHubPage() {
     else setHybHDoubleGates((p) => [...p, row]);
   }
 
-  function updateHybHGate(kind: 'short' | 'single' | 'double', id: string, patch: Partial<HybridFenceGateRow>) {
+  function updateHybHGate(kind: 'short' | 'single' | 'double', id: string, patch: Partial<HybridHFenceGateRow>) {
     if ('width_in' in patch) {
       const rows = kind === 'short' ? hybHShortGates : kind === 'single' ? hybHSingleGates : hybHDoubleGates;
       const row = rows.find((r) => r.id === id);
@@ -3679,7 +3746,7 @@ export default function MaterialCalculatorHubPage() {
         if (Object.keys(patch).length === 1) return;
       }
     }
-    const fn = (rows: HybridFenceGateRow[]) => rows.map((r) => (r.id === id ? { ...r, ...patch } : r));
+    const fn = (rows: HybridHFenceGateRow[]) => rows.map((r) => (r.id === id ? { ...r, ...patch } : r));
     if (kind === 'short') setHybHShortGates(fn);
     else if (kind === 'single') setHybHSingleGates(fn);
     else setHybHDoubleGates(fn);
@@ -3692,7 +3759,7 @@ export default function MaterialCalculatorHubPage() {
       removeSketchLinkedGate(row.sketchPlacementIndex);
       return;
     }
-    const fn = (gateRows: HybridFenceGateRow[]) => gateRows.filter((r) => r.id !== id);
+    const fn = (gateRows: HybridHFenceGateRow[]) => gateRows.filter((r) => r.id !== id);
     if (kind === 'short') setHybHShortGates(fn);
     else if (kind === 'single') setHybHSingleGates(fn);
     else setHybHDoubleGates(fn);
@@ -3702,7 +3769,7 @@ export default function MaterialCalculatorHubPage() {
     title: string,
     hint: string,
     kind: 'short' | 'single' | 'double',
-    rows: HybridFenceGateRow[],
+    rows: HybridHFenceGateRow[],
     showAdjoining: boolean
   ) {
     return (
@@ -3767,6 +3834,69 @@ export default function MaterialCalculatorHubPage() {
                       </div>
                     ) : null}
                     <button type="button" className={btnGhost} onClick={() => removeHybHGate(kind, g.id)}>
+                      Remove
+                    </button>
+                  </div>
+                  {gateRows.length > 0 ? (
+                    <div className="mt-2">
+                      <HybridItemTable rows={gateRows} />
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function renderHybridVGateSection(
+    title: string,
+    hint: string,
+    kind: 'short' | 'single' | 'double',
+    rows: HybridVFenceGateRow[]
+  ) {
+    return (
+      <div className="rounded-xl border border-slate-100 bg-slate-50/30 p-4">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <span className="text-sm font-semibold text-slate-800">{title}</span>
+            <p className="text-xs text-slate-500">{hint}</p>
+          </div>
+          <button type="button" className={btnGhost} onClick={() => addHybVGate(kind)}>
+            + Add
+          </button>
+        </div>
+        {rows.length === 0 ? (
+          <p className="text-xs text-slate-400">None</p>
+        ) : (
+          <div className="space-y-2">
+            {rows.map((g, i) => {
+              const classified = classifyHybridVGateInputs(
+                kind === 'short' ? [g] : [],
+                kind === 'single' ? [g] : [],
+                kind === 'double' ? [g] : []
+              )[0];
+              const gateRows = classified ? computeHybridVerticalGateBlockRows(classified) : [];
+              return (
+                <div key={g.id} className="rounded-lg bg-white p-2 ring-1 ring-slate-100">
+                  <div className="flex flex-wrap items-end gap-2">
+                    <span className="text-xs text-slate-400">#{i + 1}</span>
+                    <div>
+                      <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">
+                        Width (in)
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.5}
+                        value={g.width_in}
+                        onChange={(e) => updateHybVGate(kind, g.id, { width_in: e.target.value })}
+                        className={`${field} w-28`}
+                      />
+                    </div>
+                    <button type="button" className={btnGhost} onClick={() => removeHybVGate(kind, g.id)}>
                       Remove
                     </button>
                   </div>
@@ -5571,81 +5701,32 @@ export default function MaterialCalculatorHubPage() {
           </section>
 
           <section className={card}>
-            <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className={h2}>Hybrid vertical gates</h2>
+            <div className="border-b border-slate-100 bg-gradient-to-r from-violet-50/40 via-white to-slate-50/80 px-5 py-4">
+              <h2 className={h2}>Gates</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Single gate (under 56&Prime;) and double gate (max 96&Prime;) — gates placed on the sketch show up here
-                automatically.
+                Same gate placement rules as PVC — sketch defaults to a 48″ walk gate on fence lines; dedicated short
+                runs use the full line length. Vertical workbook has single and double blocks (double max 96″).
               </p>
             </div>
-            <div className="space-y-3 p-5">
-              <button
-                type="button"
-                className={btnGhost}
-                onClick={() =>
-                  setHybVGates((g) => [...g, { id: newLineId(), kind: 'single', width_in: '', posts: FMS_GATE_POST_COUNT }])
-                }
-              >
-                + Add gate
-              </button>
-              {hybridVJob.gates.map(({ gate: g, rows }) => (
-                <div key={g.id} className="rounded-lg border border-slate-100 bg-white p-3">
-                  <div className="flex flex-wrap items-end gap-2">
-                    <div>
-                      <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">
-                        Gate type
-                      </label>
-                      <select
-                        value={g.kind}
-                        onChange={(e) =>
-                          setHybVGates((rows2) =>
-                            rows2.map((r) =>
-                              r.id === g.id ? { ...r, kind: e.target.value === 'double' ? 'double' : 'single' } : r
-                            )
-                          )
-                        }
-                        className={`${field} w-48`}
-                      >
-                        <option value="single">Single gate (under 56&Prime;)</option>
-                        <option value="double">Double gate (max 96&Prime;)</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">
-                        Gate line width (in)
-                      </label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={g.width_in}
-                        onChange={(e) => {
-                          const w = e.target.value;
-                          if (g.sketchPlacementIndex != null) {
-                            applySketchGateWidth(g.sketchPlacementIndex, w);
-                            return;
-                          }
-                          setHybVGates((rows2) =>
-                            rows2.map((r) => (r.id === g.id ? { ...r, width_in: w } : r))
-                          );
-                        }}
-                        className={`${field} w-28`}
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      className={btnGhost}
-                      onClick={() => removeHybVGate(g.id)}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                  {rows ? (
-                    <div className="mt-3">
-                      <HybridItemTable rows={rows} />
-                    </div>
-                  ) : null}
-                </div>
-              ))}
+            <div className="space-y-4 p-5">
+              {renderHybridVGateSection(
+                'Walk gates (small)',
+                'Under 56″ — vertical single gate block (same short-run rule as PVC).',
+                'short',
+                hybVShortGates
+              )}
+              {renderHybridVGateSection(
+                'Single gates',
+                '56–96″ gate line — vertical single gate block; default 48″ on fence lines.',
+                'single',
+                hybVSingleGates
+              )}
+              {renderHybridVGateSection(
+                'Double gates',
+                '56–96″ gate line — vertical double gate block; sketch double placements land here.',
+                'double',
+                hybVDoubleGates
+              )}
             </div>
           </section>
 
