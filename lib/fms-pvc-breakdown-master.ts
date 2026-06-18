@@ -248,3 +248,33 @@ export function adobeBreakdownToRows(adobe: Record<number, number>): { label: st
       qty: adobe[row] ?? 0,
     }));
 }
+
+/** Fence + gate totals on one line per material (matches how the master list groups items). */
+export function adobeBreakdownToMergedRows(
+  adobe: Record<number, number>
+): { label: string; qty: number }[] {
+  const j = (row: number) => adobe[row] ?? 0;
+  const add = (...rows: number[]) => rows.reduce((acc, r) => acc + j(r), 0);
+
+  const items: { label: string; qty: number }[] = [
+    { label: 'Panels', qty: j(2) },
+    { label: 'Galvanized Post', qty: add(3, 18) },
+    { label: 'H Post', qty: add(4, 19) },
+    { label: 'Cap (H Post)', qty: add(5, 20) },
+    { label: 'Rail', qty: add(6, 21) },
+    { label: 'Rail Stiffener', qty: add(7, 22) },
+    { label: 'Board', qty: add(8, 23) },
+    { label: 'Board Stiffener', qty: add(9, 24) },
+    { label: 'Long Screw', qty: add(10, 26) },
+    { label: 'Short Screw', qty: add(11, 25) },
+    { label: 'Plug', qty: add(12, 27) },
+    { label: 'U Channel', qty: add(13, 28) },
+    { label: 'H Post Stiffener', qty: add(14, 33) },
+    { label: 'Cross Brace', qty: j(29) },
+    { label: 'Overhead Brace', qty: j(30) },
+    { label: 'Latch kit', qty: j(31) },
+    { label: 'Hinge Kit', qty: j(32) },
+  ];
+
+  return items.filter((r) => r.qty !== 0);
+}

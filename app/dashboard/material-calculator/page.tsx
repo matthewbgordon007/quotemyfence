@@ -22,7 +22,7 @@ import {
   type FmsPvcPanelModule,
 } from '@/lib/fms-pvc-material-calculator';
 import {
-  adobeBreakdownToRows,
+  adobeBreakdownToMergedRows,
   buildPvcAdobeBreakdown,
   computePvcMasterColumn,
   pvcBoardsPercentAdd,
@@ -2214,7 +2214,7 @@ export default function MaterialCalculatorHubPage() {
     return out;
   }, [lines, shortGates, singleGates, doubleGates, effectivePvcPanelSpacingFt]);
 
-  const adobeRows = useMemo(() => adobeBreakdownToRows(pvcAdobe), [pvcAdobe]);
+  const adobeRows = useMemo(() => adobeBreakdownToMergedRows(pvcAdobe), [pvcAdobe]);
 
   const bomTsv = useMemo(() => {
     const head = ['Job', jobAddress || '—', '', ''].join('\t');
@@ -2231,7 +2231,7 @@ export default function MaterialCalculatorHubPage() {
     const adobeH = [`${fmsPvcMaterialListBreakdownTitle(pvcBreakdownColour)} (J row → qty)`, '', '', ''].join('\t');
     const adobeBody = adobeRows
       .filter((r) => isMaterialIncluded(materialExclusions, 'pvc', r.label))
-      .map((r) => `${r.row}\t${r.label}\t${r.qty}`);
+      .map((r) => `${r.label}\t${r.qty}`);
     const masterH = [`Master column C — ${pvcBreakdownColour}`, '', '', ''].join('\t');
     const masterHdr = ['Item', 'Total', 'Packs', 'Extras'].join('\t');
     const masterBody = pvcMaster
@@ -2252,7 +2252,7 @@ export default function MaterialCalculatorHubPage() {
       ...(concF ? [concF] : []),
       '',
       adobeH,
-      'Row\tItem\tQty',
+      'Item\tQty',
       ...adobeBody,
       '',
       masterH,
@@ -3717,12 +3717,14 @@ export default function MaterialCalculatorHubPage() {
                 <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
                   Itemized breakdown — {pvcBreakdownColour}
                 </h3>
+                <p className="mb-2 text-[11px] text-slate-500">
+                  Fence and gate materials combined per item.
+                </p>
                 <div className="overflow-x-auto rounded-lg border border-slate-100">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold text-slate-500">
                         <th className="w-10 px-1 py-2">Inc.</th>
-                        <th className="px-2 py-2">#</th>
                         <th className="px-2 py-2">Item</th>
                         <th className="px-2 py-2 text-right">Qty</th>
                       </tr>
@@ -3732,7 +3734,7 @@ export default function MaterialCalculatorHubPage() {
                         const included = isMaterialIncluded(materialExclusions, 'pvc', r.label);
                         return (
                           <tr
-                            key={r.row}
+                            key={r.label}
                             className={`border-b border-slate-100 ${!included ? 'bg-slate-50/80 opacity-55' : ''}`}
                           >
                             <td className="w-10 px-1 py-1.5">
@@ -3743,7 +3745,6 @@ export default function MaterialCalculatorHubPage() {
                                 className="h-4 w-4 rounded border-slate-300"
                               />
                             </td>
-                            <td className="px-2 py-1.5 tabular-nums text-slate-500">{r.row}</td>
                             <td
                               className={`px-2 py-1.5 ${included ? 'text-slate-800' : 'text-slate-500 line-through'}`}
                             >
@@ -3759,7 +3760,7 @@ export default function MaterialCalculatorHubPage() {
                       })}
                       {adobeRows.length === 0 && (
                         <tr>
-                          <td colSpan={4} className="px-2 py-4 text-center text-slate-500">
+                          <td colSpan={3} className="px-2 py-4 text-center text-slate-500">
                             Add fence lines or gates.
                           </td>
                         </tr>
