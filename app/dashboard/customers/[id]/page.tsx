@@ -147,7 +147,7 @@ export default function CustomerDetailPage() {
 
   const handleExportToAdmin = async () => {
     if (!exportJobAddress.trim()) {
-      alert('Enter the job site address before sending the material request.');
+      alert('Enter the job address/PO # before sending the material request.');
       return;
     }
     if (exportSupplierId !== 'master' && !exportProductReady) {
@@ -867,12 +867,12 @@ export default function CustomerDetailPage() {
                 onReadyChange={setExportProductReady}
               />
             )}
-            <label className="mt-4 block text-sm font-medium text-[var(--text)]">Job site address</label>
+            <label className="mt-4 block text-sm font-medium text-[var(--text)]">Job address/PO #</label>
             <input
               type="text"
               value={exportJobAddress}
               onChange={(e) => setExportJobAddress(e.target.value)}
-              placeholder="e.g. 28 Ironside Court, Ottawa"
+              placeholder="e.g. 53 Rothesay Ave or PO 4821"
               className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
             />
             <label className="mt-4 block text-sm font-medium text-[var(--text)]">Notes (optional)</label>

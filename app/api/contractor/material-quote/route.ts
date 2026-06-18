@@ -223,7 +223,7 @@ export async function POST(request: NextRequest) {
     descriptionForInsert = `${descFinal}\n\n${productLine}`;
   }
   if (jobSiteAddress && !descriptionForInsert.includes(jobSiteAddress)) {
-    descriptionForInsert = `${descriptionForInsert}\n\n— Job site: ${jobSiteAddress}`;
+    descriptionForInsert = `${descriptionForInsert}\n\n— Job address/PO #: ${jobSiteAddress}`;
   }
 
   const { data: layoutWithDrawing } = await supabase

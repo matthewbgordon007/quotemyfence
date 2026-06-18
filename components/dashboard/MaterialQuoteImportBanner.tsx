@@ -32,7 +32,7 @@ export function MaterialQuoteImportBanner({ request, showContractorDetails, quot
       <dl className={`${showContractorDetails ? 'mt-3 border-t border-slate-200 pt-3' : ''} space-y-1.5`}>
         {jobAddress ? (
           <div>
-            <dt className="text-xs font-medium text-slate-500">Job site</dt>
+            <dt className="text-xs font-medium text-slate-500">Job address/PO #</dt>
             <dd className="font-medium text-slate-900">{jobAddress}</dd>
           </div>
         ) : null}

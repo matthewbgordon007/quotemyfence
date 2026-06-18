@@ -27,7 +27,7 @@ export function materialQuoteUserNotes(
     /^—\s*Linear footage:.*$/gim,
     /^—\s*Lines:.*$/gim,
     /^—\s*Gates:.*$/gim,
-    /^—\s*Job site:.*$/gim,
+    /^—\s*Job (?:site|address\/PO #):.*$/gim,
   ];
   for (const pattern of dropPatterns) {
     text = text.replace(pattern, '');

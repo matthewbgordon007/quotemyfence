@@ -2483,7 +2483,7 @@ export default function MaterialCalculatorHubPage() {
   const adobeRows = useMemo(() => adobeBreakdownToMergedRows(pvcAdobe), [pvcAdobe]);
 
   const bomTsv = useMemo(() => {
-    const head = ['Job', jobAddress || '—', '', ''].join('\t');
+    const head = ['Job address/PO #', jobAddress || '—', '', ''].join('\t');
     const colourLine = ['PVC colour / breakdown tab', pvcBreakdownColour, '', ''].join('\t');
     const fenceHdr = ['Fence-only SKU rollup (Excel block)', '', '', ''].join('\t');
     const hdr = ['SKU', 'Qty'].join('\t');
@@ -3603,13 +3603,13 @@ export default function MaterialCalculatorHubPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Job name or address
+                Job address/PO #
               </label>
               <input
                 type="text"
                 value={jobAddress}
                 onChange={(e) => setJobAddress(e.target.value)}
-                placeholder="e.g. 53 Rothesay Ave — backyard"
+                placeholder="e.g. 53 Rothesay Ave or PO 4821"
                 className={`${field} w-full`}
               />
             </div>

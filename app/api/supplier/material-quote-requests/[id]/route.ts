@@ -187,7 +187,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           html: `
             <div style="font-family: Arial, sans-serif; line-height:1.5;">
               <h2>${escapeHtml(supplierName)} sent back your material quote</h2>
-              ${jobSite ? `<p><strong>Job site:</strong> ${escapeHtml(jobSite)}</p>` : ''}
+              ${jobSite ? `<p><strong>Job address/PO #:</strong> ${escapeHtml(jobSite)}</p>` : ''}
               <p>Status: <strong>Quoted</strong></p>
               ${
                 responseText
