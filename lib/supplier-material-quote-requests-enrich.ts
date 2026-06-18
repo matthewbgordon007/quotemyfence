@@ -363,10 +363,12 @@ export async function enrichMaterialQuoteRequests(_supabase: any, rows: RawMater
     rows.map(async (r) => {
       const fence = r.quote_session_id ? fenceBySessionId.get(r.quote_session_id) || null : null;
       const designSummary = await getDesignSummary(db, fence);
-      const designOptionFromFence = await getDesignOption(db, fence);
-      const designOptionFromSupplier =
-        designOptionFromFence ?? (await getDesignOptionFromSupplierSelection(db, r));
-      const designOption = designOptionFromSupplier;
+      const designOptionFromSupplier = await getDesignOptionFromSupplierSelection(db, r);
+      const designOptionFromFence = fence ? await getDesignOption(db, fence) : null;
+      const designOption =
+        r.supplier_fence_type_id != null
+          ? (designOptionFromSupplier ?? designOptionFromFence)
+          : (designOptionFromFence ?? designOptionFromSupplier);
       const layout = r.layout_drawing_id ? layoutById.get(r.layout_drawing_id) || null : null;
       const layoutFootage = layout?.drawing_data ? getLayoutDrawingFootage(layout.drawing_data) : null;
       const fenceId = r.quote_session_id ? fenceIdBySessionId.get(r.quote_session_id) || null : null;

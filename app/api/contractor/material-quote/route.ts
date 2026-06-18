@@ -8,6 +8,7 @@ import {
 } from '@/lib/map-fence-to-layout-drawing';
 import { createServiceRoleClient } from '@/lib/supabase-service-role';
 import { formatLayoutFootageSummary, getLayoutDrawingFootage } from '@/lib/layout-drawing-footage';
+import { fmsCalculatorColourLabelFromDesignOption } from '@/lib/material-quote-fms-calculator-style';
 import { validateSupplierProductSelection } from '@/lib/validate-supplier-product-selection';
 
 async function getContractorId(supabase: Awaited<ReturnType<typeof createClient>>) {
@@ -202,8 +203,8 @@ export async function POST(request: NextRequest) {
     supplierColourOptionId = colourId || null;
   }
 
-  let jobSiteAddress = '';
-  if (sessionId) {
+  let jobSiteAddress = String(rawJobSiteAddress ?? rawJobAddress ?? '').trim();
+  if (!jobSiteAddress && sessionId) {
     const { data: propRow } = await supabase
       .from('properties')
       .select('formatted_address')
@@ -211,6 +212,10 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
     jobSiteAddress = String((propRow as { formatted_address?: string } | null)?.formatted_address || '').trim();
   }
+
+  const calculatorFenceColour = supplierProductLabels
+    ? fmsCalculatorColourLabelFromDesignOption(supplierProductLabels)
+    : null;
 
   const productLine = supplierProductLabels
     ? `— Product: ${[supplierProductLabels.type, supplierProductLabels.style, supplierProductLabels.colour]
@@ -248,7 +253,8 @@ export async function POST(request: NextRequest) {
       supplier_fence_type_id: supplierFenceTypeId,
       supplier_fence_style_id: supplierFenceStyleId,
       supplier_colour_option_id: supplierColourOptionId,
-      job_site_address: jobSiteAddress,
+      job_site_address: jobSiteAddress || null,
+      calculator_fence_colour: calculatorFenceColour,
       attachment_url: attachment_url ? String(attachment_url) : null,
       attachment_name: attachment_name ? String(attachment_name) : null,
       attachment_content_type: attachment_content_type ? String(attachment_content_type) : null,

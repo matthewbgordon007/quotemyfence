@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { inferFmsHubMaterialFromQuoteProject } from '@/lib/material-quote-fms-calculator-style';
+import { applyMaterialQuoteCalculatorFields, inferFmsHubMaterialFromQuoteProject } from '@/lib/material-quote-fms-calculator-style';
 import {
   excludeMaterialLabels,
   isMaterialIncluded,
@@ -1656,6 +1656,7 @@ export default function MaterialCalculatorHubPage() {
     const skipPvcLinesAndSketch = Boolean(
       fromLayoutId || fromMaterialQuoteId || fromMaterialSketchSaveId || materialRequestId
     );
+    const skipDraftJobAndColour = Boolean(fromMaterialQuoteId || materialRequestId);
 
     const markHydrated = () => {
       materialCalcHydrateKeyRef.current = hydrateKey;
@@ -1674,17 +1675,17 @@ export default function MaterialCalculatorHubPage() {
       }
 
       if (!hasUrlTab && typeof d.tab === 'string') setTab(coerceStyleTab(d.tab));
-      if (typeof d.jobAddress === 'string') setJobAddress(d.jobAddress);
+      if (!skipDraftJobAndColour && typeof d.jobAddress === 'string') setJobAddress(d.jobAddress);
 
-      if (!urlPvcCol) {
+      if (!skipDraftJobAndColour && !urlPvcCol) {
         const c = typeof d.pvcBreakdownColour === 'string' ? coerceFmsPvcCalculatorColour(d.pvcBreakdownColour) : null;
         if (c) setPvcBreakdownColour(c);
       }
-      if (!urlHwCol) {
+      if (!skipDraftJobAndColour && !urlHwCol) {
         const c = typeof d.hybridWpcColour === 'string' ? coerceFmsWpcCalculatorColour(d.hybridWpcColour) : null;
         if (c) setHybridWpcColour(c);
       }
-      if (!urlHpCol) {
+      if (!skipDraftJobAndColour && !urlHpCol) {
         const c = typeof d.hybridPvcColour === 'string' ? coerceFmsPvcCalculatorColour(d.hybridPvcColour) : null;
         if (c) setHybridPvcColour(c);
       }
@@ -2052,13 +2053,12 @@ export default function MaterialCalculatorHubPage() {
         }
         const req = json.request;
         setImportedMaterialRequest(req);
-        const addr = req.project?.home_address?.trim();
-        if (addr) setJobAddress(addr);
-        const savedCalcColour = req.calculator_fence_colour?.trim();
-        if (savedCalcColour) {
-          const pvcCol = coerceFmsPvcCalculatorColour(savedCalcColour);
-          if (pvcCol) setPvcBreakdownColour(pvcCol);
-        }
+        const { savedCalcColour } = applyMaterialQuoteCalculatorFields(req, {
+          setJobAddress,
+          setPvcBreakdownColour,
+          setHybridWpcColour,
+          setHybridPvcColour,
+        });
         const sketch = layoutSketchFromMaterialQuoteProject(req.project);
         setShortGates([]);
         setSingleGates([]);

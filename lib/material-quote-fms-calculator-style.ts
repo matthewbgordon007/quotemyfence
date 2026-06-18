@@ -112,3 +112,65 @@ export function inferFmsHubMaterialFromQuoteProject(project: {
     materialLabel,
   };
 }
+
+/** Label stored on `calculator_fence_colour` when a contractor sends a material request. */
+export function fmsCalculatorColourLabelFromDesignOption(design_option: DesignOption): string | null {
+  const inferred = inferFmsHubMaterialFromQuoteProject({
+    design_summary: '',
+    design_option: design_option ?? null,
+  });
+  if (inferred.kind === 'pvc' && inferred.pvcColour) return inferred.pvcColour;
+  if (inferred.kind === 'chain') return 'Chain link';
+  if (inferred.kind === 'hybrid') {
+    if (inferred.tab === 'hybrid_v' && inferred.pvcColour) return inferred.pvcColour;
+    if (inferred.tab === 'hybrid_h' && inferred.wpcColour) return `${inferred.wpcColour} (horizontal)`;
+  }
+  const c = design_option?.colour?.trim();
+  return c || null;
+}
+
+export type ApplyMaterialQuoteCalculatorFields = {
+  setJobAddress: (v: string) => void;
+  setPvcBreakdownColour: (v: FmsPvcCalculatorColour) => void;
+  setHybridWpcColour: (v: FmsWpcCalculatorColour) => void;
+  setHybridPvcColour: (v: FmsPvcCalculatorColour) => void;
+};
+
+/** Apply job label + FMS calculator colours from a material quote request. */
+export function applyMaterialQuoteCalculatorFields(
+  req: {
+    job_site_address?: string | null;
+    calculator_fence_colour?: string | null;
+    project?: {
+      home_address?: string | null;
+      design_summary?: string | null;
+      design_option?: DesignOption;
+    } | null;
+  },
+  setters: ApplyMaterialQuoteCalculatorFields
+): { savedCalcColour: string | null } {
+  const addr = String(req.job_site_address || req.project?.home_address || '').trim();
+  if (addr) setters.setJobAddress(addr);
+
+  const savedCalcColour = String(req.calculator_fence_colour || '').trim() || null;
+  if (savedCalcColour) {
+    const pvcCol = coerceFmsPvcCalculatorColour(savedCalcColour);
+    if (pvcCol) {
+      setters.setPvcBreakdownColour(pvcCol);
+      return { savedCalcColour };
+    }
+    const horizontalMatch = /^(.+?)\s*\(horizontal\)\s*$/i.exec(savedCalcColour);
+    if (horizontalMatch) {
+      const wpc = coerceFmsWpcCalculatorColour(horizontalMatch[1]);
+      if (wpc) setters.setHybridWpcColour(wpc);
+      return { savedCalcColour };
+    }
+    const wpc = coerceFmsWpcCalculatorColour(savedCalcColour);
+    if (wpc) {
+      setters.setHybridWpcColour(wpc);
+      return { savedCalcColour };
+    }
+  }
+
+  return { savedCalcColour };
+}
