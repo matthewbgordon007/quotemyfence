@@ -47,6 +47,8 @@ export type MaterialQuoteRequestDto = {
   attachment_size_bytes?: number | null;
   supplier_seen_at?: string | null;
   supplier_material_list?: MaterialQuoteLine[] | null;
+  supplier_material_list_pdf_url?: string | null;
+  supplier_material_list_pdf_name?: string | null;
   supplier_quoted_emailed_at?: string | null;
   job_site_address?: string | null;
   calculator_fence_colour?: string | null;

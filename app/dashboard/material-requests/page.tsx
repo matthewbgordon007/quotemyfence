@@ -133,7 +133,22 @@ export default function MaterialRequestsPage() {
                   <div className="space-y-4 border-t border-slate-100 px-5 py-4">
                     {list && list.length > 0 && (
                       <div>
-                        <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Material list from supplier</h3>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                            Material list from supplier
+                          </h3>
+                          {r.supplier_material_list_pdf_url ? (
+                            <a
+                              href={r.supplier_material_list_pdf_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              download={r.supplier_material_list_pdf_name || 'material-list.pdf'}
+                              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-[var(--accent,#2563eb)] shadow-sm transition hover:bg-slate-50"
+                            >
+                              Download material list (PDF)
+                            </a>
+                          ) : null}
+                        </div>
                         <div className="mt-2 overflow-x-auto rounded-lg border border-slate-100">
                           <table className="w-full text-sm">
                             <thead>
@@ -154,6 +169,20 @@ export default function MaterialRequestsPage() {
                         </div>
                       </div>
                     )}
+                    {!list?.length && r.supplier_material_list_pdf_url ? (
+                      <div>
+                        <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Material list from supplier</h3>
+                        <a
+                          href={r.supplier_material_list_pdf_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          download={r.supplier_material_list_pdf_name || 'material-list.pdf'}
+                          className="mt-2 inline-flex rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-[var(--accent,#2563eb)] shadow-sm transition hover:bg-slate-50"
+                        >
+                          Download material list (PDF)
+                        </a>
+                      </div>
+                    ) : null}
                     {response ? (
                       <div>
                         <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Supplier notes</h3>

@@ -2694,8 +2694,10 @@ export default function MaterialCalculatorHubPage() {
     ];
   }, [chainFenceRows, chainGateRows]);
 
-  const downloadChainMasterListPdf = useCallback(async () => {
-    if (!chainFenceRows || !chainFenceAgg) return;
+  const buildChainLinkMaterialListPdfBlob = useCallback(async (): Promise<{ blob: Blob; filename: string }> => {
+    if (!chainFenceRows || !chainFenceAgg) {
+      throw new Error('Add chain link fence lines before generating the PDF.');
+    }
     const ex = (k: string) => styleExtraValue(chainExtras, k);
     const fmt = (n: number) => {
       const r = Math.round(n * 100) / 100;
@@ -2745,16 +2747,21 @@ export default function MaterialCalculatorHubPage() {
       .trim()
       .replace(/\s+/g, '-')
       .slice(0, 72);
+    return { blob, filename: `${slug || 'chain-link-material-list'}.pdf` };
+  }, [chainFenceRows, chainGateRows, chainFenceAgg, chainGateResults, chainExtras, jobAddress, materialExclusions]);
+
+  const downloadChainMasterListPdf = useCallback(async () => {
+    const { blob, filename } = await buildChainLinkMaterialListPdfBlob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${slug || 'chain-link-material-list'}.pdf`;
+    a.download = filename;
     a.rel = 'noopener';
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-  }, [chainFenceRows, chainGateRows, chainFenceAgg, chainGateResults, chainExtras, jobAddress, materialExclusions]);
+  }, [buildChainLinkMaterialListPdfBlob]);
 
   /** Hybrid horizontal — one Excel block result per run, plus gate blocks and summed totals. */
   const hybridHJob = useMemo(() => {
@@ -2829,17 +2836,18 @@ export default function MaterialCalculatorHubPage() {
     return { runs, gates, totals, master, hasAny };
   }, [hybVLines, hybVGates, hybVExtras, layoutSketchData]);
 
-  const downloadHybridMasterListPdf = useCallback(
-    async (which: 'h' | 'v') => {
+  const buildHybridMaterialListPdfBlob = useCallback(
+    async (which: 'h' | 'v'): Promise<{ blob: Blob; filename: string }> => {
       const job = which === 'h' ? hybridHJob : hybridVJob;
-      if (!job.hasAny) return;
+      if (!job.hasAny) {
+        throw new Error('Add hybrid fence lines before generating the PDF.');
+      }
       const defs = which === 'h' ? HYBRID_H_EXTRA_ITEMS : HYBRID_V_EXTRA_ITEMS;
       const values = which === 'h' ? hybHExtras : hybVExtras;
       const lines = which === 'h' ? hybHLines : hybVLines;
       const colour = which === 'h' ? hybridWpcColour : hybridPvcColour;
       const subtitle = which === 'h' ? fmsHybridHoBlockTitle(hybHFamily, hybHHeight) : FMS_HYBRID_VE_BLOCK_TITLE;
 
-      // Extras column: how much of each master row came from the extra-item inputs.
       const extrasByItem = new Map<string, number>();
       for (const def of defs) {
         const v = styleExtraValue(values, def.key);
@@ -2894,15 +2902,7 @@ export default function MaterialCalculatorHubPage() {
         .trim()
         .replace(/\s+/g, '-')
         .slice(0, 72);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${slug || 'hybrid-material-list'}.pdf`;
-      a.rel = 'noopener';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      return { blob, filename: `${slug || 'hybrid-material-list'}.pdf` };
     },
     [
       hybridHJob,
@@ -2918,6 +2918,22 @@ export default function MaterialCalculatorHubPage() {
       jobAddress,
       materialExclusions,
     ]
+  );
+
+  const downloadHybridMasterListPdf = useCallback(
+    async (which: 'h' | 'v') => {
+      const { blob, filename } = await buildHybridMaterialListPdfBlob(which);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    },
+    [buildHybridMaterialListPdfBlob]
   );
 
   const buildSupplierMaterialQuoteLines = useCallback((): MaterialQuoteLine[] => {
@@ -3008,6 +3024,41 @@ export default function MaterialCalculatorHubPage() {
       ...(colour ? { calculator_fence_colour: colour } : {}),
     };
   }, [jobAddress, tab, pvcBreakdownColour, hybridWpcColour, hybridPvcColour]);
+
+  const activeTabMaterialListPdfAvailable = useMemo(() => {
+    if (fmsQuoteMaterialUnsupported) return false;
+    if (tab === 'pvc') return true;
+    if (tab === 'chain') return Boolean(chainFenceRows);
+    if (tab === 'hybrid_h') return hybridHJob.hasAny;
+    if (tab === 'hybrid_v') return hybridVJob.hasAny;
+    return false;
+  }, [tab, fmsQuoteMaterialUnsupported, chainFenceRows, hybridHJob.hasAny, hybridVJob.hasAny]);
+
+  const buildActiveTabMaterialListPdfBlob = useCallback(async (): Promise<{ blob: Blob; filename: string }> => {
+    if (tab === 'pvc') return buildMasterMaterialListPdfBlob();
+    if (tab === 'chain') return buildChainLinkMaterialListPdfBlob();
+    if (tab === 'hybrid_h') return buildHybridMaterialListPdfBlob('h');
+    if (tab === 'hybrid_v') return buildHybridMaterialListPdfBlob('v');
+    throw new Error('Switch to a material tab with takeoff before generating the PDF.');
+  }, [
+    tab,
+    buildMasterMaterialListPdfBlob,
+    buildChainLinkMaterialListPdfBlob,
+    buildHybridMaterialListPdfBlob,
+  ]);
+
+  const downloadActiveTabMaterialListPdf = useCallback(async () => {
+    const { blob, filename } = await buildActiveTabMaterialListPdfBlob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, [buildActiveTabMaterialListPdfBlob]);
 
   function addLine() {
     setLines((p) => [
@@ -5238,9 +5289,9 @@ export default function MaterialCalculatorHubPage() {
       {showSupplierMaterialRequest ? (
         <SupplierMaterialQuoteActions
           requestId={materialRequestId}
-          onDownloadMasterPdf={() => void downloadMasterMaterialListPdf()}
-          buildMasterPdfBlob={tab === 'pvc' ? buildMasterMaterialListPdfBlob : undefined}
-          masterPdfAvailable={tab === 'pvc' && !fmsQuoteMaterialUnsupported}
+          onDownloadMasterPdf={() => void downloadActiveTabMaterialListPdf()}
+          buildMasterPdfBlob={activeTabMaterialListPdfAvailable ? buildActiveTabMaterialListPdfBlob : undefined}
+          masterPdfAvailable={activeTabMaterialListPdfAvailable}
           buildMaterialRowsForQuote={buildSupplierMaterialQuoteLines}
           quoteExportMeta={quoteExportMeta}
           quoteDetailHref={`/dashboard/supplier/contractor-quotes/${encodeURIComponent(materialRequestId)}`}

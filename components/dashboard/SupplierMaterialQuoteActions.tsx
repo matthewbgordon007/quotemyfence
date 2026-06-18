@@ -113,15 +113,11 @@ export function SupplierMaterialQuoteActions({
     try {
       let pdfPayload: { email_pdf_base64: string; email_pdf_filename: string } | undefined;
       if (buildMasterPdfBlob) {
-        try {
-          const { blob, filename } = await buildMasterPdfBlob();
-          pdfPayload = {
-            email_pdf_base64: await blobToBase64(blob),
-            email_pdf_filename: filename,
-          };
-        } catch {
-          // PDF is best-effort; the list itself still goes through.
-        }
+        const { blob, filename } = await buildMasterPdfBlob();
+        pdfPayload = {
+          email_pdf_base64: await blobToBase64(blob),
+          email_pdf_filename: filename,
+        };
       }
       const r = await fetch(`/api/supplier/material-quote-requests/${encodeURIComponent(id)}`, {
         method: 'PATCH',
@@ -140,7 +136,7 @@ export function SupplierMaterialQuoteActions({
       setSentOk(true);
       alert(
         'Quote sent to the contractor. It now shows in their Requests section' +
-          (pdfPayload ? ' and was emailed to them with the PDF material list.' : ' and was emailed to them.')
+          (pdfPayload ? ' with the PDF material list attached and ready to download.' : ' and was emailed to them.')
       );
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Send failed');
@@ -162,8 +158,8 @@ export function SupplierMaterialQuoteActions({
         </p>
       ) : (
         <p className="text-sm text-slate-600">
-          Download a PDF from the calculator, or save this takeoff to the contractor quote and return to send materials or
-          mark quoted.
+          Download the material list PDF from the active tab, or save this takeoff to the contractor quote and return to
+          send materials or mark quoted.
         </p>
       )}
       {onDownloadMasterPdf ? (
@@ -174,12 +170,14 @@ export function SupplierMaterialQuoteActions({
             onClick={() => void onDownloadMasterPdf()}
             className={`${btnSecondary} w-full max-w-xl`}
           >
-            Download master material list (PDF)
+            Download material list (PDF)
           </button>
           {!masterPdfAvailable ? (
-            <p className="text-xs text-amber-800/90">Switch to the PVC tab to generate this Master-style PDF.</p>
+            <p className="text-xs text-amber-800/90">
+              Add takeoff on the active tab (PVC, Chain link, or Hybrid) before generating the PDF.
+            </p>
           ) : (
-            <p className="text-xs text-slate-500">Uses current PVC breakdown + Master rows from the main calculator.</p>
+            <p className="text-xs text-slate-500">Same PDF the contractor receives when you send the quote.</p>
           )}
         </div>
       ) : null}
@@ -195,7 +193,7 @@ export function SupplierMaterialQuoteActions({
           </button>
           <p className="text-xs text-slate-500">
             Saves the material list from the <span className="font-medium text-slate-700">active tab</span>, marks the
-            request quoted, and emails the contractor the PDF master material list.
+            request quoted, emails the contractor, and stores the PDF material list for them to download.
           </p>
         </div>
       ) : null}

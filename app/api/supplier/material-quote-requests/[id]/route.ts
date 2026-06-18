@@ -5,6 +5,7 @@ import { getSupplierContractorSession } from '@/lib/supplier-auth-helpers';
 import { normalizeMaterialListJson } from '@/lib/material-quote-lines';
 import { MATERIAL_QUOTE_REQUEST_SELECT } from '@/lib/supplier-material-quote-request-fields';
 import { enrichMaterialQuoteRequests } from '@/lib/supplier-material-quote-requests-enrich';
+import { uploadSupplierMaterialListPdf } from '@/lib/upload-supplier-material-list-pdf';
 
 const ALLOWED_STATUS = new Set(['pending', 'quoted', 'closed']);
 
@@ -122,6 +123,25 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
+  let storedPdfUrl: string | null = null;
+  let storedPdfName: string | null = null;
+  if (emailPdfBase64) {
+    const uploaded = await uploadSupplierMaterialListPdf(sess.contractorId, id, emailPdfBase64, emailPdfFilename);
+    if (uploaded) {
+      storedPdfUrl = uploaded.url;
+      storedPdfName = uploaded.name;
+      await supabase
+        .from('material_quote_requests')
+        .update({
+          supplier_material_list_pdf_url: storedPdfUrl,
+          supplier_material_list_pdf_name: storedPdfName,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .eq('supplier_contractor_id', sess.contractorId);
+    }
+  }
+
   const nextStatus = (status ?? (prev as { status: string }).status) as string;
   // Explicit sends (with a PDF) always email; otherwise only the first transition to quoted does.
   const shouldEmailContractor =
@@ -195,7 +215,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
                   : ''
               }
               ${linesHtml ? `<p><strong>Material list</strong></p>${linesHtml}` : ''}
-              ${emailPdfBase64 ? `<p>The PDF master material list is attached.</p>` : ''}
+              ${emailPdfBase64 || storedPdfUrl ? `<p>The PDF master material list is attached${storedPdfUrl ? ` and <a href="${escapeHtml(storedPdfUrl)}">available to download</a> in your dashboard` : ''}.</p>` : ''}
               <p><a href="${requestsUrl}">View it under Requests in your dashboard</a></p>
               <p><a href="${calcUrl}">Open job in your calculator</a> (uses your linked supplier’s contractor material rates when available).</p>
               <p><a href="${customerUrl}">Open customer record</a></p>

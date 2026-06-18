@@ -8,7 +8,7 @@ VALUES (
   'contractor-assets',
   true,
   20971520,
-  ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif']
+  ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif', 'application/pdf']
 )
 ON CONFLICT (id) DO UPDATE SET
   public = EXCLUDED.public,
