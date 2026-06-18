@@ -566,6 +566,8 @@ type PvcRunBreakdownRow =
       u_channel: number;
       rail: number;
       board: number;
+      hasGate?: boolean;
+      sketchPlacementIndex?: number;
     }
   | {
       kind: 'gate';
@@ -578,40 +580,64 @@ type PvcRunBreakdownRow =
       u_channel: number;
       rail: number;
       board: number;
+      hasGate?: boolean;
+      sketchPlacementIndex?: number;
     };
+
+function pvcGateBreakdownFromRow(
+  gateKind: 'short' | 'single' | 'double',
+  row: PvcGateRow,
+  label: string
+): PvcRunBreakdownRow | null {
+  const w = Math.max(0, Number(String(row.width_in).replace(/,/g, '')) || 0);
+  if (w <= 0) return null;
+  const panelLabel =
+    gateKind === 'short' ? 'Walk gate' : gateKind === 'single' ? 'Single gate' : 'Double gate';
+  const input = { gate_width_in: w, posts: FMS_GATE_POST_COUNT };
+  const adobe =
+    gateKind === 'short'
+      ? computeFmsPvcShortGate(input).adobe_gate_rows
+      : gateKind === 'single'
+        ? computeFmsPvcSingleGate(input).adobe_gate_rows
+        : computeFmsPvcDoubleGate(input).adobe_gate_rows;
+  const cols = adobeGateMapToBreakdownCols(adobe);
+  return {
+    kind: 'gate',
+    id: row.id,
+    label,
+    gateKind,
+    length_ft: Math.round((w / 12) * 100) / 100,
+    panelLabel,
+    sketchPlacementIndex: row.sketchPlacementIndex,
+    ...cols,
+  };
+}
 
 function buildPvcGateBreakdownRows(
   gateKind: 'short' | 'single' | 'double',
   rows: PvcGateRow[],
   labelPrefix: string
 ): PvcRunBreakdownRow[] {
-  const panelLabel =
-    gateKind === 'short' ? 'Walk gate' : gateKind === 'single' ? 'Single gate' : 'Double gate';
   const out: PvcRunBreakdownRow[] = [];
   let n = 0;
   for (const row of rows) {
     const w = Math.max(0, Number(String(row.width_in).replace(/,/g, '')) || 0);
     if (w <= 0) continue;
     n += 1;
-    const input = { gate_width_in: w, posts: FMS_GATE_POST_COUNT };
-    const adobe =
-      gateKind === 'short'
-        ? computeFmsPvcShortGate(input).adobe_gate_rows
-        : gateKind === 'single'
-          ? computeFmsPvcSingleGate(input).adobe_gate_rows
-          : computeFmsPvcDoubleGate(input).adobe_gate_rows;
-    const cols = adobeGateMapToBreakdownCols(adobe);
-    out.push({
-      kind: 'gate',
-      id: row.id,
-      label: `${labelPrefix} ${n} (${w}″)`,
-      gateKind,
-      length_ft: Math.round((w / 12) * 100) / 100,
-      panelLabel,
-      ...cols,
-    });
+    const built = pvcGateBreakdownFromRow(gateKind, row, `${labelPrefix} ${n} (${w}″)`);
+    if (built) out.push(built);
   }
   return out;
+}
+
+function segmentIndexForGateRow(
+  gate: PvcRunBreakdownRow,
+  placements: { line_index: number }[] | undefined
+): number | null {
+  const pi = gate.sketchPlacementIndex;
+  if (pi == null || !placements?.length || pi < 0 || pi >= placements.length) return null;
+  const idx = Math.floor(Number(placements[pi].line_index));
+  return Number.isFinite(idx) && idx >= 0 ? idx : null;
 }
 
 function buildInputForPvcLineRow(
@@ -2174,17 +2200,73 @@ export default function MaterialCalculatorHubPage() {
 
   const pvcRunBreakdown = useMemo((): PvcRunBreakdownRow[] => {
     const spacing = effectivePvcPanelSpacingFt;
-    const out: PvcRunBreakdownRow[] = lines.map((lr, i) => {
+    const placements = layoutSketchData?.gate_placements;
+
+    const allGates: PvcRunBreakdownRow[] = [
+      ...buildPvcGateBreakdownRows('short', shortGates, 'Walk gate'),
+      ...buildPvcGateBreakdownRows('single', singleGates, 'Single gate'),
+      ...buildPvcGateBreakdownRows('double', doubleGates, 'Double gate'),
+    ];
+
+    const gatesBySegment = new Map<number, PvcRunBreakdownRow[]>();
+    for (const gate of allGates) {
+      const segIdx = segmentIndexForGateRow(gate, placements);
+      if (segIdx == null) continue;
+      const list = gatesBySegment.get(segIdx) ?? [];
+      list.push(gate);
+      gatesBySegment.set(segIdx, list);
+    }
+
+    const usedGateIds = new Set<string>();
+
+    const runRows: PvcRunBreakdownRow[] = lines.map((lr, i) => {
+      const runLabel = lr.label || `Run ${i + 1}`;
       const netL = Math.max(0, Number(String(lr.length_ft).replace(/,/g, '')) || 0);
       const panelLabel = formatPvcPanelSummary(lr.panel_module, spacing);
       const input = buildInputForPvcLineRow(lr, spacing);
-      if (!input) {
+      const fenceMats = input
+        ? (() => {
+            const r = computeFmsPvcFenceLine(input);
+            return {
+              panels: r.total_whole_panels,
+              h_post: r.h_post,
+              u_channel: r.u_channel,
+              rail: r.rail,
+              board: r.board,
+              panelLabel: formatPvcPanelSummary(lr.panel_module, r.input.panel_spacing_ft ?? spacing),
+            };
+          })()
+        : {
+            panels: 0,
+            h_post: 0,
+            u_channel: 0,
+            rail: 0,
+            board: 0,
+            panelLabel: netL > 0 ? panelLabel : 'Gate opening (no fence left)',
+          };
+
+      const gatesOnRun = gatesBySegment.get(i) ?? [];
+      if (gatesOnRun.length === 0) {
+        if (input) {
+          return {
+            kind: 'fence',
+            id: lr.id,
+            label: runLabel,
+            length_ft: netL,
+            panelLabel: fenceMats.panelLabel,
+            panels: fenceMats.panels,
+            h_post: fenceMats.h_post,
+            u_channel: fenceMats.u_channel,
+            rail: fenceMats.rail,
+            board: fenceMats.board,
+          };
+        }
         return {
           kind: 'fence',
           id: lr.id,
-          label: lr.label || `Run ${i + 1}`,
+          label: runLabel,
           length_ft: netL,
-          panelLabel: netL > 0 ? panelLabel : 'Gate opening (no fence left)',
+          panelLabel: fenceMats.panelLabel,
           panels: 0,
           h_post: 0,
           u_channel: 0,
@@ -2192,27 +2274,56 @@ export default function MaterialCalculatorHubPage() {
           board: 0,
         };
       }
-      const r = computeFmsPvcFenceLine(input);
+
+      for (const g of gatesOnRun) usedGateIds.add(g.id);
+
+      const gateFt = gatesOnRun.reduce((sum, g) => sum + g.length_ft, 0);
+      const gateTypeLabel = Array.from(new Set(gatesOnRun.map((g) => g.panelLabel))).join(' + ');
+      const merged = gatesOnRun.reduce(
+        (acc, g) => ({
+          h_post: acc.h_post + g.h_post,
+          u_channel: acc.u_channel + g.u_channel,
+          rail: acc.rail + g.rail,
+          board: acc.board + g.board,
+        }),
+        {
+          h_post: fenceMats.h_post,
+          u_channel: fenceMats.u_channel,
+          rail: fenceMats.rail,
+          board: fenceMats.board,
+        }
+      );
+
+      const gateOnly = netL <= 0;
+      if (gateOnly) {
+        const primary = gatesOnRun[0];
+        return {
+          kind: 'gate',
+          id: lr.id,
+          label: `${runLabel} with gate`,
+          gateKind: primary.kind === 'gate' ? primary.gateKind : 'short',
+          length_ft: gateFt,
+          panelLabel: gateTypeLabel,
+          hasGate: true,
+          ...merged,
+        };
+      }
+
       return {
         kind: 'fence',
         id: lr.id,
-        label: lr.label || `Run ${i + 1}`,
+        label: `${runLabel} with gate`,
         length_ft: netL,
-        panelLabel: formatPvcPanelSummary(lr.panel_module, r.input.panel_spacing_ft ?? spacing),
-        panels: r.total_whole_panels,
-        h_post: r.h_post,
-        u_channel: r.u_channel,
-        rail: r.rail,
-        board: r.board,
+        panelLabel: `${fenceMats.panelLabel} · ${gateTypeLabel}`,
+        panels: fenceMats.panels,
+        hasGate: true,
+        ...merged,
       };
     });
-    out.push(
-      ...buildPvcGateBreakdownRows('short', shortGates, 'Walk gate'),
-      ...buildPvcGateBreakdownRows('single', singleGates, 'Single gate'),
-      ...buildPvcGateBreakdownRows('double', doubleGates, 'Double gate')
-    );
-    return out;
-  }, [lines, shortGates, singleGates, doubleGates, effectivePvcPanelSpacingFt]);
+
+    const unlinkedGates = allGates.filter((g) => !usedGateIds.has(g.id));
+    return [...runRows, ...unlinkedGates];
+  }, [lines, shortGates, singleGates, doubleGates, effectivePvcPanelSpacingFt, layoutSketchData]);
 
   const adobeRows = useMemo(() => adobeBreakdownToMergedRows(pvcAdobe), [pvcAdobe]);
 
@@ -3893,7 +4004,7 @@ export default function MaterialCalculatorHubPage() {
 
           <CollapsibleCard
             title="Run-by-run breakdown"
-            subtitle="Fence runs (including gate-only segments with U-channels) plus each gate opening."
+            subtitle="Each sketch line is one row; gates on that line are combined as “with gate”."
           >
             <div className="overflow-x-auto p-5">
               <table className="w-full min-w-[720px] text-xs">
@@ -3913,7 +4024,7 @@ export default function MaterialCalculatorHubPage() {
                   {pvcRunBreakdown.map((row) => (
                     <tr
                       key={row.id}
-                      className={`border-b border-slate-100 ${row.kind === 'gate' ? 'bg-violet-50/40' : ''}`}
+                      className={`border-b border-slate-100 ${row.kind === 'gate' || row.hasGate ? 'bg-violet-50/40' : ''}`}
                     >
                       <td className="px-2 py-2 text-slate-800">{row.label}</td>
                       <td className="px-2 py-2 text-right tabular-nums">{row.length_ft}</td>
