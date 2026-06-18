@@ -1371,6 +1371,15 @@ function hybridHExportColour(board: FmsHybridHoBoardMaterial, colour: string): s
   return fmsHybridColourExportLabel('horizontal', line, colour);
 }
 
+function hybridMaterialColourSummary(tab: StyleTab, boardMaterial: FmsHybridHoBoardMaterial, panelMaterial: FmsHybridMaterialLine, colour: string): string {
+  if (tab === 'hybrid_h') {
+    const material = fmsHybridHoBoardMaterialLabel(boardMaterial);
+    return fmsHybridHoBoardMaterialColourLine(boardMaterial) ? `${material} · ${colour}` : material;
+  }
+  const material = panelMaterial === 'wpc' ? 'WPC' : 'PVC';
+  return `${material} · ${colour}`;
+}
+
 function HybridColourSelect({
   material,
   value,
@@ -1760,11 +1769,6 @@ export default function MaterialCalculatorHubPage() {
     () => fmsHybridHoBoardMaterialCalculatorFamily(hybHBoardMaterial),
     [hybHBoardMaterial]
   );
-
-  const activeHybridMaterial: FmsHybridMaterialLine =
-    tab === 'hybrid_v'
-      ? hybVMaterial
-      : (fmsHybridHoBoardMaterialColourLine(hybHBoardMaterial) ?? 'wpc');
 
   const hybridHHasColour = fmsHybridHoBoardMaterialColourLine(hybHBoardMaterial) !== null;
 
@@ -4692,18 +4696,19 @@ export default function MaterialCalculatorHubPage() {
             {tab === 'hybrid_h' || tab === 'hybrid_v' ? (
               <div>
                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  {activeHybridMaterial === 'wpc' ? 'WPC colour' : 'PVC colour'} (label only)
+                  Material &amp; colour (label only)
                 </label>
-                {tab === 'hybrid_h' && !hybridHHasColour ? (
-                  <p className="text-xs text-slate-500">No colour breakdown for aluminum.</p>
-                ) : (
-                  <HybridColourSelect
-                    material={activeHybridMaterial}
-                    value={hybridColour}
-                    onChange={setHybridColour}
-                    className={`${field} w-full`}
-                  />
-                )}
+                <div
+                  className={`${field} w-full bg-slate-50 text-slate-800`}
+                  aria-live="polite"
+                >
+                  {hybridMaterialColourSummary(
+                    tab,
+                    hybHBoardMaterial,
+                    hybVMaterial,
+                    hybridColour
+                  )}
+                </div>
               </div>
             ) : null}
           </div>
@@ -5579,12 +5584,7 @@ export default function MaterialCalculatorHubPage() {
               </div>
               {hybridHHasColour ? (
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-500">
-                    {fmsHybridHoBoardMaterialColourLine(hybHBoardMaterial) === 'wpc'
-                      ? 'WPC colour'
-                      : 'PVC colour'}{' '}
-                    (label only)
-                  </label>
+                  <label className="mb-1 block text-xs font-semibold text-slate-500">Colour</label>
                   <HybridColourSelect
                     material={fmsHybridHoBoardMaterialColourLine(hybHBoardMaterial)!}
                     value={hybridColour}
@@ -5796,9 +5796,7 @@ export default function MaterialCalculatorHubPage() {
                 </select>
               </div>
               <div className="sm:col-span-2">
-                <label className="mb-1 block text-xs font-semibold text-slate-500">
-                  {hybVMaterial === 'wpc' ? 'WPC colour' : 'PVC colour'} (label only)
-                </label>
+                <label className="mb-1 block text-xs font-semibold text-slate-500">Colour</label>
                 <HybridColourSelect
                   material={hybVMaterial}
                   value={hybridColour}
