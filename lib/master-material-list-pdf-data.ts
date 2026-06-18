@@ -1,6 +1,7 @@
 import {
   computePvcMasterColumn,
   type FmsPvcMasterExtras,
+  type FmsPvcMasterPercentUplifts,
 } from '@/lib/fms-pvc-breakdown-master';
 import type { FmsCalculatorRecipeV1 } from '@/lib/fms-calculator-recipe';
 import { isSmallWare, LARGE_WARE_TITLE, SMALL_WARE_TITLE, splitWare } from '@/lib/material-ware';
@@ -129,10 +130,10 @@ export function buildMasterMaterialListPdfRows(
   extras: FmsPvcMasterExtras,
   gateCount: number,
   totalFenceLinearFt?: number,
-  boardsPercent?: number,
+  uplifts?: FmsPvcMasterPercentUplifts | number,
   recipe?: FmsCalculatorRecipeV1 | null
 ): MasterMaterialListPdfRow[] {
-  const master = computePvcMasterColumn(adobe, extras, gateCount, totalFenceLinearFt, boardsPercent, recipe);
+  const master = computePvcMasterColumn(adobe, extras, gateCount, totalFenceLinearFt, uplifts, recipe);
   const pdfRows = master.map(masterRowToPdf).filter((r): r is MasterMaterialListPdfRow => r != null);
   pdfRows.push({ label: 'Total B4 Tax', adobe: '', packs: '', extras: '', section: 'taxRow' });
   return finalizePdfRowsForPicking(pdfRows);

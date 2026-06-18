@@ -121,11 +121,25 @@ function masterRowPlain(label: string, qty: number): FmsPvcMasterRow {
   return { label, qty };
 }
 
-/** Extra boards added by a percentage uplift (e.g. 5 → +5% boards, rounded up to whole boards). */
-export function pvcBoardsPercentAdd(boardCount: number, boardsPercent?: number): number {
-  const pct = Number(boardsPercent);
-  if (!Number.isFinite(pct) || pct <= 0 || boardCount <= 0) return 0;
-  return excelRoundUp((boardCount * pct) / 100, 0);
+/** Extra qty added by a percentage uplift (e.g. 5 → +5%, rounded up to whole units). */
+export function pvcQtyPercentAdd(qty: number, percent?: number): number {
+  const pct = Number(percent);
+  if (!Number.isFinite(pct) || pct <= 0 || qty <= 0) return 0;
+  return excelRoundUp((qty * pct) / 100, 0);
+}
+
+/** @deprecated Use pvcQtyPercentAdd */
+export const pvcBoardsPercentAdd = pvcQtyPercentAdd;
+
+export type FmsPvcMasterPercentUplifts = {
+  boardsPct?: number;
+  largeScrewPct?: number;
+  shortScrewPct?: number;
+};
+
+function resolvePercentUplifts(uplifts?: FmsPvcMasterPercentUplifts | number): FmsPvcMasterPercentUplifts {
+  if (typeof uplifts === 'number') return { boardsPct: uplifts };
+  return uplifts ?? {};
 }
 
 export function computePvcMasterColumn(
@@ -133,9 +147,10 @@ export function computePvcMasterColumn(
   extras: FmsPvcMasterExtras,
   gateCount: number,
   totalFenceLinearFt?: number,
-  boardsPercent?: number,
+  uplifts?: FmsPvcMasterPercentUplifts | number,
   recipe?: FmsCalculatorRecipeV1 | null
 ): FmsPvcMasterRow[] {
+  const pct = resolvePercentUplifts(uplifts);
   const r = resolveFmsCalculatorRecipe(recipe);
   const labels = r.master_labels;
   const packs = r.packs;
@@ -148,7 +163,7 @@ export function computePvcMasterColumn(
   const rail = j(adobe, 6) + j(adobe, 21) + x(e.m6);
   const railStiff = j(adobe, 7) + j(adobe, 22) + x(e.m7);
   const boardBase = j(adobe, 8) + j(adobe, 23) + x(e.m8);
-  const boardPctAdd = pvcBoardsPercentAdd(boardBase, boardsPercent);
+  const boardPctAdd = pvcQtyPercentAdd(boardBase, pct.boardsPct);
   const board = boardBase + boardPctAdd;
   const boardStiffFromAdobe = j(adobe, 9) + j(adobe, 24) + x(e.m9);
   // Enforce 3 stiffeners per 16 boards (packaging rule). % uplift boards need matching stiffeners;
@@ -165,8 +180,12 @@ export function computePvcMasterColumn(
   const diagonal = excelRoundUp(j(adobe, 29) + x(e.m16), 0);
   const postCap = j(adobe, 5) + j(adobe, 20) + x(e.m19);
   const holePlug = j(adobe, 12) + j(adobe, 27) + r.master_rollups.hole_plug_add + x(e.m20);
-  const largeScrew = j(adobe, 10) + j(adobe, 26) + r.master_rollups.large_screw_add + x(e.m21);
-  const shortScrew = j(adobe, 11) + j(adobe, 25) + x(e.m22);
+  const largeScrewBase = j(adobe, 10) + j(adobe, 26) + r.master_rollups.large_screw_add + x(e.m21);
+  const largeScrewPctAdd = pvcQtyPercentAdd(largeScrewBase, pct.largeScrewPct);
+  const largeScrew = largeScrewBase + largeScrewPctAdd;
+  const shortScrewBase = j(adobe, 11) + j(adobe, 25) + x(e.m22);
+  const shortScrewPctAdd = pvcQtyPercentAdd(shortScrewBase, pct.shortScrewPct);
+  const shortScrew = shortScrewBase + shortScrewPctAdd;
   const latch = j(adobe, 31) + x(e.m23);
   const hinge = j(adobe, 32) + x(e.m24);
 

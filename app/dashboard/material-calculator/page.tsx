@@ -25,8 +25,9 @@ import {
   adobeBreakdownToMergedRows,
   buildPvcAdobeBreakdown,
   computePvcMasterColumn,
-  pvcBoardsPercentAdd,
+  pvcQtyPercentAdd,
   type FmsPvcMasterExtras,
+  type FmsPvcMasterPercentUplifts,
 } from '@/lib/fms-pvc-breakdown-master';
 import { LARGE_WARE_TITLE, SMALL_WARE_TITLE, splitWare } from '@/lib/material-ware';
 import { boardStiffenersForBoardCount, formatLooseExtra, formatPacksCell } from '@/lib/pvc-material-packs';
@@ -1524,6 +1525,8 @@ export default function MaterialCalculatorHubPage() {
   const [materialExclusions, setMaterialExclusions] = useState<MaterialExclusions>({});
   /** Percentage uplift applied to the final board count (e.g. "5" → +5% boards, rounded up). */
   const [extraBoardsPct, setExtraBoardsPct] = useState('');
+  const [extraLargeScrewPct, setExtraLargeScrewPct] = useState('');
+  const [extraShortScrewPct, setExtraShortScrewPct] = useState('');
   /** Extra items for the non-PVC styles (keyed per StyleExtraDef). */
   const [chainExtras, setChainExtras] = useState<Record<string, string>>({});
   const [hybHExtras, setHybHExtras] = useState<Record<string, string>>({});
@@ -1759,6 +1762,10 @@ export default function MaterialCalculatorHubPage() {
       setMaterialExclusions(parseMaterialExclusions(d.materialExclusions));
       if (typeof d.extraBoardsPct === 'string' || typeof d.extraBoardsPct === 'number')
         setExtraBoardsPct(String(d.extraBoardsPct));
+      if (typeof d.extraLargeScrewPct === 'string' || typeof d.extraLargeScrewPct === 'number')
+        setExtraLargeScrewPct(String(d.extraLargeScrewPct));
+      if (typeof d.extraShortScrewPct === 'string' || typeof d.extraShortScrewPct === 'number')
+        setExtraShortScrewPct(String(d.extraShortScrewPct));
       if (d.pvcPanelModule !== undefined) {
         setPvcPanelModule(coercePanelModule(d.pvcPanelModule));
       } else if (!skipPvcLinesAndSketch) {
@@ -1823,6 +1830,8 @@ export default function MaterialCalculatorHubPage() {
       masterExtrasOpen,
       masterExtras,
       extraBoardsPct,
+      extraLargeScrewPct,
+      extraShortScrewPct,
       chainExtras,
       hybHExtras,
       hybVExtras,
@@ -1856,6 +1865,8 @@ export default function MaterialCalculatorHubPage() {
     masterExtrasOpen,
     masterExtras,
     extraBoardsPct,
+    extraLargeScrewPct,
+    extraShortScrewPct,
     chainExtras,
     hybHExtras,
     hybVExtras,
@@ -1913,6 +1924,8 @@ export default function MaterialCalculatorHubPage() {
     masterExtrasOpen,
     masterExtras,
     extraBoardsPct,
+    extraLargeScrewPct,
+    extraShortScrewPct,
     chainExtras,
     hybHExtras,
     hybVExtras,
@@ -1985,6 +1998,8 @@ export default function MaterialCalculatorHubPage() {
     setMasterExtrasOpen(false);
     setMasterExtras({});
     setExtraBoardsPct('');
+    setExtraLargeScrewPct('');
+    setExtraShortScrewPct('');
     setChainExtras({});
     setHybHExtras({});
     setHybVExtras({});
@@ -2357,20 +2372,61 @@ export default function MaterialCalculatorHubPage() {
     [pvcJob.lines, gateMerge.merged, gateWidthInchesSum]
   );
 
-  const extraBoardsPctNum = useMemo(() => {
-    const n = Number(String(extraBoardsPct).replace(/,/g, ''));
+  const parsePctField = useCallback((raw: string) => {
+    const n = Number(String(raw).replace(/,/g, ''));
     return Number.isFinite(n) && n > 0 ? n : 0;
-  }, [extraBoardsPct]);
+  }, []);
+
+  const extraBoardsPctNum = useMemo(() => parsePctField(extraBoardsPct), [extraBoardsPct, parsePctField]);
+  const extraLargeScrewPctNum = useMemo(
+    () => parsePctField(extraLargeScrewPct),
+    [extraLargeScrewPct, parsePctField]
+  );
+  const extraShortScrewPctNum = useMemo(
+    () => parsePctField(extraShortScrewPct),
+    [extraShortScrewPct, parsePctField]
+  );
+
+  const pvcPercentUplifts = useMemo(
+    (): FmsPvcMasterPercentUplifts => ({
+      boardsPct: extraBoardsPctNum,
+      largeScrewPct: extraLargeScrewPctNum,
+      shortScrewPct: extraShortScrewPctNum,
+    }),
+    [extraBoardsPctNum, extraLargeScrewPctNum, extraShortScrewPctNum]
+  );
 
   /** Preview of how many boards the percentage uplift adds (base boards incl. manual extras). */
   const extraBoardsPctAdd = useMemo(() => {
     const base = (pvcAdobe[8] ?? 0) + (pvcAdobe[23] ?? 0) + (extrasParsed.m8 ?? 0);
-    return pvcBoardsPercentAdd(base, extraBoardsPctNum);
+    return pvcQtyPercentAdd(base, extraBoardsPctNum);
   }, [pvcAdobe, extrasParsed, extraBoardsPctNum]);
 
+  const extraLargeScrewPctAdd = useMemo(() => {
+    const base =
+      (pvcAdobe[10] ?? 0) +
+      (pvcAdobe[26] ?? 0) +
+      fmsRecipe.master_rollups.large_screw_add +
+      (extrasParsed.m21 ?? 0);
+    return pvcQtyPercentAdd(base, extraLargeScrewPctNum);
+  }, [pvcAdobe, extrasParsed, extraLargeScrewPctNum, fmsRecipe.master_rollups.large_screw_add]);
+
+  const extraShortScrewPctAdd = useMemo(() => {
+    const base = (pvcAdobe[11] ?? 0) + (pvcAdobe[25] ?? 0) + (extrasParsed.m22 ?? 0);
+    return pvcQtyPercentAdd(base, extraShortScrewPctNum);
+  }, [pvcAdobe, extrasParsed, extraShortScrewPctNum]);
+
   const pvcMaster = useMemo(
-    () => computePvcMasterColumn(pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt, extraBoardsPctNum, fmsRecipe),
-    [pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt, extraBoardsPctNum, fmsRecipe]
+    () =>
+      computePvcMasterColumn(
+        pvcAdobe,
+        extrasParsed,
+        gateCount,
+        pvcFenceLinearFt,
+        pvcPercentUplifts,
+        fmsRecipe
+      ),
+    [pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt, pvcPercentUplifts, fmsRecipe]
   );
 
   const pvcRunBreakdown = useMemo((): PvcRunBreakdownRow[] => {
@@ -2580,7 +2636,7 @@ export default function MaterialCalculatorHubPage() {
         extrasParsed,
         gateCount,
         pvcFenceLinearFt,
-        extraBoardsPctNum,
+        pvcPercentUplifts,
         fmsRecipe
       ).filter((r) => {
         if (r.section === 'wareHeader' || r.section === 'spacer' || r.section === 'totals' || r.section === 'taxRow') {
@@ -2615,7 +2671,7 @@ export default function MaterialCalculatorHubPage() {
     extrasParsed,
     gateCount,
     pvcFenceLinearFt,
-    extraBoardsPctNum,
+    pvcPercentUplifts,
     pvcPanelModule,
     pvcBreakdownColour,
     jobAddress,
@@ -4129,7 +4185,7 @@ export default function MaterialCalculatorHubPage() {
                   ))}
                 </div>
               )}
-              <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50/40 p-4">
+              <div className="mt-4 space-y-4 rounded-xl border border-slate-100 bg-slate-50/40 p-4">
                 <div className="flex flex-wrap items-end gap-3">
                   <div>
                     <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
@@ -4149,6 +4205,52 @@ export default function MaterialCalculatorHubPage() {
                     {extraBoardsPctAdd > 0 ? (
                       <span className="ml-1 font-semibold text-slate-700">
                         +{extraBoardsPctAdd} board{extraBoardsPctAdd === 1 ? '' : 's'}
+                      </span>
+                    ) : null}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
+                      Additional large screws (%)
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={extraLargeScrewPct}
+                      onChange={(e) => setExtraLargeScrewPct(sanitizeExtraInput(e.target.value, false))}
+                      className={`${field} w-24`}
+                      placeholder="0"
+                    />
+                  </div>
+                  <p className="pb-2 text-xs text-slate-500">
+                    Adds this % more large screws (rounded up to whole screws).
+                    {extraLargeScrewPctAdd > 0 ? (
+                      <span className="ml-1 font-semibold text-slate-700">
+                        +{extraLargeScrewPctAdd} large screw{extraLargeScrewPctAdd === 1 ? '' : 's'}
+                      </span>
+                    ) : null}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
+                      Additional small screws (%)
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={extraShortScrewPct}
+                      onChange={(e) => setExtraShortScrewPct(sanitizeExtraInput(e.target.value, false))}
+                      className={`${field} w-24`}
+                      placeholder="0"
+                    />
+                  </div>
+                  <p className="pb-2 text-xs text-slate-500">
+                    Adds this % more small screws (rounded up to whole screws).
+                    {extraShortScrewPctAdd > 0 ? (
+                      <span className="ml-1 font-semibold text-slate-700">
+                        +{extraShortScrewPctAdd} small screw{extraShortScrewPctAdd === 1 ? '' : 's'}
                       </span>
                     ) : null}
                   </p>
