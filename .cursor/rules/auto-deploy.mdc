@@ -1,14 +1,22 @@
 ---
-description: Auto-commit and push changes to git/Vercel after edits
+description: Always commit and push after code changes (Vercel deploys on push)
 alwaysApply: true
 ---
 
-# Auto-deploy workflow
+# Auto-commit and deploy
 
-After making any code changes in this project:
+After **any** code changes in this project — not only when the user asks — finish by committing and pushing:
 
 1. Stage all changes: `git add -A`
-2. Commit with a short descriptive message: `git commit -m "Brief description of change"`
-3. Push: the post-commit hook runs automatically and pushes to origin (Vercel deploys on push)
+2. Commit with a short descriptive message (HEREDOC format)
+3. Push to origin (post-commit hook pushes automatically; Vercel deploys on push)
 
-Do not skip this step. If the user requests changes, commit and push when done unless they ask otherwise.
+**Default: always do this.** Do not leave work uncommitted at the end of a task.
+
+**Skip only when the user explicitly says not to** (e.g. "don't commit", "hold off on deploy", "WIP only").
+
+**Do not commit** files that likely contain secrets (`.env`, credentials).
+
+If the commit fails due to a pre-commit hook, fix the issue and create a **new** commit (do not amend unless hook rules allow).
+
+After push, briefly confirm the commit hash in your reply so the user knows deploy is in progress.
