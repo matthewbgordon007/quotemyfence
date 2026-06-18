@@ -1,9 +1,4 @@
-'use client';
-
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { inferFmsHubMaterialFromQuoteProject } from '@/lib/material-quote-fms-calculator-style';
 import {
   excludeMaterialLabels,
   isMaterialIncluded,
@@ -15,7 +10,6 @@ import {
 } from '@/lib/material-exclusions';
 import {
   aggregateFmsPvcFenceLines,
-  computeFmsPvcFenceLine,
   FMS_PVC_PANEL_HEIGHT_LABELS,
   defaultFmsPvcPanelSpacingFt,
   type FmsPvcFenceLineInput,
@@ -72,15 +66,6 @@ import {
   type FmsWpcCalculatorColour,
 } from '@/lib/fms-calculator-colour-presets';
 import { LayoutDrawCanvas } from '@/components/LayoutDrawCanvas';
-import { MaterialQuoteImportBanner } from '@/components/dashboard/MaterialQuoteImportBanner';
-import { SupplierMaterialQuoteActions } from '@/components/dashboard/SupplierMaterialQuoteActions';
-import type { MaterialQuoteLine } from '@/lib/material-quote-lines';
-import type { MaterialQuoteRequestDto } from '@/lib/supplier-material-quote-requests-enrich';
-import {
-  mapFenceSegmentsToLayoutDrawing,
-  type MapFenceGate,
-  type MapFenceSegment,
-} from '@/lib/map-fence-to-layout-drawing';
 import {
   adjustLayoutDrawingSegmentLength,
   alignChainedSketchSegments,
@@ -578,26 +563,22 @@ function buildPvcGateBreakdownRows(
   return out;
 }
 
-function buildInputForPvcLineRow(
-  r: PvcLineRow,
-  panelSpacingFt: number
-): FmsPvcFenceLineInput | null {
-  const L = Math.max(0, Number(String(r.length_ft).replace(/,/g, '')) || 0);
-  const { d6, d7 } = presetToExcel(r.end_preset, r.h_post_type, r.u_channel);
-  if (!pvcLineIncludedInInputs(r)) return null;
-  const spacing = Number.isFinite(panelSpacingFt) && panelSpacingFt > 0 ? panelSpacingFt : undefined;
-  return {
-    length_ft: L,
-    fence_terminated_h_post_type: (L <= 0 ? 0 : d6) as 0 | 1 | 2,
-    fence_terminated_u_channel: d7,
-    panel_module: r.panel_module,
-    ...(spacing ? { panel_spacing_ft: spacing } : {}),
-  };
-}
-
 function buildInputs(rows: PvcLineRow[], panelSpacingFt: number): FmsPvcFenceLineInput[] {
+  const spacing = Number.isFinite(panelSpacingFt) && panelSpacingFt > 0 ? panelSpacingFt : undefined;
   return rows
-    .map((r) => buildInputForPvcLineRow(r, panelSpacingFt))
+    .map((r) => {
+      const L = Math.max(0, Number(String(r.length_ft).replace(/,/g, '')) || 0);
+      const { d6, d7 } = presetToExcel(r.end_preset, r.h_post_type, r.u_channel);
+      // Gate-only sketch runs can have 0 ft of fence left; keep U-channels but posts are on adjacent runs.
+      if (!pvcLineIncludedInInputs(r)) return null;
+      return {
+        length_ft: L,
+        fence_terminated_h_post_type: (L <= 0 ? 0 : d6) as 0 | 1 | 2,
+        fence_terminated_u_channel: d7,
+        panel_module: r.panel_module,
+        ...(spacing ? { panel_spacing_ft: spacing } : {}),
+      };
+    })
     .filter(Boolean) as FmsPvcFenceLineInput[];
 }
 
@@ -1141,24 +1122,6 @@ function parseLayoutSketch(raw: unknown): LayoutSketchDrawingPayload | null {
   return { points: pts, segments, gates, gate_placements, total_length_ft, ...(joint_terminations ? { joint_terminations } : {}) };
 }
 
-/** Saved layout drawing, or map segments + gates when no plan-view layout row exists. */
-function layoutSketchFromMaterialQuoteProject(
-  project: MaterialQuoteRequestDto['project'] | null | undefined
-): LayoutSketchDrawingPayload | null {
-  if (!project) return null;
-  const fromLayout = parseLayoutSketch(project.drawing_data ?? null);
-  if (fromLayout) return fromLayout;
-  const segs = project.segments;
-  if (!Array.isArray(segs) || segs.length === 0) return null;
-  const totalFt = Number(project.total_length_ft) || 0;
-  const dd = mapFenceSegmentsToLayoutDrawing(
-    segs as MapFenceSegment[],
-    totalFt,
-    (project.gates ?? []) as MapFenceGate[]
-  );
-  return parseLayoutSketch(dd);
-}
-
 function parsePvcGateRows(raw: unknown): PvcGateRow[] | null {
   if (!Array.isArray(raw)) return null;
   const out: PvcGateRow[] = [];
@@ -1276,20 +1239,18 @@ function parseMasterExtras(raw: unknown): Partial<Record<keyof FmsPvcMasterExtra
   return out;
 }
 
-export default function MaterialCalculatorHubPage() {
-  const searchParams = useSearchParams();
-  const pathname = usePathname();
-  const router = useRouter();
-  const tabParam = (searchParams.get('tab') || '').toLowerCase();
-  const fromLayoutId = searchParams.get('from_layout');
-  const materialRequestId = (searchParams.get('materialRequest') || '').trim();
-  const fromMaterialQuoteId = (searchParams.get('from_material_quote') || '').trim();
-  const fromMaterialSketchSaveId = (searchParams.get('from_material_sketch_save') || '').trim();
-  const showSupplierMaterialRequest = Boolean(materialRequestId);
+const STANDALONE_CONTRACTOR_ID = 'standalone';
+
+export default function MaterialCalculator() {
+  const fmsQuoteMaterialUnsupported = null as string | null;
+  const tabParam = '';
+  const fromLayoutId = null;
+  const materialRequestId = '';
+  const fromMaterialQuoteId = '';
+  const fromMaterialSketchSaveId = '';
 
   const [tab, setTab] = useState<StyleTab>('pvc');
   const [jobAddress, setJobAddress] = useState('');
-  const [importedMaterialRequest, setImportedMaterialRequest] = useState<MaterialQuoteRequestDto | null>(null);
   /** Matches the Excel per-colour breakdown tab (labels / TSV only; formulas shared). */
   const [pvcBreakdownColour, setPvcBreakdownColour] = useState<FmsPvcCalculatorColour>('Adobe');
   const [pvcPanelModule, setPvcPanelModule] = useState<FmsPvcPanelModule>('nominal_7ft');
@@ -1349,19 +1310,7 @@ export default function MaterialCalculatorHubPage() {
   const [hybridWpcColour, setHybridWpcColour] = useState<FmsWpcCalculatorColour>('Ash');
   const [hybridPvcColour, setHybridPvcColour] = useState<FmsPvcCalculatorColour>('White');
 
-  /** Plan sketch from `?from_material_quote=` (loading / found / missing). */
-  const [materialQuoteSketchLoadState, setMaterialQuoteSketchLoadState] = useState<
-    'idle' | 'loading' | 'ok' | 'none'
-  >('idle');
-  /** Set when a linked quote is not PVC / chain / hybrid — hides FMS tab math, sketch may still load. */
-  const [fmsQuoteMaterialUnsupported, setFmsQuoteMaterialUnsupported] = useState<string | null>(null);
-  const materialQuoteUnsupportedAlertKeyRef = useRef('');
-  /** Plan sketch from profile snapshot `?from_material_sketch_save=`. */
-  const [profileSketchSaveLoadState, setProfileSketchSaveLoadState] = useState<
-    'idle' | 'loading' | 'ok' | 'none'
-  >('idle');
-
-  const [contractorId, setContractorId] = useState<string | null>(null);
+  const contractorId = STANDALONE_CONTRACTOR_ID;
   const materialCalcDraftSnapshotRef = useRef<Record<string, unknown> | null>(null);
   const materialCalcSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const materialCalcHydrateKeyRef = useRef<string>('');
@@ -1376,28 +1325,15 @@ export default function MaterialCalculatorHubPage() {
   }, []);
 
   useEffect(() => {
-    if (isStyleTabParam(tabParam)) {
-      setTab(coerceStyleTab(tabParam));
-    }
-  }, [tabParam]);
-
-  useEffect(() => {
-    const pvc = coerceFmsPvcCalculatorColour(searchParams.get('pvc_colour'));
+    const params = new URLSearchParams(window.location.search);
+    const pvc = coerceFmsPvcCalculatorColour(params.get('pvc_colour'));
     if (pvc) setPvcBreakdownColour(pvc);
-    const hw = coerceFmsWpcCalculatorColour(searchParams.get('hybrid_wpc'));
+    const hw = coerceFmsWpcCalculatorColour(params.get('hybrid_wpc'));
     if (hw) setHybridWpcColour(hw);
-    const hp = coerceFmsPvcCalculatorColour(searchParams.get('hybrid_pvc'));
+    const hp = coerceFmsPvcCalculatorColour(params.get('hybrid_pvc'));
     if (hp) setHybridPvcColour(hp);
-  }, [searchParams]);
-
-  useEffect(() => {
-    fetch('/api/contractor/me', { cache: 'no-store', credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        const id = data?.id;
-        if (typeof id === 'string' && id) setContractorId(id);
-      })
-      .catch(() => {});
+    const urlTab = (params.get('tab') || '').toLowerCase();
+    if (isStyleTabParam(urlTab)) setTab(coerceStyleTab(urlTab));
   }, []);
 
   useEffect(() => {
@@ -1406,9 +1342,9 @@ export default function MaterialCalculatorHubPage() {
     if (materialCalcHydrateKeyRef.current === hydrateKey) return;
 
     const hasUrlTab = isStyleTabParam(tabParam);
-    const urlPvcCol = coerceFmsPvcCalculatorColour(searchParams.get('pvc_colour'));
-    const urlHwCol = coerceFmsWpcCalculatorColour(searchParams.get('hybrid_wpc'));
-    const urlHpCol = coerceFmsPvcCalculatorColour(searchParams.get('hybrid_pvc'));
+    const urlPvcCol = null;
+    const urlHwCol = null;
+    const urlHpCol = null;
     const skipPvcLinesAndSketch = Boolean(
       fromLayoutId || fromMaterialQuoteId || fromMaterialSketchSaveId || materialRequestId
     );
@@ -1523,7 +1459,7 @@ export default function MaterialCalculatorHubPage() {
     } catch {
       markHydrated();
     }
-  }, [contractorId, fromLayoutId, fromMaterialQuoteId, fromMaterialSketchSaveId, materialRequestId, tabParam, searchParams]);
+  }, [contractorId]);
 
   useLayoutEffect(() => {
     if (!contractorId) {
@@ -1725,212 +1661,7 @@ export default function MaterialCalculatorHubPage() {
     setHybridWpcColour('Ash');
     setHybridPvcColour('White');
     setMaterialExclusions({});
-    setFmsQuoteMaterialUnsupported(null);
-    materialQuoteUnsupportedAlertKeyRef.current = '';
   }, [contractorId]);
-
-  useEffect(() => {
-    if (fromMaterialQuoteId || fromMaterialSketchSaveId || materialRequestId) return;
-    if (!fromLayoutId) return;
-    let cancelled = false;
-    fetch(`/api/contractor/layouts/${encodeURIComponent(fromLayoutId)}`, { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (cancelled || !data?.drawing_data) return;
-        const dd = data.drawing_data as {
-          points?: { x: number; y: number }[];
-          segments?: { length_ft?: number }[];
-          gate_placements?: SketchGatePlacement[];
-        };
-        const pts = Array.isArray(dd.points) ? dd.points : [];
-        const segMeta = Array.isArray(dd.segments) ? dd.segments : [];
-        const inferred = drawingDataToPvcLineRows(
-          { points: pts, segments: segMeta, gate_placements: dd.gate_placements },
-          'nominal_7ft'
-        );
-        if (inferred?.length) {
-          setLines(inferred);
-          return;
-        }
-        if (!segMeta.length) return;
-        const lens = segMeta.map((s) => String(Number(s.length_ft) || ''));
-        setLines(
-          lens.map((len, i) => ({
-            id: newLineId(),
-            label: `Line ${i + 1}`,
-            length_ft: len,
-            panel_module: 'nominal_7ft' as FmsPvcPanelModule,
-            end_preset: 'h_continuous' as LineEndPreset,
-            h_post_type: 1,
-            u_channel: '0',
-          }))
-        );
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [fromLayoutId, fromMaterialQuoteId, fromMaterialSketchSaveId, materialRequestId]);
-
-  /** Material quote request (contractor `from_material_quote` or supplier `materialRequest`) → sketch + PVC tab. */
-  useEffect(() => {
-    if (fromMaterialSketchSaveId) return;
-    const fromContractor = fromMaterialQuoteId.trim();
-    const fromSupplier = materialRequestId.trim();
-    if (!fromContractor && !fromSupplier) {
-      setMaterialQuoteSketchLoadState('idle');
-      setFmsQuoteMaterialUnsupported(null);
-      materialQuoteUnsupportedAlertKeyRef.current = '';
-      setImportedMaterialRequest(null);
-      return;
-    }
-    const useSupplierApi = !fromContractor && Boolean(fromSupplier);
-    const url = useSupplierApi
-      ? `/api/supplier/material-quote-requests/${encodeURIComponent(fromSupplier)}`
-      : `/api/contractor/material-quote-requests/${encodeURIComponent(fromContractor)}`;
-
-    setMaterialQuoteSketchLoadState('loading');
-    setFmsQuoteMaterialUnsupported(null);
-    let cancelled = false;
-    fetch(url, {
-      credentials: 'include',
-      cache: 'no-store',
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((json: { request?: MaterialQuoteRequestDto } | null) => {
-        if (cancelled) return;
-        if (!json?.request) {
-          setMaterialQuoteSketchLoadState('none');
-          setFmsQuoteMaterialUnsupported(null);
-          setImportedMaterialRequest(null);
-          return;
-        }
-        const req = json.request;
-        setImportedMaterialRequest(req);
-        const addr = req.project?.home_address?.trim();
-        if (addr) setJobAddress(addr);
-        const sketch = layoutSketchFromMaterialQuoteProject(req.project);
-        setShortGates([]);
-        setSingleGates([]);
-        setDoubleGates([]);
-        setChainGates([]);
-        setHybVGates([]);
-        sketchSyncedGatePlacementCountRef.current = 0;
-        sketchToLinesSyncKeyRef.current = '';
-        if (sketch) {
-          setLayoutSketchData(sketch);
-          setLayoutCanvasRemountKey((k) => k + 1);
-          sketchHadSegmentsRef.current = true;
-          setMaterialQuoteSketchLoadState('ok');
-        } else {
-          setLayoutSketchData(null);
-          sketchHadSegmentsRef.current = false;
-          setMaterialQuoteSketchLoadState('none');
-        }
-
-        const inferred = inferFmsHubMaterialFromQuoteProject({
-          design_summary: req.project?.design_summary ?? null,
-          design_option: req.project?.design_option ?? null,
-        });
-        const alertKey = `${fromContractor}|${fromSupplier}`;
-        if (inferred.kind === 'unsupported') {
-          setFmsQuoteMaterialUnsupported(inferred.materialLabel);
-          if (materialQuoteUnsupportedAlertKeyRef.current !== alertKey) {
-            materialQuoteUnsupportedAlertKeyRef.current = alertKey;
-            queueMicrotask(() => {
-              window.alert(
-                `No FMS material calculator is available for this material yet (${inferred.materialLabel}). ` +
-                  'This hub supports PVC / vinyl, chain link, and hybrid only. You can still review the job sketch and details above.'
-              );
-            });
-          }
-          setTab('pvc');
-          const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
-          params.delete('tab');
-          router.replace(`${pathname}?${params.toString()}`);
-        } else {
-          setFmsQuoteMaterialUnsupported(null);
-          materialQuoteUnsupportedAlertKeyRef.current = alertKey;
-          if (inferred.kind === 'pvc' && inferred.pvcColour) {
-            setPvcBreakdownColour(inferred.pvcColour);
-          }
-          if (inferred.kind === 'hybrid') {
-            if (inferred.wpcColour) setHybridWpcColour(inferred.wpcColour);
-            if (inferred.pvcColour) setHybridPvcColour(inferred.pvcColour);
-          }
-          if (inferred.tab) {
-            const mapped = coerceStyleTab(inferred.tab);
-            setTab(mapped);
-            const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
-            params.set('tab', mapped);
-            router.replace(`${pathname}?${params.toString()}`);
-          }
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setMaterialQuoteSketchLoadState('none');
-          setFmsQuoteMaterialUnsupported(null);
-          setImportedMaterialRequest(null);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [fromMaterialQuoteId, fromMaterialSketchSaveId, materialRequestId, pathname, router]);
-
-  /** Profile-saved map sketch → PVC tab. */
-  useEffect(() => {
-    if (!fromMaterialSketchSaveId) {
-      setProfileSketchSaveLoadState('idle');
-      return;
-    }
-    if (fromMaterialQuoteId || materialRequestId) {
-      setProfileSketchSaveLoadState('idle');
-      return;
-    }
-    setProfileSketchSaveLoadState('loading');
-    let cancelled = false;
-    fetch(`/api/contractor/material-list-saves/${encodeURIComponent(fromMaterialSketchSaveId)}`, {
-      credentials: 'include',
-      cache: 'no-store',
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((json: { save?: { title?: string; drawing_data?: unknown } } | null) => {
-        if (cancelled) return;
-        if (!json?.save?.drawing_data) {
-          setProfileSketchSaveLoadState('none');
-          return;
-        }
-        const title = typeof json.save.title === 'string' ? json.save.title.trim() : '';
-        if (title) setJobAddress((prev) => (prev.trim() ? prev : title));
-        const sketch = parseLayoutSketch(json.save.drawing_data);
-        setShortGates([]);
-        setSingleGates([]);
-        setDoubleGates([]);
-        setChainGates([]);
-        setHybVGates([]);
-        sketchSyncedGatePlacementCountRef.current = 0;
-        sketchToLinesSyncKeyRef.current = '';
-        if (sketch) {
-          setLayoutSketchData(sketch);
-          setLayoutCanvasRemountKey((k) => k + 1);
-          sketchHadSegmentsRef.current = true;
-          setProfileSketchSaveLoadState('ok');
-        } else {
-          setLayoutSketchData(null);
-          sketchHadSegmentsRef.current = false;
-          setProfileSketchSaveLoadState('none');
-        }
-        setTab('pvc');
-      })
-      .catch(() => {
-        if (!cancelled) setProfileSketchSaveLoadState('none');
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [fromMaterialSketchSaveId, fromMaterialQuoteId, materialRequestId]);
 
   /** Layout sketch geometry → PVC, chain link and hybrid vertical fence runs (same corner / D6 logic per segment). */
   useEffect(() => {
@@ -1950,16 +1681,14 @@ export default function MaterialCalculatorHubPage() {
     const key = layoutSketchDataKey(payload);
     const panelModule = pvcPanelModule;
 
-    const shouldRefreshSketchLines = <T extends { fromSketch?: boolean; manualRunEdit?: boolean; length_ft?: string }>(
+    const shouldRefreshSketchLines = <T extends { fromSketch?: boolean; manualRunEdit?: boolean }>(
       prev: T[],
       next: T[] | null
     ) => {
       if (!next?.length) return false;
       if (key !== sketchToLinesSyncKeyRef.current) return true;
-      const sketchManaged = prev.length > 0 && prev.every((l) => l.fromSketch && !l.manualRunEdit);
-      if (!sketchManaged) return false;
-      if (prev.length !== next.length) return true;
-      return next.some((n, i) => String(n.length_ft) !== String(prev[i]?.length_ft));
+      if (prev.every((l) => l.fromSketch && !l.manualRunEdit) && prev.length !== next.length) return true;
+      return false;
     };
 
     setLines((prev) => {
@@ -2124,46 +1853,54 @@ export default function MaterialCalculatorHubPage() {
   );
 
   const pvcRunBreakdown = useMemo((): PvcRunBreakdownRow[] => {
-    const spacing = effectivePvcPanelSpacingFt;
-    const out: PvcRunBreakdownRow[] = lines.map((lr, i) => {
+    const out: PvcRunBreakdownRow[] = [];
+    let j = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const lr = lines[i];
       const netL = Math.max(0, Number(String(lr.length_ft).replace(/,/g, '')) || 0);
-      const panelLabel = formatPvcPanelSummary(lr.panel_module, spacing);
-      const input = buildInputForPvcLineRow(lr, spacing);
-      if (!input) {
-        return {
-          kind: 'fence',
-          id: lr.id,
-          label: lr.label || `Run ${i + 1}`,
-          length_ft: netL,
-          panelLabel: netL > 0 ? panelLabel : 'Gate opening (no fence left)',
-          panels: 0,
-          h_post: 0,
-          u_channel: 0,
-          rail: 0,
-          board: 0,
-        };
+      const panelLabel = formatPvcPanelSummary(lr.panel_module, effectivePvcPanelSpacingFt);
+      if (pvcLineIncludedInInputs(lr)) {
+        const r = pvcJob.lines[j];
+        j += 1;
+        if (r) {
+          out.push({
+            kind: 'fence',
+            id: lr.id,
+            label: lr.label || `Run ${i + 1}`,
+            length_ft: r.input.length_ft,
+            panelLabel: formatPvcPanelSummary(
+              lr.panel_module,
+              r.input.panel_spacing_ft ?? effectivePvcPanelSpacingFt
+            ),
+            panels: r.total_whole_panels,
+            h_post: r.h_post,
+            u_channel: r.u_channel,
+            rail: r.rail,
+            board: r.board,
+          });
+          continue;
+        }
       }
-      const r = computeFmsPvcFenceLine(input);
-      return {
+      out.push({
         kind: 'fence',
         id: lr.id,
         label: lr.label || `Run ${i + 1}`,
         length_ft: netL,
-        panelLabel: formatPvcPanelSummary(lr.panel_module, r.input.panel_spacing_ft ?? spacing),
-        panels: r.total_whole_panels,
-        h_post: r.h_post,
-        u_channel: r.u_channel,
-        rail: r.rail,
-        board: r.board,
-      };
-    });
+        panelLabel: netL > 0 ? panelLabel : 'Gate opening (no fence left)',
+        panels: 0,
+        h_post: 0,
+        u_channel: 0,
+        rail: 0,
+        board: 0,
+      });
+    }
     out.push(
       ...buildPvcGateBreakdownRows('short', shortGates, 'Walk gate'),
       ...buildPvcGateBreakdownRows('single', singleGates, 'Single gate'),
       ...buildPvcGateBreakdownRows('double', doubleGates, 'Double gate')
     );
     return out;
-  }, [lines, shortGates, singleGates, doubleGates, effectivePvcPanelSpacingFt]);
+  }, [lines, pvcJob.lines, shortGates, singleGates, doubleGates, effectivePvcPanelSpacingFt]);
 
   const adobeRows = useMemo(() => adobeBreakdownToRows(pvcAdobe), [pvcAdobe]);
 
@@ -2602,82 +2339,6 @@ export default function MaterialCalculatorHubPage() {
     ]
   );
 
-  const buildSupplierMaterialQuoteLines = useCallback((): MaterialQuoteLine[] => {
-    const rows: MaterialQuoteLine[] = [];
-    const add = (description: string, qty: unknown) => {
-      const q = typeof qty === 'number' ? qty : Number(qty);
-      if (!description.trim() || !Number.isFinite(q) || q === 0) return;
-      rows.push({ description: description.trim(), qty: q });
-    };
-
-    if (tab === 'pvc') {
-      for (const r of pvcJob.sku_rows) {
-        if (isMaterialIncluded(materialExclusions, 'pvc', r.label)) {
-          add(`PVC fence — ${r.label}`, r.quantity);
-        }
-      }
-      for (const r of adobeRows) {
-        if (isMaterialIncluded(materialExclusions, 'pvc', r.label)) {
-          add(`${pvcBreakdownColour} (breakdown) — ${r.label}`, r.qty);
-        }
-      }
-      for (const r of pvcMaster) {
-        if (r.label?.trim() && !r.header && isMaterialIncluded(materialExclusions, 'pvc', r.label)) {
-          add(`Master — ${r.label}`, r.qty);
-        }
-      }
-      return rows;
-    }
-
-    if (tab === 'chain') {
-      if (chainFenceRows) {
-        chainFenceRows.forEach((r) => {
-          if (isMaterialIncluded(materialExclusions, 'chain', r.label)) {
-            add(`Chain link — ${r.label}`, r.qty);
-          }
-        });
-      }
-      if (chainGateRows) {
-        chainGateRows.forEach((r) => {
-          const label = `Gate — ${r.label}`;
-          if (isMaterialIncluded(materialExclusions, 'chain', label)) {
-            add(`Chain gate — ${r.label}`, r.qty);
-          }
-        });
-      }
-      return rows;
-    }
-
-    if (tab === 'hybrid_h' && hybridHJob.hasAny) {
-      for (const r of hybridHJob.master) {
-        if (isMaterialIncluded(materialExclusions, 'hybrid_h', r.item)) {
-          add(`Hybrid horizontal — ${r.item}`, r.final);
-        }
-      }
-    }
-
-    if (tab === 'hybrid_v' && hybridVJob.hasAny) {
-      for (const r of hybridVJob.master) {
-        if (isMaterialIncluded(materialExclusions, 'hybrid_v', r.item)) {
-          add(`Hybrid vertical — ${r.item}`, r.final);
-        }
-      }
-    }
-
-    return rows;
-  }, [
-    tab,
-    pvcJob,
-    adobeRows,
-    pvcMaster,
-    pvcBreakdownColour,
-    chainFenceRows,
-    chainGateRows,
-    hybridHJob,
-    hybridVJob,
-    materialExclusions,
-  ]);
-
   function addLine() {
     setLines((p) => [
       ...p,
@@ -3020,74 +2681,7 @@ export default function MaterialCalculatorHubPage() {
     <div className="relative mx-auto max-w-5xl pb-24">
       <div className="space-y-6">
       <div>
-        <Link href="/dashboard" className="text-sm font-medium text-blue-600 hover:underline">
-          ← Dashboard
-        </Link>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">Material Calculator</h1>
-        {importedMaterialRequest ? (
-          <div className="mt-3 max-w-3xl">
-            <MaterialQuoteImportBanner
-              request={importedMaterialRequest}
-              showContractorDetails={showSupplierMaterialRequest}
-              quoteDetailHref={
-                showSupplierMaterialRequest
-                  ? `/dashboard/supplier/contractor-quotes/${encodeURIComponent(materialRequestId)}`
-                  : undefined
-              }
-            />
-          </div>
-        ) : null}
-        {fromMaterialQuoteId || materialRequestId ? (
-          <div className="mt-3 max-w-3xl space-y-2">
-            <div className="rounded-xl border border-violet-200/90 bg-violet-50/90 px-4 py-3 text-sm text-violet-950">
-              {materialQuoteSketchLoadState === 'loading' ? (
-                <span className="font-semibold">Loading layout from material request…</span>
-              ) : (
-                <>
-                  <span className="font-semibold">Material request import.</span> The PVC tab loads the plan sketch or
-                  map fence lines from this request when available.{' '}
-                  <Link
-                    href="/dashboard/material-calculator"
-                    className="font-semibold text-violet-800 underline hover:text-violet-950"
-                  >
-                    Clear import
-                  </Link>
-                </>
-              )}
-            </div>
-            {materialQuoteSketchLoadState === 'none' ? (
-              <div className="rounded-xl border border-amber-200/90 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
-                No fence geometry was found on this material request (or the request could not be loaded). You can draw
-                the plan or enter runs manually.
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-        {fromMaterialSketchSaveId && !fromMaterialQuoteId && !materialRequestId ? (
-          <div className="mt-3 max-w-3xl space-y-2">
-            <div className="rounded-xl border border-teal-200/90 bg-teal-50/90 px-4 py-3 text-sm text-teal-950">
-              {profileSketchSaveLoadState === 'loading' ? (
-                <span className="font-semibold">Loading saved map sketch…</span>
-              ) : (
-                <>
-                  <span className="font-semibold">Saved material list.</span> This sketch came from your account
-                  snapshots (address as title).{' '}
-                  <Link
-                    href="/dashboard/material-calculator"
-                    className="font-semibold text-teal-900 underline hover:text-teal-950"
-                  >
-                    Clear import
-                  </Link>
-                </>
-              )}
-            </div>
-            {profileSketchSaveLoadState === 'none' ? (
-              <div className="rounded-xl border border-amber-200/90 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
-                That snapshot could not be loaded or no longer has drawing data.
-              </div>
-            ) : null}
-          </div>
-        ) : null}
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Material Calculator</h1>
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
           Draw your fence, pick the type, and get a ready-to-order parts list.
         </p>
@@ -3130,18 +2724,9 @@ export default function MaterialCalculatorHubPage() {
             Start over
           </button>
           <p className="text-xs text-slate-500">
-            {!contractorId
-              ? 'Sign in to automatically save your work in this browser.'
-              : 'Your work saves automatically in this browser. Use “Start over” to clear everything.'}
+            Your work saves automatically in this browser. Use “Start over” to clear everything.
           </p>
         </div>
-        <p className="mt-2 text-xs text-slate-400">
-          Need a per-panel parts list with custom items?{' '}
-          <Link href="/dashboard/material-calculator/pvc" className="font-medium text-blue-600 hover:underline">
-            Open the detailed PVC builder
-          </Link>
-          .
-        </p>
       </div>
 
       {fmsQuoteMaterialUnsupported ? (
@@ -3152,12 +2737,7 @@ export default function MaterialCalculatorHubPage() {
             The material calculator currently covers PVC / vinyl, chain link, and hybrid fences.
           </p>
           <p className="mt-2 text-slate-700">Your layout sketch and job details above are still available for reference.</p>
-          <Link
-            href="/dashboard/material-calculator"
-            className="mt-3 inline-block text-sm font-semibold text-amber-900 underline hover:text-amber-950"
-          >
-            Clear import and open a blank calculator
-          </Link>
+
         </div>
       ) : null}
 
@@ -4864,17 +4444,6 @@ export default function MaterialCalculatorHubPage() {
       </>
       ) : null}
 
-      {showSupplierMaterialRequest ? (
-        <SupplierMaterialQuoteActions
-          requestId={materialRequestId}
-          onDownloadMasterPdf={() => void downloadMasterMaterialListPdf()}
-          buildMasterPdfBlob={tab === 'pvc' ? buildMasterMaterialListPdfBlob : undefined}
-          masterPdfAvailable={tab === 'pvc' && !fmsQuoteMaterialUnsupported}
-          buildMaterialRowsForQuote={buildSupplierMaterialQuoteLines}
-          quoteDetailHref={`/dashboard/supplier/contractor-quotes/${encodeURIComponent(materialRequestId)}`}
-          calculatorBlocked={Boolean(fmsQuoteMaterialUnsupported)}
-        />
-      ) : null}
       </div>
     </div>
   );
