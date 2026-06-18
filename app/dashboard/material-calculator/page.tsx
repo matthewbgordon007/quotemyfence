@@ -294,6 +294,8 @@ type ChainLineRow = {
   label: string;
   length_ft: string;
   terminal_post: string;
+  /** Per-end H-post (Excel D6 per run). */
+  run_ends?: SegmentRunEnds;
   /** When true, lengths / D6 came from the layout sketch (same corner logic as PVC). */
   fromSketch?: boolean;
   manualRunEdit?: boolean;
@@ -431,11 +433,19 @@ function drawingDataToChainLineRows(
     const inp = inputs[i];
     const gross = grossPerSeg[i] ?? 0;
     const net = netPerSeg[i] ?? 0;
+    const runEnds = segmentRunEndTerminationsForSketch(pairs, grossPerSeg, i, {
+      jointTerminations: drawing.joint_terminations ?? null,
+      gatePlacements,
+    });
+    const d6 = runEnds
+      ? d6d7FromRunEnds(runEnds).d6
+      : ((inp?.fence_terminated_h_post_type ?? 0) as 0 | 1 | 2);
     return {
       id: newLineId(),
       label: sketchSegmentRunLabel(i, drawing.segments.length, net, gatePlacements, drawing.segments),
       length_ft: gross > 0 ? String(gross) : '',
-      terminal_post: String(inp?.fence_terminated_h_post_type ?? 0),
+      terminal_post: String(d6),
+      ...(runEnds ? { run_ends: runEnds } : {}),
       fromSketch: true,
     };
   });
@@ -617,8 +627,7 @@ function d6d7FromRunEnds(ends: SegmentRunEnds): { d6: 0 | 1 | 2; d7: number } {
   return { d6, d7 };
 }
 
-function runEndsFromLegacyRow(row: PvcLineRow): SegmentRunEnds {
-  const { d6, d7 } = presetToExcel(row.end_preset, row.h_post_type, row.u_channel);
+function runEndsFromD6D7(d6: 0 | 1 | 2, d7: number): SegmentRunEnds {
   if (d6 === 2 && d7 === 0) {
     return {
       start: { h_post: true, u_channel: false },
@@ -643,8 +652,30 @@ function runEndsFromLegacyRow(row: PvcLineRow): SegmentRunEnds {
   };
 }
 
+function runEndsFromLegacyRow(row: PvcLineRow): SegmentRunEnds {
+  const { d6, d7 } = presetToExcel(row.end_preset, row.h_post_type, row.u_channel);
+  return runEndsFromD6D7(d6, d7);
+}
+
 function effectiveRunEnds(row: PvcLineRow): SegmentRunEnds {
   return row.run_ends ?? runEndsFromLegacyRow(row);
+}
+
+function runEndsFromHybridRow(row: HybridLineRow): SegmentRunEnds {
+  return runEndsFromD6D7(row.h_post, row.u_channel);
+}
+
+function effectiveHybridRunEnds(row: HybridLineRow): SegmentRunEnds {
+  return row.run_ends ?? runEndsFromHybridRow(row);
+}
+
+function runEndsFromChainRow(row: ChainLineRow): SegmentRunEnds {
+  const d6 = Math.max(0, Math.min(2, Math.round(Number(row.terminal_post) || 0))) as 0 | 1 | 2;
+  return runEndsFromD6D7(d6, 0);
+}
+
+function effectiveChainRunEnds(row: ChainLineRow): SegmentRunEnds {
+  return row.run_ends ?? runEndsFromChainRow(row);
 }
 
 function runEndsSummary(ends: SegmentRunEnds): string {
@@ -1494,6 +1525,11 @@ function parseChainLines(raw: unknown): ChainLineRow[] | null {
       terminal_post:
         typeof o.terminal_post === 'string' || typeof o.terminal_post === 'number' ? String(o.terminal_post) : '2',
       fromSketch: o.fromSketch === true,
+      manualRunEdit: o.manualRunEdit === true,
+      ...((): { run_ends?: SegmentRunEnds } => {
+        const run_ends = parseRunEnds(o.run_ends);
+        return run_ends ? { run_ends } : {};
+      })(),
     });
   }
   return out.length ? out : null;
@@ -1530,6 +1566,11 @@ function parseHybridLines(raw: unknown): HybridLineRow[] | null {
       h_post: coerceH012(o.h_post),
       u_channel: coerce012Default0(o.u_channel),
       fromSketch: o.fromSketch === true,
+      manualRunEdit: o.manualRunEdit === true,
+      ...((): { run_ends?: SegmentRunEnds } => {
+        const run_ends = parseRunEnds(o.run_ends);
+        return run_ends ? { run_ends } : {};
+      })(),
     });
   }
   return out.length ? out : null;
@@ -2873,7 +2914,9 @@ export default function MaterialCalculatorHubPage() {
         const grossL = Math.max(0, Number(String(row.length_ft).replace(/,/g, '')) || 0);
         const L = fenceCalcLengthFtForSketchSegment(i, grossL, layoutSketchData);
         if (L <= 0) return null;
-        const d6 = Math.max(0, Number(row.terminal_post) || 0);
+        const d6 = row.run_ends
+          ? d6d7FromRunEnds(row.run_ends).d6
+          : Math.max(0, Math.min(2, Math.round(Number(row.terminal_post) || 0)));
         return { length_ft: L, terminal_post_type: d6, rail_length_ft: d7, mesh_roll_ft: d8, ties_per_bag: d9 };
       })
       .filter(Boolean) as FmsChainLinkFenceInput[];
@@ -3480,15 +3523,369 @@ export default function MaterialCalculatorHubPage() {
   }
 
   function updateChainLine(id: string, patch: Partial<ChainLineRow>) {
-    setChainLines((rows) => rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    const endEdit = 'run_ends' in patch || 'terminal_post' in patch;
+    let mergedPatch = patch;
+    if (endEdit) {
+      mergedPatch = { ...patch, manualRunEdit: true };
+      if (patch.run_ends) {
+        const { d6 } = d6d7FromRunEnds(patch.run_ends);
+        mergedPatch = { ...mergedPatch, terminal_post: String(d6) };
+      }
+    }
+    setChainLines((rows) => {
+      const next = rows.map((r) => (r.id === id ? { ...r, ...mergedPatch } : r));
+      if ('length_ft' in patch) {
+        const idx = next.findIndex((r) => r.id === id);
+        if (idx >= 0 && next[idx].fromSketch) {
+          const newL = Math.max(0, Number(String(next[idx].length_ft).replace(/,/g, '')) || 0);
+          if (newL > 0) syncSketchSegmentLengthMetadata(idx, newL);
+        }
+      }
+      return next;
+    });
+  }
+
+  function updateHybridLine(
+    which: 'h' | 'v',
+    id: string,
+    patch: Partial<HybridLineRow>
+  ) {
+    const endEdit = 'run_ends' in patch || 'h_post' in patch || 'u_channel' in patch;
+    let mergedPatch = patch;
+    if (endEdit) {
+      mergedPatch = { ...patch, manualRunEdit: true };
+      if (patch.run_ends) {
+        const { d6, d7 } = d6d7FromRunEnds(patch.run_ends);
+        mergedPatch = {
+          ...mergedPatch,
+          h_post: d6,
+          u_channel: Math.max(0, Math.min(2, Math.round(d7))) as 0 | 1 | 2,
+        };
+      }
+    }
+    const setter = which === 'h' ? setHybHLines : setHybVLines;
+    setter((rows) => {
+      const next = rows.map((r) => (r.id === id ? { ...r, ...mergedPatch } : r));
+      if ('length_ft' in patch) {
+        const idx = next.findIndex((r) => r.id === id);
+        if (idx >= 0 && next[idx].fromSketch) {
+          const newL = Math.max(0, Number(String(next[idx].length_ft).replace(/,/g, '')) || 0);
+          if (newL > 0) syncSketchSegmentLengthMetadata(idx, newL);
+        }
+      }
+      return next;
+    });
   }
 
   function updateHybHLine(id: string, patch: Partial<HybridLineRow>) {
-    setHybHLines((rows) => rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    updateHybridLine('h', id, patch);
   }
 
   function updateHybVLine(id: string, patch: Partial<HybridLineRow>) {
-    setHybVLines((rows) => rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    updateHybridLine('v', id, patch);
+  }
+
+  function updateChainLineRunEnd(
+    id: string,
+    which: 'start' | 'end',
+    field: 'h_post' | 'u_channel',
+    checked: boolean
+  ) {
+    if (field === 'u_channel') return;
+    setChainLines((rows) => {
+      const idx = rows.findIndex((r) => r.id === id);
+      if (idx < 0) return rows;
+      const row = rows[idx];
+      const ends = effectiveChainRunEnds(row);
+      const nextEnds: SegmentRunEnds = {
+        ...ends,
+        [which]: { ...ends[which], h_post: checked },
+      };
+      const { d6 } = d6d7FromRunEnds(nextEnds);
+      const next = [...rows];
+      next[idx] = {
+        ...row,
+        run_ends: nextEnds,
+        terminal_post: String(d6),
+        manualRunEdit: true,
+      };
+      return next;
+    });
+  }
+
+  function updateHybridLineRunEnd(
+    which: 'h' | 'v',
+    id: string,
+    side: 'start' | 'end',
+    field: 'h_post' | 'u_channel',
+    checked: boolean
+  ) {
+    const setter = which === 'h' ? setHybHLines : setHybVLines;
+    setter((rows) => {
+      const idx = rows.findIndex((r) => r.id === id);
+      if (idx < 0) return rows;
+      const row = rows[idx];
+      const ends = effectiveHybridRunEnds(row);
+      const nextEnds: SegmentRunEnds = {
+        ...ends,
+        [side]: { ...ends[side], [field]: checked },
+      };
+      const { d6, d7 } = d6d7FromRunEnds(nextEnds);
+      const next = [...rows];
+      next[idx] = {
+        ...row,
+        run_ends: nextEnds,
+        h_post: d6,
+        u_channel: Math.max(0, Math.min(2, Math.round(d7))) as 0 | 1 | 2,
+        manualRunEdit: true,
+      };
+      return next;
+    });
+  }
+
+  function applyChainRunEndPreset(id: string, preset: LineEndPreset) {
+    let run_ends: SegmentRunEnds;
+    if (preset === 'h_continuous') {
+      run_ends = {
+        start: { h_post: true, u_channel: false },
+        end: { h_post: true, u_channel: false },
+      };
+    } else if (preset === 'u_at_end') {
+      run_ends = {
+        start: { h_post: false, u_channel: false },
+        end: { h_post: true, u_channel: false },
+      };
+    } else {
+      return;
+    }
+    const { d6 } = d6d7FromRunEnds(run_ends);
+    updateChainLine(id, { run_ends, terminal_post: String(d6), manualRunEdit: true });
+  }
+
+  function applyHybridRunEndPreset(which: 'h' | 'v', id: string, preset: LineEndPreset) {
+    let run_ends: SegmentRunEnds;
+    if (preset === 'h_continuous') {
+      run_ends = {
+        start: { h_post: true, u_channel: false },
+        end: { h_post: true, u_channel: false },
+      };
+    } else if (preset === 'u_at_end') {
+      run_ends = {
+        start: { h_post: false, u_channel: true },
+        end: { h_post: true, u_channel: false },
+      };
+    } else {
+      return;
+    }
+    const { d6, d7 } = d6d7FromRunEnds(run_ends);
+    updateHybridLine(which, id, {
+      run_ends,
+      h_post: d6,
+      u_channel: Math.max(0, Math.min(2, Math.round(d7))) as 0 | 1 | 2,
+      manualRunEdit: true,
+    });
+  }
+
+  function renderFenceRunsSection(opts: {
+    rows: { id: string; label: string; length_ft: string; fromSketch?: boolean; manualRunEdit?: boolean }[];
+    getSubtitle: (row: { label: string }, idx: number) => string;
+    getRunEnds: (row: { id: string }) => SegmentRunEnds;
+    onLengthChange: (id: string, length_ft: string) => void;
+    onRunEndChange: (
+      id: string,
+      which: 'start' | 'end',
+      field: 'h_post' | 'u_channel',
+      checked: boolean
+    ) => void;
+    onApplyPreset: (id: string, preset: LineEndPreset) => void;
+    onRemove?: (id: string) => void;
+    showUChannel?: boolean;
+    renderExpandedExtra?: (row: { id: string; label: string }, idx: number) => ReactNode;
+    footer?: ReactNode;
+  }) {
+    const showU = opts.showUChannel !== false;
+    return (
+      <section className={card}>
+        <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-blue-50/30 px-5 py-4">
+          <h2 className={h2}>Fence runs</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Filled in from your sketch. Click a run to set how it starts and ends
+            {showU ? ' (H-post / U-channel per end)' : ' (terminal posts per end)'}.
+          </p>
+        </div>
+        <div className="space-y-3 p-5">
+          {opts.rows.map((row, idx) => {
+            const expanded = !!expandedFenceRuns[row.id];
+            const ends = opts.getRunEnds(row);
+            const gateOpening = isGateOpeningFenceRow(row.label || `Run ${idx + 1}`);
+            return (
+              <div
+                key={row.id}
+                className="overflow-hidden rounded-xl border border-slate-100 bg-slate-50/40 ring-1 ring-slate-900/[0.03]"
+              >
+                <button
+                  type="button"
+                  className="flex w-full flex-wrap items-center gap-3 px-4 py-3 text-left hover:bg-slate-50/80"
+                  onClick={() =>
+                    setExpandedFenceRuns((prev) => ({ ...prev, [row.id]: !prev[row.id] }))
+                  }
+                  aria-expanded={expanded}
+                >
+                  <span className="text-slate-400" aria-hidden>
+                    {expanded ? '▾' : '▸'}
+                  </span>
+                  <div className="min-w-[8rem] flex-1">
+                    <span className="text-sm font-semibold text-slate-800">
+                      {row.label || `Run ${idx + 1}`}
+                    </span>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {opts.getSubtitle(row, idx)}
+                      {!gateOpening ? ` · ${runEndsSummary(ends)}` : ''}
+                    </p>
+                  </div>
+                  <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
+                      Length (ft)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.1}
+                      value={row.length_ft}
+                      onChange={(e) => opts.onLengthChange(row.id, e.target.value)}
+                      className={`${field} w-28`}
+                    />
+                  </div>
+                  {row.fromSketch && !row.manualRunEdit ? (
+                    <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-800">
+                      From sketch
+                    </span>
+                  ) : row.manualRunEdit ? (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-900">
+                      Ends edited
+                    </span>
+                  ) : null}
+                  {!row.fromSketch && opts.onRemove ? (
+                    <button
+                      type="button"
+                      className={`${btnGhost} shrink-0`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        opts.onRemove!(row.id);
+                      }}
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </button>
+                {expanded ? (
+                  <div className="border-t border-slate-100 bg-white px-4 py-4">
+                    {gateOpening ? (
+                      <p className="text-sm text-slate-600">
+                        Gate openings use gate materials — post settings apply to fence runs only.
+                      </p>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            className={btnGhost}
+                            onClick={() => opts.onApplyPreset(row.id, 'h_continuous')}
+                          >
+                            Standard (post each end)
+                          </button>
+                          {showU ? (
+                            <button
+                              type="button"
+                              className={btnGhost}
+                              onClick={() => opts.onApplyPreset(row.id, 'u_at_end')}
+                            >
+                              Butts to existing (U at start)
+                            </button>
+                          ) : null}
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+                            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                              Start of run
+                            </div>
+                            <div className="space-y-2">
+                              <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4 rounded border-slate-300"
+                                  checked={ends.start.h_post}
+                                  onChange={(e) =>
+                                    opts.onRunEndChange(row.id, 'start', 'h_post', e.target.checked)
+                                  }
+                                />
+                                H-post (D6)
+                              </label>
+                              {showU ? (
+                                <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
+                                  <input
+                                    type="checkbox"
+                                    className="h-4 w-4 rounded border-slate-300"
+                                    checked={ends.start.u_channel}
+                                    onChange={(e) =>
+                                      opts.onRunEndChange(row.id, 'start', 'u_channel', e.target.checked)
+                                    }
+                                  />
+                                  U-channel (D7)
+                                </label>
+                              ) : null}
+                            </div>
+                          </div>
+                          <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+                            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                              End of run
+                            </div>
+                            <div className="space-y-2">
+                              <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4 rounded border-slate-300"
+                                  checked={ends.end.h_post}
+                                  onChange={(e) =>
+                                    opts.onRunEndChange(row.id, 'end', 'h_post', e.target.checked)
+                                  }
+                                />
+                                H-post (D6)
+                              </label>
+                              {showU ? (
+                                <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
+                                  <input
+                                    type="checkbox"
+                                    className="h-4 w-4 rounded border-slate-300"
+                                    checked={ends.end.u_channel}
+                                    onChange={(e) =>
+                                      opts.onRunEndChange(row.id, 'end', 'u_channel', e.target.checked)
+                                    }
+                                  />
+                                  U-channel (D7)
+                                </label>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                        {showU ? (
+                          <p className="text-xs text-slate-500">
+                            Example: new fence tying into existing with U-channel — turn off H-post at the start and
+                            enable U-channel there.
+                          </p>
+                        ) : null}
+                        {opts.renderExpandedExtra?.(row, idx)}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+          {opts.footer}
+        </div>
+      </section>
+    );
   }
 
   function applySketchGateWidth(placementIndex: number, widthInStr: string) {
@@ -4272,10 +4669,12 @@ export default function MaterialCalculatorHubPage() {
               onDrawingChange={handleLayoutDrawingChange}
             />
             {(lines.some((l) => l.fromSketch && !l.manualRunEdit) ||
-              chainLines.some((l) => l.fromSketch && !l.manualRunEdit)) && (
+              chainLines.some((l) => l.fromSketch && !l.manualRunEdit) ||
+              hybHLines.some((l) => l.fromSketch && !l.manualRunEdit) ||
+              hybVLines.some((l) => l.fromSketch && !l.manualRunEdit)) && (
               <p className="border-t border-slate-100 pt-3 text-xs text-slate-500">
-                Post and U-channel settings for each run are in <strong>Fence runs</strong> below — click a run to
-                expand start/end options.
+                Post and end settings for each run are in <strong>Fence runs</strong> below — click a run to expand
+                start/end options.
               </p>
             )}
           </div>
@@ -4319,178 +4718,23 @@ export default function MaterialCalculatorHubPage() {
             )
           ) : (
         <>
-          <section className={card}>
-            <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-blue-50/30 px-5 py-4">
-              <h2 className={h2}>Fence runs</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Filled in from your sketch. Click a run to set how it starts and ends (H-post / U-channel per end).
-              </p>
-            </div>
-            <div className="space-y-3 p-5">
-              {lines.map((row, idx) => {
-                const expanded = !!expandedFenceRuns[row.id];
-                const ends = effectiveRunEnds(row);
-                const gateOpening = isGateOpeningFenceRow(row.label || `Run ${idx + 1}`);
-                return (
-                  <div
-                    key={row.id}
-                    className="overflow-hidden rounded-xl border border-slate-100 bg-slate-50/40 ring-1 ring-slate-900/[0.03]"
-                  >
-                    <button
-                      type="button"
-                      className="flex w-full flex-wrap items-center gap-3 px-4 py-3 text-left hover:bg-slate-50/80"
-                      onClick={() =>
-                        setExpandedFenceRuns((prev) => ({ ...prev, [row.id]: !prev[row.id] }))
-                      }
-                      aria-expanded={expanded}
-                    >
-                      <span className="text-slate-400" aria-hidden>
-                        {expanded ? '▾' : '▸'}
-                      </span>
-                      <div className="min-w-[8rem] flex-1">
-                        <span className="text-sm font-semibold text-slate-800">
-                          {row.label || `Run ${idx + 1}`}
-                        </span>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                          {formatPvcPanelSummary(row.panel_module, effectivePvcPanelSpacingFt)}
-                          {!gateOpening ? ` · ${runEndsSummary(ends)}` : ''}
-                        </p>
-                      </div>
-                      <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-                        <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
-                          Length (ft)
-                        </label>
-                        <input
-                          type="number"
-                          min={0}
-                          step={0.1}
-                          value={row.length_ft}
-                          onChange={(e) => updateLine(row.id, { length_ft: e.target.value })}
-                          className={`${field} w-28`}
-                        />
-                      </div>
-                      {row.fromSketch && !row.manualRunEdit ? (
-                        <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-800">
-                          From sketch
-                        </span>
-                      ) : row.manualRunEdit ? (
-                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-900">
-                          Ends edited
-                        </span>
-                      ) : null}
-                      {!row.fromSketch ? (
-                        <button
-                          type="button"
-                          className={`${btnGhost} shrink-0`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeLine(row.id);
-                          }}
-                        >
-                          Remove
-                        </button>
-                      ) : null}
-                    </button>
-                    {expanded ? (
-                      <div className="border-t border-slate-100 bg-white px-4 py-4">
-                        {gateOpening ? (
-                          <p className="text-sm text-slate-600">
-                            Gate openings use gate materials — post and U-channel settings apply to fence runs only.
-                          </p>
-                        ) : (
-                          <div className="space-y-4">
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                className={btnGhost}
-                                onClick={() => applyRunEndPreset(row.id, 'h_continuous')}
-                              >
-                                Standard (post each end)
-                              </button>
-                              <button
-                                type="button"
-                                className={btnGhost}
-                                onClick={() => applyRunEndPreset(row.id, 'u_at_end')}
-                              >
-                                Butts to existing (U at start)
-                              </button>
-                            </div>
-                            <div className="grid gap-4 sm:grid-cols-2">
-                              <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
-                                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                                  Start of run
-                                </div>
-                                <div className="space-y-2">
-                                  <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
-                                    <input
-                                      type="checkbox"
-                                      className="h-4 w-4 rounded border-slate-300"
-                                      checked={ends.start.h_post}
-                                      onChange={(e) =>
-                                        updateLineRunEnd(row.id, 'start', 'h_post', e.target.checked)
-                                      }
-                                    />
-                                    H-post (D6)
-                                  </label>
-                                  <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
-                                    <input
-                                      type="checkbox"
-                                      className="h-4 w-4 rounded border-slate-300"
-                                      checked={ends.start.u_channel}
-                                      onChange={(e) =>
-                                        updateLineRunEnd(row.id, 'start', 'u_channel', e.target.checked)
-                                      }
-                                    />
-                                    U-channel (D7)
-                                  </label>
-                                </div>
-                              </div>
-                              <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
-                                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                                  End of run
-                                </div>
-                                <div className="space-y-2">
-                                  <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
-                                    <input
-                                      type="checkbox"
-                                      className="h-4 w-4 rounded border-slate-300"
-                                      checked={ends.end.h_post}
-                                      onChange={(e) =>
-                                        updateLineRunEnd(row.id, 'end', 'h_post', e.target.checked)
-                                      }
-                                    />
-                                    H-post (D6)
-                                  </label>
-                                  <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
-                                    <input
-                                      type="checkbox"
-                                      className="h-4 w-4 rounded border-slate-300"
-                                      checked={ends.end.u_channel}
-                                      onChange={(e) =>
-                                        updateLineRunEnd(row.id, 'end', 'u_channel', e.target.checked)
-                                      }
-                                    />
-                                    U-channel (D7)
-                                  </label>
-                                </div>
-                              </div>
-                            </div>
-                            <p className="text-xs text-slate-500">
-                              Example: new fence tying into existing with U-channel — turn off H-post at the start and
-                              enable U-channel there.
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })}
+          {renderFenceRunsSection({
+            rows: lines,
+            getSubtitle: (row, idx) => {
+              const pvcRow = lines[idx];
+              return formatPvcPanelSummary(pvcRow.panel_module, effectivePvcPanelSpacingFt);
+            },
+            getRunEnds: (row) => effectiveRunEnds(lines.find((l) => l.id === row.id)!),
+            onLengthChange: (id, length_ft) => updateLine(id, { length_ft }),
+            onRunEndChange: updateLineRunEnd,
+            onApplyPreset: applyRunEndPreset,
+            onRemove: removeLine,
+            footer: (
               <button type="button" onClick={addLine} className={btnGhost}>
                 + Add line
               </button>
-            </div>
-          </section>
+            ),
+          })}
 
           <section ref={pvcGatesSectionRef} className={card}>
             <div className="border-b border-slate-100 bg-gradient-to-r from-amber-50/40 via-white to-slate-50/80 px-5 py-4">
@@ -4949,147 +5193,85 @@ export default function MaterialCalculatorHubPage() {
         <>
           <section className={card}>
             <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className={h2}>Chain link fence</h2>
+              <h2 className={h2}>Stock sizes</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Runs come from your sketch. Adjust a length or add a run by hand if needed.
+                Rails come in different lengths (e.g. 10&apos; regional, 19.33&apos; ours) — set this before reviewing
+                fence runs.
               </p>
             </div>
-            <div className="space-y-4 p-5">
-              <div className="rounded-xl border border-amber-200/70 bg-amber-50/40 p-4">
-                <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">
-                    Step 1 — Set your stock sizes
-                  </span>
-                  <span className="text-[11px] text-slate-500">
-                    Rails come in different lengths (e.g. 10&apos; regional, 19.33&apos; ours) — set this first.
-                  </span>
+            <div className="p-5">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-500">Rail length (ft)</label>
+                  <input
+                    type="number"
+                    min={0.01}
+                    step={0.01}
+                    value={chainRailFt}
+                    onChange={(e) => setChainRailFt(e.target.value)}
+                    className={`${field} w-full`}
+                  />
                 </div>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold text-slate-500">Rail length (ft)</label>
-                    <input
-                      type="number"
-                      min={0.01}
-                      step={0.01}
-                      value={chainRailFt}
-                      onChange={(e) => setChainRailFt(e.target.value)}
-                      className={`${field} w-full`}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold text-slate-500">Mesh roll length (ft)</label>
-                    <input
-                      type="number"
-                      min={0.01}
-                      step={0.01}
-                      value={chainMeshFt}
-                      onChange={(e) => setChainMeshFt(e.target.value)}
-                      className={`${field} w-full`}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold text-slate-500">Ties per bag</label>
-                    <input
-                      type="number"
-                      min={1}
-                      step={1}
-                      value={chainTiesPerBag}
-                      onChange={(e) => setChainTiesPerBag(e.target.value)}
-                      className={`${field} w-full`}
-                    />
-                  </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-500">Mesh roll length (ft)</label>
+                  <input
+                    type="number"
+                    min={0.01}
+                    step={0.01}
+                    value={chainMeshFt}
+                    onChange={(e) => setChainMeshFt(e.target.value)}
+                    className={`${field} w-full`}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-500">Ties per bag</label>
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={chainTiesPerBag}
+                    onChange={(e) => setChainTiesPerBag(e.target.value)}
+                    className={`${field} w-full`}
+                  />
                 </div>
               </div>
-              {chainLines.map((row, idx) =>
-                row.fromSketch && !row.manualRunEdit ? (
-                  <div
-                    key={row.id}
-                    className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-100 bg-slate-50/40 px-4 py-3"
-                  >
-                    <div className="min-w-[8rem] flex-1">
-                      <span className="text-sm font-semibold text-slate-800">{row.label || `Run ${idx + 1}`}</span>
-                      {chainRunInfoText(row.length_ft) ? (
-                        <p className="mt-0.5 text-xs text-slate-500">{chainRunInfoText(row.length_ft)}</p>
-                      ) : null}
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
-                        Length (ft)
-                      </label>
-                      <input
-                        type="number"
-                        min={0}
-                        step={0.1}
-                        value={row.length_ft}
-                        onChange={(e) => updateChainLine(row.id, { length_ft: e.target.value })}
-                        className={`${field} w-28`}
-                      />
-                    </div>
-                    <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-800">
-                      From sketch
-                    </span>
-                  </div>
-                ) : (
-                <div
-                  key={row.id}
-                  className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-100 bg-slate-50/40 p-4"
-                >
-                  <div>
-                    <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">Label</label>
-                    <input
-                      type="text"
-                      value={row.label}
-                      disabled={row.fromSketch && !row.manualRunEdit}
-                      onChange={(e) => updateChainLine(row.id, { label: e.target.value })}
-                      className={`${field} w-32 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70`}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">Length (ft)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      step={0.1}
-                      value={row.length_ft}
-                      disabled={row.fromSketch && !row.manualRunEdit}
-                      onChange={(e) => updateChainLine(row.id, { length_ft: e.target.value })}
-                      className={`${field} w-28 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70`}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">End posts</label>
-                    <input
-                      type="number"
-                      min={0}
-                      step={1}
-                      value={row.terminal_post}
-                      disabled={row.fromSketch && !row.manualRunEdit}
-                      onChange={(e) => updateChainLine(row.id, { terminal_post: e.target.value })}
-                      className={`${field} w-24 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70`}
-                    />
-                  </div>
-                  <button type="button" className={btnGhost} onClick={() => removeChainLine(row.id)}>
-                    Remove
-                  </button>
-                  {chainRunInfoText(row.length_ft) ? (
-                    <span className="w-full text-xs text-slate-500">{chainRunInfoText(row.length_ft)}</span>
-                  ) : null}
-                </div>
-              ))}
+            </div>
+          </section>
+
+          {renderFenceRunsSection({
+            rows: chainLines,
+            getSubtitle: (_row, idx) =>
+              chainRunInfoText(chainLines[idx]?.length_ft ?? '') || 'Chain link run',
+            getRunEnds: (row) => effectiveChainRunEnds(chainLines.find((l) => l.id === row.id)!),
+            onLengthChange: (id, length_ft) => updateChainLine(id, { length_ft }),
+            onRunEndChange: updateChainLineRunEnd,
+            onApplyPreset: applyChainRunEndPreset,
+            onRemove: removeChainLine,
+            showUChannel: false,
+            footer: (
               <button
                 type="button"
                 className={btnGhost}
                 onClick={() =>
                   setChainLines((rows) => [
                     ...rows,
-                    { id: newLineId(), label: `Run ${rows.length + 1}`, length_ft: '', terminal_post: '2' },
+                    {
+                      id: newLineId(),
+                      label: `Run ${rows.length + 1}`,
+                      length_ft: '',
+                      terminal_post: '2',
+                      run_ends: {
+                        start: { h_post: true, u_channel: false },
+                        end: { h_post: true, u_channel: false },
+                      },
+                    },
                   ])
                 }
               >
                 + Add run
               </button>
-            </div>
-          </section>
+            ),
+          })}
 
           <section ref={chainGatesSectionRef} className={card}>
             <div className="border-b border-slate-100 px-5 py-4">
@@ -5281,8 +5463,7 @@ export default function MaterialCalculatorHubPage() {
             <div className="border-b border-amber-100 bg-amber-50/30 px-5 py-4">
               <h2 className={h2}>{fmsHybridHoBlockTitle(hybHFamily, hybHHeight)}</h2>
               <p className="mt-1 text-xs text-slate-600">
-                Horizontal-board hybrid, 6&apos; post spacing. Runs come from your sketch — adjust or add runs by hand
-                if needed. Each run is one fence-line block on the Excel sheet.
+                Horizontal-board hybrid, 6&apos; post spacing. Each run is one fence-line block on the Excel sheet.
               </p>
             </div>
             <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -5312,106 +5493,31 @@ export default function MaterialCalculatorHubPage() {
                 </select>
               </div>
             </div>
-            <div className="space-y-4 border-t border-slate-100 px-5 py-4">
-              {hybridHJob.runs.map(({ row, result }, idx) => (
-                <div key={row.id} className="rounded-xl border border-slate-100 bg-slate-50/40 p-4">
-                  {row.fromSketch ? (
-                  <div className="flex flex-wrap items-end gap-3">
-                    <div className="min-w-[8rem] flex-1">
-                      <span className="text-sm font-semibold text-slate-800">{row.label || `Run ${idx + 1}`}</span>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
-                        Length (ft)
-                      </label>
-                      <input
-                        type="number"
-                        min={0}
-                        step={0.1}
-                        value={row.length_ft}
-                        onChange={(e) => updateHybHLine(row.id, { length_ft: e.target.value })}
-                        className={`${field} w-28`}
-                      />
-                    </div>
-                    <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-800">
-                      From sketch
-                    </span>
-                    <button type="button" className={btnGhost} onClick={() => removeHybHLine(row.id)}>
-                      Remove
-                    </button>
-                  </div>
-                  ) : (
-                  <div className="flex flex-wrap items-end gap-3">
-                    <div>
-                      <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">Label</label>
-                      <input
-                        type="text"
-                        value={row.label}
-                        onChange={(e) => updateHybHLine(row.id, { label: e.target.value })}
-                        className={`${field} w-32`}
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
-                        Length (ft)
-                      </label>
-                      <input
-                        type="number"
-                        min={0}
-                        step={0.1}
-                        value={row.length_ft}
-                        onChange={(e) => updateHybHLine(row.id, { length_ft: e.target.value })}
-                        className={`${field} w-28`}
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
-                        H posts (0–2)
-                      </label>
-                      <select
-                        value={row.h_post}
-                        onChange={(e) =>
-                          updateHybHLine(row.id, { h_post: Number(e.target.value) as 0 | 1 | 2 })
-                        }
-                        className={`${field} w-20`}
-                      >
-                        <option value={0}>0</option>
-                        <option value={1}>1</option>
-                        <option value={2}>2</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
-                        U channel (0–2)
-                      </label>
-                      <select
-                        value={row.u_channel}
-                        onChange={(e) =>
-                          updateHybHLine(row.id, { u_channel: Number(e.target.value) as 0 | 1 | 2 })
-                        }
-                        className={`${field} w-20`}
-                      >
-                        <option value={0}>0</option>
-                        <option value={1}>1</option>
-                        <option value={2}>2</option>
-                      </select>
-                    </div>
-                    <button type="button" className={btnGhost} onClick={() => removeHybHLine(row.id)}>
-                      Remove
-                    </button>
-                  </div>
-                  )}
-                  {result ? (
-                    <div className="mt-3 space-y-2">
-                      <p className="text-xs text-slate-500">
-                        Panels {fmtQty(result.panels_raw)} → rounded {fmtQty(result.panels_half)} → whole{' '}
-                        {result.panels_whole} · Posts {result.posts}
-                      </p>
-                      <HybridItemTable rows={result.rows} />
-                    </div>
-                  ) : null}
+          </section>
+
+          {renderFenceRunsSection({
+            rows: hybHLines,
+            getSubtitle: () => fmsHybridHoBlockTitle(hybHFamily, hybHHeight),
+            getRunEnds: (row) => effectiveHybridRunEnds(hybHLines.find((l) => l.id === row.id)!),
+            onLengthChange: (id, length_ft) => updateHybHLine(id, { length_ft }),
+            onRunEndChange: (id, which, field, checked) =>
+              updateHybridLineRunEnd('h', id, which, field, checked),
+            onApplyPreset: (id, preset) => applyHybridRunEndPreset('h', id, preset),
+            onRemove: removeHybHLine,
+            renderExpandedExtra: (row) => {
+              const result = hybridHJob.runs.find((r) => r.row.id === row.id)?.result;
+              if (!result) return null;
+              return (
+                <div className="mt-2 space-y-2 border-t border-slate-100 pt-3">
+                  <p className="text-xs text-slate-500">
+                    Panels {fmtQty(result.panels_raw)} → rounded {fmtQty(result.panels_half)} → whole{' '}
+                    {result.panels_whole} · Posts {result.posts}
+                  </p>
+                  <HybridItemTable rows={result.rows} />
                 </div>
-              ))}
+              );
+            },
+            footer: (
               <button
                 type="button"
                 className={btnGhost}
@@ -5424,14 +5530,18 @@ export default function MaterialCalculatorHubPage() {
                       length_ft: '',
                       h_post: rows.length ? 1 : 2,
                       u_channel: 0,
+                      run_ends: {
+                        start: { h_post: rows.length > 0, u_channel: false },
+                        end: { h_post: true, u_channel: false },
+                      },
                     },
                   ])
                 }
               >
                 + Add run
               </button>
-            </div>
-          </section>
+            ),
+          })}
 
           <section className={card}>
             <div className="border-b border-slate-100 bg-gradient-to-r from-violet-50/40 via-white to-slate-50/80 px-5 py-4">
@@ -5552,110 +5662,34 @@ export default function MaterialCalculatorHubPage() {
             <div className="border-b border-blue-100 bg-blue-50/20 px-5 py-4">
               <h2 className={h2}>{FMS_HYBRID_VE_BLOCK_TITLE}</h2>
               <p className="mt-1 text-xs text-slate-600">
-                Vertical-panel PVC hybrid, 8&apos; post spacing. Runs come from your sketch — adjust or add runs by
-                hand if needed. Each run is one fence-line block on the Excel sheet.
+                Vertical-panel PVC hybrid, 8&apos; post spacing. Each run is one fence-line block on the Excel sheet.
               </p>
             </div>
-            <div className="space-y-4 p-5">
-              {hybridVJob.runs.map(({ row, result }, idx) => (
-                <div key={row.id} className="rounded-xl border border-slate-100 bg-slate-50/40 p-4">
-                  {row.fromSketch ? (
-                    <div className="flex flex-wrap items-end gap-3">
-                      <div className="min-w-[8rem] flex-1">
-                        <span className="text-sm font-semibold text-slate-800">{row.label || `Run ${idx + 1}`}</span>
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
-                          Length (ft)
-                        </label>
-                        <input
-                          type="number"
-                          min={0}
-                          step={0.1}
-                          value={row.length_ft}
-                          onChange={(e) => updateHybVLine(row.id, { length_ft: e.target.value })}
-                          className={`${field} w-28`}
-                        />
-                      </div>
-                      <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-800">
-                        From sketch
-                      </span>
-                      <button type="button" className={btnGhost} onClick={() => removeHybVLine(row.id)}>
-                        Remove
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex flex-wrap items-end gap-3">
-                      <div>
-                        <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">Label</label>
-                        <input
-                          type="text"
-                          value={row.label}
-                          onChange={(e) => updateHybVLine(row.id, { label: e.target.value })}
-                          className={`${field} w-32`}
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
-                          Length (ft)
-                        </label>
-                        <input
-                          type="number"
-                          min={0}
-                          step={0.1}
-                          value={row.length_ft}
-                          onChange={(e) => updateHybVLine(row.id, { length_ft: e.target.value })}
-                          className={`${field} w-28`}
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
-                          H posts (0–2)
-                        </label>
-                        <select
-                          value={row.h_post}
-                          onChange={(e) =>
-                            updateHybVLine(row.id, { h_post: Number(e.target.value) as 0 | 1 | 2 })
-                          }
-                          className={`${field} w-20`}
-                        >
-                          <option value={0}>0</option>
-                          <option value={1}>1</option>
-                          <option value={2}>2</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
-                          U channel (0–2)
-                        </label>
-                        <select
-                          value={row.u_channel}
-                          onChange={(e) =>
-                            updateHybVLine(row.id, { u_channel: Number(e.target.value) as 0 | 1 | 2 })
-                          }
-                          className={`${field} w-20`}
-                        >
-                          <option value={0}>0</option>
-                          <option value={1}>1</option>
-                          <option value={2}>2</option>
-                        </select>
-                      </div>
-                      <button type="button" className={btnGhost} onClick={() => removeHybVLine(row.id)}>
-                        Remove
-                      </button>
-                    </div>
-                  )}
-                  {result ? (
-                    <div className="mt-3 space-y-2">
-                      <p className="text-xs text-slate-500">
-                        Panels {fmtQty(result.panels_raw)} → rounded {fmtQty(result.panels_half)} → whole{' '}
-                        {result.panels_whole} · Posts {result.posts}
-                      </p>
-                      <HybridItemTable rows={result.rows} />
-                    </div>
-                  ) : null}
+          </section>
+
+          {renderFenceRunsSection({
+            rows: hybVLines,
+            getSubtitle: () => "6'4\" PVC panels · 8' post spacing",
+            getRunEnds: (row) => effectiveHybridRunEnds(hybVLines.find((l) => l.id === row.id)!),
+            onLengthChange: (id, length_ft) => updateHybVLine(id, { length_ft }),
+            onRunEndChange: (id, which, field, checked) =>
+              updateHybridLineRunEnd('v', id, which, field, checked),
+            onApplyPreset: (id, preset) => applyHybridRunEndPreset('v', id, preset),
+            onRemove: removeHybVLine,
+            renderExpandedExtra: (row) => {
+              const result = hybridVJob.runs.find((r) => r.row.id === row.id)?.result;
+              if (!result) return null;
+              return (
+                <div className="mt-2 space-y-2 border-t border-slate-100 pt-3">
+                  <p className="text-xs text-slate-500">
+                    Panels {fmtQty(result.panels_raw)} → rounded {fmtQty(result.panels_half)} → whole{' '}
+                    {result.panels_whole} · Posts {result.posts}
+                  </p>
+                  <HybridItemTable rows={result.rows} />
                 </div>
-              ))}
+              );
+            },
+            footer: (
               <button
                 type="button"
                 className={btnGhost}
@@ -5668,14 +5702,18 @@ export default function MaterialCalculatorHubPage() {
                       length_ft: '',
                       h_post: rows.length ? 1 : 2,
                       u_channel: 0,
+                      run_ends: {
+                        start: { h_post: rows.length > 0, u_channel: false },
+                        end: { h_post: true, u_channel: false },
+                      },
                     },
                   ])
                 }
               >
                 + Add run
               </button>
-            </div>
-          </section>
+            ),
+          })}
 
           <section className={card}>
             <div className="border-b border-slate-100 bg-gradient-to-r from-violet-50/40 via-white to-slate-50/80 px-5 py-4">
