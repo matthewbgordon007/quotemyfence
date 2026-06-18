@@ -3,6 +3,7 @@
  * Outputs map Adobe "Material List Breakdown" gate rows 18–33 (J column equivalents).
  */
 
+import { resolveFmsCalculatorRecipe, type FmsCalculatorRecipeV1, type FmsGateRecipeAddons } from '@/lib/fms-calculator-recipe';
 import { excelRoundUp } from '@/lib/fms-excel-math';
 
 /** Gate block uses the same 7′ nominal divisor literal as the PVC sheet (`/8.20833333`). */
@@ -28,7 +29,6 @@ export interface FmsPvcDoubleGateInput {
   posts: FmsPvcGatePosts;
 }
 
-/** Adobe-style rows 18–33 (1-based row index on colour breakdown sheet). */
 export type FmsPvcAdobeGateRow = 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33;
 
 export type FmsPvcAdobeGateMap = Partial<Record<FmsPvcAdobeGateRow, number>>;
@@ -45,11 +45,24 @@ function mergeGateMaps(maps: FmsPvcAdobeGateMap[]): FmsPvcAdobeGateMap {
   return out;
 }
 
+function applyGateFixedRows(adobe: FmsPvcAdobeGateMap, g: FmsGateRecipeAddons): void {
+  adobe[28] = g.u_channel;
+  adobe[29] = g.overhead_brace;
+  adobe[30] = g.diagonal_brace;
+  adobe[31] = g.latch;
+  adobe[32] = g.hinge;
+  adobe[33] = g.h_post_stiffener;
+}
+
 /** Short gate (< 59.5") — columns B/C on PVC sheet. */
-export function computeFmsPvcShortGate(input: FmsPvcShortGateInput): {
+export function computeFmsPvcShortGate(
+  input: FmsPvcShortGateInput,
+  recipe?: FmsCalculatorRecipeV1 | null
+): {
   adobe_gate_rows: FmsPvcAdobeGateMap;
   j17_linear_piece: number;
 } {
+  const g = resolveFmsCalculatorRecipe(recipe).gate.short;
   const w = Math.max(0, Number(input.gate_width_in) || 0);
   const p = input.posts;
   const c32 = w - 10.5;
@@ -64,24 +77,23 @@ export function computeFmsPvcShortGate(input: FmsPvcShortGateInput): {
     23: excelRoundUp(c33, 0),
     24: 1,
     25: excelRoundUp(c33 + 1 + p * 2, 0),
-    26: 10,
-    27: excelRoundUp(c33 + 10, 0),
-    28: 2,
-    29: 1,
-    30: 0.5,
-    31: 1,
-    32: 1,
-    33: 1,
+    26: g.long_screw_base,
+    27: excelRoundUp(c33 + g.plug_formula_add, 0),
   };
+  applyGateFixedRows(adobe, g);
 
   return { adobe_gate_rows: adobe, j17_linear_piece: w / 12 };
 }
 
 /** Single gate (min 65.5") — columns G/H. */
-export function computeFmsPvcSingleGate(input: FmsPvcSingleGateInput): {
+export function computeFmsPvcSingleGate(
+  input: FmsPvcSingleGateInput,
+  recipe?: FmsCalculatorRecipeV1 | null
+): {
   adobe_gate_rows: FmsPvcAdobeGateMap;
   j17_linear_piece: number;
 } {
+  const g = resolveFmsCalculatorRecipe(recipe).gate.single;
   const h28 = Math.max(0, Number(input.gate_width_in) || 0);
   const h29 = input.posts;
   const h30 = h28 - 56.5;
@@ -100,7 +112,7 @@ export function computeFmsPvcSingleGate(input: FmsPvcSingleGateInput): {
   const h43 = g43 * h35 + 1;
   const g44 = h33 + h29 * 2;
   const h44 = excelRoundUp(g44, 0);
-  const g45 = 10 + h38 + h35 * 4;
+  const g45 = g.long_screw_base + h38 + h35 * 4;
   const h45 = g45;
   const g46 = h33 + (h45 - h38) + 1;
   const h46 = excelRoundUp(g46, 0);
@@ -116,22 +128,21 @@ export function computeFmsPvcSingleGate(input: FmsPvcSingleGateInput): {
     25: h44,
     26: h45,
     27: h46,
-    28: 2,
-    29: 1,
-    30: 0.5,
-    31: 1,
-    32: 1,
-    33: 1,
   };
+  applyGateFixedRows(adobe, g);
 
   return { adobe_gate_rows: adobe, j17_linear_piece: h28 / 12 };
 }
 
 /** Double gate (min 106") — columns K/L. */
-export function computeFmsPvcDoubleGate(input: FmsPvcDoubleGateInput): {
+export function computeFmsPvcDoubleGate(
+  input: FmsPvcDoubleGateInput,
+  recipe?: FmsCalculatorRecipeV1 | null
+): {
   adobe_gate_rows: FmsPvcAdobeGateMap;
   j17_linear_piece: number;
 } {
+  const g = resolveFmsCalculatorRecipe(recipe).gate.double;
   const l28 = Math.max(0, Number(input.gate_width_in) || 0);
   const l29 = input.posts;
   const l30 = l28 - 106;
@@ -150,7 +161,7 @@ export function computeFmsPvcDoubleGate(input: FmsPvcDoubleGateInput): {
   const l43 = k43 * l35 + 2;
   const k44 = l33 + l29 * 2;
   const l44 = excelRoundUp(k44, 0);
-  const k45 = 18 + l38 + l35 * 4;
+  const k45 = g.long_screw_base + l38 + l35 * 4;
   const l45 = k45;
   const k46 = l33 + (l45 - l38) + 1;
   const l46 = excelRoundUp(k46, 0);
@@ -166,13 +177,8 @@ export function computeFmsPvcDoubleGate(input: FmsPvcDoubleGateInput): {
     25: l44,
     26: l45,
     27: l46,
-    28: 4,
-    29: 2,
-    30: 1,
-    31: 1,
-    32: 2,
-    33: 2,
   };
+  applyGateFixedRows(adobe, g);
 
   return { adobe_gate_rows: adobe, j17_linear_piece: l28 / 12 };
 }
@@ -180,24 +186,25 @@ export function computeFmsPvcDoubleGate(input: FmsPvcDoubleGateInput): {
 export function sumGateAdobeRows(
   shortGates: FmsPvcShortGateInput[],
   singleGates: FmsPvcSingleGateInput[],
-  doubleGates: FmsPvcDoubleGateInput[]
+  doubleGates: FmsPvcDoubleGateInput[],
+  recipe?: FmsCalculatorRecipeV1 | null
 ): { merged: FmsPvcAdobeGateMap; j17_total: number } {
   const parts: FmsPvcAdobeGateMap[] = [];
   let widthInSum = 0;
-  for (const g of shortGates) {
-    const r = computeFmsPvcShortGate(g);
+  for (const gate of shortGates) {
+    const r = computeFmsPvcShortGate(gate, recipe);
     parts.push(r.adobe_gate_rows);
-    widthInSum += Math.max(0, Number(g.gate_width_in) || 0);
+    widthInSum += Math.max(0, Number(gate.gate_width_in) || 0);
   }
-  for (const g of singleGates) {
-    const r = computeFmsPvcSingleGate(g);
+  for (const gate of singleGates) {
+    const r = computeFmsPvcSingleGate(gate, recipe);
     parts.push(r.adobe_gate_rows);
-    widthInSum += Math.max(0, Number(g.gate_width_in) || 0);
+    widthInSum += Math.max(0, Number(gate.gate_width_in) || 0);
   }
-  for (const g of doubleGates) {
-    const r = computeFmsPvcDoubleGate(g);
+  for (const gate of doubleGates) {
+    const r = computeFmsPvcDoubleGate(gate, recipe);
     parts.push(r.adobe_gate_rows);
-    widthInSum += Math.max(0, Number(g.gate_width_in) || 0);
+    widthInSum += Math.max(0, Number(gate.gate_width_in) || 0);
   }
   const j17 = widthInSum > 0 ? widthInSum / 12 : 0;
   return { merged: mergeGateMaps(parts), j17_total: j17 };

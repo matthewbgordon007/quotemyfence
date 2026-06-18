@@ -31,6 +31,11 @@ import {
 import { LARGE_WARE_TITLE, SMALL_WARE_TITLE, splitWare } from '@/lib/material-ware';
 import { boardStiffenersForBoardCount, formatLooseExtra, formatPacksCell } from '@/lib/pvc-material-packs';
 import {
+  normalizeFmsCalculatorRecipe,
+  type FmsCalculatorRecipeV1,
+} from '@/lib/fms-calculator-recipe';
+import { FmsCalculatorRecipeEditor } from '@/components/dashboard/FmsCalculatorRecipeEditor';
+import {
   computeFmsPvcDoubleGate,
   computeFmsPvcShortGate,
   computeFmsPvcSingleGate,
@@ -674,7 +679,8 @@ type PvcRunBreakdownRow =
 function pvcGateBreakdownFromRow(
   gateKind: 'short' | 'single' | 'double',
   row: PvcGateRow,
-  label: string
+  label: string,
+  recipe?: FmsCalculatorRecipeV1 | null
 ): PvcRunBreakdownRow | null {
   const w = Math.max(0, Number(String(row.width_in).replace(/,/g, '')) || 0);
   if (w <= 0) return null;
@@ -683,10 +689,10 @@ function pvcGateBreakdownFromRow(
   const input = { gate_width_in: w, posts: FMS_GATE_POST_COUNT };
   const adobe =
     gateKind === 'short'
-      ? computeFmsPvcShortGate(input).adobe_gate_rows
+      ? computeFmsPvcShortGate(input, recipe).adobe_gate_rows
       : gateKind === 'single'
-        ? computeFmsPvcSingleGate(input).adobe_gate_rows
-        : computeFmsPvcDoubleGate(input).adobe_gate_rows;
+        ? computeFmsPvcSingleGate(input, recipe).adobe_gate_rows
+        : computeFmsPvcDoubleGate(input, recipe).adobe_gate_rows;
   const cols = adobeGateMapToBreakdownCols(adobe);
   return {
     kind: 'gate',
@@ -703,7 +709,8 @@ function pvcGateBreakdownFromRow(
 function buildPvcGateBreakdownRows(
   gateKind: 'short' | 'single' | 'double',
   rows: PvcGateRow[],
-  labelPrefix: string
+  labelPrefix: string,
+  recipe?: FmsCalculatorRecipeV1 | null
 ): PvcRunBreakdownRow[] {
   const out: PvcRunBreakdownRow[] = [];
   let n = 0;
@@ -711,7 +718,7 @@ function buildPvcGateBreakdownRows(
     const w = Math.max(0, Number(String(row.width_in).replace(/,/g, '')) || 0);
     if (w <= 0) continue;
     n += 1;
-    const built = pvcGateBreakdownFromRow(gateKind, row, `${labelPrefix} ${n} (${w}″)`);
+    const built = pvcGateBreakdownFromRow(gateKind, row, `${labelPrefix} ${n} (${w}″)`, recipe);
     if (built) out.push(built);
   }
   return out;
@@ -960,7 +967,9 @@ function groupedExtraDisplayValue(
 function applyGroupedExtraChange(
   group: MasterExtraGroup,
   raw: string,
-  prev: Partial<Record<keyof FmsPvcMasterExtras, string>>
+  prev: Partial<Record<keyof FmsPvcMasterExtras, string>>,
+  boardsPerPack = 16,
+  stiffenersPerPack = 3
 ): Partial<Record<keyof FmsPvcMasterExtras, string>> {
   const next = { ...prev };
   const v = sanitizeExtraInput(raw, false);
@@ -972,7 +981,7 @@ function applyGroupedExtraChange(
     next[group.boardsKey] = v;
     const boards = Number(v.replace(/,/g, ''));
     if (Number.isFinite(boards) && boards > 0) {
-      next[group.stiffKey] = String(boardStiffenersForBoardCount(boards));
+      next[group.stiffKey] = String(boardStiffenersForBoardCount(boards, boardsPerPack, stiffenersPerPack));
     } else {
       delete next[group.stiffKey];
     }
@@ -1529,10 +1538,10 @@ export default function MaterialCalculatorHubPage() {
 
   const applyPvcPanelModule = useCallback((module: FmsPvcPanelModule) => {
     setPvcPanelModule(module);
-    setPvcPanelSpacingFt(String(defaultFmsPvcPanelSpacingFt(module)));
+    setPvcPanelSpacingFt(String(defaultFmsPvcPanelSpacingFt(module, fmsRecipe)));
     sketchToLinesSyncKeyRef.current = '';
     setLines((prev) => prev.map((l) => ({ ...l, panel_module: module })));
-  }, []);
+  }, [fmsRecipe]);
 
   /** Hybrid horizontal (Excel `Horizontal Material Calculator `). */
   const [hybHFamily, setHybHFamily] = useState<FmsHybridHoFamily>('woodGrain');
@@ -1558,6 +1567,13 @@ export default function MaterialCalculatorHubPage() {
   >('idle');
 
   const [contractorId, setContractorId] = useState<string | null>(null);
+  const [accountType, setAccountType] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [fmsRecipe, setFmsRecipe] = useState<FmsCalculatorRecipeV1>(() => normalizeFmsCalculatorRecipe(null));
+  const [fmsRecipeLoading, setFmsRecipeLoading] = useState(false);
+  const [pvcHubMode, setPvcHubMode] = useState<'calculator' | 'setup'>('calculator');
+  const isSupplierAccount = accountType === 'supplier';
+  const canEditFmsRecipe = Boolean(userRole && ['owner', 'admin'].includes(userRole));
   const materialCalcDraftSnapshotRef = useRef<Record<string, unknown> | null>(null);
   const materialCalcSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const materialCalcHydrateKeyRef = useRef<string>('');
@@ -1640,9 +1656,23 @@ export default function MaterialCalculatorHubPage() {
       .then((data) => {
         const id = data?.id;
         if (typeof id === 'string' && id) setContractorId(id);
+        if (typeof data?.account_type === 'string') setAccountType(data.account_type);
+        if (typeof data?.user_role === 'string') setUserRole(data.user_role);
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!isSupplierAccount) return;
+    setFmsRecipeLoading(true);
+    fetch('/api/supplier/fms-calculator-recipe', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.recipe) setFmsRecipe(normalizeFmsCalculatorRecipe(d.recipe));
+      })
+      .catch(() => {})
+      .finally(() => setFmsRecipeLoading(false));
+  }, [isSupplierAccount]);
 
   useEffect(() => {
     if (!contractorId) return;
@@ -2255,7 +2285,7 @@ export default function MaterialCalculatorHubPage() {
     () => buildInputs(lines, effectivePvcPanelSpacingFt, layoutSketchData),
     [lines, effectivePvcPanelSpacingFt, layoutSketchData]
   );
-  const pvcJob = useMemo(() => aggregateFmsPvcFenceLines(pvcInputs), [pvcInputs]);
+  const pvcJob = useMemo(() => aggregateFmsPvcFenceLines(pvcInputs, fmsRecipe), [pvcInputs, fmsRecipe]);
   const pvcFenceLinearFt = useMemo(
     () => pvcInputs.reduce((acc, row) => acc + (Number(row.length_ft) || 0), 0),
     [pvcInputs]
@@ -2271,9 +2301,10 @@ export default function MaterialCalculatorHubPage() {
       sumGateAdobeRows(
         classifiedGates.short,
         classifiedGates.single,
-        classifiedGates.double
+        classifiedGates.double,
+        fmsRecipe
       ),
-    [classifiedGates]
+    [classifiedGates, fmsRecipe]
   );
 
   const gateWidthInchesSum = useMemo(() => {
@@ -2309,12 +2340,16 @@ export default function MaterialCalculatorHubPage() {
       const boards = Number(String(boardStr).replace(/,/g, ''));
       if (Number.isFinite(boards) && boards > 0) {
         o.m8 = boards;
-        o.m9 = boardStiffenersForBoardCount(boards);
+        o.m9 = boardStiffenersForBoardCount(
+          boards,
+          fmsRecipe.packs.board_per_pack,
+          fmsRecipe.packs.board_stiffeners_per_pack
+        );
       }
     }
 
     return o;
-  }, [masterExtras]);
+  }, [masterExtras, fmsRecipe]);
 
   const pvcAdobe = useMemo(
     () => buildPvcAdobeBreakdown(pvcJob.lines, gateMerge.merged, gateWidthInchesSum),
@@ -2333,8 +2368,8 @@ export default function MaterialCalculatorHubPage() {
   }, [pvcAdobe, extrasParsed, extraBoardsPctNum]);
 
   const pvcMaster = useMemo(
-    () => computePvcMasterColumn(pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt, extraBoardsPctNum),
-    [pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt, extraBoardsPctNum]
+    () => computePvcMasterColumn(pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt, extraBoardsPctNum, fmsRecipe),
+    [pvcAdobe, extrasParsed, gateCount, pvcFenceLinearFt, extraBoardsPctNum, fmsRecipe]
   );
 
   const pvcRunBreakdown = useMemo((): PvcRunBreakdownRow[] => {
@@ -2342,9 +2377,9 @@ export default function MaterialCalculatorHubPage() {
     const placements = layoutSketchData?.gate_placements;
 
     const allGates: PvcRunBreakdownRow[] = [
-      ...buildPvcGateBreakdownRows('short', shortGates, 'Walk gate'),
-      ...buildPvcGateBreakdownRows('single', singleGates, 'Single gate'),
-      ...buildPvcGateBreakdownRows('double', doubleGates, 'Double gate'),
+      ...buildPvcGateBreakdownRows('short', shortGates, 'Walk gate', fmsRecipe),
+      ...buildPvcGateBreakdownRows('single', singleGates, 'Single gate', fmsRecipe),
+      ...buildPvcGateBreakdownRows('double', doubleGates, 'Double gate', fmsRecipe),
     ];
 
     const gatesBySegment = new Map<number, PvcRunBreakdownRow[]>();
@@ -2371,7 +2406,7 @@ export default function MaterialCalculatorHubPage() {
       const input = buildInputForPvcLineRow(lr, spacing, sketchCtx);
       const fenceMats = input
         ? (() => {
-            const r = computeFmsPvcFenceLine(input);
+            const r = computeFmsPvcFenceLine(input, fmsRecipe);
             return {
               panels: r.total_whole_panels,
               h_post: r.h_post,
@@ -2478,7 +2513,7 @@ export default function MaterialCalculatorHubPage() {
 
     const unlinkedGates = allGates.filter((g) => !usedGateIds.has(g.id));
     return [...runRows, ...unlinkedGates];
-  }, [lines, shortGates, singleGates, doubleGates, effectivePvcPanelSpacingFt, layoutSketchData]);
+  }, [lines, shortGates, singleGates, doubleGates, effectivePvcPanelSpacingFt, layoutSketchData, fmsRecipe]);
 
   const adobeRows = useMemo(() => adobeBreakdownToMergedRows(pvcAdobe), [pvcAdobe]);
 
@@ -2544,7 +2579,8 @@ export default function MaterialCalculatorHubPage() {
         extrasParsed,
         gateCount,
         pvcFenceLinearFt,
-        extraBoardsPctNum
+        extraBoardsPctNum,
+        fmsRecipe
       ).filter((r) => {
         if (r.section === 'wareHeader' || r.section === 'spacer' || r.section === 'totals' || r.section === 'taxRow') {
           return true;
@@ -2583,6 +2619,7 @@ export default function MaterialCalculatorHubPage() {
     pvcBreakdownColour,
     jobAddress,
     materialExclusions,
+    fmsRecipe,
   ]);
 
   const downloadMasterMaterialListPdf = useCallback(async () => {
@@ -2597,6 +2634,19 @@ export default function MaterialCalculatorHubPage() {
     a.remove();
     URL.revokeObjectURL(url);
   }, [buildMasterMaterialListPdfBlob]);
+
+  const saveFmsRecipe = useCallback(async () => {
+    const res = await fetch('/api/supplier/fms-calculator-recipe', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ recipe: fmsRecipe }),
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error || 'Save failed');
+    if (d.recipe) setFmsRecipe(normalizeFmsCalculatorRecipe(d.recipe));
+    alert('Product setup saved.');
+  }, [fmsRecipe]);
 
   /** Chain link aggregates */
   const chainFenceInputs: FmsChainLinkFenceInput[] = useMemo(() => {
@@ -3768,6 +3818,41 @@ export default function MaterialCalculatorHubPage() {
 
       {tab === 'pvc' && (
         <>
+          {isSupplierAccount ? (
+            <section className={card}>
+              <div className="flex flex-wrap items-center gap-2 p-4">
+                <span className="mr-2 text-xs font-semibold uppercase tracking-wide text-slate-500">PVC mode</span>
+                <button
+                  type="button"
+                  className={`${tabBase} min-w-0 px-3 py-2 ${pvcHubMode === 'calculator' ? tabActive : tabIdle}`}
+                  onClick={() => setPvcHubMode('calculator')}
+                >
+                  <span className="text-sm font-semibold">Calculator</span>
+                </button>
+                <button
+                  type="button"
+                  className={`${tabBase} min-w-0 px-3 py-2 ${pvcHubMode === 'setup' ? tabActive : tabIdle}`}
+                  onClick={() => setPvcHubMode('setup')}
+                >
+                  <span className="text-sm font-semibold">Product setup</span>
+                </button>
+              </div>
+            </section>
+          ) : null}
+
+          {pvcHubMode === 'setup' && isSupplierAccount ? (
+            fmsRecipeLoading ? (
+              <div className="flex min-h-[20vh] items-center justify-center text-slate-500">Loading product setup…</div>
+            ) : (
+              <FmsCalculatorRecipeEditor
+                recipe={fmsRecipe}
+                canEdit={canEditFmsRecipe}
+                onChange={setFmsRecipe}
+                onSave={saveFmsRecipe}
+              />
+            )
+          ) : (
+        <>
           <section className={card}>
             <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-blue-50/30 px-5 py-4">
               <h2 className={h2}>Fence runs</h2>
@@ -3972,7 +4057,11 @@ export default function MaterialCalculatorHubPage() {
                   {MASTER_EXTRA_GROUPS.map((g) => {
                     const boardStiffHint =
                       g.mode === 'board_stiffener_ratio' && masterExtras.m8
-                        ? boardStiffenersForBoardCount(Number(String(masterExtras.m8).replace(/,/g, '')) || 0)
+                        ? boardStiffenersForBoardCount(
+                            Number(String(masterExtras.m8).replace(/,/g, '')) || 0,
+                            fmsRecipe.packs.board_per_pack,
+                            fmsRecipe.packs.board_stiffeners_per_pack
+                          )
                         : 0;
                     return (
                       <div key={g.keys.join('-')}>
@@ -3980,7 +4069,8 @@ export default function MaterialCalculatorHubPage() {
                           {g.label}
                           {g.mode === 'board_stiffener_ratio' ? (
                             <span className="ml-1 font-normal normal-case text-slate-400">
-                              (3 stiffeners per 16 boards)
+                              ({fmsRecipe.packs.board_stiffeners_per_pack} stiffeners per{' '}
+                              {fmsRecipe.packs.board_per_pack} boards)
                             </span>
                           ) : null}
                         </label>
@@ -3988,7 +4078,17 @@ export default function MaterialCalculatorHubPage() {
                           type="text"
                           inputMode="decimal"
                           value={groupedExtraDisplayValue(g, masterExtras)}
-                          onChange={(e) => setMasterExtras((p) => applyGroupedExtraChange(g, e.target.value, p))}
+                          onChange={(e) =>
+                            setMasterExtras((p) =>
+                              applyGroupedExtraChange(
+                                g,
+                                e.target.value,
+                                p,
+                                fmsRecipe.packs.board_per_pack,
+                                fmsRecipe.packs.board_stiffeners_per_pack
+                              )
+                            )
+                          }
                           className={`${field} w-full`}
                           placeholder="0"
                         />
@@ -4312,6 +4412,8 @@ export default function MaterialCalculatorHubPage() {
               </table>
             </div>
           </CollapsibleCard>
+        </>
+          )}
         </>
       )}
 

@@ -13,6 +13,7 @@
  */
 
 import { excelRoundUp } from '@/lib/fms-excel-math';
+import { resolveFmsCalculatorRecipe, type FmsCalculatorRecipeV1 } from '@/lib/fms-calculator-recipe';
 import { LARGE_WARE_TITLE, SMALL_WARE_TITLE, splitWare } from '@/lib/material-ware';
 import {
   boardStiffenersForBoardCount,
@@ -124,13 +125,17 @@ export function computePvcMasterColumn(
   extras: FmsPvcMasterExtras,
   gateCount: number,
   totalFenceLinearFt?: number,
-  boardsPercent?: number
+  boardsPercent?: number,
+  recipe?: FmsCalculatorRecipeV1 | null
 ): FmsPvcMasterRow[] {
+  const r = resolveFmsCalculatorRecipe(recipe);
+  const labels = r.master_labels;
+  const packs = r.packs;
   const e = extras;
   const x = (m?: number) => (m != null && Number.isFinite(m) ? m : 0);
 
   const hPost = j(adobe, 4) + j(adobe, 19) + x(e.m10);
-  const concrete = hPost * 2.5;
+  const concrete = hPost * r.concrete_bags_per_h_post;
 
   const rail = j(adobe, 6) + j(adobe, 21) + x(e.m6);
   const railStiff = j(adobe, 7) + j(adobe, 22) + x(e.m7);
@@ -141,8 +146,8 @@ export function computePvcMasterColumn(
   // Enforce 3 stiffeners per 16 boards (packaging rule). % uplift boards need matching stiffeners;
   // fence + gate adobe rows can under-count stiffeners vs total boards when summed separately.
   const boardStiff = Math.max(
-    boardStiffFromAdobe + boardStiffenersForBoardCount(boardPctAdd),
-    boardStiffenersForBoardCount(board)
+    boardStiffFromAdobe + boardStiffenersForBoardCount(boardPctAdd, packs.board_per_pack, packs.board_stiffeners_per_pack),
+    boardStiffenersForBoardCount(board, packs.board_per_pack, packs.board_stiffeners_per_pack)
   );
   const uChannel = j(adobe, 13) + j(adobe, 28) + x(e.m12);
   const hPostStiff = j(adobe, 14) + j(adobe, 33) + x(e.m13);
@@ -151,8 +156,8 @@ export function computePvcMasterColumn(
   const overhead = excelRoundUp(j(adobe, 30) + x(e.m15), 0);
   const diagonal = excelRoundUp(j(adobe, 29) + x(e.m16), 0);
   const postCap = j(adobe, 5) + j(adobe, 20) + x(e.m19);
-  const holePlug = j(adobe, 12) + j(adobe, 27) + 10 + x(e.m20);
-  const largeScrew = j(adobe, 10) + j(adobe, 26) + 10 + x(e.m21);
+  const holePlug = j(adobe, 12) + j(adobe, 27) + r.master_rollups.hole_plug_add + x(e.m20);
+  const largeScrew = j(adobe, 10) + j(adobe, 26) + r.master_rollups.large_screw_add + x(e.m21);
   const shortScrew = j(adobe, 11) + j(adobe, 25) + x(e.m22);
   const latch = j(adobe, 31) + x(e.m23);
   const hinge = j(adobe, 32) + x(e.m24);
@@ -164,33 +169,33 @@ export function computePvcMasterColumn(
   const totalLinearFt = fenceLinearFt + j(adobe, 17);
 
   const galv = j(adobe, 3) + j(adobe, 18) + x(e.m11);
-  const boardPack = splitCoupledPack(board, boardStiff, 16, 3);
-  const railPack = splitCoupledPack(rail, railStiff, 2, 2);
+  const boardPack = splitCoupledPack(board, boardStiff, packs.board_per_pack, packs.board_stiffeners_per_pack);
+  const railPack = splitCoupledPack(rail, railStiff, packs.rail_per_pack, packs.rail_stiffeners_per_pack);
   const postPack = splitPostGalvPack(hPost, galv);
-  const uChannelPack = splitIntoPacks(uChannel, 2);
+  const uChannelPack = splitIntoPacks(uChannel, packs.u_channel_per_pack);
 
   const items: FmsPvcMasterRow[] = [
-    masterRowPlain('Concrete', concrete),
-    masterRow('Rail', railPack.primary),
-    masterRow('Rail Stiffener', railPack.secondary),
-    masterRow('Board', boardPack.primary),
-    masterRow('Board Stiffener', boardPack.secondary),
-    masterRow('H-Post', postPack.hPost),
-    masterRow('Galvanized Post', postPack.galv),
-    masterRow('U-Channel', uChannelPack),
-    masterRowPlain('H-Post Stiffener', hPostStiff),
-    masterRowPlain('Post Filler', postFiller),
-    masterRowPlain('Overhead Brace', overhead),
-    masterRowPlain('Diagonal Brace', diagonal),
-    masterRowPlain('Base Plates', 0),
-    masterRowPlain("Lattice (1' x 8')", 0),
-    masterRowPlain('Post Cap', postCap),
-    masterRowPlain('Hole Plug', holePlug),
-    masterRowPlain('Large Screw', largeScrew),
-    masterRowPlain('Short Screw', shortScrew),
-    masterRowPlain('*PREMIUM*Latch', latch),
-    masterRowPlain('*PREMIUM*Hinge', hinge),
-    masterRowPlain('Drop Rod/Sleeve', 0),
+    masterRowPlain(labels.concrete, concrete),
+    masterRow(labels.rail, railPack.primary),
+    masterRow(labels.rail_stiffener, railPack.secondary),
+    masterRow(labels.board, boardPack.primary),
+    masterRow(labels.board_stiffener, boardPack.secondary),
+    masterRow(labels.h_post, postPack.hPost),
+    masterRow(labels.galvanized_post, postPack.galv),
+    masterRow(labels.u_channel, uChannelPack),
+    masterRowPlain(labels.h_post_stiffener, hPostStiff),
+    masterRowPlain(labels.post_filler, postFiller),
+    masterRowPlain(labels.overhead_brace, overhead),
+    masterRowPlain(labels.diagonal_brace, diagonal),
+    masterRowPlain(labels.base_plates, 0),
+    masterRowPlain(labels.lattice, 0),
+    masterRowPlain(labels.post_cap, postCap),
+    masterRowPlain(labels.hole_plug, holePlug),
+    masterRowPlain(labels.large_screw, largeScrew),
+    masterRowPlain(labels.short_screw, shortScrew),
+    masterRowPlain(labels.latch, latch),
+    masterRowPlain(labels.hinge, hinge),
+    masterRowPlain(labels.drop_rod, 0),
   ];
   const { large, small } = splitWare(items, (r) => r.label);
 

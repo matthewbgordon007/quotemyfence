@@ -14,11 +14,15 @@ export interface PvcPackLine {
   loose: number;
 }
 
-/** Board stiffeners required for `boards` at the PVC pack ratio (3 stiffeners per 16 boards). */
-export function boardStiffenersForBoardCount(boards: number): number {
+/** Board stiffeners required for `boards` at the PVC pack ratio (default 3 stiffeners per 16 boards). */
+export function boardStiffenersForBoardCount(
+  boards: number,
+  boardsPerPack = 16,
+  stiffenersPerPack = 3
+): number {
   const b = Math.max(0, Number(boards) || 0);
-  if (b <= 0) return 0;
-  return Math.ceil((b * 3) / 16);
+  if (b <= 0 || boardsPerPack <= 0) return 0;
+  return Math.ceil((b * stiffenersPerPack) / boardsPerPack);
 }
 
 /** Full packs that fit in `total`, remainder is loose singles. */
