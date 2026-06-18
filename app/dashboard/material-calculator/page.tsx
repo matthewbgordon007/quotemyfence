@@ -92,9 +92,11 @@ import {
   PVC_SHORT_GATE_MAX_IN,
   removeLayoutDrawingGatePlacement,
   removeLayoutDrawingSegment,
+  segmentRunEndTerminationsForSketch,
   sketchGateWidthInches,
   sketchGateSegmentRole,
   sketchSegmentRunLabel,
+  type SegmentRunEnds,
   jointPositionsFromAligned,
   LAYOUT_CHAIN_ALIGN_FT,
   LAYOUT_MIN_SKETCH_SEGMENT_FT,
@@ -260,6 +262,8 @@ interface PvcLineRow {
   fromSketch?: boolean;
   /** User unlocked post/end fields — sketch sync must not revert this row. */
   manualRunEdit?: boolean;
+  /** Per-end H-post / U-channel (Excel D6/D7 per run). */
+  run_ends?: SegmentRunEnds;
 }
 
 type LayoutSketchDrawingPayload = {
@@ -348,14 +352,20 @@ function drawingDataToPvcLineRows(
     const inp = inputs[i];
     const gross = grossPerSeg[i] ?? 0;
     const net = netPerSeg[i] ?? 0;
+    const runEnds = segmentRunEndTerminationsForSketch(pairs, grossPerSeg, i, {
+      jointTerminations: drawing.joint_terminations ?? null,
+      gatePlacements,
+    });
+    const d6d7 = runEnds ? d6d7FromRunEnds(runEnds) : { d6: inp?.fence_terminated_h_post_type ?? 0, d7: Number(inp?.fence_terminated_u_channel ?? 0) };
     return {
       id: newLineId(),
       label: sketchSegmentRunLabel(i, drawing.segments.length, net, gatePlacements),
       length_ft: gross > 0 ? String(gross) : '',
       panel_module: panelModule,
       end_preset: 'custom' as const,
-      h_post_type: (inp?.fence_terminated_h_post_type ?? 0) as 0 | 1 | 2,
-      u_channel: String(inp?.fence_terminated_u_channel ?? 0),
+      h_post_type: d6d7.d6 as 0 | 1 | 2,
+      u_channel: String(d6d7.d7),
+      ...(runEnds ? { run_ends: runEnds } : {}),
       fromSketch: true,
     };
   });
@@ -445,6 +455,7 @@ function mergePvcLineFromSketch(row: PvcLineRow, old: PvcLineRow | undefined): P
       id: old.id,
       label: old.label || row.label,
       length_ft: row.length_ft,
+      run_ends: old.run_ends ?? row.run_ends,
       end_preset: old.end_preset,
       h_post_type: old.h_post_type,
       u_channel: old.u_channel,
@@ -452,7 +463,7 @@ function mergePvcLineFromSketch(row: PvcLineRow, old: PvcLineRow | undefined): P
       fromSketch: false,
     };
   }
-  return { ...row, id: old.id, label: old.label || row.label };
+  return { ...row, id: old.id, label: old.label || row.label, run_ends: row.run_ends };
 }
 
 function mergeFenceLineFromSketch<
@@ -534,6 +545,71 @@ function presetToExcel(preset: LineEndPreset, h: 0 | 1 | 2, uStr: string): { d6:
   return { d6: h, d7: d7 };
 }
 
+function d6d7FromRunEnds(ends: SegmentRunEnds): { d6: 0 | 1 | 2; d7: number } {
+  const d6 = Math.min(
+    2,
+    (ends.start.h_post ? 1 : 0) + (ends.end.h_post ? 1 : 0)
+  ) as 0 | 1 | 2;
+  const d7 = (ends.start.u_channel ? 1 : 0) + (ends.end.u_channel ? 1 : 0);
+  return { d6, d7 };
+}
+
+function runEndsFromLegacyRow(row: PvcLineRow): SegmentRunEnds {
+  const { d6, d7 } = presetToExcel(row.end_preset, row.h_post_type, row.u_channel);
+  if (d6 === 2 && d7 === 0) {
+    return {
+      start: { h_post: true, u_channel: false },
+      end: { h_post: true, u_channel: false },
+    };
+  }
+  if (d6 === 1 && d7 === 1) {
+    return {
+      start: { h_post: false, u_channel: true },
+      end: { h_post: true, u_channel: false },
+    };
+  }
+  if (d6 === 1 && d7 === 0) {
+    return {
+      start: { h_post: false, u_channel: false },
+      end: { h_post: true, u_channel: false },
+    };
+  }
+  return {
+    start: { h_post: d6 >= 2, u_channel: d7 >= 2 },
+    end: { h_post: d6 >= 1, u_channel: d7 >= 1 },
+  };
+}
+
+function effectiveRunEnds(row: PvcLineRow): SegmentRunEnds {
+  return row.run_ends ?? runEndsFromLegacyRow(row);
+}
+
+function runEndsSummary(ends: SegmentRunEnds): string {
+  const fmt = (label: string, t: { h_post: boolean; u_channel: boolean }) => {
+    if (!t.h_post && !t.u_channel) return `${label}: open`;
+    const bits: string[] = [];
+    if (t.h_post) bits.push('H-post');
+    if (t.u_channel) bits.push('U');
+    return `${label}: ${bits.join(' + ')}`;
+  };
+  return `${fmt('Start', ends.start)} · ${fmt('End', ends.end)}`;
+}
+
+function parseRunEnds(raw: unknown): SegmentRunEnds | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const o = raw as Record<string, unknown>;
+  const side = (key: 'start' | 'end') => {
+    const s = o[key];
+    if (!s || typeof s !== 'object') return undefined;
+    const q = s as Record<string, unknown>;
+    return { h_post: q.h_post !== false, u_channel: q.u_channel === true };
+  };
+  const start = side('start');
+  const end = side('end');
+  if (!start || !end) return undefined;
+  return { start, end };
+}
+
 function parsePanelSpacingFt(raw: string, module: FmsPvcPanelModule): number {
   const n = Number(String(raw).replace(/,/g, '').trim());
   if (Number.isFinite(n) && n > 0) return n;
@@ -550,7 +626,9 @@ function formatPvcPanelSummary(module: FmsPvcPanelModule, spacingFt: number): st
 function pvcLineIncludedInInputs(row: PvcLineRow, calcLengthFt?: number): boolean {
   const L =
     calcLengthFt ?? Math.max(0, Number(String(row.length_ft).replace(/,/g, '')) || 0);
-  const { d6, d7 } = presetToExcel(row.end_preset, row.h_post_type, row.u_channel);
+  const { d6, d7 } = row.run_ends
+    ? d6d7FromRunEnds(row.run_ends)
+    : presetToExcel(row.end_preset, row.h_post_type, row.u_channel);
   return L > 0 || d6 > 0 || d7 > 0;
 }
 
@@ -664,7 +742,9 @@ function buildInputForPvcLineRow(
   const calcL = sketchCtx
     ? fenceCalcLengthFtForSketchSegment(sketchCtx.segmentIndex, grossL, sketchCtx.sketch)
     : grossL;
-  const { d6, d7 } = presetToExcel(r.end_preset, r.h_post_type, r.u_channel);
+  const { d6, d7 } = r.run_ends
+    ? d6d7FromRunEnds(r.run_ends)
+    : presetToExcel(r.end_preset, r.h_post_type, r.u_channel);
   if (!pvcLineIncludedInInputs(r, calcL)) return null;
   const spacing = Number.isFinite(panelSpacingFt) && panelSpacingFt > 0 ? panelSpacingFt : undefined;
   return {
@@ -1145,6 +1225,11 @@ function parsePvcLines(raw: unknown): PvcLineRow[] | null {
       h_post_type: coerceH012(o.h_post_type),
       u_channel: typeof o.u_channel === 'string' || typeof o.u_channel === 'number' ? String(o.u_channel) : '0',
       fromSketch: o.fromSketch === true,
+      manualRunEdit: o.manualRunEdit === true,
+      ...((): { run_ends?: SegmentRunEnds } => {
+        const run_ends = parseRunEnds(o.run_ends);
+        return run_ends ? { run_ends } : {};
+      })(),
     });
   }
   return out.length ? out : null;
@@ -1385,6 +1470,7 @@ export default function MaterialCalculatorHubPage() {
     String(defaultFmsPvcPanelSpacingFt('nominal_7ft'))
   );
   const [lines, setLines] = useState<PvcLineRow[]>(() => defaultPvcLines());
+  const [expandedFenceRuns, setExpandedFenceRuns] = useState<Record<string, boolean>>({});
 
   const [layoutSketchData, setLayoutSketchData] = useState<LayoutSketchDrawingPayload | null>(null);
   const layoutSketchDataRef = useRef<LayoutSketchDrawingPayload | null>(null);
@@ -2928,8 +3014,25 @@ export default function MaterialCalculatorHubPage() {
   }
 
   function updateLine(id: string, patch: Partial<PvcLineRow>) {
+    const endEdit =
+      'run_ends' in patch ||
+      'end_preset' in patch ||
+      'h_post_type' in patch ||
+      'u_channel' in patch;
+    let mergedPatch = patch;
+    if (endEdit) {
+      mergedPatch = { ...patch, manualRunEdit: true, end_preset: 'custom' as const };
+      if (patch.run_ends) {
+        const { d6, d7 } = d6d7FromRunEnds(patch.run_ends);
+        mergedPatch = {
+          ...mergedPatch,
+          h_post_type: d6 as 0 | 1 | 2,
+          u_channel: String(d7),
+        };
+      }
+    }
     setLines((rows) => {
-      const next = rows.map((r) => (r.id === id ? { ...r, ...patch } : r));
+      const next = rows.map((r) => (r.id === id ? { ...r, ...mergedPatch } : r));
       const idx = next.findIndex((r) => r.id === id);
       if (idx >= 0 && 'length_ft' in patch) {
         const merged = next[idx];
@@ -2938,6 +3041,65 @@ export default function MaterialCalculatorHubPage() {
       }
       return next;
     });
+  }
+
+  function updateLineRunEnd(
+    id: string,
+    which: 'start' | 'end',
+    field: 'h_post' | 'u_channel',
+    checked: boolean
+  ) {
+    setLines((rows) => {
+      const idx = rows.findIndex((r) => r.id === id);
+      if (idx < 0) return rows;
+      const row = rows[idx];
+      const ends = effectiveRunEnds(row);
+      const nextEnds: SegmentRunEnds = {
+        ...ends,
+        [which]: { ...ends[which], [field]: checked },
+      };
+      const { d6, d7 } = d6d7FromRunEnds(nextEnds);
+      const next = [...rows];
+      next[idx] = {
+        ...row,
+        run_ends: nextEnds,
+        end_preset: 'custom',
+        h_post_type: d6 as 0 | 1 | 2,
+        u_channel: String(d7),
+        manualRunEdit: true,
+      };
+      return next;
+    });
+  }
+
+  function applyRunEndPreset(id: string, preset: LineEndPreset) {
+    let run_ends: SegmentRunEnds;
+    if (preset === 'h_continuous') {
+      run_ends = {
+        start: { h_post: true, u_channel: false },
+        end: { h_post: true, u_channel: false },
+      };
+    } else if (preset === 'u_at_end') {
+      run_ends = {
+        start: { h_post: false, u_channel: true },
+        end: { h_post: true, u_channel: false },
+      };
+    } else {
+      return;
+    }
+    const { d6, d7 } = d6d7FromRunEnds(run_ends);
+    updateLine(id, {
+      end_preset: preset,
+      run_ends,
+      h_post_type: d6 as 0 | 1 | 2,
+      u_channel: String(d7),
+      manualRunEdit: true,
+    });
+  }
+
+  function isGateOpeningFenceRow(label: string): boolean {
+    const l = label.toLowerCase();
+    return l.includes(' gate') && !l.includes('left') && !l.includes('right');
   }
 
   function flushSketchSegmentLengthForLine(id: string) {
@@ -3556,22 +3718,10 @@ export default function MaterialCalculatorHubPage() {
             />
             {(lines.some((l) => l.fromSketch && !l.manualRunEdit) ||
               chainLines.some((l) => l.fromSketch && !l.manualRunEdit)) && (
-              <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-                <button
-                  type="button"
-                  className={btnGhost}
-                  onClick={() => {
-                    setLines((prev) =>
-                      prev.map((l) => ({ ...l, fromSketch: false, manualRunEdit: true }))
-                    );
-                    setChainLines((prev) =>
-                      prev.map((l) => ({ ...l, fromSketch: false, manualRunEdit: true }))
-                    );
-                  }}
-                >
-                  Edit post &amp; end settings
-                </button>
-              </div>
+              <p className="border-t border-slate-100 pt-3 text-xs text-slate-500">
+                Post and U-channel settings for each run are in <strong>Fence runs</strong> below — click a run to
+                expand start/end options.
+              </p>
             )}
           </div>
         </div>
@@ -3583,139 +3733,170 @@ export default function MaterialCalculatorHubPage() {
             <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-blue-50/30 px-5 py-4">
               <h2 className={h2}>Fence runs</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Filled in from your sketch. Adjust a length or add a run by hand if needed.
+                Filled in from your sketch. Click a run to set how it starts and ends (H-post / U-channel per end).
               </p>
             </div>
-            <div className="space-y-4 p-5">
-              {lines.map((row, idx) =>
-                row.fromSketch && !row.manualRunEdit ? (
+            <div className="space-y-3 p-5">
+              {lines.map((row, idx) => {
+                const expanded = !!expandedFenceRuns[row.id];
+                const ends = effectiveRunEnds(row);
+                const gateOpening = isGateOpeningFenceRow(row.label || `Run ${idx + 1}`);
+                return (
                   <div
                     key={row.id}
-                    className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-100 bg-slate-50/40 px-4 py-3 ring-1 ring-slate-900/[0.03]"
+                    className="overflow-hidden rounded-xl border border-slate-100 bg-slate-50/40 ring-1 ring-slate-900/[0.03]"
                   >
-                    <div className="min-w-[8rem] flex-1">
-                      <span className="text-sm font-semibold text-slate-800">{row.label || `Run ${idx + 1}`}</span>
-                      <p className="mt-0.5 text-xs text-slate-500">
-                        {formatPvcPanelSummary(row.panel_module, effectivePvcPanelSpacingFt)}
-                        {Number(row.u_channel) > 0 ? ' · ends at a wall' : ''}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
-                        Length (ft)
-                      </label>
-                      <input
-                        type="number"
-                        min={0}
-                        step={0.1}
-                        value={row.length_ft}
-                        onChange={(e) => updateLine(row.id, { length_ft: e.target.value })}
-                        onBlur={() => flushSketchSegmentLengthForLine(row.id)}
-                        className={`${field} w-28`}
-                      />
-                    </div>
-                    <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-800">
-                      From sketch
-                    </span>
-                  </div>
-                ) : (
-                <div
-                  key={row.id}
-                  className="rounded-xl border border-slate-100 bg-slate-50/40 p-4 ring-1 ring-slate-900/[0.03]"
-                >
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-sm font-semibold text-slate-800">Run {idx + 1}</span>
-                    <button type="button" className={btnGhost} onClick={() => removeLine(row.id)}>
-                      Remove
+                    <button
+                      type="button"
+                      className="flex w-full flex-wrap items-center gap-3 px-4 py-3 text-left hover:bg-slate-50/80"
+                      onClick={() =>
+                        setExpandedFenceRuns((prev) => ({ ...prev, [row.id]: !prev[row.id] }))
+                      }
+                      aria-expanded={expanded}
+                    >
+                      <span className="text-slate-400" aria-hidden>
+                        {expanded ? '▾' : '▸'}
+                      </span>
+                      <div className="min-w-[8rem] flex-1">
+                        <span className="text-sm font-semibold text-slate-800">
+                          {row.label || `Run ${idx + 1}`}
+                        </span>
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          {formatPvcPanelSummary(row.panel_module, effectivePvcPanelSpacingFt)}
+                          {!gateOpening ? ` · ${runEndsSummary(ends)}` : ''}
+                        </p>
+                      </div>
+                      <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                        <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
+                          Length (ft)
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.1}
+                          value={row.length_ft}
+                          onChange={(e) => updateLine(row.id, { length_ft: e.target.value })}
+                          onBlur={() => flushSketchSegmentLengthForLine(row.id)}
+                          className={`${field} w-28`}
+                        />
+                      </div>
+                      {row.fromSketch && !row.manualRunEdit ? (
+                        <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-800">
+                          From sketch
+                        </span>
+                      ) : row.manualRunEdit ? (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-900">
+                          Ends edited
+                        </span>
+                      ) : null}
+                      {!row.fromSketch ? (
+                        <button
+                          type="button"
+                          className={`${btnGhost} shrink-0`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeLine(row.id);
+                          }}
+                        >
+                          Remove
+                        </button>
+                      ) : null}
                     </button>
+                    {expanded ? (
+                      <div className="border-t border-slate-100 bg-white px-4 py-4">
+                        {gateOpening ? (
+                          <p className="text-sm text-slate-600">
+                            Gate openings use gate materials — post and U-channel settings apply to fence runs only.
+                          </p>
+                        ) : (
+                          <div className="space-y-4">
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                className={btnGhost}
+                                onClick={() => applyRunEndPreset(row.id, 'h_continuous')}
+                              >
+                                Standard (post each end)
+                              </button>
+                              <button
+                                type="button"
+                                className={btnGhost}
+                                onClick={() => applyRunEndPreset(row.id, 'u_at_end')}
+                              >
+                                Butts to existing (U at start)
+                              </button>
+                            </div>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+                                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                                  Start of run
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
+                                    <input
+                                      type="checkbox"
+                                      className="h-4 w-4 rounded border-slate-300"
+                                      checked={ends.start.h_post}
+                                      onChange={(e) =>
+                                        updateLineRunEnd(row.id, 'start', 'h_post', e.target.checked)
+                                      }
+                                    />
+                                    H-post (D6)
+                                  </label>
+                                  <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
+                                    <input
+                                      type="checkbox"
+                                      className="h-4 w-4 rounded border-slate-300"
+                                      checked={ends.start.u_channel}
+                                      onChange={(e) =>
+                                        updateLineRunEnd(row.id, 'start', 'u_channel', e.target.checked)
+                                      }
+                                    />
+                                    U-channel (D7)
+                                  </label>
+                                </div>
+                              </div>
+                              <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+                                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                                  End of run
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
+                                    <input
+                                      type="checkbox"
+                                      className="h-4 w-4 rounded border-slate-300"
+                                      checked={ends.end.h_post}
+                                      onChange={(e) =>
+                                        updateLineRunEnd(row.id, 'end', 'h_post', e.target.checked)
+                                      }
+                                    />
+                                    H-post (D6)
+                                  </label>
+                                  <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
+                                    <input
+                                      type="checkbox"
+                                      className="h-4 w-4 rounded border-slate-300"
+                                      checked={ends.end.u_channel}
+                                      onChange={(e) =>
+                                        updateLineRunEnd(row.id, 'end', 'u_channel', e.target.checked)
+                                      }
+                                    />
+                                    U-channel (D7)
+                                  </label>
+                                </div>
+                              </div>
+                            </div>
+                            <p className="text-xs text-slate-500">
+                              Example: new fence tying into existing with U-channel — turn off H-post at the start and
+                              enable U-channel there.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <div className="sm:col-span-2">
-                      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Line label (optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={row.label}
-                        onChange={(e) => updateLine(row.id, { label: e.target.value })}
-                        className={`${field} w-full`}
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Length (ft)
-                      </label>
-                      <input
-                        type="number"
-                        min={0}
-                        step={0.1}
-                        value={row.length_ft}
-                        onChange={(e) => updateLine(row.id, { length_ft: e.target.value })}
-                        onBlur={() => flushSketchSegmentLengthForLine(row.id)}
-                        className={`${field} w-full`}
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Panel height · spacing
-                      </label>
-                      <p className={`${field} w-full bg-slate-100 text-slate-600`}>
-                        {formatPvcPanelSummary(row.panel_module, effectivePvcPanelSpacingFt)}
-                      </p>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        How this run ends
-                      </label>
-                      <select
-                        value={row.end_preset}
-                        onChange={(e) => updateLine(row.id, { end_preset: e.target.value as LineEndPreset })}
-                        disabled={row.fromSketch}
-                        className={`${field} w-full disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70`}
-                      >
-                        <option value="h_continuous">Stands on its own — post at each end (standard)</option>
-                        <option value="u_at_end">One end butts to a wall (U-channel)</option>
-                        <option value="custom">Custom (advanced)</option>
-                      </select>
-                    </div>
-                    {row.end_preset === 'custom' && (
-                      <>
-                        <div>
-                          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            H-post type (0–2)
-                          </label>
-                          <select
-                            value={row.h_post_type}
-                            onChange={(e) =>
-                              updateLine(row.id, { h_post_type: Number(e.target.value) as 0 | 1 | 2 })
-                            }
-                            disabled={row.fromSketch}
-                            className={`${field} w-full disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70`}
-                          >
-                            <option value={0}>0</option>
-                            <option value={1}>1</option>
-                            <option value={2}>2</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            U-channel (D7)
-                          </label>
-                          <input
-                            type="number"
-                            min={0}
-                            step={0.5}
-                            value={row.u_channel}
-                            onChange={(e) => updateLine(row.id, { u_channel: e.target.value })}
-                            disabled={row.fromSketch}
-                            className={`${field} w-full disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70`}
-                          />
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               <button type="button" onClick={addLine} className={btnGhost}>
                 + Add line
               </button>

@@ -136,6 +136,11 @@ export function splitSegmentGeometryAtGate(
 }
 
 /** Role of a sketch segment relative to a placed gate (after auto-split). */
+export type SegmentRunEnds = {
+  start: { h_post: boolean; u_channel: boolean };
+  end: { h_post: boolean; u_channel: boolean };
+};
+
 export function sketchGateSegmentRole(
   segmentIndex: number,
   gatePlacements?: SketchGatePlacement[] | null
@@ -177,6 +182,86 @@ export function sketchSegmentRunLabel(
   const gateOnSeg = gatePlacements?.some((g) => g.line_index === segmentIndex);
   if (gateOnSeg && netLengthFt <= 0) return `Run ${n} gate`;
   return `Run ${n}`;
+}
+
+function computeSegmentRunEndsAtAlignedIndex(
+  segs: LayoutSegmentFeet[],
+  jointRanges: { start: number; end: number }[],
+  joints: SketchJointTermination[],
+  alignedIndex: number,
+  sourceIndex: number,
+  gatePlacements: SketchGatePlacement[] | null | undefined,
+  chainAlign: number
+): SegmentRunEnds {
+  const gateRole = sketchGateSegmentRole(sourceIndex, gatePlacements);
+  if (gateRole === 'gate') {
+    return {
+      start: { h_post: false, u_channel: false },
+      end: { h_post: false, u_channel: false },
+    };
+  }
+  const { start, end } = jointRanges[alignedIndex];
+  const connectedToPrev = sketchSegmentStartConnectedToPrev(segs, alignedIndex, chainAlign);
+  const sharesStartPost = sketchSegmentStartSharesExistingPost(segs, alignedIndex);
+  let endPost = !!joints[end]?.h_post;
+  let endU = !!joints[end]?.u_channel;
+  let startPost = !connectedToPrev && !sharesStartPost && !!joints[start]?.h_post;
+  let startU = !connectedToPrev && !sharesStartPost && !!joints[start]?.u_channel;
+  if (gateRole === 'left_fence') {
+    endPost = false;
+    endU = false;
+  }
+  if (gateRole === 'right_fence') {
+    startPost = false;
+    startU = false;
+  }
+  return {
+    start: { h_post: startPost, u_channel: startU },
+    end: { h_post: endPost, u_channel: endU },
+  };
+}
+
+/** Start/end H-post and U-channel for one sketch segment (for fence-run UI). */
+export function segmentRunEndTerminationsForSketch(
+  segments: LayoutPt[][],
+  lengthPerSegmentFt: number[],
+  segmentIndex: number,
+  opts?: {
+    snapStraightDeg?: number;
+    chainAlignFt?: number;
+    minSegFt?: number;
+    jointTerminations?: SketchJointTermination[] | null;
+    gatePlacements?: SketchGatePlacement[] | null;
+  }
+): SegmentRunEnds | null {
+  const straightMax = opts?.snapStraightDeg ?? LAYOUT_STRAIGHT_MAX_DEG;
+  const chainAlign = opts?.chainAlignFt ?? LAYOUT_CHAIN_ALIGN_FT;
+  const minSeg = opts?.minSegFt ?? LAYOUT_MIN_SKETCH_SEGMENT_FT;
+  const indexed = alignChainedSketchSegmentsIndexed(segments, lengthPerSegmentFt, chainAlign, minSeg);
+  const alignedIndex = indexed.findIndex((x) => x.sourceIndex === segmentIndex);
+  if (alignedIndex < 0) return null;
+  const segs = indexed.map((x) => x.seg);
+  const jointRanges = segmentJointIndexRanges(segs, chainAlign);
+  const expectedJointCount = jointPositionsFromAligned(segs, chainAlign).length;
+  const useJoints = opts?.jointTerminations && opts.jointTerminations.length === expectedJointCount;
+  let joints = useJoints
+    ? opts.jointTerminations!
+    : defaultJointTerminationsFromAligned(segs, straightMax);
+  joints = applyGateBoundaryJointOverrides(
+    joints,
+    segments,
+    lengthPerSegmentFt,
+    opts?.gatePlacements
+  );
+  return computeSegmentRunEndsAtAlignedIndex(
+    segs,
+    jointRanges,
+    joints,
+    alignedIndex,
+    segmentIndex,
+    opts?.gatePlacements,
+    chainAlign
+  );
 }
 
 /** Joint indices at gate opening edges — fence runs must not add U-channels here (gate block owns them). */
@@ -901,6 +986,15 @@ export function layoutSegmentsToPvcFenceInputsPerSketchSegment(
 
   const perAligned = segs.map((seg, i) => {
     const srcIdx = indexed[i].sourceIndex;
+    const ends = computeSegmentRunEndsAtAlignedIndex(
+      segs,
+      jointRanges,
+      joints,
+      i,
+      srcIdx,
+      gatePlacements,
+      chainAlign
+    );
     const gateRole = sketchGateSegmentRole(srcIdx, gatePlacements);
     if (gateRole === 'gate') {
       return {
@@ -910,28 +1004,11 @@ export function layoutSegmentsToPvcFenceInputsPerSketchSegment(
         panel_module: panelModule,
       };
     }
-
-    const { start, end } = jointRanges[i];
-    const connectedToPrev = sketchSegmentStartConnectedToPrev(segs, i, chainAlign);
-    const sharesStartPost = sketchSegmentStartSharesExistingPost(segs, i);
-    let endPost = joints[end]?.h_post ? 1 : 0;
-    let endU = joints[end]?.u_channel ? 1 : 0;
-    let startPost =
-      !connectedToPrev && !sharesStartPost && joints[start]?.h_post ? 1 : 0;
-    let startU =
-      !connectedToPrev && !sharesStartPost && joints[start]?.u_channel ? 1 : 0;
-
-    if (gateRole === 'left_fence') {
-      endPost = 0;
-      endU = 0;
-    }
-    if (gateRole === 'right_fence') {
-      startPost = 0;
-      startU = 0;
-    }
-
-    const d6 = Math.min(2, endPost + startPost) as 0 | 1 | 2;
-    const d7 = endU + startU;
+    const d6 = Math.min(
+      2,
+      (ends.start.h_post ? 1 : 0) + (ends.end.h_post ? 1 : 0)
+    ) as 0 | 1 | 2;
+    const d7 = (ends.start.u_channel ? 1 : 0) + (ends.end.u_channel ? 1 : 0);
     return {
       length_ft: seg.length_ft,
       fence_terminated_h_post_type: d6,
