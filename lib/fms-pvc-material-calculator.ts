@@ -86,12 +86,9 @@ function clampNonNeg(v: number): number {
   return v;
 }
 
-type FenceSkuKey = keyof Omit<
-  FmsPvcFenceLineResult,
-  'input' | 'total_fence_line_panels_raw' | 'total_fence_line_panels_rounded_4' | 'total_whole_panels' | 'posts'
->;
+type FenceSkuLabelKey = keyof FmsCalculatorRecipeV1['fence_sku_labels'];
 
-const FENCE_SKU_KEYS: FenceSkuKey[] = [
+const FENCE_SKU_KEYS: FenceSkuLabelKey[] = [
   'galvanized_post',
   'h_post',
   'cap_h_post',
