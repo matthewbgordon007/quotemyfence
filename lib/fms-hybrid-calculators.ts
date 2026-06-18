@@ -148,6 +148,64 @@ export const HYBRID_H_GATE_DOUBLE_MIN_IN = 106;
  * Pick the Excel gate block for a gate line width. Width always wins below 56″ or above 125″;
  * between 106–125″ the user's block choice is respected (both Excel sections overlap there).
  */
+export type HybridHGateClassified = {
+  gate_width_in: number;
+  posts: 0 | 1 | 2;
+  adjoining: 0 | 1 | 2;
+  block: 'simple' | 'adjacent' | 'double';
+};
+
+export interface HybridHGateRowInput {
+  width_in: string | number;
+  posts?: 0 | 1 | 2;
+  adjoining?: 0 | 1 | 2;
+}
+
+/**
+ * Same short / single / double gate routing as the PVC calculator; maps each opening to the
+ * matching hybrid horizontal Excel gate block (material formulas differ, placement rules do not).
+ */
+export function classifyHybridHGateInputs(
+  shortRows: HybridHGateRowInput[],
+  singleRows: HybridHGateRowInput[],
+  doubleRows: HybridHGateRowInput[]
+): HybridHGateClassified[] {
+  const out: HybridHGateClassified[] = [];
+  const push = (r: HybridHGateRowInput, preferred: 'simple' | 'adjacent' | 'double') => {
+    const w = Math.max(0, Number(String(r.width_in).replace(/,/g, '')) || 0);
+    if (w <= 0) return;
+    const posts = (r.posts ?? 1) as 0 | 1 | 2;
+    const adjoining = (r.adjoining ?? 1) as 0 | 1 | 2;
+    const block = classifyHybridHorizontalGateKind(w, preferred);
+    out.push({ gate_width_in: w, posts, adjoining, block });
+  };
+  for (const r of shortRows) push(r, 'simple');
+  for (const r of singleRows) push(r, 'adjacent');
+  for (const r of doubleRows) push(r, 'double');
+  return out;
+}
+
+export function computeHybridHorizontalGateBlockRows(
+  gate: HybridHGateClassified,
+  family: FmsHybridHoFamily,
+  height: FmsHybridHoHeight
+): FmsHybridItemRow[] {
+  if (gate.block === 'simple') {
+    return computeHybridHorizontalGate({ gate_width_in: gate.gate_width_in, posts: gate.posts }, family, height)
+      .rows;
+  }
+  if (gate.block === 'adjacent') {
+    return computeHybridHorizontalAdjacentGate({
+      gate_line_width_in: gate.gate_width_in,
+      adjoining: gate.adjoining,
+    }).rows;
+  }
+  return computeHybridHorizontalDoubleGate({
+    gate_line_width_in: gate.gate_width_in,
+    adjoining: (gate.adjoining === 2 ? 1 : gate.adjoining) as 0 | 1,
+  }).rows;
+}
+
 export function classifyHybridHorizontalGateKind(
   widthIn: number,
   userKind: 'simple' | 'adjacent' | 'double'
