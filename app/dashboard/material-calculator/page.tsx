@@ -1536,6 +1536,14 @@ export default function MaterialCalculatorHubPage() {
   const [chainTiesPerBag, setChainTiesPerBag] = useState('100');
   const [chainGates, setChainGates] = useState<ChainGateRow[]>([]);
 
+  const [accountType, setAccountType] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [fmsRecipe, setFmsRecipe] = useState<FmsCalculatorRecipeV1>(() => normalizeFmsCalculatorRecipe(null));
+  const [fmsRecipeLoading, setFmsRecipeLoading] = useState(false);
+  const [pvcHubMode, setPvcHubMode] = useState<'calculator' | 'setup'>('calculator');
+  const isSupplierAccount = accountType === 'supplier';
+  const canEditFmsRecipe = Boolean(userRole && ['owner', 'admin'].includes(userRole));
+
   const applyPvcPanelModule = useCallback((module: FmsPvcPanelModule) => {
     setPvcPanelModule(module);
     setPvcPanelSpacingFt(String(defaultFmsPvcPanelSpacingFt(module, fmsRecipe)));
@@ -1567,13 +1575,6 @@ export default function MaterialCalculatorHubPage() {
   >('idle');
 
   const [contractorId, setContractorId] = useState<string | null>(null);
-  const [accountType, setAccountType] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
-  const [fmsRecipe, setFmsRecipe] = useState<FmsCalculatorRecipeV1>(() => normalizeFmsCalculatorRecipe(null));
-  const [fmsRecipeLoading, setFmsRecipeLoading] = useState(false);
-  const [pvcHubMode, setPvcHubMode] = useState<'calculator' | 'setup'>('calculator');
-  const isSupplierAccount = accountType === 'supplier';
-  const canEditFmsRecipe = Boolean(userRole && ['owner', 'admin'].includes(userRole));
   const materialCalcDraftSnapshotRef = useRef<Record<string, unknown> | null>(null);
   const materialCalcSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const materialCalcHydrateKeyRef = useRef<string>('');
