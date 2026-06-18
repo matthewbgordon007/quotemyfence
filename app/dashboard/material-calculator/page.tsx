@@ -354,11 +354,12 @@ function drawingDataToPvcLineRows(
   });
   return drawing.segments.map((_, i) => {
     const inp = inputs[i];
+    const gross = grossPerSeg[i] ?? 0;
     const net = netPerSeg[i] ?? 0;
     return {
       id: newLineId(),
       label: sketchRunLabel(i, net, gatePlacements),
-      length_ft: String(net),
+      length_ft: gross > 0 ? String(gross) : '',
       panel_module: panelModule,
       end_preset: 'custom' as const,
       h_post_type: (inp?.fence_terminated_h_post_type ?? 0) as 0 | 1 | 2,
@@ -392,11 +393,12 @@ function drawingDataToChainLineRows(
   });
   return drawing.segments.map((_, i) => {
     const inp = inputs[i];
+    const gross = grossPerSeg[i] ?? 0;
     const net = netPerSeg[i] ?? 0;
     return {
       id: newLineId(),
       label: sketchRunLabel(i, net, gatePlacements),
-      length_ft: String(net),
+      length_ft: gross > 0 ? String(gross) : '',
       terminal_post: String(inp?.fence_terminated_h_post_type ?? 0),
       fromSketch: true,
     };
@@ -427,11 +429,12 @@ function drawingDataToHybridVLineRows(
   });
   return drawing.segments.map((_, i) => {
     const inp = inputs[i];
+    const gross = grossPerSeg[i] ?? 0;
     const net = netPerSeg[i] ?? 0;
     return {
       id: newLineId(),
       label: sketchRunLabel(i, net, gatePlacements),
-      length_ft: String(net),
+      length_ft: gross > 0 ? String(gross) : '',
       h_post: (inp?.fence_terminated_h_post_type ?? 0) as 0 | 1 | 2,
       u_channel: Math.max(0, Math.min(2, Math.round(Number(inp?.fence_terminated_u_channel) || 0))) as 0 | 1 | 2,
       fromSketch: true,
@@ -550,8 +553,9 @@ function formatPvcPanelSummary(module: FmsPvcPanelModule, spacingFt: number): st
 }
 
 /** Same inclusion rule as `buildInputs` / `aggregateFmsPvcFenceLines`. */
-function pvcLineIncludedInInputs(row: PvcLineRow): boolean {
-  const L = Math.max(0, Number(String(row.length_ft).replace(/,/g, '')) || 0);
+function pvcLineIncludedInInputs(row: PvcLineRow, calcLengthFt?: number): boolean {
+  const L =
+    calcLengthFt ?? Math.max(0, Number(String(row.length_ft).replace(/,/g, '')) || 0);
   const { d6, d7 } = presetToExcel(row.end_preset, row.h_post_type, row.u_channel);
   return L > 0 || d6 > 0 || d7 > 0;
 }
@@ -653,24 +657,38 @@ function segmentIndexForGateRow(
 
 function buildInputForPvcLineRow(
   r: PvcLineRow,
-  panelSpacingFt: number
+  panelSpacingFt: number,
+  sketchCtx?: { segmentIndex: number; sketch: LayoutSketchDrawingPayload }
 ): FmsPvcFenceLineInput | null {
-  const L = Math.max(0, Number(String(r.length_ft).replace(/,/g, '')) || 0);
+  const grossL = Math.max(0, Number(String(r.length_ft).replace(/,/g, '')) || 0);
+  const calcL = sketchCtx
+    ? fenceCalcLengthFtForSketchSegment(sketchCtx.segmentIndex, grossL, sketchCtx.sketch)
+    : grossL;
   const { d6, d7 } = presetToExcel(r.end_preset, r.h_post_type, r.u_channel);
-  if (!pvcLineIncludedInInputs(r)) return null;
+  if (!pvcLineIncludedInInputs(r, calcL)) return null;
   const spacing = Number.isFinite(panelSpacingFt) && panelSpacingFt > 0 ? panelSpacingFt : undefined;
   return {
-    length_ft: L,
-    fence_terminated_h_post_type: (L <= 0 ? 0 : d6) as 0 | 1 | 2,
+    length_ft: calcL,
+    fence_terminated_h_post_type: (calcL <= 0 ? 0 : d6) as 0 | 1 | 2,
     fence_terminated_u_channel: d7,
     panel_module: r.panel_module,
     ...(spacing ? { panel_spacing_ft: spacing } : {}),
   };
 }
 
-function buildInputs(rows: PvcLineRow[], panelSpacingFt: number): FmsPvcFenceLineInput[] {
+function buildInputs(
+  rows: PvcLineRow[],
+  panelSpacingFt: number,
+  sketch?: LayoutSketchDrawingPayload | null
+): FmsPvcFenceLineInput[] {
   return rows
-    .map((r) => buildInputForPvcLineRow(r, panelSpacingFt))
+    .map((r, i) =>
+      buildInputForPvcLineRow(
+        r,
+        panelSpacingFt,
+        sketch?.segments?.length ? { segmentIndex: i, sketch } : undefined
+      )
+    )
     .filter(Boolean) as FmsPvcFenceLineInput[];
 }
 
@@ -679,26 +697,21 @@ function emptyGateRow(): PvcGateRow {
 }
 
 /**
- * Map a sketch gate (on a fence segment) to the correct PVC gate calculator row.
- * Width (in) comes from that segment’s length in feet × 12; short path if &lt; 59.5″, else single uses min 65.5″,
- * double uses min 106″ when the user placed a double gate on the sketch.
+ * Row `length_ft` is gross (full run including any gate opening on that segment).
+ * Fence panel math subtracts gate width — use this for calculator inputs.
  */
-/** Calculator rows show net fence length; sketch stores gross segment length including gate openings. */
-function grossLengthFtForSketchEdit(
+function fenceCalcLengthFtForSketchSegment(
   segmentIndex: number,
-  netLengthFt: number,
-  sketch: LayoutSketchDrawingPayload
+  grossLengthFt: number,
+  sketch: LayoutSketchDrawingPayload | null | undefined
 ): number {
-  const placements = sketch.gate_placements;
-  const segments = sketch.segments;
-  if (!placements?.length || !segments?.length) return netLengthFt;
-  let gateFt = 0;
-  for (const g of placements) {
-    if (g.line_index === segmentIndex) {
-      gateFt += sketchGateWidthInches(g, segments) / 12;
-    }
-  }
-  return Math.round((netLengthFt + gateFt) * 100) / 100;
+  if (!sketch?.segments?.length) return grossLengthFt;
+  return netFenceLengthFtForSegment(
+    segmentIndex,
+    grossLengthFt,
+    sketch.gate_placements,
+    sketch.segments
+  );
 }
 
 function pvcGateFromSketchPlacement(
@@ -2126,8 +2139,8 @@ export default function MaterialCalculatorHubPage() {
     [pvcPanelSpacingFt, pvcPanelModule]
   );
   const pvcInputs = useMemo(
-    () => buildInputs(lines, effectivePvcPanelSpacingFt),
-    [lines, effectivePvcPanelSpacingFt]
+    () => buildInputs(lines, effectivePvcPanelSpacingFt, layoutSketchData),
+    [lines, effectivePvcPanelSpacingFt, layoutSketchData]
   );
   const pvcJob = useMemo(() => aggregateFmsPvcFenceLines(pvcInputs), [pvcInputs]);
   const pvcFenceLinearFt = useMemo(
@@ -2234,9 +2247,15 @@ export default function MaterialCalculatorHubPage() {
 
     const runRows: PvcRunBreakdownRow[] = lines.map((lr, i) => {
       const runLabel = lr.label || `Run ${i + 1}`;
-      const netL = Math.max(0, Number(String(lr.length_ft).replace(/,/g, '')) || 0);
+      const grossL = Math.max(0, Number(String(lr.length_ft).replace(/,/g, '')) || 0);
+      const netL = layoutSketchData?.segments?.length
+        ? fenceCalcLengthFtForSketchSegment(i, grossL, layoutSketchData)
+        : grossL;
+      const sketchCtx = layoutSketchData?.segments?.length
+        ? { segmentIndex: i, sketch: layoutSketchData }
+        : undefined;
       const panelLabel = formatPvcPanelSummary(lr.panel_module, spacing);
-      const input = buildInputForPvcLineRow(lr, spacing);
+      const input = buildInputForPvcLineRow(lr, spacing, sketchCtx);
       const fenceMats = input
         ? (() => {
             const r = computeFmsPvcFenceLine(input);
@@ -2265,7 +2284,7 @@ export default function MaterialCalculatorHubPage() {
             kind: 'fence',
             id: lr.id,
             label: runLabel,
-            length_ft: netL,
+            length_ft: grossL,
             panelLabel: fenceMats.panelLabel,
             panels: fenceMats.panels,
             h_post: fenceMats.h_post,
@@ -2278,7 +2297,7 @@ export default function MaterialCalculatorHubPage() {
           kind: 'fence',
           id: lr.id,
           label: runLabel,
-          length_ft: netL,
+          length_ft: grossL,
           panelLabel: fenceMats.panelLabel,
           panels: 0,
           h_post: 0,
@@ -2326,7 +2345,7 @@ export default function MaterialCalculatorHubPage() {
         kind: 'fence',
         id: lr.id,
         label: `${runLabel} with gate`,
-        length_ft: netL,
+        length_ft: grossL,
         panelLabel: `${fenceMats.panelLabel} · ${gateTypeLabel}`,
         panels: fenceMats.panels,
         hasGate: true,
@@ -2462,14 +2481,15 @@ export default function MaterialCalculatorHubPage() {
     const d8 = Math.max(0.01, Number(chainMeshFt) || 50);
     const d9 = Math.max(0.01, Number(chainTiesPerBag) || 100);
     return chainLines
-      .map((row) => {
-        const L = Math.max(0, Number(String(row.length_ft).replace(/,/g, '')) || 0);
+      .map((row, i) => {
+        const grossL = Math.max(0, Number(String(row.length_ft).replace(/,/g, '')) || 0);
+        const L = fenceCalcLengthFtForSketchSegment(i, grossL, layoutSketchData);
         if (L <= 0) return null;
         const d6 = Math.max(0, Number(row.terminal_post) || 0);
         return { length_ft: L, terminal_post_type: d6, rail_length_ft: d7, mesh_roll_ft: d8, ties_per_bag: d9 };
       })
       .filter(Boolean) as FmsChainLinkFenceInput[];
-  }, [chainLines, chainRailFt, chainMeshFt, chainTiesPerBag]);
+  }, [chainLines, chainRailFt, chainMeshFt, chainTiesPerBag, layoutSketchData]);
 
   /** Per-line sums for posts/caps/bands/ties; rails + mesh from total linear ft across the job. */
   const chainFenceAgg = useMemo(() => aggregateFmsChainLinkFenceLines(chainFenceInputs), [chainFenceInputs]);
@@ -2615,8 +2635,9 @@ export default function MaterialCalculatorHubPage() {
 
   /** Hybrid horizontal — one Excel block result per run, plus gate blocks and summed totals. */
   const hybridHJob = useMemo(() => {
-    const runs = hybHLines.map((row) => {
-      const L = Math.max(0, Number(String(row.length_ft).replace(/,/g, '')) || 0);
+    const runs = hybHLines.map((row, i) => {
+      const grossL = Math.max(0, Number(String(row.length_ft).replace(/,/g, '')) || 0);
+      const L = fenceCalcLengthFtForSketchSegment(i, grossL, layoutSketchData);
       if (L <= 0) return { row, result: null as null | ReturnType<typeof computeHybridHorizontalFence> };
       return {
         row,
@@ -2654,12 +2675,13 @@ export default function MaterialCalculatorHubPage() {
     const master = applyHybridExtras(buildFmsHybridMasterList(totals, 'horizontal'), HYBRID_H_EXTRA_ITEMS, hybHExtras);
     const hasAny = runs.some((r) => r.result) || gates.some((g) => g.rows);
     return { runs, gates, totals, master, hasAny };
-  }, [hybHLines, hybHGates, hybHFamily, hybHHeight, hybHExtras]);
+  }, [hybHLines, hybHGates, hybHFamily, hybHHeight, hybHExtras, layoutSketchData]);
 
   /** Hybrid vertical — same structure for the 6'4" PVC sheet. */
   const hybridVJob = useMemo(() => {
-    const runs = hybVLines.map((row) => {
-      const L = Math.max(0, Number(String(row.length_ft).replace(/,/g, '')) || 0);
+    const runs = hybVLines.map((row, i) => {
+      const grossL = Math.max(0, Number(String(row.length_ft).replace(/,/g, '')) || 0);
+      const L = fenceCalcLengthFtForSketchSegment(i, grossL, layoutSketchData);
       if (L <= 0) return { row, result: null as null | ReturnType<typeof computeHybridVerticalPvc64Fence> };
       return {
         row,
@@ -2682,7 +2704,7 @@ export default function MaterialCalculatorHubPage() {
     const master = applyHybridExtras(buildFmsHybridMasterList(totals, 'vertical'), HYBRID_V_EXTRA_ITEMS, hybVExtras);
     const hasAny = runs.some((r) => r.result) || gates.some((g) => g.rows);
     return { runs, gates, totals, master, hasAny };
-  }, [hybVLines, hybVGates, hybVExtras]);
+  }, [hybVLines, hybVGates, hybVExtras, layoutSketchData]);
 
   const downloadHybridMasterListPdf = useCallback(
     async (which: 'h' | 'v') => {
@@ -2866,13 +2888,12 @@ export default function MaterialCalculatorHubPage() {
     ]);
   }
 
-  function pushSketchSegmentLength(segmentIndex: number, netLengthFt: number) {
+  function pushSketchSegmentLength(segmentIndex: number, grossLengthFt: number) {
     const sketch = layoutSketchDataRef.current;
     if (!sketch?.segments?.length) return;
     if (segmentIndex < 0 || segmentIndex >= sketch.segments.length) return;
-    const grossL = grossLengthFtForSketchEdit(segmentIndex, netLengthFt, sketch);
-    if (grossL <= 0) return;
-    const sk = adjustLayoutDrawingSegmentLength(sketch, segmentIndex, grossL);
+    if (grossLengthFt <= 0) return;
+    const sk = adjustLayoutDrawingSegmentLength(sketch, segmentIndex, grossLengthFt);
     if (!sk) return;
     programmaticSketchUpdateAtRef.current = Date.now();
     queueMicrotask(() => {
@@ -4017,7 +4038,7 @@ export default function MaterialCalculatorHubPage() {
 
           <CollapsibleCard
             title="Run-by-run breakdown"
-            subtitle="Each sketch segment is one row; a gate-only segment shows as “Run N Gate”; fence + gate on one line shows as “with gate”."
+            subtitle="Each sketch segment is one row. Length shows the full run; panels and materials use fence-only length (gate opening subtracted)."
           >
             <div className="overflow-x-auto p-5">
               <table className="w-full min-w-[720px] text-xs">
