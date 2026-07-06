@@ -693,11 +693,19 @@ function runEndsSummary(ends: SegmentRunEnds): string {
   const fmt = (label: string, t: { h_post: boolean; u_channel: boolean }) => {
     if (!t.h_post && !t.u_channel) return `${label}: open`;
     const bits: string[] = [];
-    if (t.h_post) bits.push('H-post');
-    if (t.u_channel) bits.push('U');
+    if (t.h_post) bits.push('End post');
+    if (t.u_channel) bits.push('Wall channel');
     return `${label}: ${bits.join(' + ')}`;
   };
   return `${fmt('Start', ends.start)} · ${fmt('End', ends.end)}`;
+}
+
+function pvcGateLabelFromWidth(w: number): string {
+  if (w <= 0) return 'Gate';
+  if (w < PVC_SHORT_GATE_MAX_IN) return 'Walk gate';
+  if (w >= PVC_DOUBLE_GATE_MIN_IN) return 'Double gate';
+  if (w >= PVC_SINGLE_GATE_MIN_IN) return 'Single gate';
+  return 'Walk gate';
 }
 
 function parseRunEnds(raw: unknown): SegmentRunEnds | undefined {
@@ -3824,8 +3832,7 @@ export default function MaterialCalculatorHubPage() {
         <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-blue-50/30 px-5 py-4">
           <h2 className={h2}>Fence runs</h2>
           <p className="mt-1 text-xs text-slate-500">
-            Filled in from your sketch. Click a run to set how it starts and ends
-            {showU ? ' (end posts / wall channel per end)' : ' (terminal posts per end)'}.
+            Lengths from your sketch. Click a run to adjust length or how it connects at each end.
           </p>
         </div>
         <div className="space-y-3 p-5">
@@ -3919,76 +3926,83 @@ export default function MaterialCalculatorHubPage() {
                             </button>
                           ) : null}
                         </div>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
-                            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                              Start of run
+                        <details className="rounded-lg border border-slate-200 bg-slate-50/30">
+                          <summary className="cursor-pointer list-none px-3 py-2.5 text-xs font-semibold text-slate-600 [&::-webkit-details-marker]:hidden">
+                            Advanced connection settings
+                          </summary>
+                          <div className="space-y-3 border-t border-slate-200 px-3 pb-3 pt-3">
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <div className="rounded-lg border border-slate-200 bg-white p-3">
+                                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                                  Start of run
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
+                                    <input
+                                      type="checkbox"
+                                      className="h-4 w-4 rounded border-slate-300"
+                                      checked={ends.start.h_post}
+                                      onChange={(e) =>
+                                        opts.onRunEndChange(row.id, 'start', 'h_post', e.target.checked)
+                                      }
+                                    />
+                                    End post
+                                  </label>
+                                  {showU ? (
+                                    <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
+                                      <input
+                                        type="checkbox"
+                                        className="h-4 w-4 rounded border-slate-300"
+                                        checked={ends.start.u_channel}
+                                        onChange={(e) =>
+                                          opts.onRunEndChange(row.id, 'start', 'u_channel', e.target.checked)
+                                        }
+                                      />
+                                      Wall channel (U)
+                                    </label>
+                                  ) : null}
+                                </div>
+                              </div>
+                              <div className="rounded-lg border border-slate-200 bg-white p-3">
+                                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                                  End of run
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
+                                    <input
+                                      type="checkbox"
+                                      className="h-4 w-4 rounded border-slate-300"
+                                      checked={ends.end.h_post}
+                                      onChange={(e) =>
+                                        opts.onRunEndChange(row.id, 'end', 'h_post', e.target.checked)
+                                      }
+                                    />
+                                    End post
+                                  </label>
+                                  {showU ? (
+                                    <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
+                                      <input
+                                        type="checkbox"
+                                        className="h-4 w-4 rounded border-slate-300"
+                                        checked={ends.end.u_channel}
+                                        onChange={(e) =>
+                                          opts.onRunEndChange(row.id, 'end', 'u_channel', e.target.checked)
+                                        }
+                                      />
+                                      Wall channel (U)
+                                    </label>
+                                  ) : null}
+                                </div>
+                              </div>
                             </div>
-                            <div className="space-y-2">
-                              <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
-                                <input
-                                  type="checkbox"
-                                  className="h-4 w-4 rounded border-slate-300"
-                                  checked={ends.start.h_post}
-                                  onChange={(e) =>
-                                    opts.onRunEndChange(row.id, 'start', 'h_post', e.target.checked)
-                                  }
-                                />
-                                End post
-                              </label>
-                              {showU ? (
-                                <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
-                                  <input
-                                    type="checkbox"
-                                    className="h-4 w-4 rounded border-slate-300"
-                                    checked={ends.start.u_channel}
-                                    onChange={(e) =>
-                                      opts.onRunEndChange(row.id, 'start', 'u_channel', e.target.checked)
-                                    }
-                                  />
-                                  Wall channel (U)
-                                </label>
-                              ) : null}
-                            </div>
+                            {showU ? (
+                              <p className="text-xs text-slate-500">
+                                Tying into existing fence? Turn off the end post at the start and enable wall channel
+                                there.
+                              </p>
+                            ) : null}
                           </div>
-                          <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
-                            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                              End of run
-                            </div>
-                            <div className="space-y-2">
-                              <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
-                                <input
-                                  type="checkbox"
-                                  className="h-4 w-4 rounded border-slate-300"
-                                  checked={ends.end.h_post}
-                                  onChange={(e) =>
-                                    opts.onRunEndChange(row.id, 'end', 'h_post', e.target.checked)
-                                  }
-                                />
-                                End post
-                              </label>
-                              {showU ? (
-                                <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
-                                  <input
-                                    type="checkbox"
-                                    className="h-4 w-4 rounded border-slate-300"
-                                    checked={ends.end.u_channel}
-                                    onChange={(e) =>
-                                      opts.onRunEndChange(row.id, 'end', 'u_channel', e.target.checked)
-                                    }
-                                  />
-                                  Wall channel (U)
-                                </label>
-                              ) : null}
-                            </div>
-                          </div>
-                        </div>
-                        {showU ? (
-                          <p className="text-xs text-slate-500">
-                            Example: new fence tying into existing with U-channel — turn off H-post at the start and
-                            enable U-channel there.
-                          </p>
-                        ) : null}
+                        </details>
                         {opts.renderExpandedExtra?.(row, idx)}
                       </div>
                     )}
@@ -4254,198 +4268,244 @@ export default function MaterialCalculatorHubPage() {
     else setHybHDoubleGates(fn);
   }
 
-  function renderHybridHGateSection(
-    title: string,
-    hint: string,
-    kind: 'short' | 'single' | 'double',
-    rows: HybridHFenceGateRow[],
-    showAdjoining: boolean
-  ) {
+  function renderUnifiedPvcGatesSection() {
+    const entries = [
+      ...shortGates.map((row) => ({ kind: 'short' as const, row })),
+      ...singleGates.map((row) => ({ kind: 'single' as const, row })),
+      ...doubleGates.map((row) => ({ kind: 'double' as const, row })),
+    ];
     return (
-      <div className="rounded-xl border border-slate-100 bg-slate-50/30 p-4">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <span className="text-sm font-semibold text-slate-800">{title}</span>
-            <p className="text-xs text-slate-500">{hint}</p>
+      <section ref={pvcGatesSectionRef} className={card}>
+        <div className="border-b border-slate-100 bg-gradient-to-r from-amber-50/40 via-white to-slate-50/80 px-5 py-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className={h2}>Gates on this job</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Gates from your sketch appear here automatically. Enter each opening width in inches — a standard walk
+                gate is 48″.
+              </p>
+            </div>
+            <button type="button" className={btnGhost} onClick={() => addPvcGate('single')}>
+              + Add gate
+            </button>
           </div>
-          <button type="button" className={btnGhost} onClick={() => addHybHGate(kind)}>
-            + Add
-          </button>
         </div>
-        {rows.length === 0 ? (
-          <p className="text-xs text-slate-400">None</p>
-        ) : (
-          <div className="space-y-2">
-            {rows.map((g, i) => {
-              const classified = classifyHybridHGateInputs(
-                kind === 'short' ? [g] : [],
-                kind === 'single' ? [g] : [],
-                kind === 'double' ? [g] : []
-              )[0];
-              const gateRows = classified
-                ? computeHybridHorizontalGateBlockRows(classified, hybHCalculatorFamily, hybHHeight)
-                : [];
-              return (
-                <div key={g.id} className="rounded-lg bg-white p-2 ring-1 ring-slate-100">
-                  <div className="flex flex-wrap items-end gap-2">
-                    <span className="text-xs text-slate-400">#{i + 1}</span>
-                    <div>
-                      <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">
-                        Width (in)
-                      </label>
-                      <input
-                        type="number"
-                        min={0}
-                        step={0.5}
-                        value={g.width_in}
-                        onChange={(e) => updateHybHGate(kind, g.id, { width_in: e.target.value })}
-                        className={`${field} w-28`}
-                      />
-                    </div>
-                    {showAdjoining ? (
+        <div className="p-5">
+          {entries.length === 0 ? (
+            <p className="text-sm text-slate-400">No gates yet — add one above or place gates on your sketch.</p>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-slate-100">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold text-slate-500">
+                    <th className="px-3 py-2">#</th>
+                    <th className="px-3 py-2">Type</th>
+                    <th className="px-3 py-2">Width (in)</th>
+                    <th className="px-3 py-2" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {entries.map(({ kind, row }, i) => {
+                    const w = Math.max(0, Number(String(row.width_in).replace(/,/g, '')) || 0);
+                    return (
+                      <tr key={row.id} className="border-b border-slate-100">
+                        <td className="px-3 py-2 text-slate-400">{i + 1}</td>
+                        <td className="px-3 py-2 font-medium text-slate-800">{pvcGateLabelFromWidth(w)}</td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="number"
+                            min={0}
+                            step={0.5}
+                            value={row.width_in}
+                            onChange={(e) => updatePvcGate(kind, row.id, { width_in: e.target.value })}
+                            className={`${field} w-28`}
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <button type="button" className={btnGhost} onClick={() => removePvcGate(kind, row.id)}>
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  }
+
+  function renderUnifiedHybridHGateSection() {
+    const entries = [
+      ...hybHShortGates.map((row) => ({ kind: 'short' as const, row })),
+      ...hybHSingleGates.map((row) => ({ kind: 'single' as const, row })),
+      ...hybHDoubleGates.map((row) => ({ kind: 'double' as const, row })),
+    ];
+    return (
+      <section className={card}>
+        <div className="border-b border-slate-100 bg-gradient-to-r from-violet-50/40 via-white to-slate-50/80 px-5 py-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className={h2}>Gates on this job</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Same rules as vinyl — sketch defaults to a 48″ walk gate. Widen here for single or double openings.
+              </p>
+            </div>
+            <button type="button" className={btnGhost} onClick={() => addHybHGate('single')}>
+              + Add gate
+            </button>
+          </div>
+        </div>
+        <div className="p-5">
+          {entries.length === 0 ? (
+            <p className="text-sm text-slate-400">No gates yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {entries.map(({ kind, row }, i) => {
+                const w = Math.max(0, Number(String(row.width_in).replace(/,/g, '')) || 0);
+                const showAdjoining = kind !== 'short';
+                const classified = classifyHybridHGateInputs(
+                  kind === 'short' ? [row] : [],
+                  kind === 'single' ? [row] : [],
+                  kind === 'double' ? [row] : []
+                )[0];
+                const gateRows = classified
+                  ? computeHybridHorizontalGateBlockRows(classified, hybHCalculatorFamily, hybHHeight)
+                  : [];
+                return (
+                  <div key={row.id} className="rounded-lg border border-slate-100 bg-slate-50/40 p-3">
+                    <div className="flex flex-wrap items-end gap-3">
+                      <span className="text-xs text-slate-400">#{i + 1}</span>
+                      <span className="text-sm font-medium text-slate-800">{pvcGateLabelFromWidth(w)}</span>
                       <div>
                         <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">
-                          Adjoining fence
+                          Width (in)
                         </label>
-                        <select
-                          value={g.adjoining ?? 0}
-                          onChange={(e) =>
-                            updateHybHGate(kind, g.id, {
-                              adjoining: Number(e.target.value) as 0 | 1 | 2,
-                            })
-                          }
-                          className={`${field} w-44`}
-                        >
-                          <option value={0}>Adjoins existing fence</option>
-                          <option value={1}>Standalone</option>
-                          {kind === 'single' ? <option value={2}>Gate in the middle</option> : null}
-                        </select>
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.5}
+                          value={row.width_in}
+                          onChange={(e) => updateHybHGate(kind, row.id, { width_in: e.target.value })}
+                          className={`${field} w-28`}
+                        />
                       </div>
+                      {showAdjoining ? (
+                        <div>
+                          <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">
+                            Next to existing fence?
+                          </label>
+                          <select
+                            value={row.adjoining ?? 0}
+                            onChange={(e) =>
+                              updateHybHGate(kind, row.id, {
+                                adjoining: Number(e.target.value) as 0 | 1 | 2,
+                              })
+                            }
+                            className={`${field} w-44`}
+                          >
+                            <option value={0}>Yes — ties in</option>
+                            <option value={1}>No — standalone</option>
+                            {kind === 'single' ? <option value={2}>Gate in the middle</option> : null}
+                          </select>
+                        </div>
+                      ) : null}
+                      <button type="button" className={btnGhost} onClick={() => removeHybHGate(kind, row.id)}>
+                        Remove
+                      </button>
+                    </div>
+                    {gateRows.length > 0 ? (
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-xs font-medium text-slate-500">Gate parts</summary>
+                        <div className="mt-2">
+                          <HybridItemTable rows={gateRows} />
+                        </div>
+                      </details>
                     ) : null}
-                    <button type="button" className={btnGhost} onClick={() => removeHybHGate(kind, g.id)}>
-                      Remove
-                    </button>
                   </div>
-                  {gateRows.length > 0 ? (
-                    <div className="mt-2">
-                      <HybridItemTable rows={gateRows} />
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
     );
   }
 
-  function renderHybridVGateSection(
-    title: string,
-    hint: string,
-    kind: 'short' | 'single' | 'double',
-    rows: HybridVFenceGateRow[]
-  ) {
+  function renderUnifiedHybridVGateSection() {
+    const entries = [
+      ...hybVShortGates.map((row) => ({ kind: 'short' as const, row })),
+      ...hybVSingleGates.map((row) => ({ kind: 'single' as const, row })),
+      ...hybVDoubleGates.map((row) => ({ kind: 'double' as const, row })),
+    ];
     return (
-      <div className="rounded-xl border border-slate-100 bg-slate-50/30 p-4">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <span className="text-sm font-semibold text-slate-800">{title}</span>
-            <p className="text-xs text-slate-500">{hint}</p>
+      <section className={card}>
+        <div className="border-b border-slate-100 bg-gradient-to-r from-violet-50/40 via-white to-slate-50/80 px-5 py-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className={h2}>Gates on this job</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Sketch defaults to a 48″ walk gate. Adjust widths for larger openings.
+              </p>
+            </div>
+            <button type="button" className={btnGhost} onClick={() => addHybVGate('single')}>
+              + Add gate
+            </button>
           </div>
-          <button type="button" className={btnGhost} onClick={() => addHybVGate(kind)}>
-            + Add
-          </button>
         </div>
-        {rows.length === 0 ? (
-          <p className="text-xs text-slate-400">None</p>
-        ) : (
-          <div className="space-y-2">
-            {rows.map((g, i) => {
-              const classified = classifyHybridVGateInputs(
-                kind === 'short' ? [g] : [],
-                kind === 'single' ? [g] : [],
-                kind === 'double' ? [g] : []
-              )[0];
-              const gateRows = classified ? computeHybridVerticalGateBlockRows(classified) : [];
-              return (
-                <div key={g.id} className="rounded-lg bg-white p-2 ring-1 ring-slate-100">
-                  <div className="flex flex-wrap items-end gap-2">
-                    <span className="text-xs text-slate-400">#{i + 1}</span>
-                    <div>
-                      <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">
-                        Width (in)
-                      </label>
-                      <input
-                        type="number"
-                        min={0}
-                        step={0.5}
-                        value={g.width_in}
-                        onChange={(e) => updateHybVGate(kind, g.id, { width_in: e.target.value })}
-                        className={`${field} w-28`}
-                      />
+        <div className="p-5">
+          {entries.length === 0 ? (
+            <p className="text-sm text-slate-400">No gates yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {entries.map(({ kind, row }, i) => {
+                const w = Math.max(0, Number(String(row.width_in).replace(/,/g, '')) || 0);
+                const classified = classifyHybridVGateInputs(
+                  kind === 'short' ? [row] : [],
+                  kind === 'single' ? [row] : [],
+                  kind === 'double' ? [row] : []
+                )[0];
+                const gateRows = classified ? computeHybridVerticalGateBlockRows(classified) : [];
+                return (
+                  <div key={row.id} className="rounded-lg border border-slate-100 bg-slate-50/40 p-3">
+                    <div className="flex flex-wrap items-end gap-3">
+                      <span className="text-xs text-slate-400">#{i + 1}</span>
+                      <span className="text-sm font-medium text-slate-800">{pvcGateLabelFromWidth(w)}</span>
+                      <div>
+                        <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">
+                          Width (in)
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.5}
+                          value={row.width_in}
+                          onChange={(e) => updateHybVGate(kind, row.id, { width_in: e.target.value })}
+                          className={`${field} w-28`}
+                        />
+                      </div>
+                      <button type="button" className={btnGhost} onClick={() => removeHybVGate(kind, row.id)}>
+                        Remove
+                      </button>
                     </div>
-                    <button type="button" className={btnGhost} onClick={() => removeHybVGate(kind, g.id)}>
-                      Remove
-                    </button>
+                    {gateRows.length > 0 ? (
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-xs font-medium text-slate-500">Gate parts</summary>
+                        <div className="mt-2">
+                          <HybridItemTable rows={gateRows} />
+                        </div>
+                      </details>
+                    ) : null}
                   </div>
-                  {gateRows.length > 0 ? (
-                    <div className="mt-2">
-                      <HybridItemTable rows={gateRows} />
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  function renderPvcGateSection(
-    title: string,
-    hint: string,
-    kind: 'short' | 'single' | 'double',
-    rows: PvcGateRow[]
-  ) {
-    return (
-      <div className="rounded-xl border border-slate-100 bg-slate-50/30 p-4">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <span className="text-sm font-semibold text-slate-800">{title}</span>
-            <p className="text-xs text-slate-500">{hint}</p>
-          </div>
-          <button type="button" className={btnGhost} onClick={() => addPvcGate(kind)}>
-            + Add
-          </button>
+                );
+              })}
+            </div>
+          )}
         </div>
-        {rows.length === 0 ? (
-          <p className="text-xs text-slate-400">None</p>
-        ) : (
-          <div className="space-y-2">
-            {rows.map((g, i) => (
-              <div key={g.id} className="flex flex-wrap items-end gap-2 rounded-lg bg-white p-2 ring-1 ring-slate-100">
-                <span className="text-xs text-slate-400">#{i + 1}</span>
-                <div>
-                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-500">Width (in)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.5}
-                    value={g.width_in}
-                    onChange={(e) => updatePvcGate(kind, g.id, { width_in: e.target.value })}
-                    className={`${field} w-28`}
-                  />
-                </div>
-                <button type="button" className={btnGhost} onClick={() => removePvcGate(kind, g.id)}>
-                  Remove
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      </section>
     );
   }
 
@@ -4534,8 +4594,8 @@ export default function MaterialCalculatorHubPage() {
             },
             {
               n: '2',
-              title: 'Pick the fence type',
-              desc: 'PVC / vinyl, chain link, or hybrid.',
+              title: 'Pick style & colour',
+              desc: 'Vinyl, chain link, or board fence.',
             },
             {
               n: '3',
@@ -4568,13 +4628,17 @@ export default function MaterialCalculatorHubPage() {
               : 'Your work saves automatically in this browser. Use “Start over” to clear everything.'}
           </p>
         </div>
-        <p className="mt-2 text-xs text-slate-400">
-          Need a per-panel parts list with custom items?{' '}
-          <Link href="/dashboard/material-calculator/pvc" className="font-medium text-blue-600 hover:underline">
-            Open the detailed PVC builder
-          </Link>
-          .
-        </p>
+        <details className="mt-2 text-xs text-slate-400">
+          <summary className="cursor-pointer font-medium text-slate-500 hover:text-slate-700">
+            Advanced: per-panel PVC builder
+          </summary>
+          <p className="mt-1">
+            <Link href="/dashboard/material-calculator/pvc" className="font-medium text-blue-600 hover:underline">
+              Open the detailed PVC builder
+            </Link>{' '}
+            for custom line items and supplier recipes.
+          </p>
+        </details>
       </div>
 
       {fmsQuoteMaterialUnsupported ? (
@@ -4596,17 +4660,68 @@ export default function MaterialCalculatorHubPage() {
 
       {!fmsQuoteMaterialUnsupported ? (
       <>
+      <div className={stageLabel}>
+        <span>Step 1 — Draw your layout</span>
+        <span className="h-px flex-1 bg-slate-200" />
+      </div>
+
+      <section className={card}>
+        <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-violet-50/25 px-5 py-4">
+          <h2 className={h2}>Draw your fence layout</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Sketch each run and tap to drop in gates — lengths fill in automatically below.
+          </p>
+        </div>
+        <div className="space-y-4 p-5">
+          <div className="flex w-full flex-col gap-3">
+            <LayoutDrawCanvas
+              key={layoutCanvasRemountKey}
+              fillParent={false}
+              initialDrawing={
+                layoutSketchData
+                  ? {
+                      points: layoutSketchData.points,
+                      segments: layoutSketchData.segments,
+                      gates: layoutSketchData.gates ?? [],
+                      total_length_ft: layoutSketchData.total_length_ft,
+                      gate_placements: layoutSketchData.gate_placements ?? [],
+                      ...(layoutSketchData.joint_terminations?.length
+                        ? { joint_terminations: layoutSketchData.joint_terminations }
+                        : {}),
+                    }
+                  : null
+              }
+              onDrawingChange={handleLayoutDrawingChange}
+            />
+            {(lines.some((l) => l.fromSketch && !l.manualRunEdit) ||
+              chainLines.some((l) => l.fromSketch && !l.manualRunEdit) ||
+              hybHLines.some((l) => l.fromSketch && !l.manualRunEdit) ||
+              hybVLines.some((l) => l.fromSketch && !l.manualRunEdit)) && (
+              <p className="border-t border-slate-100 pt-3 text-xs text-slate-500">
+                Run lengths and gates sync from your sketch. Click a run below only if you need to tweak length or
+                connections.
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <div className={stageLabel}>
+        <span>Step 2 — Pick fence style</span>
+        <span className="h-px flex-1 bg-slate-200" />
+      </div>
+
       <section className={card}>
         <div className="space-y-4 p-5">
           <div>
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Fence type</div>
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Fence style</div>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 className={`${tabBase} ${tab === 'pvc' ? tabActive : tabIdle}`}
                 onClick={() => setTab('pvc')}
               >
-                <span className="text-sm font-semibold">PVC / Vinyl</span>
+                <span className="text-sm font-semibold">Vinyl fence</span>
                 <span className={`text-xs ${tab === 'pvc' ? 'text-white/70' : 'text-slate-500'}`}>Panels & gates</span>
               </button>
               <button
@@ -4614,7 +4729,7 @@ export default function MaterialCalculatorHubPage() {
                 className={`${tabBase} ${tab === 'chain' ? tabActive : tabIdle}`}
                 onClick={() => setTab('chain')}
               >
-                <span className="text-sm font-semibold">Chain Link</span>
+                <span className="text-sm font-semibold">Chain link</span>
                 <span className={`text-xs ${tab === 'chain' ? 'text-white/70' : 'text-slate-500'}`}>Mesh & rails</span>
               </button>
               <button
@@ -4622,9 +4737,9 @@ export default function MaterialCalculatorHubPage() {
                 className={`${tabBase} ${tab === 'hybrid_h' ? tabActive : tabIdle}`}
                 onClick={() => setTab('hybrid_h')}
               >
-                <span className="text-sm font-semibold">Hybrid Horizontal</span>
+                <span className="text-sm font-semibold">Horizontal boards</span>
                 <span className={`text-xs ${tab === 'hybrid_h' ? 'text-white/70' : 'text-slate-500'}`}>
-                  PVC / WPC boards
+                  PVC / WPC slats
                 </span>
               </button>
               <button
@@ -4632,9 +4747,9 @@ export default function MaterialCalculatorHubPage() {
                 className={`${tabBase} ${tab === 'hybrid_v' ? tabActive : tabIdle}`}
                 onClick={() => setTab('hybrid_v')}
               >
-                <span className="text-sm font-semibold">Hybrid Vertical</span>
+                <span className="text-sm font-semibold">Vertical panels</span>
                 <span className={`text-xs ${tab === 'hybrid_v' ? 'text-white/70' : 'text-slate-500'}`}>
-                  PVC / WPC panels 6&apos;4&quot;
+                  PVC / WPC 6&apos;4&quot;
                 </span>
               </button>
             </div>
@@ -4658,24 +4773,26 @@ export default function MaterialCalculatorHubPage() {
                     ))}
                   </select>
                 </div>
-                <div className="min-w-[10rem] flex-1 sm:max-w-[11rem]">
-                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Post spacing (ft)
-                  </label>
-                  <input
-                    type="number"
-                    min={0.01}
-                    step="any"
-                    value={pvcPanelSpacingFt}
-                    onChange={(e) => setPvcPanelSpacingFt(e.target.value)}
-                    className={`${field} w-full tabular-nums`}
-                  />
-                </div>
-                <p className="pb-2 text-xs text-slate-500 sm:max-w-md">
-                  Standard spacing is {defaultFmsPvcPanelSpacingFt(pvcPanelModule).toFixed(2)} ft for{' '}
-                  {FMS_PVC_PANEL_HEIGHT_LABELS[pvcPanelModule].toLowerCase()}. Enter any spacing you need — panel and
-                  post counts update for every run.
-                </p>
+                <details className="min-w-[12rem] flex-1 sm:max-w-md">
+                  <summary className="cursor-pointer pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Custom post spacing
+                  </summary>
+                  <div className="mt-1 space-y-2">
+                    <input
+                      type="number"
+                      min={0.01}
+                      step="any"
+                      value={pvcPanelSpacingFt}
+                      onChange={(e) => setPvcPanelSpacingFt(e.target.value)}
+                      className={`${field} w-full tabular-nums`}
+                      aria-label="Post spacing in feet"
+                    />
+                    <p className="text-xs text-slate-500">
+                      Default is {defaultFmsPvcPanelSpacingFt(pvcPanelModule).toFixed(2)} ft for{' '}
+                      {FMS_PVC_PANEL_HEIGHT_LABELS[pvcPanelModule].toLowerCase()}.
+                    </p>
+                  </div>
+                </details>
               </div>
             </div>
           ) : null}
@@ -4713,7 +4830,7 @@ export default function MaterialCalculatorHubPage() {
             {tab === 'hybrid_h' || tab === 'hybrid_v' ? (
               <div>
                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Material &amp; colour (label only)
+                  Material &amp; colour
                 </label>
                 <div
                   className={`${field} w-full bg-slate-50 text-slate-800`}
@@ -4728,52 +4845,6 @@ export default function MaterialCalculatorHubPage() {
                 </div>
               </div>
             ) : null}
-          </div>
-        </div>
-      </section>
-
-      <div className={stageLabel}>
-        <span>Build your fence</span>
-        <span className="h-px flex-1 bg-slate-200" />
-      </div>
-
-      <section className={card}>
-        <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/95 via-white to-violet-50/25 px-5 py-4">
-          <h2 className={h2}>Draw your fence layout</h2>
-          <p className="mt-1 text-xs text-slate-500">
-            Sketch each run and tap to drop in gates — the lengths fill in below automatically, so you only measure once.
-          </p>
-        </div>
-        <div className="space-y-4 p-5">
-          <div className="flex w-full flex-col gap-3">
-            <LayoutDrawCanvas
-              key={layoutCanvasRemountKey}
-              fillParent={false}
-              initialDrawing={
-                layoutSketchData
-                  ? {
-                      points: layoutSketchData.points,
-                      segments: layoutSketchData.segments,
-                      gates: layoutSketchData.gates ?? [],
-                      total_length_ft: layoutSketchData.total_length_ft,
-                      gate_placements: layoutSketchData.gate_placements ?? [],
-                      ...(layoutSketchData.joint_terminations?.length
-                        ? { joint_terminations: layoutSketchData.joint_terminations }
-                        : {}),
-                    }
-                  : null
-              }
-              onDrawingChange={handleLayoutDrawingChange}
-            />
-            {(lines.some((l) => l.fromSketch && !l.manualRunEdit) ||
-              chainLines.some((l) => l.fromSketch && !l.manualRunEdit) ||
-              hybHLines.some((l) => l.fromSketch && !l.manualRunEdit) ||
-              hybVLines.some((l) => l.fromSketch && !l.manualRunEdit)) && (
-              <p className="border-t border-slate-100 pt-3 text-xs text-slate-500">
-                Post and end settings for each run are in <strong>Fence runs</strong> below — click a run to expand
-                start/end options.
-              </p>
-            )}
           </div>
         </div>
       </section>
@@ -4833,35 +4904,7 @@ export default function MaterialCalculatorHubPage() {
             ),
           })}
 
-          <section ref={pvcGatesSectionRef} className={card}>
-            <div className="border-b border-slate-100 bg-gradient-to-r from-amber-50/40 via-white to-slate-50/80 px-5 py-4">
-              <h2 className={h2}>Gates</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Enter each gate&apos;s opening width (2 posts per gate). Gates from your sketch default to a standard
-                48″ walk gate on fence lines; dedicated short runs use the full line length.
-              </p>
-            </div>
-            <div className="space-y-4 p-5">
-              {renderPvcGateSection(
-                'Walk gates (small)',
-                'Line lengths under 59.5″ — opening equals the full run (or a standard 48″ gate).',
-                'short',
-                shortGates
-              )}
-              {renderPvcGateSection(
-                'Single gates',
-                'Fence lines 59.5″ and longer — default 48″ opening; widen here for larger single-leaf gates.',
-                'single',
-                singleGates
-              )}
-              {renderPvcGateSection(
-                'Double gates',
-                'Double gates on fence lines — default 106″ opening (workbook minimum).',
-                'double',
-                doubleGates
-              )}
-            </div>
-          </section>
+          {renderUnifiedPvcGatesSection()}
 
           <section className={card}>
             <div className="border-b border-slate-100 px-5 py-4">
@@ -5026,7 +5069,7 @@ export default function MaterialCalculatorHubPage() {
           </section>
 
           <div className={stageLabel}>
-            <span>Your materials</span>
+            <span>Step 3 — Your materials</span>
             <span className="h-px flex-1 bg-slate-200" />
           </div>
 
@@ -5055,15 +5098,88 @@ export default function MaterialCalculatorHubPage() {
                 </button>
               </div>
             </div>
-            <div className="grid gap-6 p-5 lg:grid-cols-2">
-              <div>
-                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+            <div className="p-5">
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                Order list — {pvcBreakdownColour}
+              </h3>
+              <p className="mb-3 text-[11px] text-slate-500">
+                Uncheck items the customer already has — they stay visible but are left off PDFs and supplier quotes.
+              </p>
+              <div className="overflow-x-auto rounded-lg border border-slate-100">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold text-slate-500">
+                      <th className="w-10 px-1 py-2">Inc.</th>
+                      <th className="px-2 py-2">Item</th>
+                      <th className="px-2 py-2 text-right">Total</th>
+                      <th className="px-2 py-2 text-right">Packs</th>
+                      <th className="px-2 py-2 text-right">Extras</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pvcMaster.map((r, idx) => {
+                      if (r.header) {
+                        return (
+                          <tr key={`${idx}-${r.label}`} className="border-b border-slate-200 bg-slate-100">
+                            <td
+                              colSpan={5}
+                              className="px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-600"
+                            >
+                              {r.label}
+                            </td>
+                          </tr>
+                        );
+                      }
+                      const label = r.label?.trim() ?? '';
+                      const canToggle = label.length > 0 && label !== 'Total Linear Ft' && label !== 'Total Gates';
+                      const included = !canToggle || isMaterialIncluded(materialExclusions, 'pvc', label);
+                      return (
+                        <tr
+                          key={`${idx}-${r.label || 'row'}`}
+                          className={`border-b border-slate-100 ${!included ? 'bg-slate-50/80 opacity-55' : ''}`}
+                        >
+                          <td className="w-10 px-1 py-1.5">
+                            {canToggle ? (
+                              <input
+                                type="checkbox"
+                                checked={included}
+                                onChange={(e) => toggleMaterialInclude('pvc', label, e.target.checked)}
+                                title={included ? 'Include on order' : 'Excluded from order'}
+                                className="h-4 w-4 rounded border-slate-300"
+                              />
+                            ) : null}
+                          </td>
+                          <td
+                            className={`px-2 py-1.5 font-medium ${included ? 'text-slate-800' : 'text-slate-500 line-through'}`}
+                          >
+                            {r.label || '\u00a0'}
+                          </td>
+                          <td
+                            className={`px-2 py-1.5 text-right tabular-nums ${included ? 'text-slate-900' : 'text-slate-400 line-through'}`}
+                          >
+                            {r.qty}
+                          </td>
+                          <td
+                            className={`px-2 py-1.5 text-right tabular-nums ${included ? 'text-slate-700' : 'text-slate-400 line-through'}`}
+                          >
+                            {formatPacksCell(r.packs ?? 0) || '\u00a0'}
+                          </td>
+                          <td
+                            className={`px-2 py-1.5 text-right tabular-nums ${included ? 'text-slate-600' : 'text-slate-400 line-through'}`}
+                          >
+                            {formatLooseExtra(r.loose ?? 0) || '\u00a0'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <details className="mt-4 rounded-xl border border-slate-100 bg-slate-50/40">
+                <summary className="cursor-pointer list-none px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500 [&::-webkit-details-marker]:hidden">
                   Itemized breakdown — {pvcBreakdownColour}
-                </h3>
-                <p className="mb-2 text-[11px] text-slate-500">
-                  Fence and gate materials combined per item.
-                </p>
-                <div className="overflow-x-auto rounded-lg border border-slate-100">
+                </summary>
+                <div className="overflow-x-auto border-t border-slate-100 p-4">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold text-slate-500">
@@ -5111,82 +5227,7 @@ export default function MaterialCalculatorHubPage() {
                     </tbody>
                   </table>
                 </div>
-              </div>
-              <div>
-                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
-                  Order quantities — {pvcBreakdownColour}
-                </h3>
-                <div className="overflow-x-auto rounded-lg border border-slate-100">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold text-slate-500">
-                        <th className="w-10 px-1 py-2">Inc.</th>
-                        <th className="px-2 py-2">Item</th>
-                        <th className="px-2 py-2 text-right">Total</th>
-                        <th className="px-2 py-2 text-right">Packs</th>
-                        <th className="px-2 py-2 text-right">Extras</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pvcMaster.map((r, idx) => {
-                        if (r.header) {
-                          return (
-                            <tr key={`${idx}-${r.label}`} className="border-b border-slate-200 bg-slate-100">
-                              <td
-                                colSpan={5}
-                                className="px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-600"
-                              >
-                                {r.label}
-                              </td>
-                            </tr>
-                          );
-                        }
-                        const label = r.label?.trim() ?? '';
-                        const canToggle = label.length > 0 && label !== 'Total Linear Ft' && label !== 'Total Gates';
-                        const included = !canToggle || isMaterialIncluded(materialExclusions, 'pvc', label);
-                        return (
-                          <tr
-                            key={`${idx}-${r.label || 'row'}`}
-                            className={`border-b border-slate-100 ${!included ? 'bg-slate-50/80 opacity-55' : ''}`}
-                          >
-                            <td className="w-10 px-1 py-1.5">
-                              {canToggle ? (
-                                <input
-                                  type="checkbox"
-                                  checked={included}
-                                  onChange={(e) => toggleMaterialInclude('pvc', label, e.target.checked)}
-                                  title={included ? 'Include on order' : 'Excluded from order'}
-                                  className="h-4 w-4 rounded border-slate-300"
-                                />
-                              ) : null}
-                            </td>
-                            <td
-                              className={`px-2 py-1.5 font-medium ${included ? 'text-slate-800' : 'text-slate-500 line-through'}`}
-                            >
-                              {r.label || '\u00a0'}
-                            </td>
-                            <td
-                              className={`px-2 py-1.5 text-right tabular-nums ${included ? 'text-slate-900' : 'text-slate-400 line-through'}`}
-                            >
-                              {r.qty}
-                            </td>
-                            <td
-                              className={`px-2 py-1.5 text-right tabular-nums ${included ? 'text-slate-700' : 'text-slate-400 line-through'}`}
-                            >
-                              {formatPacksCell(r.packs ?? 0) || '\u00a0'}
-                            </td>
-                            <td
-                              className={`px-2 py-1.5 text-right tabular-nums ${included ? 'text-slate-600' : 'text-slate-400 line-through'}`}
-                            >
-                              {formatLooseExtra(r.loose ?? 0) || '\u00a0'}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              </details>
             </div>
             <div className="flex flex-wrap gap-2 border-t border-slate-100 px-5 py-4">
               <button type="button" onClick={copyBom} className={btn}>
@@ -5372,9 +5413,9 @@ export default function MaterialCalculatorHubPage() {
 
           <section ref={chainGatesSectionRef} className={card}>
             <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className={h2}>Chain link gates</h2>
+              <h2 className={h2}>Gates on this job</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Add each gate by its opening width. Gates you place on the layout sketch show up here automatically.
+                Enter each gate opening width. Gates from your sketch appear here automatically.
               </p>
             </div>
             <div className="p-5">
@@ -5449,7 +5490,7 @@ export default function MaterialCalculatorHubPage() {
           />
 
           <div className={stageLabel}>
-            <span>Your materials</span>
+            <span>Step 3 — Your materials</span>
             <span className="h-px flex-1 bg-slate-200" />
           </div>
 
@@ -5662,38 +5703,7 @@ export default function MaterialCalculatorHubPage() {
             ),
           })}
 
-          <section className={card}>
-            <div className="border-b border-slate-100 bg-gradient-to-r from-violet-50/40 via-white to-slate-50/80 px-5 py-4">
-              <h2 className={h2}>Gates</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Same gate placement rules as PVC — sketch defaults to a 48″ walk gate on fence lines; dedicated short
-                runs use the full line length. Hybrid workbook blocks differ by width band.
-              </p>
-            </div>
-            <div className="space-y-4 p-5">
-              {renderHybridHGateSection(
-                'Walk gates (small)',
-                'Under 56″ — hybrid simple gate block (same short-run rule as PVC).',
-                'short',
-                hybHShortGates,
-                false
-              )}
-              {renderHybridHGateSection(
-                'Single gates + side panel',
-                '56–125″ gate line — hybrid adjacent block; default 48″ on fence lines.',
-                'single',
-                hybHSingleGates,
-                true
-              )}
-              {renderHybridHGateSection(
-                'Double gates',
-                '106–202″ gate line — hybrid double block; default 106″ opening from sketch.',
-                'double',
-                hybHDoubleGates,
-                true
-              )}
-            </div>
-          </section>
+          {renderUnifiedHybridHGateSection()}
 
           <StyleExtrasCard
             items={HYBRID_H_EXTRA_ITEMS}
@@ -5709,7 +5719,7 @@ export default function MaterialCalculatorHubPage() {
           />
 
           <div className={stageLabel}>
-            <span>Your materials</span>
+            <span>Step 3 — Your materials</span>
             <span className="h-px flex-1 bg-slate-200" />
           </div>
 
@@ -5873,35 +5883,7 @@ export default function MaterialCalculatorHubPage() {
             ),
           })}
 
-          <section className={card}>
-            <div className="border-b border-slate-100 bg-gradient-to-r from-violet-50/40 via-white to-slate-50/80 px-5 py-4">
-              <h2 className={h2}>Gates</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Same gate placement rules as PVC — sketch defaults to a 48″ walk gate on fence lines; dedicated short
-                runs use the full line length. Vertical workbook has single and double blocks (double max 96″).
-              </p>
-            </div>
-            <div className="space-y-4 p-5">
-              {renderHybridVGateSection(
-                'Walk gates (small)',
-                'Under 56″ — vertical single gate block (same short-run rule as PVC).',
-                'short',
-                hybVShortGates
-              )}
-              {renderHybridVGateSection(
-                'Single gates',
-                '56–96″ gate line — vertical single gate block; default 48″ on fence lines.',
-                'single',
-                hybVSingleGates
-              )}
-              {renderHybridVGateSection(
-                'Double gates',
-                '56–96″ gate line — vertical double gate block; sketch double placements land here.',
-                'double',
-                hybVDoubleGates
-              )}
-            </div>
-          </section>
+          {renderUnifiedHybridVGateSection()}
 
           <StyleExtrasCard
             items={HYBRID_V_EXTRA_ITEMS}
@@ -5917,7 +5899,7 @@ export default function MaterialCalculatorHubPage() {
           />
 
           <div className={stageLabel}>
-            <span>Your materials</span>
+            <span>Step 3 — Your materials</span>
             <span className="h-px flex-1 bg-slate-200" />
           </div>
 
