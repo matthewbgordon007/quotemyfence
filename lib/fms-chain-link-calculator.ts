@@ -4,6 +4,7 @@
  */
 
 import { excelRound, excelRoundUp } from '@/lib/fms-excel-math';
+import type { SharedBoundaryDedup } from '@/lib/layout-sketch-to-pvc-inputs';
 
 export interface FmsChainLinkFenceInput {
   length_ft: number;
@@ -101,13 +102,23 @@ export interface FmsChainLinkJobAggregate extends FmsChainLinkFenceResult {
  * but rails and mesh rolls are cut from stock across the whole job, so they are computed
  * from the total linear footage (one ROUNDUP for the job instead of one per run).
  */
-export function aggregateFmsChainLinkFenceLines(inputs: FmsChainLinkFenceInput[]): FmsChainLinkJobAggregate | null {
+export function aggregateFmsChainLinkFenceLines(
+  inputs: FmsChainLinkFenceInput[],
+  opts?: { sharedBoundaryDedup?: SharedBoundaryDedup }
+): FmsChainLinkJobAggregate | null {
   if (!inputs.length) return null;
   const perLine = inputs.map((i) => computeFmsChainLinkFenceLine(i));
   const keys = Object.keys(perLine[0]) as (keyof FmsChainLinkFenceResult)[];
   const sum = {} as Record<keyof FmsChainLinkFenceResult, number>;
   for (const k of keys) {
     sum[k] = perLine.reduce((a, r) => a + (Number(r[k]) || 0), 0);
+  }
+
+  const hDedup = Math.max(0, opts?.sharedBoundaryDedup?.h_post ?? 0);
+  if (hDedup > 0) {
+    sum.terminal_post = Math.max(0, sum.terminal_post - hDedup);
+    sum.terminal_post_cap = Math.max(0, sum.terminal_post_cap - hDedup);
+    sum.posts = Math.max(0, sum.posts - hDedup);
   }
 
   const totalFt = inputs.reduce((a, i) => a + Math.max(0, Number(i.length_ft) || 0), 0);

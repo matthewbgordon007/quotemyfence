@@ -97,6 +97,30 @@ export function buildPvcAdobeBreakdown(
   return a;
 }
 
+/** Subtract shared-joint double counts after per-run Adobe rows are summed. */
+export function applySharedBoundaryDedupToAdobeBreakdown(
+  adobe: Record<number, number>,
+  dedup: { h_post: number; u_channel: number },
+  recipe?: FmsCalculatorRecipeV1 | null
+): Record<number, number> {
+  const h = Math.max(0, dedup.h_post);
+  const u = Math.max(0, dedup.u_channel);
+  if (h <= 0 && u <= 0) return adobe;
+  const r = resolveFmsCalculatorRecipe(recipe);
+  const next = { ...adobe };
+  if (h > 0) {
+    next[3] = Math.max(0, (next[3] ?? 0) - h);
+    next[4] = Math.max(0, (next[4] ?? 0) - h);
+    next[5] = Math.max(0, (next[5] ?? 0) - h);
+    next[12] = Math.max(0, (next[12] ?? 0) - r.fence.per_panel.short_screw * h);
+  }
+  if (u > 0) {
+    next[13] = Math.max(0, (next[13] ?? 0) - u);
+    next[14] = Math.max(0, (next[14] ?? 0) - u);
+  }
+  return next;
+}
+
 export interface FmsPvcMasterRow {
   label: string;
   qty: number;

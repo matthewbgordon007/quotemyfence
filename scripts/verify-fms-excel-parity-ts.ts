@@ -2,11 +2,13 @@
  * Full PVC + hybrid horizontal/vertical calculator parity vs workbook sample cells.
  * Run: npx tsx scripts/verify-fms-excel-parity-ts.ts
  */
-import { computeFmsPvcFenceLine } from '../lib/fms-pvc-material-calculator.ts';
+import { computeFmsPvcFenceLine, aggregateFmsPvcFenceLines } from '../lib/fms-pvc-material-calculator.ts';
 import { buildPvcAdobeBreakdown, computePvcMasterColumn } from '../lib/fms-pvc-breakdown-master.ts';
 import { computeFmsPvcShortGate, FMS_GATE_POST_COUNT, sumGateAdobeRows } from '../lib/fms-pvc-gates-calculator.ts';
 import {
+  detectSharedBoundaryDoubleCounts,
   layoutPointsToSegmentPairs,
+  resolveJobRunTerminations,
   segmentRunEndTerminationsForSketch,
 } from '../lib/layout-sketch-to-pvc-inputs.ts';
 import {
@@ -225,3 +227,48 @@ const splitPostTotal = leftFence.h_post + rightFence.h_post + (walkGate.adobe_ga
 assertEq('split inline gate post total', splitPostTotal, 11);
 
 console.log('OK: Inline gate split post checks passed.');
+
+// Shared corner: each run calculated separately, adjoining post/U counted once in job total.
+const cornerPts = [
+  { x: 0, y: 0 },
+  { x: 40, y: 0 },
+  { x: 40, y: 30 },
+];
+const cornerMeta = [{ length_ft: 40 }, { length_ft: 30 }];
+const cornerSketch = { points: cornerPts, segments: cornerMeta };
+const bothClaimCorner = [
+  {
+    start: { h_post: true, u_channel: false },
+    end: { h_post: true, u_channel: true },
+  },
+  {
+    start: { h_post: true, u_channel: true },
+    end: { h_post: true, u_channel: false },
+  },
+];
+assertEq('corner shared h double-count', detectSharedBoundaryDoubleCounts(bothClaimCorner, cornerSketch).h_post, 1);
+assertEq('corner shared u double-count', detectSharedBoundaryDoubleCounts(bothClaimCorner, cornerSketch).u_channel, 1);
+const cornerEff = resolveJobRunTerminations(bothClaimCorner, cornerSketch);
+const cornerInputs = [
+  {
+    length_ft: 40,
+    fence_terminated_h_post_type: cornerEff[0].d6,
+    fence_terminated_u_channel: cornerEff[0].d7,
+    panel_module: 'nominal_7ft' as const,
+  },
+  {
+    length_ft: 30,
+    fence_terminated_h_post_type: cornerEff[1].d6,
+    fence_terminated_u_channel: cornerEff[1].d7,
+    panel_module: 'nominal_7ft' as const,
+  },
+];
+const cornerJob = aggregateFmsPvcFenceLines(cornerInputs);
+const cornerJobDeduped = aggregateFmsPvcFenceLines(cornerInputs, null, {
+  sharedBoundaryDedup: { h_post: 0, u_channel: 0 },
+});
+assertEq('corner effective run1 d6', cornerEff[0].d6, 2);
+assertEq('corner effective run2 start cleared', cornerEff[1].d6, 1);
+assertEq('corner job h_post matches effective sum', cornerJob.sum_h_post, cornerJobDeduped.sum_h_post);
+
+console.log('OK: Shared boundary dedup checks passed.');

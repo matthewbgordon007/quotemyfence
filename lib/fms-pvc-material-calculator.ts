@@ -11,6 +11,7 @@ import {
   isCatalogSlotEnabled,
   type FmsCalculatorRecipeV1,
 } from '@/lib/fms-calculator-recipe';
+import type { SharedBoundaryDedup } from '@/lib/layout-sketch-to-pvc-inputs';
 import { excelRound, excelRoundUp } from '@/lib/fms-excel-math';
 
 export { excelRound, excelRoundUp } from '@/lib/fms-excel-math';
@@ -206,7 +207,8 @@ export interface FmsPvcJobTotals {
 
 export function aggregateFmsPvcFenceLines(
   lines: FmsPvcFenceLineInput[],
-  recipe?: FmsCalculatorRecipeV1 | null
+  recipe?: FmsCalculatorRecipeV1 | null,
+  opts?: { sharedBoundaryDedup?: SharedBoundaryDedup }
 ): FmsPvcJobTotals {
   const r = resolveFmsCalculatorRecipe(recipe);
   const results = lines
@@ -218,13 +220,30 @@ export function aggregateFmsPvcFenceLines(
     )
     .map((l) => computeFmsPvcFenceLine(l, r));
   const sumWhole = results.reduce((a, line) => a + line.total_whole_panels, 0);
-  const sumH = results.reduce((a, line) => a + line.h_post, 0);
+  let sumH = results.reduce((a, line) => a + line.h_post, 0);
+  const dedup = opts?.sharedBoundaryDedup;
+  const hDedup = Math.max(0, dedup?.h_post ?? 0);
+  const uDedup = Math.max(0, dedup?.u_channel ?? 0);
+  if (hDedup > 0 || uDedup > 0) {
+    sumH = Math.max(0, sumH - hDedup);
+  }
   const concrete = sumH * r.concrete_bags_per_h_post;
+  const shortPerPost = r.fence.per_panel.short_screw;
 
   const sku_rows = FENCE_SKU_KEYS.flatMap((key) => {
     const slot = FENCE_SKU_CATALOG_SLOT[key];
     if (!isCatalogSlotEnabled(r, slot)) return [];
-    const quantity = results.reduce((a, line) => a + (Number(line[key]) || 0), 0);
+    let quantity = results.reduce((a, line) => a + (Number(line[key]) || 0), 0);
+    if (hDedup > 0) {
+      if (key === 'galvanized_post' || key === 'h_post' || key === 'cap_h_post') {
+        quantity = Math.max(0, quantity - hDedup);
+      } else if (key === 'short_screw') {
+        quantity = Math.max(0, quantity - shortPerPost * hDedup);
+      }
+    }
+    if (uDedup > 0 && (key === 'u_channel' || key === 'h_post_stiffener')) {
+      quantity = Math.max(0, quantity - uDedup);
+    }
     if (quantity <= 0) return [];
     return [
       {

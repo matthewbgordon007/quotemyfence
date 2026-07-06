@@ -13,6 +13,7 @@
  */
 
 import { excelCeiling, excelIfHPostTypeAdjustLongScrew, excelRound, excelRoundUp } from '@/lib/fms-excel-math';
+import type { SharedBoundaryDedup } from '@/lib/layout-sketch-to-pvc-inputs';
 
 export interface FmsHybridItemRow {
   item: string;
@@ -36,6 +37,43 @@ export function sumFmsHybridRows(groups: FmsHybridItemRow[][]): FmsHybridItemRow
     }
   }
   return order.map((k) => byKey.get(k)!).filter((r) => r.final !== 0);
+}
+
+/** After per-run hybrid rows are summed, remove double-counted posts / U at shared sketch joints. */
+export function applySharedBoundaryDedupToHybridRows(
+  rows: FmsHybridItemRow[],
+  dedup: SharedBoundaryDedup
+): FmsHybridItemRow[] {
+  const h = Math.max(0, dedup.h_post);
+  const u = Math.max(0, dedup.u_channel);
+  if (h <= 0 && u <= 0) return rows;
+
+  let out = rows;
+  const subtract = (list: FmsHybridItemRow[], item: string, amount: number) => {
+    const key = item.trim().toLowerCase();
+    return list.map((r) => {
+      if (r.item.trim().toLowerCase() !== key) return r;
+      return { ...r, final: Math.max(0, r.final - amount) };
+    });
+  };
+
+  if (h > 0) {
+    for (const label of [
+      'Aluminum H Post',
+      'H Post',
+      'Short Gate H Post',
+      'Cap (H Post)',
+      'Cap (H post)',
+    ]) {
+      out = subtract(out, label, h);
+    }
+  }
+  if (u > 0) {
+    out = subtract(out, 'U Channel', u);
+    out = subtract(out, 'Small Black Screw (3/4)', u * 6);
+    out = subtract(out, 'Long Black Screw (2.5)', u * 2);
+  }
+  return out.filter((r) => r.final !== 0);
 }
 
 /* ------------------------------------------------------------------ */

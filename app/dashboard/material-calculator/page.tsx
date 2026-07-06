@@ -23,6 +23,7 @@ import {
 } from '@/lib/fms-pvc-material-calculator';
 import {
   adobeBreakdownToMergedRows,
+  applySharedBoundaryDedupToAdobeBreakdown,
   buildPvcAdobeBreakdown,
   computePvcMasterColumn,
   pvcQtyPercentAdd,
@@ -68,6 +69,7 @@ import {
   fmsHybridHoBoardMaterialColourLine,
   fmsHybridHoBoardMaterialLabel,
   inferFmsHybridHoBoardMaterialFromStyle,
+  applySharedBoundaryDedupToHybridRows,
   sumFmsHybridRows,
   type FmsHybridHoBoardMaterial,
   type FmsHybridHoHeight,
@@ -109,7 +111,9 @@ import {
   removeLayoutDrawingSegment,
   segmentRunEndTerminationsForSketch,
   fenceCalcLengthFtForSketchFenceRun,
-  applyGateBoundaryJointOverrides,
+  detectSharedBoundaryDoubleCounts,
+  normalizeLayoutSketchJoints,
+  resolveJobRunTerminations,
   PVC_SINGLE_GATE_MIN_IN,
   sketchGateWidthInches,
   sketchGateSegmentRole,
@@ -845,7 +849,8 @@ function segmentIndexForGateRow(
 function buildInputForPvcLineRow(
   r: PvcLineRow,
   panelSpacingFt: number,
-  sketchCtx?: { segmentIndex: number; sketch: LayoutSketchDrawingPayload }
+  sketchCtx?: { segmentIndex: number; sketch: LayoutSketchDrawingPayload },
+  effectiveTerm?: { d6: 0 | 1 | 2; d7: number }
 ): FmsPvcFenceLineInput | null {
   const grossL = Math.max(0, Number(String(r.length_ft).replace(/,/g, '')) || 0);
   if (
@@ -864,8 +869,8 @@ function buildInputForPvcLineRow(
     : grossL;
   let d6: 0 | 1 | 2;
   let d7: number;
-  if (r.run_ends && r.manualRunEdit) {
-    ({ d6, d7 } = d6d7FromRunEnds(r.run_ends));
+  if (effectiveTerm) {
+    ({ d6, d7 } = effectiveTerm);
   } else if (r.run_ends) {
     ({ d6, d7 } = d6d7FromRunEnds(r.run_ends));
   } else {
@@ -894,7 +899,8 @@ function hybridLineIncludedInInputs(row: HybridLineRow, calcLengthFt?: number): 
 /** Mirror `buildInputForPvcLineRow` — sketch length/post rules; hybrid material math is separate. */
 function buildInputForHybridLineRow(
   r: HybridLineRow,
-  sketchCtx?: { segmentIndex: number; sketch: LayoutSketchDrawingPayload }
+  sketchCtx?: { segmentIndex: number; sketch: LayoutSketchDrawingPayload },
+  effectiveTerm?: { d6: 0 | 1 | 2; d7: number }
 ): { length_ft: number; h_post: 0 | 1 | 2; u_channel: 0 | 1 | 2 } | null {
   const grossL = Math.max(0, Number(String(r.length_ft).replace(/,/g, '')) || 0);
   if (
@@ -913,8 +919,9 @@ function buildInputForHybridLineRow(
     : grossL;
   let h_post: 0 | 1 | 2;
   let u_channel: number;
-  if (r.run_ends && r.manualRunEdit) {
-    ({ d6: h_post, d7: u_channel } = d6d7FromRunEnds(r.run_ends));
+  if (effectiveTerm) {
+    h_post = effectiveTerm.d6;
+    u_channel = effectiveTerm.d7;
   } else if (r.run_ends) {
     ({ d6: h_post, d7: u_channel } = d6d7FromRunEnds(r.run_ends));
   } else {
@@ -934,12 +941,15 @@ function buildInputs(
   panelSpacingFt: number,
   sketch?: LayoutSketchDrawingPayload | null
 ): FmsPvcFenceLineInput[] {
+  const runEnds = rows.map((r) => effectiveRunEnds(r));
+  const effective = resolveJobRunTerminations(runEnds, sketch);
   return rows
     .map((r, i) =>
       buildInputForPvcLineRow(
         r,
         panelSpacingFt,
-        sketch?.segments?.length ? { segmentIndex: i, sketch } : undefined
+        sketch?.segments?.length ? { segmentIndex: i, sketch } : undefined,
+        effective[i]
       )
     )
     .filter(Boolean) as FmsPvcFenceLineInput[];
@@ -1858,20 +1868,7 @@ export default function MaterialCalculatorHubPage() {
   const handleLayoutDrawingChange = useCallback(
     (data: LayoutSketchDrawingPayload) => {
       if (Date.now() - programmaticSketchUpdateAtRef.current < 400) return;
-      let normalized = data;
-      if (data.joint_terminations?.length && data.points?.length && data.segments?.length) {
-        const pairs = layoutPointsToSegmentPairs(data.points, data.segments);
-        const lengths = data.segments.map((s) => Math.max(0, Number(s.length_ft) || 0));
-        normalized = {
-          ...data,
-          joint_terminations: applyGateBoundaryJointOverrides(
-            data.joint_terminations,
-            pairs,
-            lengths,
-            data.gate_placements
-          ),
-        };
-      }
+      const normalized = normalizeLayoutSketchJoints(data);
       setLayoutSketchData(normalized);
       applySketchToFenceRuns(normalized, { force: true });
     },
@@ -1982,7 +1979,7 @@ export default function MaterialCalculatorHubPage() {
         const sketch = parseLayoutSketch(d.layoutSketchData);
         if (sketch) {
           sketchToLinesSyncKeyRef.current = '';
-          setLayoutSketchData(sketch);
+          setLayoutSketchData(normalizeLayoutSketchJoints(sketch));
           setLayoutCanvasRemountKey((k) => k + 1);
         }
         const sh = parsePvcGateRows(d.shortGates);
@@ -2410,7 +2407,7 @@ export default function MaterialCalculatorHubPage() {
         sketchSyncedGatePlacementCountRef.current = 0;
         sketchToLinesSyncKeyRef.current = '';
         if (sketch) {
-          setLayoutSketchData(sketch);
+          setLayoutSketchData(normalizeLayoutSketchJoints(sketch));
           setLayoutCanvasRemountKey((k) => k + 1);
           sketchHadSegmentsRef.current = true;
           setMaterialQuoteSketchLoadState('ok');
@@ -2523,7 +2520,7 @@ export default function MaterialCalculatorHubPage() {
         sketchSyncedGatePlacementCountRef.current = 0;
         sketchToLinesSyncKeyRef.current = '';
         if (sketch) {
-          setLayoutSketchData(sketch);
+          setLayoutSketchData(normalizeLayoutSketchJoints(sketch));
           setLayoutCanvasRemountKey((k) => k + 1);
           sketchHadSegmentsRef.current = true;
           setProfileSketchSaveLoadState('ok');
@@ -2614,7 +2611,17 @@ export default function MaterialCalculatorHubPage() {
     () => buildInputs(lines, effectivePvcPanelSpacingFt, layoutSketchData),
     [lines, effectivePvcPanelSpacingFt, layoutSketchData]
   );
-  const pvcJob = useMemo(() => aggregateFmsPvcFenceLines(pvcInputs, fmsRecipe), [pvcInputs, fmsRecipe]);
+  const pvcSharedBoundaryDedup = useMemo(
+    () => detectSharedBoundaryDoubleCounts(lines.map((r) => effectiveRunEnds(r)), layoutSketchData),
+    [lines, layoutSketchData]
+  );
+  const pvcJob = useMemo(
+    () =>
+      aggregateFmsPvcFenceLines(pvcInputs, fmsRecipe, {
+        sharedBoundaryDedup: pvcSharedBoundaryDedup,
+      }),
+    [pvcInputs, fmsRecipe, pvcSharedBoundaryDedup]
+  );
   const pvcFenceLinearFt = useMemo(
     () => pvcInputs.reduce((acc, row) => acc + (Number(row.length_ft) || 0), 0),
     [pvcInputs]
@@ -2681,8 +2688,13 @@ export default function MaterialCalculatorHubPage() {
   }, [masterExtras, fmsRecipe]);
 
   const pvcAdobe = useMemo(
-    () => buildPvcAdobeBreakdown(pvcJob.lines, gateMerge.merged, gateWidthInchesSum),
-    [pvcJob.lines, gateMerge.merged, gateWidthInchesSum]
+    () =>
+      applySharedBoundaryDedupToAdobeBreakdown(
+        buildPvcAdobeBreakdown(pvcJob.lines, gateMerge.merged, gateWidthInchesSum),
+        pvcSharedBoundaryDedup,
+        fmsRecipe
+      ),
+    [pvcJob.lines, gateMerge.merged, gateWidthInchesSum, pvcSharedBoundaryDedup, fmsRecipe]
   );
 
   const parsePctField = useCallback((raw: string) => {
@@ -3018,6 +3030,23 @@ export default function MaterialCalculatorHubPage() {
     alert('Product setup saved.');
   }, [fmsRecipe]);
 
+  const chainSharedBoundaryDedup = useMemo(
+    () =>
+      detectSharedBoundaryDoubleCounts(
+        chainLines.map((r) => effectiveChainRunEnds(r)),
+        layoutSketchData
+      ),
+    [chainLines, layoutSketchData]
+  );
+  const chainEffectiveTerminations = useMemo(
+    () =>
+      resolveJobRunTerminations(
+        chainLines.map((r) => effectiveChainRunEnds(r)),
+        layoutSketchData
+      ),
+    [chainLines, layoutSketchData]
+  );
+
   /** Chain link aggregates */
   const chainFenceInputs: FmsChainLinkFenceInput[] = useMemo(() => {
     const d7 = Math.max(0.01, Number(chainRailFt) || 10);
@@ -3028,16 +3057,20 @@ export default function MaterialCalculatorHubPage() {
         const grossL = Math.max(0, Number(String(row.length_ft).replace(/,/g, '')) || 0);
         const L = fenceCalcLengthFtForSketchSegment(i, grossL, layoutSketchData);
         if (L <= 0) return null;
-        const d6 = row.run_ends
-          ? d6d7FromRunEnds(row.run_ends).d6
-          : Math.max(0, Math.min(2, Math.round(Number(row.terminal_post) || 0)));
+        const d6 = chainEffectiveTerminations[i]?.d6 ?? 0;
         return { length_ft: L, terminal_post_type: d6, rail_length_ft: d7, mesh_roll_ft: d8, ties_per_bag: d9 };
       })
       .filter(Boolean) as FmsChainLinkFenceInput[];
-  }, [chainLines, chainRailFt, chainMeshFt, chainTiesPerBag, layoutSketchData]);
+  }, [chainLines, chainRailFt, chainMeshFt, chainTiesPerBag, layoutSketchData, chainEffectiveTerminations]);
 
   /** Per-line sums for posts/caps/bands/ties; rails + mesh from total linear ft across the job. */
-  const chainFenceAgg = useMemo(() => aggregateFmsChainLinkFenceLines(chainFenceInputs), [chainFenceInputs]);
+  const chainFenceAgg = useMemo(
+    () =>
+      aggregateFmsChainLinkFenceLines(chainFenceInputs, {
+        sharedBoundaryDedup: chainSharedBoundaryDedup,
+      }),
+    [chainFenceInputs, chainSharedBoundaryDedup]
+  );
 
   const chainGateResults = useMemo(() => {
     return chainGates
@@ -3190,8 +3223,20 @@ export default function MaterialCalculatorHubPage() {
     const hasSketchGates = Boolean(layoutSketchData?.gate_placements?.length);
     const manualGates = [...hybHShortGates, ...hybHSingleGates, ...hybHDoubleGates];
     const sketchCtx = layoutSketchData?.segments?.length ? layoutSketchData : undefined;
+    const effectiveTerms = resolveJobRunTerminations(
+      hybHLines.map((r) => effectiveHybridRunEnds(r)),
+      layoutSketchData
+    );
+    const sharedBoundaryDedup = detectSharedBoundaryDoubleCounts(
+      hybHLines.map((r) => effectiveHybridRunEnds(r)),
+      layoutSketchData
+    );
     const runs = hybHLines.map((row, i) => {
-      let input = buildInputForHybridLineRow(row, sketchCtx ? { segmentIndex: i, sketch: sketchCtx } : undefined);
+      let input = buildInputForHybridLineRow(
+        row,
+        sketchCtx ? { segmentIndex: i, sketch: sketchCtx } : undefined,
+        effectiveTerms[i]
+      );
       if (input) {
         input = {
           ...input,
@@ -3221,10 +3266,13 @@ export default function MaterialCalculatorHubPage() {
       gate,
       rows: computeHybridHorizontalGateBlockRows(gate, hybHCalculatorFamily, hybHHeight),
     }));
-    const totals = sumFmsHybridRows([
-      ...runs.filter((r) => r.result).map((r) => r.result!.rows),
-      ...gates.filter((g) => g.rows).map((g) => g.rows!),
-    ]);
+    const totals = applySharedBoundaryDedupToHybridRows(
+      sumFmsHybridRows([
+        ...runs.filter((r) => r.result).map((r) => r.result!.rows),
+        ...gates.filter((g) => g.rows).map((g) => g.rows!),
+      ]),
+      sharedBoundaryDedup
+    );
     const master = applyHybridExtras(buildFmsHybridMasterList(totals, 'horizontal'), HYBRID_H_EXTRA_ITEMS, hybHExtras);
     const hasAny = runs.some((r) => r.result) || gates.some((g) => g.rows?.length);
     return { runs, gates, totals, master, hasAny };
@@ -3245,8 +3293,20 @@ export default function MaterialCalculatorHubPage() {
     const hasSketchGates = Boolean(layoutSketchData?.gate_placements?.length);
     const manualGates = [...hybVShortGates, ...hybVSingleGates, ...hybVDoubleGates];
     const sketchCtx = layoutSketchData?.segments?.length ? layoutSketchData : undefined;
+    const effectiveTerms = resolveJobRunTerminations(
+      hybVLines.map((r) => effectiveHybridRunEnds(r)),
+      layoutSketchData
+    );
+    const sharedBoundaryDedup = detectSharedBoundaryDoubleCounts(
+      hybVLines.map((r) => effectiveHybridRunEnds(r)),
+      layoutSketchData
+    );
     const runs = hybVLines.map((row, i) => {
-      let input = buildInputForHybridLineRow(row, sketchCtx ? { segmentIndex: i, sketch: sketchCtx } : undefined);
+      let input = buildInputForHybridLineRow(
+        row,
+        sketchCtx ? { segmentIndex: i, sketch: sketchCtx } : undefined,
+        effectiveTerms[i]
+      );
       if (input) {
         input = {
           ...input,
@@ -3276,10 +3336,13 @@ export default function MaterialCalculatorHubPage() {
       gate,
       rows: computeHybridVerticalGateBlockRows(gate),
     }));
-    const totals = sumFmsHybridRows([
-      ...runs.filter((r) => r.result).map((r) => r.result!.rows),
-      ...gates.filter((g) => g.rows).map((g) => g.rows!),
-    ]);
+    const totals = applySharedBoundaryDedupToHybridRows(
+      sumFmsHybridRows([
+        ...runs.filter((r) => r.result).map((r) => r.result!.rows),
+        ...gates.filter((g) => g.rows).map((g) => g.rows!),
+      ]),
+      sharedBoundaryDedup
+    );
     const master = applyHybridExtras(buildFmsHybridMasterList(totals, 'vertical'), HYBRID_V_EXTRA_ITEMS, hybVExtras);
     const hasAny = runs.some((r) => r.result) || gates.some((g) => g.rows?.length);
     return { runs, gates, totals, master, hasAny };

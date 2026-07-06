@@ -1135,3 +1135,128 @@ export function layoutSegmentsToPvcFenceInputsPerSketchSegment(
     };
   });
 }
+
+/** Convert per-end flags to Excel D6/D7 termination counts for one run. */
+export function d6d7FromSegmentRunEnds(ends: SegmentRunEnds): { d6: 0 | 1 | 2; d7: number } {
+  const d6 = Math.min(
+    2,
+    (ends.start.h_post ? 1 : 0) + (ends.end.h_post ? 1 : 0)
+  ) as 0 | 1 | 2;
+  const d7 = (ends.start.u_channel ? 1 : 0) + (ends.end.u_channel ? 1 : 0);
+  return { d6, d7 };
+}
+
+export type SharedBoundaryDedup = { h_post: number; u_channel: number };
+
+/**
+ * True when sketch segment `rightIndex` starts where `leftIndex` ends (one physical joint).
+ * Manual calculator rows without a sketch never share a joint.
+ */
+export function sketchAdjacentSegmentsShareJoint(
+  sketch: { points: LayoutPt[]; segments: { length_ft?: number }[] } | null | undefined,
+  leftSegmentIndex: number,
+  rightSegmentIndex: number,
+  chainAlignFt = LAYOUT_CHAIN_ALIGN_FT,
+  minSegFt = LAYOUT_MIN_SKETCH_SEGMENT_FT
+): boolean {
+  if (!sketch?.points?.length || !sketch.segments?.length) return false;
+  if (rightSegmentIndex !== leftSegmentIndex + 1) return false;
+  if (leftSegmentIndex < 0 || rightSegmentIndex >= sketch.segments.length) return false;
+
+  const pairs = layoutPointsToSegmentPairs(sketch.points, sketch.segments);
+  if (leftSegmentIndex >= pairs.length || rightSegmentIndex >= pairs.length) return false;
+
+  const lengths = sketch.segments.map((s, i) =>
+    grossLengthFtForSketchSegment(i, pairs[i], sketch.segments)
+  );
+  const indexed = alignChainedSketchSegmentsIndexed(pairs, lengths, chainAlignFt, minSegFt);
+  const leftAligned = indexed.findIndex((x) => x.sourceIndex === leftSegmentIndex);
+  const rightAligned = indexed.findIndex((x) => x.sourceIndex === rightSegmentIndex);
+
+  if (leftAligned >= 0 && rightAligned >= 0) {
+    const al = indexed.map((x) => x.seg);
+    if (rightAligned === leftAligned + 1) {
+      return sketchSegmentStartConnectedToPrev(al, rightAligned, chainAlignFt);
+    }
+    if (leftAligned === rightAligned) return false;
+  }
+
+  const left = pairs[leftSegmentIndex];
+  const right = pairs[rightSegmentIndex];
+  if (!left?.[1] || !right?.[0]) return false;
+  return dist(left[1], right[0]) <= LAYOUT_ENDPOINT_MERGE_FT;
+}
+
+/**
+ * Count posts / U-channels that would be double-counted when each run is calculated
+ * independently and both sides of a shared sketch joint claim the same hardware.
+ */
+export function detectSharedBoundaryDoubleCounts(
+  runEnds: (SegmentRunEnds | null | undefined)[],
+  sketch?: { points: LayoutPt[]; segments: { length_ft?: number }[] } | null
+): SharedBoundaryDedup {
+  let h_post = 0;
+  let u_channel = 0;
+  for (let i = 0; i < runEnds.length - 1; i++) {
+    const left = runEnds[i];
+    const right = runEnds[i + 1];
+    if (!left || !right) continue;
+    if (!sketchAdjacentSegmentsShareJoint(sketch, i, i + 1)) continue;
+    if (left.end.h_post && right.start.h_post) h_post += 1;
+    if (left.end.u_channel && right.start.u_channel) u_channel += 1;
+  }
+  return { h_post, u_channel };
+}
+
+/**
+ * Assign termination posts / U-channels to one run per physical joint so per-run math
+ * can be summed without double-counting shared hardware.
+ */
+export function resolveJobRunTerminations(
+  runEnds: (SegmentRunEnds | null | undefined)[],
+  sketch?: { points: LayoutPt[]; segments: { length_ft?: number }[] } | null
+): { d6: 0 | 1 | 2; d7: number }[] {
+  return runEnds.map((ends, i) => {
+    if (!ends) return { d6: 0 as const, d7: 0 };
+    let startH = ends.start.h_post;
+    let startU = ends.start.u_channel;
+    const endH = ends.end.h_post;
+    const endU = ends.end.u_channel;
+    if (i > 0) {
+      const prev = runEnds[i - 1];
+      if (prev && sketchAdjacentSegmentsShareJoint(sketch, i - 1, i)) {
+        if (prev.end.h_post && startH) startH = false;
+        if (prev.end.u_channel && startU) startU = false;
+      }
+    }
+    return d6d7FromSegmentRunEnds({
+      start: { h_post: startH, u_channel: startU },
+      end: { h_post: endH, u_channel: endU },
+    });
+  });
+}
+
+/** Apply gate-opening joint overrides when loading a saved / imported sketch. */
+export function normalizeLayoutSketchJoints<
+  T extends {
+    points: LayoutPt[];
+    segments: { length_ft?: number }[];
+    gate_placements?: SketchGatePlacement[] | null;
+    joint_terminations?: SketchJointTermination[] | null;
+  },
+>(sketch: T): T {
+  if (!sketch.joint_terminations?.length || !sketch.points?.length || !sketch.segments?.length) {
+    return sketch;
+  }
+  const pairs = layoutPointsToSegmentPairs(sketch.points, sketch.segments);
+  const lengths = sketch.segments.map((s) => Math.max(0, Number(s.length_ft) || 0));
+  return {
+    ...sketch,
+    joint_terminations: applyGateBoundaryJointOverrides(
+      sketch.joint_terminations,
+      pairs,
+      lengths,
+      sketch.gate_placements
+    ),
+  };
+}
