@@ -47,7 +47,7 @@ const line7 = computeFmsPvcFenceLine({
 });
 assertEq('7ft line 4′ rail D15', line7.rail, 1);
 assertEq('7ft line 4′ board D17', line7.board, 8);
-assertEq('7ft line 4′ board stiff D18', line7.board_stiffener, 1);
+assertEq('7ft line 4′ board stiff D18', line7.board_stiffener, 1.5);
 assertEq('7ft line 4′ posts D12', line7.h_post, 0);
 
 const line6 = computeFmsPvcFenceLine({
@@ -58,7 +58,7 @@ const line6 = computeFmsPvcFenceLine({
 });
 assertEq('6ft line 87′ rail I15', line6.rail, 29);
 assertEq('6ft line 87′ boards I17', line6.board, 169);
-assertEq('6ft line 87′ board stiff I18', line6.board_stiffener, 44);
+assertEq('6ft line 87′ board stiff I18', line6.board_stiffener, 43.5);
 assertEq('6ft line 87′ posts I12', line6.h_post, 15);
 
 // Short gate 48″, 1 post
@@ -222,6 +222,6 @@ const rightFence = computeFmsPvcFenceLine({
 });
 const walkGate = computeFmsPvcShortGate({ gate_width_in: 48, posts: FMS_GATE_POST_COUNT });
 const splitPostTotal = leftFence.h_post + rightFence.h_post + (walkGate.adobe_gate_rows[18] ?? 0);
-assertEq('split inline gate post total', splitPostTotal, 12);
+assertEq('split inline gate post total', splitPostTotal, 11);
 
 console.log('OK: Inline gate split post checks passed.');

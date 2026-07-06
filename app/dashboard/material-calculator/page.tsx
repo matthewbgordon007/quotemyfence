@@ -109,6 +109,8 @@ import {
   removeLayoutDrawingSegment,
   segmentRunEndTerminationsForSketch,
   fenceCalcLengthFtForSketchFenceRun,
+  applyGateBoundaryJointOverrides,
+  PVC_SINGLE_GATE_MIN_IN,
   sketchGateWidthInches,
   sketchGateSegmentRole,
   sketchSegmentRunLabel,
@@ -1008,7 +1010,7 @@ function hybridFenceGateFromSketchPlacement(
   segments: { length_ft: number }[]
 ): HybridHFenceGateRow {
   const { row } = pvcGateFromSketchPlacement(placement, segments);
-  return { ...row, adjoining: 1 as const };
+  return { ...row, adjoining: 0 as const };
 }
 
 function parseGateRowsShort(rows: PvcGateRow[]) {
@@ -1041,7 +1043,8 @@ function classifyPvcGateInputs(
     const item = { gate_width_in: w, posts: FMS_GATE_POST_COUNT };
     if (w < PVC_SHORT_GATE_MAX_IN) short.push(item);
     else if (w >= PVC_DOUBLE_GATE_MIN_IN && preferred === 'double') double.push(item);
-    else single.push(item);
+    else if (w >= PVC_SINGLE_GATE_MIN_IN) single.push(item);
+    else short.push(item);
   };
 
   for (const r of shortRows) push(r, 'short');
@@ -1632,7 +1635,7 @@ function parseHybridHFenceGateRows(raw: unknown): HybridHFenceGateRow[] {
       id: typeof o.id === 'string' && o.id ? o.id : newLineId(),
       width_in: typeof o.width_in === 'string' || typeof o.width_in === 'number' ? String(o.width_in) : '',
       posts: FMS_GATE_POST_COUNT,
-      adjoining: coerceH012(o.adjoining ?? 1),
+      adjoining: coerceH012(o.adjoining ?? 0),
       sketchPlacementIndex: parseSketchPlacementIndex(o),
     });
   }
@@ -1657,7 +1660,7 @@ function migrateLegacyHybridHGates(raw: unknown): {
       id: typeof o.id === 'string' && o.id ? o.id : newLineId(),
       width_in: typeof o.width_in === 'string' || typeof o.width_in === 'number' ? String(o.width_in) : '',
       posts: FMS_GATE_POST_COUNT,
-      adjoining: coerceH012(o.adjoining ?? 1),
+      adjoining: coerceH012(o.adjoining ?? 0),
       sketchPlacementIndex: parseSketchPlacementIndex(o),
     };
     if (kind === 'double') double.push(item);
@@ -1847,8 +1850,22 @@ export default function MaterialCalculatorHubPage() {
   const handleLayoutDrawingChange = useCallback(
     (data: LayoutSketchDrawingPayload) => {
       if (Date.now() - programmaticSketchUpdateAtRef.current < 400) return;
-      setLayoutSketchData(data);
-      applySketchToFenceRuns(data, { force: true });
+      let normalized = data;
+      if (data.joint_terminations?.length && data.points?.length && data.segments?.length) {
+        const pairs = layoutPointsToSegmentPairs(data.points, data.segments);
+        const lengths = data.segments.map((s) => Math.max(0, Number(s.length_ft) || 0));
+        normalized = {
+          ...data,
+          joint_terminations: applyGateBoundaryJointOverrides(
+            data.joint_terminations,
+            pairs,
+            lengths,
+            data.gate_placements
+          ),
+        };
+      }
+      setLayoutSketchData(normalized);
+      applySketchToFenceRuns(normalized, { force: true });
     },
     [applySketchToFenceRuns]
   );
@@ -3808,7 +3825,7 @@ export default function MaterialCalculatorHubPage() {
           <h2 className={h2}>Fence runs</h2>
           <p className="mt-1 text-xs text-slate-500">
             Filled in from your sketch. Click a run to set how it starts and ends
-            {showU ? ' (H-post / U-channel per end)' : ' (terminal posts per end)'}.
+            {showU ? ' (end posts / wall channel per end)' : ' (terminal posts per end)'}.
           </p>
         </div>
         <div className="space-y-3 p-5">
@@ -3917,7 +3934,7 @@ export default function MaterialCalculatorHubPage() {
                                     opts.onRunEndChange(row.id, 'start', 'h_post', e.target.checked)
                                   }
                                 />
-                                H-post (D6)
+                                End post
                               </label>
                               {showU ? (
                                 <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
@@ -3929,7 +3946,7 @@ export default function MaterialCalculatorHubPage() {
                                       opts.onRunEndChange(row.id, 'start', 'u_channel', e.target.checked)
                                     }
                                   />
-                                  U-channel (D7)
+                                  Wall channel (U)
                                 </label>
                               ) : null}
                             </div>
@@ -3948,7 +3965,7 @@ export default function MaterialCalculatorHubPage() {
                                     opts.onRunEndChange(row.id, 'end', 'h_post', e.target.checked)
                                   }
                                 />
-                                H-post (D6)
+                                End post
                               </label>
                               {showU ? (
                                 <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
@@ -3960,7 +3977,7 @@ export default function MaterialCalculatorHubPage() {
                                       opts.onRunEndChange(row.id, 'end', 'u_channel', e.target.checked)
                                     }
                                   />
-                                  U-channel (D7)
+                                  Wall channel (U)
                                 </label>
                               ) : null}
                             </div>
@@ -4202,7 +4219,7 @@ export default function MaterialCalculatorHubPage() {
       id: newLineId(),
       width_in: defaultPvcGateWidthIn(kind),
       posts: FMS_GATE_POST_COUNT,
-      adjoining: 1,
+      adjoining: 0,
     };
     if (kind === 'short') setHybHShortGates((p) => [...p, row]);
     else if (kind === 'single') setHybHSingleGates((p) => [...p, row]);
@@ -4291,7 +4308,7 @@ export default function MaterialCalculatorHubPage() {
                           Adjoining fence
                         </label>
                         <select
-                          value={g.adjoining ?? 1}
+                          value={g.adjoining ?? 0}
                           onChange={(e) =>
                             updateHybHGate(kind, g.id, {
                               adjoining: Number(e.target.value) as 0 | 1 | 2,

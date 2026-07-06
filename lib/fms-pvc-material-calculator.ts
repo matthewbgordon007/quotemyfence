@@ -147,12 +147,12 @@ export function computeFmsPvcFenceLine(
     c17 = h17Ft * r.fence.board_multiplier_6ft;
     d17 = excelRoundUp(c17, 0);
     c18 = c8 * B.board_stiffener;
-    d18 = excelRound(c18, 0);
+    d18 = excelRoundUp(c18, 1);
   } else {
     c17 = c8 * B.board;
     d17 = excelRoundUp(c17, 0);
     c18 = c8 * B.board_stiffener;
-    d18 = excelRound(c18, 0);
+    d18 = excelRoundUp(c18, 1);
   }
 
   const c19 = d9 * B.long_screw;

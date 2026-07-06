@@ -11,8 +11,8 @@ const PANEL_FT = 8.20833333;
 
 export type FmsPvcGatePosts = 0 | 1 | 2;
 
-/** Two posts per gate opening (one at each side of the opening). */
-export const FMS_GATE_POST_COUNT: FmsPvcGatePosts = 2;
+/** Default walk-gate posts — Excel short-gate sample uses 1 (B29/C29). User can still set 0–2 per gate. */
+export const FMS_GATE_POST_COUNT: FmsPvcGatePosts = 1;
 
 export interface FmsPvcShortGateInput {
   gate_width_in: number;
